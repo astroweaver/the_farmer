@@ -8,7 +8,7 @@ John Weaver <john.weaver.astro@gmail.com>
 
 About
 -----
-
+Class function to handle potentially blended sources (i.e. blobs)
 
 Known Issues
 ------------
@@ -26,8 +26,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import ascii, fits
 from astropy.table import Table
-import adv_tools as adv
-import astro_tools as astr
+
 
 # ------------------------------------------------------------------------------
 # Additional Packages
@@ -48,4 +47,16 @@ import astro_tools as astr
 # ------------------------------------------------------------------------------
 # Main Program
 # ------------------------------------------------------------------------------
+class Blob(Subimage):
+
+    def __init__(self):
+        pass
+
+    # Should this be one function or many?
+    def force_photometry():
+        pass
+
+    
+
+
 

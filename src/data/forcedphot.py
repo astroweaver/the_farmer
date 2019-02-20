@@ -8,7 +8,7 @@ John Weaver <john.weaver.astro@gmail.com>
 
 About
 -----
-
+Perform forced photometry with the Tractor
 
 Known Issues
 ------------
@@ -26,8 +26,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import ascii, fits
 from astropy.table import Table
-import adv_tools as adv
-import astro_tools as astr
 
 # ------------------------------------------------------------------------------
 # Additional Packages
