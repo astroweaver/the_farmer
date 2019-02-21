@@ -2,6 +2,15 @@
 __pycache__/
 *.py[cod]
 
+*.pdf
+*.png
+*.gif
+*.jpg
+*.jpeg
+*.eps
+*.tiff
+*.svg
+
 # C and Fortran extensions
 *.so
 *.dylib
