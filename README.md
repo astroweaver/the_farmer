@@ -3,9 +3,6 @@ tractor_photometry
 
 Force Photometry with the Tractor
 
-Project Organization
---------------------
-
     .
     ├── AUTHORS.md
     ├── LICENSE
@@ -22,7 +19,7 @@ Project Organization
     ├── reports
     │   └── figures
     └── src
-        ├── data
+        ├── core
         ├── external
         ├── models
         ├── tools
