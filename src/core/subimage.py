@@ -17,9 +17,6 @@ None
 
 """
 
-# ------------------------------------------------------------------------------
-# Libraries
-# ------------------------------------------------------------------------------
 import os
 import sys
 
@@ -30,39 +27,29 @@ from astropy.table import Table
 from astropy.wcs import WCS
 import sep
  
-# local imports from this project
 
-# ------------------------------------------------------------------------------
-# Parameters
-# ------------------------------------------------------------------------------
 BW = 16
 BH = 16
-THRESH = 5 # <sigma>
+THRESH = 3 # <sigma>
 
 MINAREA = 5
 DEBLEND_NTHRESH = 32
 DEBLEND_CONT = 0.001
 
-# ------------------------------------------------------------------------------
-# Declarations and Functions
-# ------------------------------------------------------------------------------
-
-
-# ------------------------------------------------------------------------------
-# Main Program
-# ------------------------------------------------------------------------------
-
 class Subimage():
 
     def __init__(self, images, weights = None, masks = None,
-                 bands = None, wcs = None
+                 bands = None, wcs = None, subvector = None
                  ):
 
         self.wcs = wcs
         self.images = images
         self.weights = weights
         self.masks = masks
-        self.bands = bands
+        self.bands = np.array(bands)
+        self.subvector = subvector
+
+        self.catalog = None
         # If I make these self._X, the setters break.
 
     ### DATA VALIDATION - WCS
@@ -102,7 +89,7 @@ class Subimage():
     def images(self, array):
         try:
             array = np.array(array)
-            ndim = np.ndim(array)
+            ndim = array.ndim
 
         except:
             raise TypeError('Not a valid image array.')
@@ -110,12 +97,13 @@ class Subimage():
         if ndim == 2:
             self.ndim = ndim
             self._images = array[None]
-            self.shape = np.shape(self._images)
+            self.shape = self._images.shape
 
         elif ndim == 3:
             self.ndim = ndim
             self._images = array
-            self.shape = np.shape(self._images)
+            self.shape = self._images.shape
+
         else:
             raise ValueError(f'Images found with invalid dimensions (ndim = {ndim})')
 
@@ -159,7 +147,7 @@ class Subimage():
                 raise ValueError(f'Weights found with invalid shape (shape = {shape})')
 
             
-        
+    
 
 
     ### DATA VALIDATION - MASKS
@@ -170,7 +158,7 @@ class Subimage():
     @masks.setter
     def masks(self, array):
         if array is None:
-            self._masks = np.zeros_like(self._images)
+            self._masks = np.zeros_like(self._images, dtype=bool)
         else:
             try:
                 ndim = np.ndim(array)
@@ -193,7 +181,7 @@ class Subimage():
 
 
     ### METHODS
-    def get_subimage(self, x0, y0, w, h, buffer):
+    def _get_subimage(self, x0, y0, w, h, buffer):
         # Make a cut-out
         # Handle buffer zones
         subdims = (w + 2*buffer, h + 2*buffer)
@@ -202,11 +190,14 @@ class Subimage():
         bottom = y0 - buffer
         top = y0 + subdims[1] - buffer
 
+        subvector = (left, bottom)
+        
+
         # Check if corrections are necessary
-        self.subshape = (self.n_bands, subdims[0], subdims[1])
-        self.subimages = np.zeros(self.subshape)
-        self.subweights = self.subimages.copy()
-        self.submasks = np.ones(self.subshape)
+        subshape = (self.n_bands, subdims[0], subdims[1])
+        subimages = np.zeros(subshape)
+        subweights = np.zeros(subshape)
+        submasks = np.ones(subshape)
 
        # leftpix = np.max([bottom, 0])  
 
@@ -218,7 +209,7 @@ class Subimage():
         if right > self.dims[0]:
             rightpix = right - self.dims[0]
         else:
-            rightpix = self.subshape[1]
+            rightpix = subshape[1]
 
         #rightpix = np.max([right, self.dims[0]])
     
@@ -230,7 +221,7 @@ class Subimage():
         if top > self.dims[1]:
             toppix = top - self.dims[1]
         else:
-            toppix = self.subshape[2]
+            toppix = subshape[2]
 
         # toppix = np.max([top, subdims[1]])
 
@@ -238,28 +229,30 @@ class Subimage():
         rightpos = np.min([right, self.dims[0]])
         bottompos = np.max([bottom, 0])
         toppos = np.min([top, self.dims[1]])
+
+        self.slice = [slice(leftpos, rightpos), slice(bottompos, toppos)]
+        self.slicepos = tuple([slice(0, self.n_bands),] + self.slice)
+        self.slicepix = (slice(0, self.n_bands), slice(leftpix, rightpix), slice(bottompix, toppix))
         
-        print(leftpix, rightpix, bottompix, toppix)
-        print(left, right, bottom, top)
-        self.subimages[:, leftpix:rightpix, bottompix:toppix] = self.images[:, leftpos:rightpos, bottompos:toppos]
-        self.subweights[:, leftpix:rightpix, bottompix:toppix] = self.weights[:, leftpos:rightpos, bottompos:toppos]
-        self.submasks[:, leftpix:rightpix, bottompix:toppix]= self.masks[:, leftpos:rightpos, bottompos:toppos]
+        subimages[self.slicepix] = self.images[self.slicepos]
+        subweights[self.slicepix] = self.weights[self.slicepos]
+        submasks[self.slicepix]= self.masks[self.slicepos]
 
         if self.wcs is not None:
+            subwcs = self.wcs.deepcopy()
+            subwcs.wcs.crpix -= (left, bottom)
+            subwcs.array_shape = subshape[1:]
 
-            self.subwcs = self.wcs.deepcopy()
-            self.subwcs.wcs.crpix -= (left, bottom)
-            self.subwcs.array_shape = self.subshape[1:]
-
-        return self.subimages, self.subweights, self.submasks
+        return Subimage(subimages, subweights, submasks, self.bands, subwcs, subvector)
+    
 
     def _band2idx(self, band):
         # Convert band to index for arrays
         # TODO: Handle more than one band at a time
         if band in self.bands:
-            return np.argwhere(self.bands == band)[0][0]
+            return np.arange(self.n_bands)[self.bands == band][0]
         else:
-            raise ValueError(f'{band} is not a valid band.')
+            raise ValueError(f"{band} is not a valid band.")
 
     def sextract(self, band, include_mask = True, sub_background = True):
         # perform sextractor on single band only (may expand for matched source phot)
@@ -268,36 +261,33 @@ class Subimage():
         image = self.images[idx]
         var = 1. / self.weights[idx] # TODO: WRITE TO UTILS
         mask = self.masks[idx]
+        background = self.backgrounds[idx]
 
-        thresh = THRESH * self.backgrounds[idx].globalrms
+        if (self.weights == 1).all():
+            # No weight given - kinda
+            var = None
+            thresh = THRESH * background.globalrms
+            if not sub_background:
+                thresh += background.globalback 
+        
+        else:
+            thresh = THRESH
 
         if sub_background:
-            image -= bkg.back()
+            image -= background.back()
         
         # TODO : Args should come into SExtractor as KWARGS!
-        objects, segmap = sep.extract(image, thresh, var = var, mask = mask, minarea = MINAREA, segmentation_map = True,
+        catalog, segmap = sep.extract(image, thresh, var = var, minarea = MINAREA, segmentation_map = True,
                                     deblend_nthresh = DEBLEND_NTHRESH, deblend_cont = DEBLEND_CONT
                                     )
-        if len(objects) != 0:
-            return objects, segmap
+
+        if len(catalog) != 0:
+            catalog = Table(catalog)
+            self.catalog = catalog
+            self.n_sources = len(catalog)
+            self.segmap = segmap
+            return catalog, segmap
         else:
             raise ValueError('No objects found by SExtractor.')
 
-    def dilate(self, segmap, radius = 5, fill_holes = True, clean = True):
-
-        # Make binary
-        segmask = segmap.copy() # I don't see how we can get around this.
-        segmask[segmask != 0] = 1
-        # Dilate
-        struct2 = utils.create_circular_mask(2*dsize, 2*dsize, radius=dsize)
-        segmask = binary_dilation(segmask, structure = struct2 )
-
-        if fill_holes:
-            segmask = binary_fill_holes(segmask).astype(int)
-
-        return segmask
-
-    def relabel(self, segmask):
-        newmask, Nblobs = label(segmask)
-
-        return newmask, Nblobs
+    
