@@ -26,8 +26,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import ascii, fits
 from astropy.table import Table
+from tractor import *
 
-
+from .subimage import Subimage
 # ------------------------------------------------------------------------------
 # Additional Packages
 # ------------------------------------------------------------------------------
@@ -49,14 +50,8 @@ from astropy.table import Table
 # ------------------------------------------------------------------------------
 class Blob(Subimage):
 
-    def __init__(self):
-        pass
+    def __init__(self, images=None, weights=None, masks=None, wcs=None,
+                bands=None, subvector=None, buffer=None, brick_id=-99):
+        super().__init__(images, weights, masks, bands, wcs, subvector)
 
-    # Should this be one function or many?
-    def force_photometry():
-        pass
-
-    
-
-
-
+        

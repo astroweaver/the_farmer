@@ -31,6 +31,8 @@ from time import time
 
 from .utils import create_circular_mask
 from .subimage import Subimage
+from .blob import Blob
+from .config import *
 
 # ------------------------------------------------------------------------------
 # Additional Packages
@@ -41,9 +43,7 @@ from .subimage import Subimage
 # ------------------------------------------------------------------------------
 # Parameters
 # ------------------------------------------------------------------------------
-BLOB_BUFFER = 10
-DILATION_RADIUS = 12
-BRICK_BUFFER = 75
+
 
 # ------------------------------------------------------------------------------
 # Declarations and Functions
@@ -56,7 +56,7 @@ BRICK_BUFFER = 75
 class Brick(Subimage):
     
     def __init__(self, images, weights=None, masks=None, wcs=None,
-                bands=None,  buffer=BRICK_BUFFER, brick_id=-99
+                bands=None, buffer=BRICK_BUFFER, brick_id=-99
                 ):
         super().__init__(images, weights, masks, bands, wcs)
 
@@ -159,7 +159,8 @@ class Brick(Subimage):
         h = yhi - ylo
 
         # Make cutout
-        blob = self._get_subimage(xlo, ylo, w, h, buffer=BLOB_BUFFER)
+        blob_kwargs = self._get_subimage(xlo, ylo, w, h, buffer=BLOB_BUFFER)
+        blob = Blob(**blob_kwargs)
         blob.masks[self.slicepix] = np.logical_not(blobmask[self.slice])
         blob.segmap = self.segmap[self.slice]
 

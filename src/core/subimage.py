@@ -26,15 +26,8 @@ from astropy.io import ascii, fits
 from astropy.table import Table
 from astropy.wcs import WCS
 import sep
- 
 
-BW = 16
-BH = 16
-THRESH = 3 # <sigma>
-
-MINAREA = 5
-DEBLEND_NTHRESH = 32
-DEBLEND_CONT = 0.001
+from .config import *
 
 class Subimage():
 
@@ -243,7 +236,7 @@ class Subimage():
             subwcs.wcs.crpix -= (left, bottom)
             subwcs.array_shape = subshape[1:]
 
-        return Subimage(subimages, subweights, submasks, self.bands, subwcs, subvector)
+        return {'images':subimages, 'weights':subweights, 'masks':submasks, 'bands':self.bands, 'wcs':subwcs, 'subvector':subvector}
     
 
     def _band2idx(self, band):
