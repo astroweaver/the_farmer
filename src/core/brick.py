@@ -55,10 +55,18 @@ from .config import *
 # ------------------------------------------------------------------------------
 class Brick(Subimage):
     
-    def __init__(self, images, weights=None, masks=None, wcs=None,
+    def __init__(self, images, weights=None, masks=None, psfmodels=None, wcs=None,
                 bands=None, buffer=BRICK_BUFFER, brick_id=-99
                 ):
-        super().__init__(images, weights, masks, bands, wcs)
+
+        self.wcs = wcs
+        self.images = images
+        self.weights = weights
+        self.masks = masks
+        self.psfmodels = psfmodels
+        self.bands = np.array(bands)
+
+        super().__init__()
 
         self._buffer = buffer
         self.brick_id = brick_id
@@ -147,28 +155,7 @@ class Brick(Subimage):
         if blob_id < 1:
             raise ValueError('Blob id must be greater than 0.')
 
-        # Grab blob
-        blobmask = np.array(self.blobmap == blob_id, bool)
-        blob_sources = np.unique(self.segmap[blobmask])
-
-        # Dimensions
-        idx, idy = blobmask.nonzero()
-        xlo, xhi = np.min(idx), np.max(idx) + 1
-        ylo, yhi = np.min(idy), np.max(idy) + 1
-        w = xhi - xlo
-        h = yhi - ylo
-
-        # Make cutout
-        blob_kwargs = self._get_subimage(xlo, ylo, w, h, buffer=BLOB_BUFFER)
-        blob = Blob(**blob_kwargs)
-        blob.masks[self.slicepix] = np.logical_not(blobmask[self.slice])
-        blob.segmap = self.segmap[self.slice]
-
-        # Clean
-        blob_sourcemask = np.in1d(self.catalog['sid'], blob_sources)
-        blob.catalog = self.catalog[blob_sourcemask]
-        blob.catalog['x'] -= blob.subvector[1]
-        blob.catalog['y'] -= blob.subvector[0]
+        blob = Blob(self, blob_id)
 
         return blob
 

@@ -31,18 +31,12 @@ from .config import *
 
 class Subimage():
 
-    def __init__(self, images, weights = None, masks = None,
-                 bands = None, wcs = None, subvector = None
-                 ):
+    def __init__(self):
 
-        self.wcs = wcs
-        self.images = images
-        self.weights = weights
-        self.masks = masks
-        self.bands = np.array(bands)
-        self.subvector = subvector
 
+        self.subvector = None
         self.catalog = None
+        self.n_sources = None
         # If I make these self._X, the setters break.
 
     ### DATA VALIDATION - WCS
@@ -138,8 +132,6 @@ class Subimage():
             shape = np.shape(self._weights)
             if shape != self.shape:
                 raise ValueError(f'Weights found with invalid shape (shape = {shape})')
-
-            
     
 
 
@@ -173,6 +165,19 @@ class Subimage():
                 raise ValueError(f'Masks found with invalid shape (shape = {shape}')
 
 
+    ### DATA VALIDATION - PSFS
+
+    @property
+    def psfmodels(self):
+        return self._psfmodels
+
+    @psfmodels.setter
+    def psfmodels(self, psfmodels):
+        if psfmodels is None:
+            self._psfmodels = -99 * np.ones(self.n_bands)
+        else:
+            self._psfmodels = psfmodels
+
     ### METHODS
     def _get_subimage(self, x0, y0, w, h, buffer):
         # Make a cut-out
@@ -190,7 +195,7 @@ class Subimage():
         subshape = (self.n_bands, subdims[0], subdims[1])
         subimages = np.zeros(subshape)
         subweights = np.zeros(subshape)
-        submasks = np.ones(subshape)
+        submasks = np.ones(subshape, dtype=bool)
 
        # leftpix = np.max([bottom, 0])  
 
@@ -236,7 +241,7 @@ class Subimage():
             subwcs.wcs.crpix -= (left, bottom)
             subwcs.array_shape = subshape[1:]
 
-        return {'images':subimages, 'weights':subweights, 'masks':submasks, 'bands':self.bands, 'wcs':subwcs, 'subvector':subvector}
+        return subimages, subweights, submasks, self.psfmodels, self.bands, subwcs, subvector, self.slicepix, self.slice
     
 
     def _band2idx(self, band):
