@@ -129,6 +129,22 @@ class Brick(Subimage):
         brick_col = self.brick_id * np.ones(self.n_sources, dtype=int)
         self.catalog.add_column(Column(brick_col, name='bid'), 0)
 
+    def add_columns(self):
+        filler = np.zeros(len(self.catalog))
+        self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype='S20'), name='solmodel'))
+        for colname in self.bands:
+            colname = colname.replace(' ', '_')
+            self.catalog.add_column(Column(filler, name=colname))
+        for colname in self.bands:
+            colname = colname.replace(' ', '_')
+            self.catalog.add_column(Column(filler, name=colname+'_err'))
+        for colname in self.bands:
+            colname = colname.replace(' ', '_')
+            self.catalog.add_column(Column(filler, name=colname+'_chisq'))
+        for colname in ('x_model', 'y_model', 'RA', 'Dec', 'reff', 'ab', 'phi'):
+            self.catalog.add_column(Column(filler, name=colname))
+            self.catalog.add_column(Column(filler, name=colname+'_err'))
+
     def dilate(self, radius = DILATION_RADIUS, fill_holes = True, clean = True):
 
         # Make binary

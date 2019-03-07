@@ -26,6 +26,7 @@ from astropy.io import ascii, fits
 from astropy.table import Table
 from astropy.wcs import WCS
 import sep
+from astropy.wcs.utils import proj_plane_pixel_scales
 
 from .config import *
 
@@ -61,8 +62,10 @@ class Subimage():
         """
         if value is None:
             self._wcs = None
+            self.pixel_scale = PIXEL_SCALE
         elif isinstance(value, WCS):
             self._wcs = value
+            self.pixel_scale = proj_plane_pixel_scales(self._wcs)[0] * 3600.
         else:
             raise TypeError('WCS is not an astropy WCS object.')
 
@@ -274,10 +277,8 @@ class Subimage():
         if sub_background:
             image -= background.back()
         
-        # TODO : Args should come into SExtractor as KWARGS!
-        catalog, segmap = sep.extract(image, thresh, var = var, minarea = MINAREA, segmentation_map = True,
-                                    deblend_nthresh = DEBLEND_NTHRESH, deblend_cont = DEBLEND_CONT
-                                    )
+        kwargs = dict(var=var, minarea=MINAREA, segmentation_map=True, deblend_nthresh=DEBLEND_NTHRESH, deblend_cont=DEBLEND_CONT)
+        catalog, segmap = sep.extract(image, thresh, **kwargs)
 
         if len(catalog) != 0:
             catalog = Table(catalog)

@@ -25,9 +25,11 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import ascii, fits
-from astropy.table import Table
+from astropy.table import Table, Column
 from tractor import *
 from time import time
+import photutils
+import sep
 
 from .subimage import Subimage
 from .utils import SimpleGalaxy
@@ -56,6 +58,7 @@ class Blob(Subimage):
     def __init__(self, brick, blob_id):
             # super().__init__(self.images, self.weights, self.masks, self.bands, self.wcs, self.subvector)
 
+        self.brick = brick
                 
         # Grab blob
         self.blob_id = blob_id
@@ -89,6 +92,16 @@ class Blob(Subimage):
         self.solved_chisq = np.zeros(self.n_sources)
         self.tr_catalogs = np.zeros((self.n_sources, 3, 2), dtype=object)
         self.chisq = np.zeros((self.n_sources, 3, 2))
+        self.position_variance = np.zeros((self.n_sources, 2))
+        self.parameter_variance = np.zeros((self.n_sources, 3))
+        self.forced_variance = np.zeros((self.n_sources, self.n_bands))
+
+        self.residual_catalog = np.zeros((self.n_bands), dtype=object)
+        self.residual_segmap = np.zeros_like(self.segmap)
+        self.n_residual_sources = np.zeros(self.n_bands, dtype=int)
+
+
+        # NEED TO LOOK AT OLD SCRIPT FOR AN IDEA ABOUT WHAT COMPOSITE SPITS OUT!!!
 
         
     def stage_images(self):
@@ -118,7 +131,7 @@ class Blob(Subimage):
 
         for i, (mid, src) in enumerate(zip(self.mids, self.catalog)):
 
-            freeze_position = (self.mids == 2).all()
+            freeze_position = (self.mids >= 2).all()
             if freeze_position:
                 position = self.tr_catalogs[i,0,0].getPosition()
             else:
@@ -145,16 +158,18 @@ class Blob(Subimage):
 
 
     def tractor_phot(self):
-        # Currently not forcing anything.
         idx_models = ((1,2), (3,4), (5,))
 
         self._solved = self.solution_catalog != 0
     
+        # print(f'Starting modelling of {self.n_sources} sources')
         self._level = -1
         while not self._solved.all():
             self._level += 1
             for sublevel in np.arange(len(idx_models[self._level])):
                 self._sublevel = sublevel
+
+                self.stage = f'Morph Model ({self._level}, {self._sublevel})'
 
                 # prepare models
                 self.mids[~self._solved] = idx_models[self._level][sublevel]
@@ -170,7 +185,11 @@ class Blob(Subimage):
                     return False
 
                 # clean up
-                self.tr_catalogs[:, self._level, self._sublevel] = self.tr.getCatalog()    
+                self.tr_catalogs[:, self._level, self._sublevel] = self.tr.getCatalog()   
+
+                if (self._level == 0) & (self._sublevel == 0):
+                    self.position_variance = np.array([self.variance[i][:2] for i in np.arange(self.n_sources)]) # THIS MAY JUST WORK!
+                    # print(f'POSITION VAR: {self.position_variance}')
 
                 for i, src in enumerate(self.catalog):
                     if self._solved[i]:
@@ -190,28 +209,22 @@ class Blob(Subimage):
             self.decide_winners()
             self._solved = self.solution_catalog != 0
 
-            print()
-            print(self.chisq)
-            print(self.solution_catalog)
-
+        # print('Starting final optimization')
         # Final optimization
-        print()
-        print('Final opt')
         self.model_catalog = self.solution_catalog
         self.tr = Tractor(self.timages, self.model_catalog)
 
+        self.stage = 'Final Optimization'
         self.status = self.optimize_tractor()
 
         self.solution_tractor = self.tr
         self.solution_catalog = self.tr.getCatalog()
+        self.parameter_variance = [self.variance[i][self.n_bands:] for i in np.arange(self.n_sources)]
+        print(f'PARAMETER VAR: {self.parameter_variance}')
 
         for i, src in enumerate(self.catalog):
             totalchisq = np.sum((self.tr.getChiImage(0)[self.segmap == src['sid']])**2)
             self.solved_chisq[i] = totalchisq
-
-        print()
-        print(self.solved_chisq)
-        print(self.solution_catalog[:])
             
         return True
 
@@ -281,8 +294,6 @@ class Blob(Subimage):
             # For which did Comp beat EXP and DEV?
             compmask = (chisq[:, 2, 0] < chisq[:, 1, 0]) &\
                        (chisq[:, 2, 0] < chisq[:, 1, 1]) 
-
-            print(compmask)
     
             if compmask.any():
                 solution_catalog[compmask] = tr_catalogs[compmask, 2, 0].copy()
@@ -320,9 +331,7 @@ class Blob(Subimage):
         start = time()
         for i in range(TRACTOR_MAXSTEPS):
             try:
-                
-                dlnp, __, __ = tr.optimize()
-                print('[blob.fit_morph] :: dlnp {}'.format(dlnp))
+                dlnp, X, alpha, var = tr.optimize(variance=True)
             except:
                 print('FAILED')
                 return False
@@ -330,19 +339,143 @@ class Blob(Subimage):
             if dlnp < TRACTOR_CONTHRESH:
                 break
 
+
+        self.variance = [var[i * self.model_catalog[i].numberOfParams():i * self.model_catalog[i].numberOfParams() + self.model_catalog[i].numberOfParams()] for i in np.arange(self.n_sources)]
+
+        print()
+        print(f'STAGE {self.stage}')
+        print(self.n_sources,f' Sources converged in {i} tries')
+        for i, mod in enumerate(self.model_catalog):
+            print(f'{mod.getName()} Source has {mod.numberOfParams()} Parameters: {mod.getThawedParams()}')
+            print(mod)
+            print(self.variance[i])
+        
+
         return True
 
 
-    def aperture_phot(self):
-        # photutils
-        pass
-
-    def sextract_phot(self):
+    def aperture_phot(self, band, image_type=None, sub_background=False):
         # Allow user to enter image (i.e. image, residual, model...)
+
+        if image_type not in ('image', 'model', 'residual'):
+            raise TypeError("image_type must be 'image', 'model' or 'residual'")
+            return 
+
+        idx = self._band2idx(band)
+        
+        if image_type == 'image':
+            image = self.images[idx]
+
+        elif image_type == 'model':
+            image = self.solution_tractor.getModelImage(idx)
+
+        elif image_type == 'residual':
+            image = self.images[idx] - self.solution_tractor.getModelImage(idx)
+
+        background = self.backgrounds[idx]
+
+        if (self.weights == 1).all():
+            # No weight given - kinda
+            var = None
+            thresh = RES_THRESH * background.globalrms
+            if not sub_background:
+                thresh += background.globalback 
+        
+        else:
+            thresh = RES_THRESH
+            tweight = self.weights[idx].copy()
+            tweight[self.masks[idx]] = 0 # Well this isn't going to go well.
+            var = 1. / tweight # TODO: WRITE TO UTILS
+
+        if sub_background:
+            image -= background.back()
+
+
+        cat = self.solution_catalog
+        xxyy = np.vstack([src.getPosition() for src in cat]).T
+        apxy = xxyy - 1.
+
+        apertures_arcsec = np.array(APER_PHOT)
+        apertures = apertures_arcsec / self.pixel_scale
+
+        apflux = np.zeros((len(cat), len(apertures)), np.float32)
+        apflux_err = np.zeros((len(cat), len(apertures)), np.float32)
+
+        H,W = image.shape
+        Iap = np.flatnonzero((apxy[0,:] >= 0)   * (apxy[1,:] >= 0) *
+                            (apxy[0,:] <= W-1) * (apxy[1,:] <= H-1))
+        print('Aperture photometry for', len(Iap), 'of', len(apxy), 'sources within image bounds')
+
+        for i, rad in enumerate(apertures):
+            aper = photutils.CircularAperture(apxy[:,Iap], rad)
+            p = photutils.aperture_photometry(image, aper, error=np.sqrt(var))
+            apflux[:, i] = p.field('aperture_sum')
+            apflux_err[:, i] = p.field('aperture_sum_err')
+
+        band = band.replace(' ', '_')
+        if f'aperphot_{band}_{image_type}' not in self.brick.catalog.colnames:
+            self.brick.catalog.add_column(Column(np.zeros(len(self.brick.catalog), dtype=(float, len(apertures))), name=f'aperphot_{band}_{image_type}'))
+            self.brick.catalog.add_column(Column(np.zeros(len(self.brick.catalog), dtype=(float, len(apertures))), name=f'aperphot_{band}_{image_type}_err'))
+
+        for idx, src in enumerate(self.solution_catalog):
+            sid = self.catalog['sid'][idx]
+            row = np.argwhere(self.brick.catalog['sid'] == sid)[0][0]
+            self.brick.catalog[row][f'aperphot_{band}_{image_type}'] = tuple(apflux[idx])
+            self.brick.catalog[row][f'aperphot_{band}_{image_type}_err'] = tuple(apflux_err[idx])
+
+
+    def sextract_phot(self, band, sub_background=False):
+        # SHOULD WE STACK THE RESIDUALS? (No?)
+        # SHOULD WE DO THIS ON THE DETECTION IMAGE TOO? (I suppose we can already...!)
+        idx = self._band2idx(band)
+        residual = self.images[idx] - self.solution_tractor.getModelImage(idx)
+        tweight = self.weights[idx].copy()
+        tweight[self.masks[idx]] = 0 # Well this isn't going to go well.
+        var = 1. / tweight # TODO: WRITE TO UTILS
+        background = self.backgrounds[idx]
+
+        if (self.weights == 1).all():
+            # No weight given - kinda
+            var = None
+            thresh = RES_THRESH * background.globalrms
+            if not sub_background:
+                thresh += background.globalback 
+        
+        else:
+            thresh = RES_THRESH
+
+        if sub_background:
+            residual -= background.back()
+        
+        kwargs = dict(var=var, minarea=RES_MINAREA, segmentation_map=True, deblend_nthresh=RES_DEBLEND_NTHRESH, deblend_cont=RES_DEBLEND_CONT)
+        catalog, segmap = sep.extract(residual, thresh, **kwargs)
+
+        if len(catalog) != 0:
+            catalog = Table(catalog)
+            self.residual_catalog[idx] = catalog
+            n_residual_sources = len(catalog)
+            self.residual_segmap = segmap
+            self.n_residual_sources[idx] = n_residual_sources
+            print(f'Found {n_residual_sources} in {band} residual!')
+
+            if f'{band}_n_residual_sources' not in self.brick.catalog.colnames:
+                self.brick.catalog.add_column(Column(np.zeros(len(self.brick.catalog), dtype=bool), name=f'{band}_n_residual_sources'))
+
+            for idx, src in enumerate(self.solution_catalog):
+                sid = self.catalog['sid'][idx]
+                row = np.argwhere(self.brick.catalog['sid'] == sid)[0][0]
+                self.brick.catalog[row][f'{band}_n_residual_sources'] = True
+
+            return catalog, segmap
+        else:
+            print('No objects found by SExtractor.')
+
+
         pass
 
     def forced_phot(self):
         
+        # print('Starting forced photometry')
         # Update the incoming models
         for i, model in enumerate(self.model_catalog):
             model.brightness = Fluxes(**dict(zip(self.bands, model.brightness[0] * np.ones(self.n_bands))))   
@@ -350,15 +483,18 @@ class Blob(Subimage):
 
         # Stash in Tractor
         self.tr = Tractor(self.timages, self.model_catalog)
+        self.stage = 'Forced Photometry'
 
         # Optimize
         status = self.optimize_tractor()
 
         # Chisq
+        self.forced_variance = self.variance
+        # print(f'FLUX VAR: {self.forced_variance}')
         self.solution_chisq = np.zeros((self.n_sources, self.n_bands))
         for i, src in enumerate(self.catalog):
             for j, band in enumerate(self.bands):
-                totalchisq = np.sum((self.tr.getChiImage(j)[self.segmap == src['sid']])**2)
+                totalchisq = np.sum((self.tr.getChiImage(j)[self.segmap == src['sid']])**2)# / (np.sum(self.segmap == src['sid']) - self.model_catalog[i].numberOfParams())
                 ### PENALTIES ARE TBD
                 # residual = self.images[j] - self.tr.getModelImage(j)
                 # if np.median(residual[self.masks[j]]) < 0:
@@ -368,4 +504,38 @@ class Blob(Subimage):
         self.solution_tractor = Tractor(self.timages, self.tr.getCatalog())
         self.solution_catalog = self.solution_tractor.getCatalog()
 
+        for idx, src in enumerate(self.solution_catalog):
+            sid = self.catalog['sid'][idx]
+            row = np.argwhere(self.brick.catalog['sid'] == sid)[0][0]
+            # print(f'STASHING {sid} IN ROW {row}')
+            self.add_to_catalog(row, idx, src)
+
         return status
+
+    def add_to_catalog(self, row, idx, src):
+        for i, band in enumerate(self.bands):
+            band = band.replace(' ', '_')
+            self.brick.catalog[row][band] = src.brightness[i]
+            self.brick.catalog[row][band+'_err'] = self.forced_variance[idx][i]
+            self.brick.catalog[row][band+'_chisq'] = self.solution_chisq[idx, i]
+        self.brick.catalog[row]['x_model'] = src.pos[0] + self.subvector[0]
+        self.brick.catalog[row]['y_model'] = src.pos[1] + self.subvector[1]
+        self.brick.catalog[row]['x_model_err'] = np.sqrt(self.position_variance[idx, 0])
+        self.brick.catalog[row]['y_model_err'] = np.sqrt(self.position_variance[idx, 1])
+        skyc = self._wcs.pixel_to_world(src.pos[0] + self.subvector[0], src.pos[1] + self.subvector[1])
+        self.brick.catalog[row]['RA'] = skyc.ra.value
+        self.brick.catalog[row]['Dec'] = skyc.dec.value
+        try:
+            self.brick.catalog[row]['solmodel'] = src.name
+        except:
+            self.brick.catalog[row]['solmodel'] = 'maybe_PS'
+        if src.name in ('ExpGalaxy', 'DevGalaxy', 'CompositeGalaxy'):
+            self.brick.catalog[row]['reff'] = src.shape.re
+            self.brick.catalog[row]['ab'] = src.shape.ab
+            self.brick.catalog[row]['phi'] = src.shape.phi
+            print(idx)
+            self.brick.catalog[row]['reff_err'] = np.sqrt(self.parameter_variance[idx][0])
+            self.brick.catalog[row]['ab_err'] = np.sqrt(self.parameter_variance[idx][1])
+            self.brick.catalog[row]['phi_err'] = np.sqrt(self.parameter_variance[idx][2])
+
+        # add model chisq, band chisqs, ra, dec
