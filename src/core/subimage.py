@@ -255,7 +255,7 @@ class Subimage():
         else:
             raise ValueError(f"{band} is not a valid band.")
 
-    def sextract(self, band, include_mask = True, sub_background = True):
+    def sextract(self, band, include_mask = True, sub_background = False):
         # perform sextractor on single band only (may expand for matched source phot)
         # Generate segmap and segmask
         idx = self._band2idx(band)

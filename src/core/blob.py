@@ -220,7 +220,7 @@ class Blob(Subimage):
         self.solution_tractor = self.tr
         self.solution_catalog = self.tr.getCatalog()
         self.parameter_variance = [self.variance[i][self.n_bands:] for i in np.arange(self.n_sources)]
-        print(f'PARAMETER VAR: {self.parameter_variance}')
+        # print(f'PARAMETER VAR: {self.parameter_variance}')
 
         for i, src in enumerate(self.catalog):
             totalchisq = np.sum((self.tr.getChiImage(0)[self.segmap == src['sid']])**2)
@@ -245,9 +245,10 @@ class Blob(Subimage):
             if chmask.any():
                 solution_catalog[chmask] = tr_catalogs[chmask, 0, 0].copy()
                 solved_chisq[chmask] = chisq[chmask, 0, 0]
+                mids[chmask] = 1
 
             # So chi2(SG) is min, try more models
-            mids[~chmask] = 2
+            mids[~chmask] = 3
 
 
         if self._level == 1:
@@ -273,21 +274,24 @@ class Blob(Subimage):
             ndevmask = devmask & ~movemask & (chisq[:, 1, 1] < chisq[:, 1, 0])
 
             if nextmask.any():
-                mids[nextmask] = 4
+                mids[nextmask] = 5
                 
             if premask.any():
                 solution_catalog[premask] = tr_catalogs[premask, 0, 1].copy()
                 solved_chisq[premask] = chisq[premask, 0, 1]  
+                mids[premask] = 2
 
             if nexpmask.any():
                 
                 solution_catalog[nexpmask] = tr_catalogs[nexpmask, 1, 0].copy()
                 solved_chisq[nexpmask] = chisq[nexpmask, 1, 0] 
+                mids[nexpmask] = 3
            
             if ndevmask.any():
                 
                 solution_catalog[ndevmask] = tr_catalogs[ndevmask, 1, 1].copy()
                 solved_chisq[ndevmask] = chisq[ndevmask, 1, 1]
+                mids[ndevmask] = 4
 
 
         if self._level == 2:
@@ -298,6 +302,7 @@ class Blob(Subimage):
             if compmask.any():
                 solution_catalog[compmask] = tr_catalogs[compmask, 2, 0].copy()
                 solved_chisq[compmask] = chisq[compmask, 2, 0]
+                mids[compmask] = 5
         
             # where better as EXP or DEV
             if (~compmask).any():
@@ -306,12 +311,14 @@ class Blob(Subimage):
                 if ch_exp.any():
                     solution_catalog[ch_exp] = tr_catalogs[ch_exp, 1, 0].copy()
                     solved_chisq[ch_exp] = chisq[ch_exp, 1, 0]
+                    mids[ch_exp] = 3
 
                 ch_dev = (chisq[:, 1, 1] < chisq[:, 1, 0]) & ~compmask
 
                 if ch_dev.any():
                     solution_catalog[ch_dev] = tr_catalogs[ch_dev, 1, 1].copy()
                     solved_chisq[ch_dev] = chisq[ch_dev, 1, 1]
+                    mids[ch_dev] = 4
 
         # hand back
         self.chisq[~self._solved] = chisq
@@ -339,16 +346,36 @@ class Blob(Subimage):
             if dlnp < TRACTOR_CONTHRESH:
                 break
 
+        # print()
+        # print(f'RAW VAR HAS {len(var)} VALUES')
+        # print(var)
+        if (self.solution_catalog != 0).all():
+            # print('CHANGING TO SOLUTION CATALOG FOR PARAMETERS')
+            var_catalog = self.solution_catalog
+        else:
+            var_catalog = self.model_catalog
 
-        self.variance = [var[i * self.model_catalog[i].numberOfParams():i * self.model_catalog[i].numberOfParams() + self.model_catalog[i].numberOfParams()] for i in np.arange(self.n_sources)]
+        self.variance = []
+        counter = 0
+        for i, src in enumerate(np.arange(self.n_sources)): 
+            n_params = var_catalog[i].numberOfParams()
+            myvar = var[counter: n_params + counter]
+            # print(f'{i}) {var_catalog[i].name} has {n_params} params and {len(myvar)} variances: {myvar}')
+            counter += n_params
+            self.variance.append(myvar)
 
-        print()
-        print(f'STAGE {self.stage}')
-        print(self.n_sources,f' Sources converged in {i} tries')
-        for i, mod in enumerate(self.model_catalog):
-            print(f'{mod.getName()} Source has {mod.numberOfParams()} Parameters: {mod.getThawedParams()}')
-            print(mod)
-            print(self.variance[i])
+        # print()
+        # print(f'STAGE {self.stage}')
+        # print(self.n_sources,f' Sources converged in {i} tries')
+        expvar = np.sum([var_catalog[i].numberOfParams() for i in np.arange(len(var_catalog))])
+        # print(f'I have {len(var)} variance parameters for {self.n_sources} sources. I expected {expvar}.')
+        for i, mod in enumerate(var_catalog):
+            # print(f'{i}) {mod.getName()} Source has {mod.numberOfParams()} Parameters: {mod.getThawedParams()}')
+            # print(f'  {mod}')
+            # print(f'  {self.variance[i]}')
+            totalchisq = np.sum((self.tr.getChiImage(0)[self.segmap == self.catalog[i]['sid']])**2)
+            # print(f'  CHISQ: {totalchisq}')
+            # print()
         
 
         return True
@@ -404,7 +431,7 @@ class Blob(Subimage):
         H,W = image.shape
         Iap = np.flatnonzero((apxy[0,:] >= 0)   * (apxy[1,:] >= 0) *
                             (apxy[0,:] <= W-1) * (apxy[1,:] <= H-1))
-        print('Aperture photometry for', len(Iap), 'of', len(apxy), 'sources within image bounds')
+        #print('Aperture photometry for', len(Iap), 'of', len(apxy), 'sources within image bounds')
 
         for i, rad in enumerate(apertures):
             aper = photutils.CircularAperture(apxy[:,Iap], rad)
@@ -456,7 +483,7 @@ class Blob(Subimage):
             n_residual_sources = len(catalog)
             self.residual_segmap = segmap
             self.n_residual_sources[idx] = n_residual_sources
-            print(f'Found {n_residual_sources} in {band} residual!')
+            print(f'SExtractor Found {n_residual_sources} in {band} residual!')
 
             if f'{band}_n_residual_sources' not in self.brick.catalog.colnames:
                 self.brick.catalog.add_column(Column(np.zeros(len(self.brick.catalog), dtype=bool), name=f'{band}_n_residual_sources'))
@@ -509,6 +536,8 @@ class Blob(Subimage):
             row = np.argwhere(self.brick.catalog['sid'] == sid)[0][0]
             # print(f'STASHING {sid} IN ROW {row}')
             self.add_to_catalog(row, idx, src)
+        
+        # self.brick.catalog.write(f'{self.brick.brick_id}_{self.blob_id}_cat.fits')
 
         return status
 
@@ -516,7 +545,7 @@ class Blob(Subimage):
         for i, band in enumerate(self.bands):
             band = band.replace(' ', '_')
             self.brick.catalog[row][band] = src.brightness[i]
-            self.brick.catalog[row][band+'_err'] = self.forced_variance[idx][i]
+            self.brick.catalog[row][band+'_err'] = np.sqrr(self.forced_variance[idx][i])
             self.brick.catalog[row][band+'_chisq'] = self.solution_chisq[idx, i]
         self.brick.catalog[row]['x_model'] = src.pos[0] + self.subvector[0]
         self.brick.catalog[row]['y_model'] = src.pos[1] + self.subvector[1]
@@ -533,9 +562,9 @@ class Blob(Subimage):
             self.brick.catalog[row]['reff'] = src.shape.re
             self.brick.catalog[row]['ab'] = src.shape.ab
             self.brick.catalog[row]['phi'] = src.shape.phi
-            print(idx)
             self.brick.catalog[row]['reff_err'] = np.sqrt(self.parameter_variance[idx][0])
             self.brick.catalog[row]['ab_err'] = np.sqrt(self.parameter_variance[idx][1])
             self.brick.catalog[row]['phi_err'] = np.sqrt(self.parameter_variance[idx][2])
+
 
         # add model chisq, band chisqs, ra, dec
