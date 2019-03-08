@@ -58,6 +58,12 @@ class Blob(Subimage):
     def __init__(self, brick, blob_id):
             # super().__init__(self.images, self.weights, self.masks, self.bands, self.wcs, self.subvector)
 
+        blobmask = np.array(brick.blobmap == blob_id, bool)
+        mask_frac = blobmask.sum() / blobmask.size 
+        if (mask_frac > SPARSE_THRESH) & (blobmask.size > SPARSE_SIZE):
+            print('Blob is rejected as mask is sparse - likely an artefact issue.')
+            blob = None
+
         self.brick = brick
                 
         # Grab blob
@@ -545,7 +551,7 @@ class Blob(Subimage):
         for i, band in enumerate(self.bands):
             band = band.replace(' ', '_')
             self.brick.catalog[row][band] = src.brightness[i]
-            self.brick.catalog[row][band+'_err'] = np.sqrr(self.forced_variance[idx][i])
+            self.brick.catalog[row][band+'_err'] = np.sqrt(self.forced_variance[idx][i])
             self.brick.catalog[row][band+'_chisq'] = self.solution_chisq[idx, i]
         self.brick.catalog[row]['x_model'] = src.pos[0] + self.subvector[0]
         self.brick.catalog[row]['y_model'] = src.pos[1] + self.subvector[1]

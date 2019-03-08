@@ -171,12 +171,6 @@ class Brick(Subimage):
         if blob_id < 1:
             raise ValueError('Blob id must be greater than 0.')
 
-        blobmask = np.array(self.blobmap == blob_id, bool)
-        mask_frac = blobmask.sum() / blobmask.size 
-        if (mask_frac > SPARSE_THRESH) & (blobmask.size > SPARSE_SIZE):
-            print('Blob is rejected as mask is sparse - likely an artefact issue.')
-            blob = None
-
         blob = Blob(self, blob_id)
 
         return blob

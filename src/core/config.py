@@ -1,5 +1,18 @@
 ##### CONFIGURATION FILE #####
 
+# FILE LOCATIONS
+IMAGE_DIR = '/Users/jweaver/Projects/Current/COSMOS/tractor_pipeline/data/external'
+CATALOG_DIR = '/Volumes/WD4/Current/tractor_pipeline/data/catalogs'
+INTERIM_DIR = '/Volumes/WD4/Current/tractor_pipeline/data/interim'
+
+DETECTION_FILENAME = 'mosaic_hsc_i.EXT.fits' # fill with 'EXT'
+FORCED_FILENAME = 'mosaic_BAND.EXT.fits' # fill with 'BAND' and 'EXT'
+BANDS = ['hsc_i', 'hsc_z']
+
+IMAGE_EXT = 'img'
+WEIGHT_EXT = 'wht'
+MASK_EXT = 'mask'
+
 # SOURCE DETECTION WITH SEXTRACTOR
 BW = 3
 BH = 3
@@ -8,6 +21,11 @@ MINAREA = 3
 DEBLEND_NTHRESH = 32
 DEBLEND_CONT = 0.00001
 
+# PSF MAKER
+PSF_DIR = '/Volumes/WD4/Current/tractor_pipeline/data/psfmodels'
+DET_REFF_LIMITS = (4.1, 5.1)
+DET_VAL_LIMITS = (18.5, 20.5) 
+
 # IMAGE PARAMETERS
 PIXEL_SCALE = 0.15
 
@@ -15,7 +33,9 @@ PIXEL_SCALE = 0.15
 APER_PHOT = [1., 2., 3., 4., 5.]
 
 # BUFFERS AND SEGMENT DILATION
-BRICK_BUFFER = 75
+BRICK_HEIGHT = 2000
+BRICK_WIDTH = 2000
+BRICK_BUFFER = 100
 BLOB_BUFFER = 10
 DILATION_RADIUS = 12
 
