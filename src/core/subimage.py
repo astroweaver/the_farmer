@@ -86,7 +86,7 @@ class Subimage():
 
         if ndim == 2:
             self.ndim = ndim
-            self._images = array[None]
+            self._images = array[None, :, :]
             self.shape = self._images.shape
 
         elif ndim == 3:
@@ -101,9 +101,12 @@ class Subimage():
         self.n_bands = self.shape[0]
 
         # Generate backgrounds
-        self.backgrounds = np.zeros(self.n_bands, dtype=object)
-        for i, img in enumerate(self._images):
-            self.backgrounds[i] = sep.Background(img, bw = BW, bh = BH)
+        if (self.shape[1] * self.shape[2]) < 1E8:
+            self.backgrounds = np.zeros(self.n_bands, dtype=object)
+            for i, img in enumerate(self._images):
+                self.backgrounds[i] = sep.Background(img, bw = BW, bh = BH)
+        else:
+            self.backgrounds = None
 
 
     ### DATA VALIDATION - WEIGHTS
@@ -124,7 +127,7 @@ class Subimage():
                 raise TypeError('Not a valid image array.')
 
             if ndim == 2:
-                self._weights = array[None]
+                self._weights = array[None, :, :]
                 
             elif ndim == 3:
                 self._weights = array
@@ -155,7 +158,7 @@ class Subimage():
                 raise TypeError('Not a valid image array.')
 
             if ndim == 2:
-                self._masks = array[None]
+                self._masks = array[None, :, :]
             
             if ndim == 3:
                 self._masks = array
@@ -208,7 +211,7 @@ class Subimage():
             leftpix = 0
 
         if right > self.dims[0]:
-            rightpix = right - self.dims[0]
+            rightpix = self.dims[0] - right
         else:
             rightpix = subshape[1]
 
@@ -220,7 +223,7 @@ class Subimage():
             bottompix = 0
 
         if top > self.dims[1]:
-            toppix = top - self.dims[1]
+            toppix = self.dims[1] - top
         else:
             toppix = subshape[2]
 

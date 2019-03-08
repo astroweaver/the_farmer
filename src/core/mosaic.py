@@ -30,9 +30,7 @@ from scipy.ndimage import label, binary_dilation, binary_fill_holes
 from time import time
 from astropy.wcs import WCS
 
-from .utils import create_circular_mask
 from .subimage import Subimage
-from .blob import Blob
 from .config import *
 
 
@@ -51,29 +49,36 @@ class Mosaic(Subimage):
             self.path_mask = os.path.join(IMAGE_DIR, FORCED_FILENAME.replace('EXT', MASK_EXT).replace('BAND', band))
 
         # open the files
-        if self.path_image.exists():
-            hdu_image = fits.open(self.path_image)
-            self.image = hdu_image[f'{band}_{IMAGE_EXT}'].data
-            self.master_head = hdu_image[f'{band}_{IMAGE_EXT}'].header
-            self.wcs = WCS(self.master_header)
+        tstart = time()
+        if os.path.exists(self.path_image):
+            with fits.open(self.path_image, memmap=True) as hdu_image:
+                self.images = hdu_image['PRIMARY'].data
+                self.master_head = hdu_image['PRIMARY'].header
+                self.wcs = WCS(self.master_head)
         else:
-            self.image = None
-            self.master_head = None
-            self.wcs = None
+            raise ValueError(f'No image found at {self.path_image}')
+        print(f'Added image in {time()-tstart}s.')
 
-        if self.path_weight.exists():
-            hdu_weight = fits.open(self.path_weight)
+        tstart = time()
+        if os.path.exists(self.path_weight):
+            with fits.open(self.path_weight) as hdu_weight:
+                self.weights = hdu_weight['PRIMARY'].data
         else:
-            self.weight = None
+            self.weights = None
+        print(f'Added weight in {time()-tstart}s.')
 
-        if self.path_mask.exists():
-            hdu_mask = fits.open(self.path_mask)    
+
+        tstart = time()
+        if os.path.exists(self.path_mask):
+            with fits.open(self.path_mask) as hdu_mask:
+                self.masks = hdu_mask['PRIMARY'].data
         else:
-            self.mask = None    
+            self.masks = None    
+        print(f'Added mask in {time()-tstart}s.')
 
-        self.psfmodel = psfmodel
-        self.band = band
-        self.mag_zeropoint = mag_zeropoint
+        self.psfmodels = psfmodel
+        self.bands = band
+        self.mag_zeropoints = mag_zeropoint
         
         super().__init__()
     
@@ -88,11 +93,11 @@ class Mosaic(Subimage):
 
         # Set filenames
         psf_dir = PSF_DIR
-        psf_cat = os.path.join(PSF_DIR, f'{self.band}_clean.ldac')
+        psf_cat = os.path.join(PSF_DIR, f'{self.bands}_clean.ldac')
         path_savexml = PSF_DIR
-        path_savechkimg = ','.join([os.path.join(dir_psf, ext) for ext in ('chi', 'proto', 'samp', 'resi', 'snap')])
-        path_savechkplt = ','.join([os.path.join(dir_psf, ext) for ext in ('fwhm', 'ellipticity', 'counts', 'countfrac', 'chi2', 'resi')])
-        path_segmap = os.path.join(IMAGE_DIR, f'{self.band}_segmap')
+        path_savechkimg = ','.join([os.path.join(PSF_DIR, ext) for ext in ('chi', 'proto', 'samp', 'resi', 'snap')])
+        path_savechkplt = ','.join([os.path.join(PSF_DIR, ext) for ext in ('fwhm', 'ellipticity', 'counts', 'countfrac', 'chi2', 'resi')])
+        path_segmap = os.path.join(IMAGE_DIR, f'{self.bands}_segmap')
 
         if forced_psf:
             self.path_image = os.path.join(IMAGE_DIR, DETECTION_FILENAME.replace('EXT', IMAGE_EXT)) + f',{self.path_image}'
@@ -108,10 +113,10 @@ class Mosaic(Subimage):
             hdul_ldac = fits.open(psf_cat)
             tab_ldac = hdul_ldac['LDAC_OBJECTS'].data
 
-            mask_ldac = (tab_ldac['MAG_AUTO'] > mag_lims[0]) &\
-                    (tab_ldac['MAG_AUTO'] < mag_lims[1]) &\
-                    (tab_ldac['FLUX_RADIUS'] > reff_lims[0]) &\
-                    (tab_ldac['FLUX_RADIUS'] < reff_lims[1])
+            mask_ldac = (tab_ldac['MAG_AUTO'] > DET_VAL_LIMITS[0]) &\
+                    (tab_ldac['MAG_AUTO'] < DET_VAL_LIMITS[1]) &\
+                    (tab_ldac['FLUX_RADIUS'] > DET_REFF_LIMITS[0]) &\
+                    (tab_ldac['FLUX_RADIUS'] < DET_REFF_LIMITS[1])
 
             idx_exclude = np.arange(1, len(tab_ldac) + 1)[~mask_ldac]
 
@@ -140,42 +145,51 @@ class Mosaic(Subimage):
         os.system(f'psfex {psf_cat} -c config/config.psfex -BASIS_TYPE PIXEL -PSF_SIZE 101,101 -PSF_DIR {psf_dir} -WRITE_XML Y -XML_NAME {path_savexml} -CHECKIMAGE_NAME {path_savechkimg} -CHECKPLOT_NAME {path_savechkplt}')
         
     
-    def make_brick(self, brick_id, overwrite=False, nickname='MISCBRICK', 
+    def _make_brick(self, brick_id, overwrite=False, nickname='MISCBRICK', 
             brick_width=BRICK_WIDTH, brick_height=BRICK_HEIGHT, brick_buffer=BRICK_BUFFER):
-        save_fitsname = f'B{brick_id}_N{nickname}_W{brick_width}_H{self.brick_height}.fits'
+        save_fitsname = f'B{brick_id}_N{nickname}_W{brick_width}_H{brick_height}.fits'
+        path_fitsname = os.path.join(BRICK_DIR, save_fitsname)
 
-        x0, y0 = self._get_origin(brick_id)
-        subinfo = self._get_subimage(self, x0, y0, brick_width, brick_height, brick_buffer)
+        if (not overwrite) & (not os.path.exists(path_fitsname)):
+            raise ValueError(f'No existing file found for {path_fitsname}. Will not write new one.')
+
+        x0, y0 = self._get_origin(brick_id, brick_width, brick_height)
+        subinfo = self._get_subimage(x0, y0, brick_width, brick_height, brick_buffer)
         subimage, subweight, submask, psfmodel, band, subwcs, subvector, slicepix, subslice = subinfo
         
         # Make hdus
         head_image = self.master_head.copy()
         head_image.update(subwcs.to_header())
-        hdu_image = fits.ImageHDU(subimage, head_image, f'{self.band}_SCI')
-        hdu_weight = fits.ImageHDU(subweight, head_image, f'{self.band}_WEIGHT')
-        hdu_mask = fits.ImageHDU(submask, head_image, f'{self.band}_MASK')
+        hdu_image = fits.ImageHDU(subimage, head_image, f'{self.bands}_SCI')
+        hdu_weight = fits.ImageHDU(subweight, head_image, f'{self.bands}_WEIGHT')
+        hdu_mask = fits.ImageHDU(submask.astype(int), head_image, f'{self.bands}_MASK')
         
         # if overwrite, make it
         if overwrite:
             hdu_prim = fits.PrimaryHDU()
             hdul_new = fits.HDUList([hdu_prim, hdu_image, hdu_weight, hdu_mask])
-            hdul_new.writeto(save_fitsname, mode='append')
+            print(hdul_new.info())
+            hdul_new.writeto(path_fitsname)
         else:
         # otherwise add to it
-            exist_hdul = fits.open(save_fitsname, mode='append')
+            exist_hdul = fits.open(path_fitsname, mode='append')
             exist_hdul.append(hdu_image)
             exist_hdul.append(hdu_weight)
             exist_hdul.append(hdu_mask)
             exist_hdul.flush()
             exist_hdul.close()
 
-    def _get_origin(self, brick_id):
+    def _get_origin(self, brick_id, brick_width, brick_height):
         x0 = (((brick_id - 1) * brick_width) % self.dims[0])
         y0 = int(((brick_id - 1) * brick_height) / self.dims[1]) * brick_height
+        print(f'ORIGIN for BRICK #{brick_id} of {brick_width}x{brick_height} is ({x0},{y0})')
         return np.array([x0, y0])
 
 
-        
+    def n_xy_bricks(self, brick_width, brick_height):
+        n_xbricks = self.dims[0] / brick_width
+        n_ybricks = self.dims[1] / brick_height
+        return n_xbricks, n_ybricks
 
 
 
