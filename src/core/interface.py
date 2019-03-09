@@ -17,22 +17,18 @@ None
 
 """
 
-# ------------------------------------------------------------------------------
-# Standard Packages
-# ------------------------------------------------------------------------------
 import os
-import sys
-import numpy as np
-import matplotlib.pyplot as plt
+from time import time
+from functools import partial
+
 from astropy.io import fits
 from astropy.wcs import WCS
 import numpy as np
-import matplotlib.pyplot as plt
-import pathos.multiprocessing as mp   
-from functools import partial
+import pathos.multiprocessing as mp
 
-from core.brick import Brick, Subimage
-from time import time
+from .brick import Brick
+
+#TODO: import config
 
 
 def tractor(brick_id): # need to add overwrite args!
@@ -43,13 +39,14 @@ def tractor(brick_id): # need to add overwrite args!
     tstart = time()
     kwargs = stage_brickfiles(brick_id, detection=True)
     detbrick = Brick(**kwargs)
+
     if VERBOSE: print(f'Detection brick #{brick_id} created ({time() - tstart:3.3f}s)')
 
     # Sextract sources
     tstart = time()
     detbrick.sextract(DETECTION_NICKNAME)
     if VERBOSE: print(f'Detection brick #{brick_id} sextracted {detbrick.n_sources} objects ({time() - tstart:3.3f}s)')
-    
+
     # Cleanup
     tstart = time()
     detbrick.cleanup()
@@ -64,6 +61,7 @@ def tractor(brick_id): # need to add overwrite args!
     fbrick.catalog = detbrick.catalog
     fbrick.add_columns()
     fbrick.catalog
+
     if VERBOSE: print(f'Multiband brick #{brick_id} created ({time() - tstart:3.3f}s)')
 
     if NTHREADS > 0:
@@ -72,25 +70,25 @@ def tractor(brick_id): # need to add overwrite args!
     else:
         [runblob(blob_id, detbrick, fbrick) for blob_id in np.arange(1, detbrick.n_blobs)]
 
-    
+
 def runblob(blob_id, detbrick, fbrick):
     print()
     print(f'Starting on Blob #{blob_id}')
     tstart = time()
-    
+
     # Make blob with detection image
     myblob = detbrick.make_blob(blob_id)
     if myblob is None:
         print('BLOB REJECTED!')
         return
-    
+
     # Run models
     myblob.stage_images()
     status = myblob.tractor_phot()
 
     if not status:
         return
-    
+
     # make new blob with band information
     myfblob = fbrick.make_blob(blob_id)
     myfblob.model_catalog = myblob.solution_catalog
@@ -100,7 +98,7 @@ def runblob(blob_id, detbrick, fbrick):
     # Forced phot
     myfblob.stage_images()
     status = myfblob.forced_phot()
-    
+
     # Run follow-up phot
     [[myfblob.aperture_phot(band, img_type) for band in myfblob.bands] for img_type in ('image', 'model', 'residual')]
     [myfblob.sextract_phot(band) for band in myfblob.bands]
@@ -125,7 +123,7 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', detection=False):
         images = np.zeros((len(sbands), BRICK_WIDTH + 2 * BRICK_BUFFER, BRICK_HEIGHT + 2 * BRICK_BUFFER))
         weights = np.zeros_like(images)
         masks = np.zeros_like(images, dtype=bool)
-        
+
         # Loop over expected bands
         with fits.open(path_brickfile) as hdul_brick:
 

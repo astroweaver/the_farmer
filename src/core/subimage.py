@@ -30,7 +30,11 @@ from astropy.wcs.utils import proj_plane_pixel_scales
 
 from .config import *
 
+
 class Subimage():
+    """
+    TODO: add doc string
+    """
 
     def __init__(self):
 
@@ -40,7 +44,6 @@ class Subimage():
         self.n_sources = None
         # If I make these self._X, the setters break.
 
-    ### DATA VALIDATION - WCS
     @property
     def wcs(self):
         return self._wcs
@@ -48,17 +51,19 @@ class Subimage():
     @wcs.setter
     def wcs(self, value):
         """Sets the World-Coordinate System attribute
-        
+
         Parameters
         ----------
+
         wcs : WCS Object
             Astropy.WCS object
-        
+
         Raises
         ------
+
         TypeError
             Input WCS is not an Astropy.WCS object
-        
+
         """
         if value is None:
             self._wcs = None
@@ -122,13 +127,13 @@ class Subimage():
             try:
                 array = np.array(array)
                 ndim = np.ndim(array)
-                
+
             except:
                 raise TypeError('Not a valid image array.')
 
             if ndim == 2:
                 self._weights = array[None, :, :]
-                
+
             elif ndim == 3:
                 self._weights = array
 
@@ -138,12 +143,10 @@ class Subimage():
             shape = np.shape(self._weights)
             if shape != self.shape:
                 raise ValueError(f'Weights found with invalid shape (shape = {shape})')
-    
 
-
-    ### DATA VALIDATION - MASKS
     @property
     def masks(self):
+        """### DATA VALIDATION - MASKS"""
         return self._masks
 
     @masks.setter
@@ -159,10 +162,10 @@ class Subimage():
 
             if ndim == 2:
                 self._masks = array[None, :, :]
-            
+
             if ndim == 3:
                 self._masks = array
-        
+
             else:
                 raise ValueError(f'Masks found with invalid dimensions (ndim = {ndim})')
 
@@ -195,7 +198,6 @@ class Subimage():
         top = y0 + subdims[1] - buffer
 
         subvector = (left, bottom)
-        
 
         # Check if corrections are necessary
         subshape = (self.n_bands, subdims[0], subdims[1])
@@ -203,10 +205,8 @@ class Subimage():
         subweights = np.zeros(subshape)
         submasks = np.ones(subshape, dtype=bool)
 
-       # leftpix = np.max([bottom, 0])  
-
         if left < 0:
-            leftpix = abs(left) 
+            leftpix = abs(left)
         else:
             leftpix = 0
 
@@ -215,8 +215,6 @@ class Subimage():
         else:
             rightpix = subshape[1]
 
-        #rightpix = np.max([right, self.dims[0]])
-    
         if bottom < 0:
             bottompix = abs(bottom)
         else:
@@ -227,8 +225,6 @@ class Subimage():
         else:
             toppix = subshape[2]
 
-        # toppix = np.max([top, subdims[1]])
-
         leftpos = np.max([left, 0])
         rightpos = np.min([right, self.dims[0]])
         bottompos = np.max([bottom, 0])
@@ -237,7 +233,7 @@ class Subimage():
         self.slice = [slice(leftpos, rightpos), slice(bottompos, toppos)]
         self.slicepos = tuple([slice(0, self.n_bands),] + self.slice)
         self.slicepix = (slice(0, self.n_bands), slice(leftpix, rightpix), slice(bottompix, toppix))
-        
+
         subimages[self.slicepix] = self.images[self.slicepos]
         subweights[self.slicepix] = self.weights[self.slicepos]
         submasks[self.slicepix]= self.masks[self.slicepos]
@@ -247,8 +243,8 @@ class Subimage():
             subwcs.wcs.crpix -= (left, bottom)
             subwcs.array_shape = subshape[1:]
 
+        # FIXME: too many return values; maybe try a namedtuple? a class?
         return subimages, subweights, submasks, self.psfmodels, self.bands, subwcs, subvector, self.slicepix, self.slice
-    
 
     def _band2idx(self, band):
         # Convert band to index for arrays
@@ -272,14 +268,14 @@ class Subimage():
             var = None
             thresh = THRESH * background.globalrms
             if not sub_background:
-                thresh += background.globalback 
-        
+                thresh += background.globalback
+
         else:
             thresh = THRESH
 
         if sub_background:
             image -= background.back()
-        
+
         kwargs = dict(var=var, minarea=MINAREA, segmentation_map=True, deblend_nthresh=DEBLEND_NTHRESH, deblend_cont=DEBLEND_CONT)
         catalog, segmap = sep.extract(image, thresh, **kwargs)
 
@@ -292,4 +288,4 @@ class Subimage():
         else:
             raise ValueError('No objects found by SExtractor.')
 
-    
+

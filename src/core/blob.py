@@ -17,9 +17,7 @@ None
 
 """
 
-# ------------------------------------------------------------------------------
-# Standard Packages
-# ------------------------------------------------------------------------------
+
 import os
 import sys
 import numpy as np
@@ -34,38 +32,22 @@ import sep
 from .subimage import Subimage
 from .utils import SimpleGalaxy
 from .config import *
-# ------------------------------------------------------------------------------
-# Additional Packages
-# ------------------------------------------------------------------------------
 
 
-
-# ------------------------------------------------------------------------------
-# Parameters
-# ------------------------------------------------------------------------------
-
-
-# ------------------------------------------------------------------------------
-# Declarations and Functions
-# ------------------------------------------------------------------------------
-
-
-# ------------------------------------------------------------------------------
-# Main Program
-# ------------------------------------------------------------------------------
 class Blob(Subimage):
+    """TODO: docstring"""
 
     def __init__(self, brick, blob_id):
-            # super().__init__(self.images, self.weights, self.masks, self.bands, self.wcs, self.subvector)
+        """TODO: docstring"""
 
         blobmask = np.array(brick.blobmap == blob_id, bool)
-        mask_frac = blobmask.sum() / blobmask.size 
+        mask_frac = blobmask.sum() / blobmask.size
         if (mask_frac > SPARSE_THRESH) & (blobmask.size > SPARSE_SIZE):
             print('Blob is rejected as mask is sparse - likely an artefact issue.')
             blob = None
 
         self.brick = brick
-                
+
         # Grab blob
         self.blob_id = blob_id
         blobmask = np.array(brick.blobmap == self.blob_id, bool)
@@ -80,6 +62,7 @@ class Blob(Subimage):
 
         # Make cutout
         blob_comps = brick._get_subimage(xlo, ylo, w, h, buffer=BLOB_BUFFER)
+        # FIXME: too many return values
         self.images, self.weights, self.masks, self.psfmodels, self.bands, self.wcs, self.subvector, self.slicepix, self.slice = blob_comps
 
         self.masks[self.slicepix] = np.logical_not(blobmask[self.slice], dtype=bool)
@@ -91,7 +74,7 @@ class Blob(Subimage):
         self.catalog['x'] -= self.subvector[1]
         self.catalog['y'] -= self.subvector[0]
         self.n_sources = len(self.catalog)
-            
+
         self.mids = np.ones(self.n_sources, dtype=int)
         self.model_catalog = np.zeros(self.n_sources, dtype=object)
         self.solution_catalog = np.zeros(self.n_sources, dtype=object)
@@ -106,34 +89,36 @@ class Blob(Subimage):
         self.residual_segmap = np.zeros_like(self.segmap)
         self.n_residual_sources = np.zeros(self.n_bands, dtype=int)
 
+        # TODO NEED TO LOOK AT OLD SCRIPT FOR AN IDEA ABOUT WHAT COMPOSITE SPITS OUT!!!
 
-        # NEED TO LOOK AT OLD SCRIPT FOR AN IDEA ABOUT WHAT COMPOSITE SPITS OUT!!!
-
-        
     def stage_images(self):
+        """TODO: docstring"""
 
         timages = np.zeros(self.n_bands, dtype=object)
+
+        # TODO: try to simplify this. particularly the zip...
         for i, (image, weight, mask, psf, band) in enumerate(zip(self.images, self.weights, self.masks, self.psfmodels, self.bands)):
             tweight = weight.copy()
             tweight[mask] = 0
+
             if psf is -99:
                 psfmodel = NCircularGaussianPSF([2,], [1,])
             else:
                 psfmodel = PixelizedPSF(psf)
+
             timages[i] = Image(data=image,
                             invvar=tweight,
                             psf=psfmodel,
                             wcs=NullWCS(),
                             photocal=LinearPhotoCal(1, band),
-                            sky=ConstantSky(0.),
-                            )
+                            sky=ConstantSky(0.))
+
         self.timages = timages
 
     def stage_models(self):
         # Currently this makes NEW models for each trial. Do we want to freeze solution models and re-use them?
 
         # Trackers
-
 
         for i, (mid, src) in enumerate(zip(self.mids, self.catalog)):
 
@@ -143,6 +128,7 @@ class Blob(Subimage):
             else:
                 position = PixPos(src['x'], src['y'])
             flux = Fluxes(**dict(zip(self.bands, src['flux'] * np.ones(self.n_bands))))
+
             shape = GalaxyShape(1, src['b'] / src['a'], src['theta'])
 
             if mid == 1:
@@ -157,19 +143,19 @@ class Blob(Subimage):
                 self.model_catalog[i] = galaxy.FixedCompositeGalaxy(
                                                 position, flux,
                                                 SoftenedFracDev(0.5),
-                                                shape, shape
-                                                )
+                                                shape, shape)
             if freeze_position:
-                self.model_catalog[i].freezeParams('pos')               
-
+                self.model_catalog[i].freezeParams('pos')
 
     def tractor_phot(self):
-        idx_models = ((1,2), (3,4), (5,))
+
+        # TODO: The meaning of the following line is not clear
+        idx_models = ((1, 2), (3, 4), (5,))
 
         self._solved = self.solution_catalog != 0
-    
-        # print(f'Starting modelling of {self.n_sources} sources')
+
         self._level = -1
+
         while not self._solved.all():
             self._level += 1
             for sublevel in np.arange(len(idx_models[self._level])):
@@ -191,7 +177,7 @@ class Blob(Subimage):
                     return False
 
                 # clean up
-                self.tr_catalogs[:, self._level, self._sublevel] = self.tr.getCatalog()   
+                self.tr_catalogs[:, self._level, self._sublevel] = self.tr.getCatalog()
 
                 if (self._level == 0) & (self._sublevel == 0):
                     self.position_variance = np.array([self.variance[i][:2] for i in np.arange(self.n_sources)]) # THIS MAY JUST WORK!
@@ -201,14 +187,10 @@ class Blob(Subimage):
                     if self._solved[i]:
                         continue
                     totalchisq = np.sum((self.tr.getChiImage(0)[self.segmap == src['sid']])**2)
-                    ### PENALTIES ARE TBD
-                    # residual = self.images[0] - self.tr.getModelImage(0)
-                    # if np.mean(residual[self.masks[0]]) < 0:
-                    #     totalchisq = 1000000
                     self.chisq[i, self._level, self._sublevel] = totalchisq
 
                 # Move unsolved to next sublevel
-                if sublevel == 0:  
+                if sublevel == 0:
                     self.mids[~self._solved] += 1
 
             # decide
@@ -231,7 +213,7 @@ class Blob(Subimage):
         for i, src in enumerate(self.catalog):
             totalchisq = np.sum((self.tr.getChiImage(0)[self.segmap == src['sid']])**2)
             self.solved_chisq[i] = totalchisq
-            
+
         return True
 
     def decide_winners(self):
@@ -247,7 +229,7 @@ class Blob(Subimage):
 
         if self._level == 0:
             # Which have chi2(PS) < chi2(SG)?
-            chmask = (chisq[:, 0, 0] < chisq[:, 0, 1]) 
+            chmask = (chisq[:, 0, 0] < chisq[:, 0, 1])
             if chmask.any():
                 solution_catalog[chmask] = tr_catalogs[chmask, 0, 0].copy()
                 solved_chisq[chmask] = chisq[chmask, 0, 0]
@@ -256,20 +238,19 @@ class Blob(Subimage):
             # So chi2(SG) is min, try more models
             mids[~chmask] = 3
 
-
         if self._level == 1:
             # For which are they nearly equally good?
-            movemask = (abs(chisq[:, 1, 0] - chisq[:, 1, 1]) < EXP_DEV_THRESH) 
+            movemask = (abs(chisq[:, 1, 0] - chisq[:, 1, 1]) < EXP_DEV_THRESH)
 
             # Has Exp beaten SG?
-            expmask = (chisq[:, 1, 0] < chisq[:, 0, 1]) 
+            expmask = (chisq[:, 1, 0] < chisq[:, 0, 1])
 
             # Has Dev beaten SG?
-            devmask = (chisq[:, 1, 1] < chisq[:, 0, 1]) 
+            devmask = (chisq[:, 1, 1] < chisq[:, 0, 1])
 
             # Which better than SG but nearly equally good?
             nextmask = expmask & devmask & movemask
-            
+
             # For which was SG better
             premask = ~expmask & ~devmask
 
@@ -281,35 +262,34 @@ class Blob(Subimage):
 
             if nextmask.any():
                 mids[nextmask] = 5
-                
+
             if premask.any():
                 solution_catalog[premask] = tr_catalogs[premask, 0, 1].copy()
-                solved_chisq[premask] = chisq[premask, 0, 1]  
+                solved_chisq[premask] = chisq[premask, 0, 1]
                 mids[premask] = 2
 
             if nexpmask.any():
-                
+
                 solution_catalog[nexpmask] = tr_catalogs[nexpmask, 1, 0].copy()
-                solved_chisq[nexpmask] = chisq[nexpmask, 1, 0] 
+                solved_chisq[nexpmask] = chisq[nexpmask, 1, 0]
                 mids[nexpmask] = 3
-           
+
             if ndevmask.any():
-                
+
                 solution_catalog[ndevmask] = tr_catalogs[ndevmask, 1, 1].copy()
                 solved_chisq[ndevmask] = chisq[ndevmask, 1, 1]
                 mids[ndevmask] = 4
 
-
         if self._level == 2:
             # For which did Comp beat EXP and DEV?
             compmask = (chisq[:, 2, 0] < chisq[:, 1, 0]) &\
-                       (chisq[:, 2, 0] < chisq[:, 1, 1]) 
-    
+                       (chisq[:, 2, 0] < chisq[:, 1, 1])
+
             if compmask.any():
                 solution_catalog[compmask] = tr_catalogs[compmask, 2, 0].copy()
                 solved_chisq[compmask] = chisq[compmask, 2, 0]
                 mids[compmask] = 5
-        
+
             # where better as EXP or DEV
             if (~compmask).any():
                 ch_exp = (chisq[:, 1, 0] < chisq[:, 1, 1]) & ~compmask
@@ -332,11 +312,10 @@ class Blob(Subimage):
         self.solved_chisq[~self._solved] = solved_chisq
         self.mids[~self._solved] = mids
 
-
     def optimize_tractor(self, tr=None):
 
         if tr is None:
-            tr = self.tr 
+            tr = self.tr
 
         tr.freezeParams('images')
         #tr.thawAllParams()
@@ -363,39 +342,29 @@ class Blob(Subimage):
 
         self.variance = []
         counter = 0
-        for i, src in enumerate(np.arange(self.n_sources)): 
+        for i, src in enumerate(np.arange(self.n_sources)):
             n_params = var_catalog[i].numberOfParams()
             myvar = var[counter: n_params + counter]
             # print(f'{i}) {var_catalog[i].name} has {n_params} params and {len(myvar)} variances: {myvar}')
             counter += n_params
             self.variance.append(myvar)
 
-        # print()
-        # print(f'STAGE {self.stage}')
-        # print(self.n_sources,f' Sources converged in {i} tries')
         expvar = np.sum([var_catalog[i].numberOfParams() for i in np.arange(len(var_catalog))])
         # print(f'I have {len(var)} variance parameters for {self.n_sources} sources. I expected {expvar}.')
         for i, mod in enumerate(var_catalog):
-            # print(f'{i}) {mod.getName()} Source has {mod.numberOfParams()} Parameters: {mod.getThawedParams()}')
-            # print(f'  {mod}')
-            # print(f'  {self.variance[i]}')
             totalchisq = np.sum((self.tr.getChiImage(0)[self.segmap == self.catalog[i]['sid']])**2)
-            # print(f'  CHISQ: {totalchisq}')
-            # print()
-        
 
         return True
-
 
     def aperture_phot(self, band, image_type=None, sub_background=False):
         # Allow user to enter image (i.e. image, residual, model...)
 
         if image_type not in ('image', 'model', 'residual'):
             raise TypeError("image_type must be 'image', 'model' or 'residual'")
-            return 
+            return
 
         idx = self._band2idx(band)
-        
+
         if image_type == 'image':
             image = self.images[idx]
 
@@ -412,17 +381,16 @@ class Blob(Subimage):
             var = None
             thresh = RES_THRESH * background.globalrms
             if not sub_background:
-                thresh += background.globalback 
-        
+                thresh += background.globalback
+
         else:
             thresh = RES_THRESH
             tweight = self.weights[idx].copy()
-            tweight[self.masks[idx]] = 0 # Well this isn't going to go well.
+            tweight[self.masks[idx]] = 0  # Well this isn't going to go well.
             var = 1. / tweight # TODO: WRITE TO UTILS
 
         if sub_background:
             image -= background.back()
-
 
         cat = self.solution_catalog
         xxyy = np.vstack([src.getPosition() for src in cat]).T
@@ -437,7 +405,6 @@ class Blob(Subimage):
         H,W = image.shape
         Iap = np.flatnonzero((apxy[0,:] >= 0)   * (apxy[1,:] >= 0) *
                             (apxy[0,:] <= W-1) * (apxy[1,:] <= H-1))
-        #print('Aperture photometry for', len(Iap), 'of', len(apxy), 'sources within image bounds')
 
         for i, rad in enumerate(apertures):
             aper = photutils.CircularAperture(apxy[:,Iap], rad)
@@ -472,14 +439,14 @@ class Blob(Subimage):
             var = None
             thresh = RES_THRESH * background.globalrms
             if not sub_background:
-                thresh += background.globalback 
-        
+                thresh += background.globalback
+
         else:
             thresh = RES_THRESH
 
         if sub_background:
             residual -= background.back()
-        
+
         kwargs = dict(var=var, minarea=RES_MINAREA, segmentation_map=True, deblend_nthresh=RES_DEBLEND_NTHRESH, deblend_cont=RES_DEBLEND_CONT)
         catalog, segmap = sep.extract(residual, thresh, **kwargs)
 
@@ -507,12 +474,12 @@ class Blob(Subimage):
         pass
 
     def forced_phot(self):
-        
+
         # print('Starting forced photometry')
         # Update the incoming models
         for i, model in enumerate(self.model_catalog):
-            model.brightness = Fluxes(**dict(zip(self.bands, model.brightness[0] * np.ones(self.n_bands))))   
-            model.freezeAllBut('brightness')     
+            model.brightness = Fluxes(**dict(zip(self.bands, model.brightness[0] * np.ones(self.n_bands))))
+            model.freezeAllBut('brightness')
 
         # Stash in Tractor
         self.tr = Tractor(self.timages, self.model_catalog)
@@ -542,7 +509,7 @@ class Blob(Subimage):
             row = np.argwhere(self.brick.catalog['sid'] == sid)[0][0]
             # print(f'STASHING {sid} IN ROW {row}')
             self.add_to_catalog(row, idx, src)
-        
+
         # self.brick.catalog.write(f'{self.brick.brick_id}_{self.blob_id}_cat.fits')
 
         return status
