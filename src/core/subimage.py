@@ -28,7 +28,8 @@ from astropy.wcs import WCS
 import sep
 from astropy.wcs.utils import proj_plane_pixel_scales
 
-from .config import *
+sys.path.insert(0, '../../config')
+import config as conf
 
 
 class Subimage():
@@ -67,7 +68,7 @@ class Subimage():
         """
         if value is None:
             self._wcs = None
-            self.pixel_scale = PIXEL_SCALE
+            self.pixel_scale = conf.PIXEL_SCALE
         elif isinstance(value, WCS):
             self._wcs = value
             self.pixel_scale = proj_plane_pixel_scales(self._wcs)[0] * 3600.
@@ -266,17 +267,18 @@ class Subimage():
         if (self.weights == 1).all():
             # No weight given - kinda
             var = None
-            thresh = THRESH * background.globalrms
+            thresh = conf.THRESH * background.globalrms
             if not sub_background:
                 thresh += background.globalback
 
         else:
-            thresh = THRESH
+            thresh = conf.THRESH
 
         if sub_background:
             image -= background.back()
 
-        kwargs = dict(var=var, minarea=MINAREA, segmentation_map=True, deblend_nthresh=DEBLEND_NTHRESH, deblend_cont=DEBLEND_CONT)
+        kwargs = dict(var=var, minarea=conf.MINAREA, segmentation_map=True, 
+                deblend_nthresh=conf.DEBLEND_NTHRESH, deblend_cont=conf.DEBLEND_CONT)
         catalog, segmap = sep.extract(image, thresh, **kwargs)
 
         if len(catalog) != 0:

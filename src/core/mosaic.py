@@ -31,7 +31,8 @@ from time import time
 from astropy.wcs import WCS
 
 from .subimage import Subimage
-from .config import *
+sys.path.insert(0, '../../config')
+import config as conf
 
 
 class Mosaic(Subimage):
@@ -40,13 +41,13 @@ class Mosaic(Subimage):
                 ):
 
         if detection:
-            self.path_image = os.path.join(IMAGE_DIR, DETECTION_FILENAME.replace('EXT', IMAGE_EXT))
-            self.path_weight = os.path.join(IMAGE_DIR, DETECTION_FILENAME.replace('EXT', WEIGHT_EXT))
-            self.path_mask = os.path.join(IMAGE_DIR, DETECTION_FILENAME.replace('EXT', MASK_EXT))
+            self.path_image = os.path.join(conf.IMAGE_DIR, conf.DETECTION_FILENAME.replace('EXT', conf.IMAGE_EXT))
+            self.path_weight = os.path.join(conf.IMAGE_DIR, conf.DETECTION_FILENAME.replace('EXT', conf.WEIGHT_EXT))
+            self.path_mask = os.path.join(conf.IMAGE_DIR, conf.DETECTION_FILENAME.replace('EXT', conf.MASK_EXT))
         else:
-            self.path_image = os.path.join(IMAGE_DIR, FORCED_FILENAME.replace('EXT', IMAGE_EXT).replace('BAND', band))
-            self.path_weight = os.path.join(IMAGE_DIR, FORCED_FILENAME.replace('EXT', WEIGHT_EXT).replace('BAND', band))
-            self.path_mask = os.path.join(IMAGE_DIR, FORCED_FILENAME.replace('EXT', MASK_EXT).replace('BAND', band))
+            self.path_image = os.path.join(conf.IMAGE_DIR, conf.FORCED_FILENAME.replace('EXT', conf.IMAGE_EXT).replace('BAND', band))
+            self.path_weight = os.path.join(conf.IMAGE_DIR, conf.FORCED_FILENAME.replace('EXT', conf.WEIGHT_EXT).replace('BAND', band))
+            self.path_mask = os.path.join(conf.IMAGE_DIR, conf.FORCED_FILENAME.replace('EXT', conf.MASK_EXT).replace('BAND', band))
 
         # open the files
         tstart = time()
@@ -92,15 +93,15 @@ class Mosaic(Subimage):
     def _make_psf(self, forced_psf=False):
 
         # Set filenames
-        psf_dir = PSF_DIR
-        psf_cat = os.path.join(PSF_DIR, f'{self.bands}_clean.ldac')
-        path_savexml = PSF_DIR
-        path_savechkimg = ','.join([os.path.join(PSF_DIR, ext) for ext in ('chi', 'proto', 'samp', 'resi', 'snap')])
-        path_savechkplt = ','.join([os.path.join(PSF_DIR, ext) for ext in ('fwhm', 'ellipticity', 'counts', 'countfrac', 'chi2', 'resi')])
-        path_segmap = os.path.join(IMAGE_DIR, f'{self.bands}_segmap')
+        psf_dir = conf.PSF_DIR
+        psf_cat = os.path.join(conf.PSF_DIR, f'{self.bands}_clean.ldac')
+        path_savexml = conf.PSF_DIR
+        path_savechkimg = ','.join([os.path.join(conf.PSF_DIR, ext) for ext in ('chi', 'proto', 'samp', 'resi', 'snap')])
+        path_savechkplt = ','.join([os.path.join(conf.PSF_DIR, ext) for ext in ('fwhm', 'ellipticity', 'counts', 'countfrac', 'chi2', 'resi')])
+        path_segmap = os.path.join(conf.IMAGE_DIR, f'{self.bands}_segmap')
 
         if forced_psf:
-            self.path_image = os.path.join(IMAGE_DIR, DETECTION_FILENAME.replace('EXT', IMAGE_EXT)) + f',{self.path_image}'
+            self.path_image = os.path.join(conf.IMAGE_DIR, conf.DETECTION_FILENAME.replace('EXT', conf.IMAGE_EXT)) + f',{self.path_image}'
 
         # run SEXTRACTOR in LDAC mode (either forced or not)(can this be done with sep?!)
         os.system(f'sextractor {self.path_image} -c config/config_psfex.sex -PARAMETERS_NAME config/param_psfex.sex -CATALOG_NAME {psf_cat} -CATALOG_TYPE FITS_LDAC -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME {path_segmap} -MAG_ZEROPOINT {self.mag_zeropoints}')
@@ -113,10 +114,10 @@ class Mosaic(Subimage):
             hdul_ldac = fits.open(psf_cat)
             tab_ldac = hdul_ldac['LDAC_OBJECTS'].data
 
-            mask_ldac = (tab_ldac['MAG_AUTO'] > DET_VAL_LIMITS[0]) &\
-                    (tab_ldac['MAG_AUTO'] < DET_VAL_LIMITS[1]) &\
-                    (tab_ldac['FLUX_RADIUS'] > DET_REFF_LIMITS[0]) &\
-                    (tab_ldac['FLUX_RADIUS'] < DET_REFF_LIMITS[1])
+            mask_ldac = (tab_ldac['MAG_AUTO'] > conf.DET_VAL_LIMITS[0]) &\
+                    (tab_ldac['MAG_AUTO'] < conf.DET_VAL_LIMITS[1]) &\
+                    (tab_ldac['FLUX_RADIUS'] > conf.DET_REFF_LIMITS[0]) &\
+                    (tab_ldac['FLUX_RADIUS'] < conf.DET_REFF_LIMITS[1])
 
             idx_exclude = np.arange(1, len(tab_ldac) + 1)[~mask_ldac]
 
@@ -146,15 +147,17 @@ class Mosaic(Subimage):
         
     
     def _make_brick(self, brick_id, overwrite=False, detection=False, 
-            brick_width=BRICK_WIDTH, brick_height=BRICK_HEIGHT, brick_buffer=BRICK_BUFFER):
+            brick_width=conf.BRICK_WIDTH, brick_height=conf.BRICK_HEIGHT, brick_buffer=conf.BRICK_BUFFER):
+
+        print(f'Making brick {brick_id}')
 
         if detection:
-            nickname = DETECTION_NICKNAME
+            nickname = conf.DETECTION_NICKNAME
         else:
-            nickname = MULTIBAND_NICKNAME
+            nickname = conf.MULTIBAND_NICKNAME
 
         save_fitsname = f'B{brick_id}_N{nickname}_W{brick_width}_H{brick_height}.fits'
-        path_fitsname = os.path.join(BRICK_DIR, save_fitsname)
+        path_fitsname = os.path.join(conf.BRICK_DIR, save_fitsname)
 
         if (not overwrite) & (not os.path.exists(path_fitsname)):
             raise ValueError(f'No existing file found for {path_fitsname}. Will not write new one.')
@@ -197,10 +200,10 @@ class Mosaic(Subimage):
         return np.array([x0, y0])
 
 
-    def n_xy_bricks(self, brick_width, brick_height):
+    def n_bricks(self, brick_width, brick_height):
         n_xbricks = self.dims[0] / brick_width
         n_ybricks = self.dims[1] / brick_height
-        return n_xbricks, n_ybricks
+        return n_xbricks * n_ybricks
 
 
 

@@ -17,6 +17,7 @@ None
 
 """
 
+import sys
 import numpy as np
 
 from astropy.table import Column
@@ -25,7 +26,8 @@ from scipy.ndimage import label, binary_dilation, binary_fill_holes
 from .utils import create_circular_mask
 from .subimage import Subimage
 from .blob import Blob
-from .config import *  # <- NO   import .config as conf ....
+sys.path.insert(0, '../../config')
+import config as conf
 
 
 class Brick(Subimage):
@@ -130,7 +132,7 @@ class Brick(Subimage):
             self.catalog.add_column(Column(filler, name=colname))
             self.catalog.add_column(Column(filler, name=colname+'_err'))
 
-    def dilate(self, radius=DILATION_RADIUS, fill_holes=True):
+    def dilate(self, radius=conf.DILATION_RADIUS, fill_holes=True):
         """TODO: docstring"""
         # Make binary
         segmask = self.segmap.copy()  # I don't see how we can get around this.

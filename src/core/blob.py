@@ -31,7 +31,8 @@ import sep
 
 from .subimage import Subimage
 from .utils import SimpleGalaxy
-from .config import *
+sys.path.insert(0, '../../config')
+import config as conf
 
 
 class Blob(Subimage):
@@ -42,7 +43,7 @@ class Blob(Subimage):
 
         blobmask = np.array(brick.blobmap == blob_id, bool)
         mask_frac = blobmask.sum() / blobmask.size
-        if (mask_frac > SPARSE_THRESH) & (blobmask.size > SPARSE_SIZE):
+        if (mask_frac > conf.SPARSE_THRESH) & (blobmask.size > conf.SPARSE_SIZE):
             print('Blob is rejected as mask is sparse - likely an artefact issue.')
             blob = None
 
@@ -61,7 +62,7 @@ class Blob(Subimage):
         h = yhi - ylo
 
         # Make cutout
-        blob_comps = brick._get_subimage(xlo, ylo, w, h, buffer=BLOB_BUFFER)
+        blob_comps = brick._get_subimage(xlo, ylo, w, h, buffer=conf.BLOB_BUFFER)
         # FIXME: too many return values
         self.images, self.weights, self.masks, self.psfmodels, self.bands, self.wcs, self.subvector, self.slicepix, self.slice = blob_comps
 
@@ -240,7 +241,7 @@ class Blob(Subimage):
 
         if self._level == 1:
             # For which are they nearly equally good?
-            movemask = (abs(chisq[:, 1, 0] - chisq[:, 1, 1]) < EXP_DEV_THRESH)
+            movemask = (abs(chisq[:, 1, 0] - chisq[:, 1, 1]) < conf.EXP_DEV_THRESH)
 
             # Has Exp beaten SG?
             expmask = (chisq[:, 1, 0] < chisq[:, 0, 1])
@@ -321,14 +322,14 @@ class Blob(Subimage):
         #tr.thawAllParams()
 
         start = time()
-        for i in range(TRACTOR_MAXSTEPS):
+        for i in range(conf.TRACTOR_MAXSTEPS):
             try:
                 dlnp, X, alpha, var = tr.optimize(variance=True)
             except:
                 print('FAILED')
                 return False
 
-            if dlnp < TRACTOR_CONTHRESH:
+            if dlnp < conf.TRACTOR_CONTHRESH:
                 break
 
         # print()
@@ -379,12 +380,12 @@ class Blob(Subimage):
         if (self.weights == 1).all():
             # No weight given - kinda
             var = None
-            thresh = RES_THRESH * background.globalrms
+            thresh = conf.RES_THRESH * background.globalrms
             if not sub_background:
                 thresh += background.globalback
 
         else:
-            thresh = RES_THRESH
+            thresh = conf.RES_THRESH
             tweight = self.weights[idx].copy()
             tweight[self.masks[idx]] = 0  # Well this isn't going to go well.
             var = 1. / tweight # TODO: WRITE TO UTILS
@@ -396,7 +397,7 @@ class Blob(Subimage):
         xxyy = np.vstack([src.getPosition() for src in cat]).T
         apxy = xxyy - 1.
 
-        apertures_arcsec = np.array(APER_PHOT)
+        apertures_arcsec = np.array(conf.APER_PHOT)
         apertures = apertures_arcsec / self.pixel_scale
 
         apflux = np.zeros((len(cat), len(apertures)), np.float32)
@@ -437,17 +438,17 @@ class Blob(Subimage):
         if (self.weights == 1).all():
             # No weight given - kinda
             var = None
-            thresh = RES_THRESH * background.globalrms
+            thresh = conf.RES_THRESH * background.globalrms
             if not sub_background:
                 thresh += background.globalback
 
         else:
-            thresh = RES_THRESH
+            thresh = conf.RES_THRESH
 
         if sub_background:
             residual -= background.back()
 
-        kwargs = dict(var=var, minarea=RES_MINAREA, segmentation_map=True, deblend_nthresh=RES_DEBLEND_NTHRESH, deblend_cont=RES_DEBLEND_CONT)
+        kwargs = dict(var=var, minarea=conf.RES_MINAREA, segmentation_map=True, deblend_nthresh=conf.RES_DEBLEND_NTHRESH, deblend_cont=conf.RES_DEBLEND_CONT)
         catalog, segmap = sep.extract(residual, thresh, **kwargs)
 
         if len(catalog) != 0:
@@ -509,8 +510,6 @@ class Blob(Subimage):
             row = np.argwhere(self.brick.catalog['sid'] == sid)[0][0]
             # print(f'STASHING {sid} IN ROW {row}')
             self.add_to_catalog(row, idx, src)
-
-        # self.brick.catalog.write(f'{self.brick.brick_id}_{self.blob_id}_cat.fits')
 
         return status
 
