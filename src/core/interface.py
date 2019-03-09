@@ -25,7 +25,7 @@ from functools import partial
 from astropy.io import fits
 from astropy.wcs import WCS
 import numpy as np
-import pathos.multiprocessing as mp 
+import multiprocessing as mp 
 from functools import partial
 
 from .brick import Brick
@@ -35,7 +35,7 @@ sys.path.insert(0, '../../config')
 import config as conf
 
 def makebricks():
-    
+
     # Detection
     detmosaic = Mosaic(conf.DETECTION_NICKNAME, detection=True)
     detmosaic._make_psf()
