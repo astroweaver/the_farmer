@@ -181,7 +181,6 @@ class Mosaic(Subimage):
         if overwrite:
             hdu_prim = fits.PrimaryHDU()
             hdul_new = fits.HDUList([hdu_prim, hdu_image, hdu_weight, hdu_mask])
-            print(hdul_new.info())
             hdul_new.writeto(path_fitsname)
         else:
         # otherwise add to it

@@ -24,7 +24,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import ascii, fits
 from astropy.table import Table, Column
-from tractor import *
+from tractor import NCircularGaussianPSF, PixelizedPSF, Image, Tractor, LinearPhotoCal, NullWCS, ConstantSky, GalaxyShape, Fluxes, Pointsource, ExpGalaxy, DevGalaxy, FixedCompositeGalaxy, SoftenedFracDev, PixPos
 from time import time
 import photutils
 import sep
@@ -140,7 +140,7 @@ class Blob(Subimage):
             elif mid == 4:
                 self.model_catalog[i] = DevGalaxy(position, flux, shape)
             elif mid == 5:
-                self.model_catalog[i] = galaxy.FixedCompositeGalaxy(
+                self.model_catalog[i] = FixedCompositeGalaxy(
                                                 position, flux,
                                                 SoftenedFracDev(0.5),
                                                 shape, shape)
