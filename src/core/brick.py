@@ -26,7 +26,6 @@ from scipy.ndimage import label, binary_dilation, binary_fill_holes
 from .utils import create_circular_mask
 from .subimage import Subimage
 from .blob import Blob
-sys.path.insert(0, '../../config')
 import config as conf
 
 

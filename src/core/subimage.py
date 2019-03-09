@@ -28,7 +28,6 @@ from astropy.wcs import WCS
 import sep
 from astropy.wcs.utils import proj_plane_pixel_scales
 
-sys.path.insert(0, '../../config')
 import config as conf
 
 

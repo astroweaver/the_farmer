@@ -31,7 +31,6 @@ from time import time
 from astropy.wcs import WCS
 
 from .subimage import Subimage
-sys.path.insert(0, '../../config')
 import config as conf
 
 

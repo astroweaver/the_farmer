@@ -17,10 +17,12 @@ None
 
 """
 
+
 import os
 import sys
 from time import time
 from functools import partial
+sys.path.insert(0, '/Users/jweaver/Projects/Current/tractor_photometry/config')
 
 from astropy.io import fits
 from astropy.wcs import WCS
@@ -31,7 +33,6 @@ from functools import partial
 from .brick import Brick
 from .mosaic import Mosaic
 
-sys.path.insert(0, '../../config')
 import config as conf
 
 def makebricks():
@@ -91,8 +92,7 @@ def tractor(brick_id): # need to add overwrite args!
 
     # Create and update multiband brick
     tstart = time()
-    kwargs = stage_brickfiles(brick_id, detection=False)
-    fbrick = Brick(kwargs)
+    fbrick = stage_brickfiles(brick_id, detection=False)
     fbrick.blobmap = detbrick.blobmap
     fbrick.segmap = detbrick.segmap
     fbrick.catalog = detbrick.catalog
@@ -173,4 +173,11 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', detection=False):
                 weights[i] = hdul_brick[f"{tband}_{conf.WEIGHT_EXT}"].data
                 masks[i] = hdul_brick[f"{tband}_{conf.MASK_EXT}"].data
 
-    return dict(images=images, weights=weights, masks=masks, psfmodels=None, wcs=wcs, bands=np.array(sbands))
+    psfmodels = np.zeros((len(sbands), 101, 101))
+    for i, band in enumerate(sbands):
+        path_psffile = os.path.join(conf.PSF_DIR, f'snap_{band}.fits')
+        if os.path.exists(path_psffile):
+            with fits.open(path_psffile) as hdul:
+                psfmodels[i] = hdul[0].data
+
+    return dict(images=images, weights=weights, masks=masks, psfmodels=psfmodels, wcs=wcs, bands=np.array(sbands))

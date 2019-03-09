@@ -31,7 +31,6 @@ import sep
 
 from .subimage import Subimage
 from .utils import SimpleGalaxy
-sys.path.insert(0, '../../config')
 import config as conf
 
 
