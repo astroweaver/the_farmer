@@ -13,11 +13,11 @@ MULTIBAND_FILENAME = 'mosaic_BAND.EXT.fits' # fill with 'BAND' and 'EXT'
 BANDS = ['hsc_i', 'hsc_z']
 
 IMAGE_EXT = 'img'
-WEIGHT_EXT = 'wht'
+WEIGHT_EXT = 'wgt'
 MASK_EXT = 'mask'
 
 VERBOSE = True # NOT IN USE
-NTHREADS = 6
+NTHREADS = 0
 
 # SOURCE DETECTION WITH SEXTRACTOR
 BW = 3

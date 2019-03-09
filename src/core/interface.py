@@ -22,12 +22,12 @@ import os
 import sys
 from time import time
 from functools import partial
-sys.path.insert(0, '/Users/jweaver/Projects/Current/tractor_photometry/config')
+sys.path.insert(0, os.path.join(os.getcwd(), 'config'))
 
 from astropy.io import fits
 from astropy.wcs import WCS
 import numpy as np
-import multiprocessing as mp 
+import pathos.multiprocessing as mp 
 from functools import partial
 
 from .brick import Brick
@@ -35,36 +35,48 @@ from .mosaic import Mosaic
 
 import config as conf
 
-def makebricks():
+def makebricks(multiband_only=False, single_band=None):
 
-    # Detection
-    detmosaic = Mosaic(conf.DETECTION_NICKNAME, detection=True)
-    detmosaic._make_psf()
+    if not multiband_only:
+        # Detection
+        if conf.VERBOSE: print('Making mosaic for detection')
+        detmosaic = Mosaic(conf.DETECTION_NICKNAME, detection=True)
+        #detmosaic._make_psf()
 
-    if conf.NTHREADS > 0:
-        pool = mp.ProcessingPool(processes=conf.NTHREADS)
-        pool.map(partial(detmosaic._make_brick, detection=True, overwrite=True), np.arange(220, 650+1))
+        if conf.NTHREADS > 0:
+            if conf.VERBOSE: print('Making bricks for detection (in parallel)')
+            pool = mp.ProcessingPool(processes=conf.NTHREADS)
+            pool.map(partial(detmosaic._make_brick, detection=True, overwrite=True), np.arange(0, detmosaic.n_bricks()))
 
-    else:
-        for brick_id in np.arange(1, detmosaic.n_bricks()):
-            detmosaic._make_brick(brick_id, detection=True, overwrite=True)
+        else:
+            if conf.VERBOSE: print('Making bricks for detection (in serial)')
+            for brick_id in np.arange(1, detmosaic.n_bricks()):
+                detmosaic._make_brick(brick_id, detection=True, overwrite=True)
 
 
     # Bands
-    for i, band in enumerate(conf.BANDS):
+    if single_band is not None:
+        sbands = [single_band,]
+    else:
+        sbands = conf.BANDS
+
+    for i, band in enumerate(sbands):
 
         overwrite = True
-        if i > 1:
+        if i > 0:
             overwrite = False
 
+        if conf.VERBOSE: print(f'Making mosaic for band {band}')
         bandmosaic = Mosaic(band)
-        bandmosaic._make_psf(forced_psf=True)
+        #bandmosaic._make_psf(forced_psf=True)
 
         if conf.NTHREADS > 0:
+            if conf.VERBOSE: print(f'Making bricks for band {band} (in parallel)')
             pool = mp.ProcessingPool(processes=conf.NTHREADS)
-            pool.map(partial(bandmosaic._make_brick, detection=False, overwrite=overwrite), np.arange(220, 650+1))
+            pool.map(partial(bandmosaic._make_brick, detection=False, overwrite=overwrite), np.arange(0, detmosaic.n_bricks()))
 
         else:
+            if conf.VERBOSE: print(f'Making bricks for band {band} (in serial)')
             for brick_id in np.arange(1, bandmosaic.n_bricks()):
                 bandmosaic._make_brick(brick_id, detection=False, overwrite=overwrite)
 
@@ -75,15 +87,19 @@ def tractor(brick_id): # need to add overwrite args!
 
     # Create detection brick
     tstart = time()
-    kwargs = stage_brickfiles(brick_id, detection=True)
+    kwargs = _stage_brickfiles(brick_id, nickname=conf.DETECTION_NICKNAME, detection=True)
     detbrick = Brick(**kwargs)
 
     if conf.VERBOSE: print(f'Detection brick #{brick_id} created ({time() - tstart:3.3f}s)')
 
     # Sextract sources
     tstart = time()
-    detbrick.sextract(conf.DETECTION_NICKNAME)
-    if conf.VERBOSE: print(f'Detection brick #{brick_id} sextracted {detbrick.n_sources} objects ({time() - tstart:3.3f}s)')
+    try:
+        detbrick.sextract(conf.DETECTION_NICKNAME)
+        if conf.VERBOSE: print(f'Detection brick #{brick_id} sextracted {detbrick.n_sources} objects ({time() - tstart:3.3f}s)')
+    except:
+        if conf.VERBOSE: print(f'Detection brick #{brick_id} sextraction FAILED. ({time() - tstart:3.3f}s)')
+        return
 
     # Cleanup
     tstart = time()
@@ -92,7 +108,7 @@ def tractor(brick_id): # need to add overwrite args!
 
     # Create and update multiband brick
     tstart = time()
-    fbrick = stage_brickfiles(brick_id, detection=False)
+    fbrick = _stage_brickfiles(brick_id, nickname=conf.MULTIBAND_NICKNAME, detection=False)
     fbrick.blobmap = detbrick.blobmap
     fbrick.segmap = detbrick.segmap
     fbrick.catalog = detbrick.catalog
@@ -103,12 +119,12 @@ def tractor(brick_id): # need to add overwrite args!
 
     if conf.NTHREADS > 0:
         pool = mp.ProcessingPool(processes=conf.NTHREADS)
-        rows = pool.map(partial(runblob, detbrick=detbrick, fbrick=fbrick), np.arange(1, detbrick.n_blobs))
+        rows = pool.map(partial(_runblob, detbrick=detbrick, fbrick=fbrick), np.arange(1, detbrick.n_blobs))
     else:
-        [runblob(blob_id, detbrick, fbrick) for blob_id in np.arange(1, detbrick.n_blobs)]
+        [_runblob(blob_id, detbrick, fbrick) for blob_id in np.arange(1, detbrick.n_blobs)]
 
 
-def runblob(blob_id, detbrick, fbrick):
+def _runblob(blob_id, detbrick, fbrick):
     print()
     print(f'Starting on Blob #{blob_id}')
     tstart = time()
@@ -144,7 +160,7 @@ def runblob(blob_id, detbrick, fbrick):
     print(f'Solution for {myblob.n_sources} sources arrived at in {duration}s ({duration/myblob.n_sources:2.2f}s per src)')
 
 
-def stage_brickfiles(brick_id, nickname='MISCBRICK', detection=False):
+def _stage_brickfiles(brick_id, nickname='MISCBRICK', detection=False):
     # Wraps Brick with a single parameter call
     # THIS ASSUMES YOU HAVE IMG, WGT, and MSK FOR ALL BANDS!
 
@@ -169,9 +185,11 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', detection=False):
 
             # Stuff data into arrays
             for i, tband in enumerate(sbands):
-                images[i] = hdul_brick[f"{tband}_{conf.IMAGE_EXT}"].data
-                weights[i] = hdul_brick[f"{tband}_{conf.WEIGHT_EXT}"].data
-                masks[i] = hdul_brick[f"{tband}_{conf.MASK_EXT}"].data
+                images[i] = hdul_brick[f"{tband}_{conf.IMAGE_EXT.upper()}"].data
+                weights[i] = hdul_brick[f"{tband}_{conf.WEIGHT_EXT.upper()}"].data
+                masks[i] = hdul_brick[f"{tband}_{conf.MASK_EXT.upper()}"].data
+    else:
+        raise ValueError(f'Brick file not found for {path_brickfile}')
 
     psfmodels = np.zeros((len(sbands), 101, 101))
     for i, band in enumerate(sbands):

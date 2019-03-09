@@ -44,9 +44,9 @@ class Mosaic(Subimage):
             self.path_weight = os.path.join(conf.IMAGE_DIR, conf.DETECTION_FILENAME.replace('EXT', conf.WEIGHT_EXT))
             self.path_mask = os.path.join(conf.IMAGE_DIR, conf.DETECTION_FILENAME.replace('EXT', conf.MASK_EXT))
         else:
-            self.path_image = os.path.join(conf.IMAGE_DIR, conf.FORCED_FILENAME.replace('EXT', conf.IMAGE_EXT).replace('BAND', band))
-            self.path_weight = os.path.join(conf.IMAGE_DIR, conf.FORCED_FILENAME.replace('EXT', conf.WEIGHT_EXT).replace('BAND', band))
-            self.path_mask = os.path.join(conf.IMAGE_DIR, conf.FORCED_FILENAME.replace('EXT', conf.MASK_EXT).replace('BAND', band))
+            self.path_image = os.path.join(conf.IMAGE_DIR, conf.MULTIBAND_FILENAME.replace('EXT', conf.IMAGE_EXT).replace('BAND', band))
+            self.path_weight = os.path.join(conf.IMAGE_DIR, conf.MULTIBAND_FILENAME.replace('EXT', conf.WEIGHT_EXT).replace('BAND', band))
+            self.path_mask = os.path.join(conf.IMAGE_DIR, conf.MULTIBAND_FILENAME.replace('EXT', conf.MASK_EXT).replace('BAND', band))
 
         # open the files
         tstart = time()
@@ -173,9 +173,9 @@ class Mosaic(Subimage):
         # Make hdus
         head_image = self.master_head.copy()
         head_image.update(subwcs.to_header())
-        hdu_image = fits.ImageHDU(subimage, head_image, f'{sbands}_SCI')
-        hdu_weight = fits.ImageHDU(subweight, head_image, f'{sbands}_WEIGHT')
-        hdu_mask = fits.ImageHDU(submask.astype(int), head_image, f'{sbands}_MASK')
+        hdu_image = fits.ImageHDU(subimage, head_image, f'{sbands}_{conf.IMAGE_EXT}')
+        hdu_weight = fits.ImageHDU(subweight, head_image, f'{sbands}_{conf.WEIGHT_EXT}')
+        hdu_mask = fits.ImageHDU(submask.astype(int), head_image, f'{sbands}_{conf.MASK_EXT}')
         
         # if overwrite, make it
         if overwrite:
@@ -192,17 +192,17 @@ class Mosaic(Subimage):
             exist_hdul.flush()
             exist_hdul.close()
 
-    def _get_origin(self, brick_id, brick_width, brick_height):
-        x0 = (((brick_id - 1) * brick_width) % self.dims[0])
+    def _get_origin(self, brick_id, brick_width=conf.BRICK_WIDTH, brick_height=conf.BRICK_HEIGHT):
+        x0 = int(((brick_id - 1) * brick_width) % self.dims[0])
         y0 = int(((brick_id - 1) * brick_height) / self.dims[1]) * brick_height
         print(f'ORIGIN for BRICK #{brick_id} of {brick_width}x{brick_height} is ({x0},{y0})')
         return np.array([x0, y0])
 
 
-    def n_bricks(self, brick_width, brick_height):
+    def n_bricks(self, brick_width=conf.BRICK_WIDTH, brick_height=conf.BRICK_HEIGHT):
         n_xbricks = self.dims[0] / brick_width
         n_ybricks = self.dims[1] / brick_height
-        return n_xbricks * n_ybricks
+        return int(n_xbricks * n_ybricks)
 
 
 

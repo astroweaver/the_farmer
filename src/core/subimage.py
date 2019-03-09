@@ -109,7 +109,7 @@ class Subimage():
         if (self.shape[1] * self.shape[2]) < 1E8:
             self.backgrounds = np.zeros(self.n_bands, dtype=object)
             for i, img in enumerate(self._images):
-                self.backgrounds[i] = sep.Background(img, bw = BW, bh = BH)
+                self.backgrounds[i] = sep.Background(img, bw = conf.BW, bh = conf.BH)
         else:
             self.backgrounds = None
 
@@ -234,6 +234,7 @@ class Subimage():
         self.slicepos = tuple([slice(0, self.n_bands),] + self.slice)
         self.slicepix = (slice(0, self.n_bands), slice(leftpix, rightpix), slice(bottompix, toppix))
 
+        print(self.slicepix, self.slicepos)
         subimages[self.slicepix] = self.images[self.slicepos]
         subweights[self.slicepix] = self.weights[self.slicepos]
         submasks[self.slicepix]= self.masks[self.slicepos]
@@ -254,7 +255,7 @@ class Subimage():
         else:
             raise ValueError(f"{band} is not a valid band.")
 
-    def sextract(self, band, include_mask = True, sub_background = False):
+    def sextract(self, band, include_mask=True, sub_background=False, force_segmap=None, use_mask=False):
         # perform sextractor on single band only (may expand for matched source phot)
         # Generate segmap and segmask
         idx = self._band2idx(band)
@@ -263,20 +264,28 @@ class Subimage():
         mask = self.masks[idx]
         background = self.backgrounds[idx]
 
+        # Supply a segmap to "match" detection
+        if force_segmap is not None:
+            var[force_segmap] = 0
+
         if (self.weights == 1).all():
             # No weight given - kinda
             var = None
             thresh = conf.THRESH * background.globalrms
             if not sub_background:
                 thresh += background.globalback
-
         else:
             thresh = conf.THRESH
+
+        if use_mask:
+            mask = mask
+        else:
+            mask = None
 
         if sub_background:
             image -= background.back()
 
-        kwargs = dict(var=var, minarea=conf.MINAREA, segmentation_map=True, 
+        kwargs = dict(var=var, mask=mask, minarea=conf.MINAREA, segmentation_map=True, 
                 deblend_nthresh=conf.DEBLEND_NTHRESH, deblend_cont=conf.DEBLEND_CONT)
         catalog, segmap = sep.extract(image, thresh, **kwargs)
 

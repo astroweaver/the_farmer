@@ -39,7 +39,7 @@ class Brick(Subimage):
                  psfmodels=None,
                  wcs=None,
                  bands=None,
-                 buffer=BRICK_BUFFER,
+                 buffer=conf.BRICK_BUFFER,
                  brick_id=-99):
         """TODO: docstring"""
 
