@@ -28,62 +28,77 @@ from astropy.io import fits
 from astropy.wcs import WCS
 import numpy as np
 import matplotlib.pyplot as plt
+import pathos.multiprocessing as mp   
+from functools import partial
 
 from core.brick import Brick, Subimage
 from time import time
 
 
-def tractor(): # need to add overwrite args!
+def tractor(brick_id): # need to add overwrite args!
+
+    # Send out list of bricks to each node to call this function!
 
     # Create detection brick
     tstart = time()
-    mysub = Brick(images=detimg, weights=detwgt, psfmodels=psfmodel, bands=np.array(['hsc i',]), wcs=mywcs)
-    print(time() - tstart)
+    kwargs = stage_brickfiles(brick_id, detection=True)
+    detbrick = Brick(**kwargs)
+    if VERBOSE: print(f'Detection brick #{brick_id} created ({time() - tstart:3.3f}s)')
 
-
+    # Sextract sources
     tstart = time()
-    mysub.sextract('hsc i')
-
-    print(time() - tstart)
-
+    detbrick.sextract(DETECTION_NICKNAME)
+    if VERBOSE: print(f'Detection brick #{brick_id} sextracted {detbrick.n_sources} objects ({time() - tstart:3.3f}s)')
+    
+    # Cleanup
     tstart = time()
-    mysub.cleanup()
-    print(time() - tstart)
+    detbrick.cleanup()
+    if VERBOSE: print(f'Detection brick #{brick_id} cleaned with {detbrick.n_sources} remaining ({time() - tstart:3.3f}s)')
 
+    # Create and update multiband brick
+    tstart = time()
+    kwargs = stage_brickfiles(brick_id, detection=False)
+    fbrick = Brick(kwargs)
+    fbrick.blobmap = detbrick.blobmap
+    fbrick.segmap = detbrick.segmap
+    fbrick.catalog = detbrick.catalog
+    fbrick.add_columns()
+    fbrick.catalog
+    if VERBOSE: print(f'Multiband brick #{brick_id} created ({time() - tstart:3.3f}s)')
 
-    mybrick = Brick(images=rawimgs, weights=rawwgts, psfmodels=psfmodels, bands=np.array(['hsc i', 'hsc z',]), wcs=mywcs)
-    mybrick.blobmap = mysub.blobmap
-    mybrick.segmap = mysub.segmap
-    mybrick.catalog = mysub.catalog
-    mybrick.add_columns()
-    mybrick.catalog
+    if NTHREADS > 0:
+        pool = mp.ProcessingPool(processes=NTHREADS)
+        rows = pool.map(partial(runblob, detbrick=detbrick, fbrick=fbrick), np.arange(1, detbrick.n_blobs))
+    else:
+        [runblob(blob_id, detbrick, fbrick) for blob_id in np.arange(1, detbrick.n_blobs)]
 
-  print()
+    
+def runblob(blob_id, detbrick, fbrick):
+    print()
     print(f'Starting on Blob #{blob_id}')
     tstart = time()
     
     # Make blob with detection image
-    myblob = mysub.make_blob(blob_id)
+    myblob = detbrick.make_blob(blob_id)
     if myblob is None:
         print('BLOB REJECTED!')
         return
+    
+    # Run models
     myblob.stage_images()
-#     print('Starting Model')
-    plt.imshow(myblob.images[0])
     status = myblob.tractor_phot()
 
     if not status:
         return
     
     # make new blob with band information
-    myfblob = mybrick.make_blob(blob_id)
+    myfblob = fbrick.make_blob(blob_id)
     myfblob.model_catalog = myblob.solution_catalog
     myfblob.position_variance = myblob.position_variance
     myfblob.parameter_variance = myblob.parameter_variance
 
+    # Forced phot
     myfblob.stage_images()
-    
-#     print('Starting Forced Phot')
     status = myfblob.forced_phot()
     
     # Run follow-up phot
@@ -94,15 +109,20 @@ def tractor(): # need to add overwrite args!
     print(f'Solution for {myblob.n_sources} sources arrived at in {duration}s ({duration/myblob.n_sources:2.2f}s per src)')
 
 
-def stage_brickfiles(brick_id, nickname='MISCBRICK'):
+def stage_brickfiles(brick_id, nickname='MISCBRICK', detection=False):
     # Wraps Brick with a single parameter call
     # THIS ASSUMES YOU HAVE IMG, WGT, and MSK FOR ALL BANDS!
 
     path_brickfile = os.path.join(BRICK_DIR, f'B{brick_id}_N{nickname}_W{BRICK_WIDTH}_H{BRICK_HEIGHT}.fits')
 
+    if detection:
+        sbands = [nickname,]
+    else:
+        sbands = BANDS
+
     if os.path.exists(path_brickfile):
         # Stage things
-        images = np.zeros((len(BANDS), BRICK_WIDTH + 2 * BRICK_BUFFER, BRICK_HEIGHT + 2 * BRICK_BUFFER))
+        images = np.zeros((len(sbands), BRICK_WIDTH + 2 * BRICK_BUFFER, BRICK_HEIGHT + 2 * BRICK_BUFFER))
         weights = np.zeros_like(images)
         masks = np.zeros_like(images, dtype=bool)
         
@@ -113,9 +133,9 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK'):
             wcs = WCS(hdul_brick[0].header)
 
             # Stuff data into arrays
-            for i, tband in enumerate(BANDS):
-                images[i] = hdul_brick[f"{BAND}_{IMAGE_EXT}"].data
-                weights[i] = hdul_brick[f"{BAND}_{WEIGHT_EXT}"].data
-                masks[i] = hdul_brick[f"{BAND}_{MASK_EXT}"].data
+            for i, tband in enumerate(sbands):
+                images[i] = hdul_brick[f"{tband}_{IMAGE_EXT}"].data
+                weights[i] = hdul_brick[f"{tband}_{WEIGHT_EXT}"].data
+                masks[i] = hdul_brick[f"{tband}_{MASK_EXT}"].data
 
-    return dict(images=images, weights=weights, masks=masks, psfmodels=None, wcs=wcs, bands=BANDS)
+    return dict(images=images, weights=weights, masks=masks, psfmodels=None, wcs=wcs, bands=np.array(sbands))

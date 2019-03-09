@@ -57,7 +57,7 @@ class Mosaic(Subimage):
                 self.wcs = WCS(self.master_head)
         else:
             raise ValueError(f'No image found at {self.path_image}')
-        print(f'Added image in {time()-tstart}s.')
+        print(f'Added image in {time()-tstart:3.3f}s.')
 
         tstart = time()
         if os.path.exists(self.path_weight):
@@ -65,7 +65,7 @@ class Mosaic(Subimage):
                 self.weights = hdu_weight['PRIMARY'].data
         else:
             self.weights = None
-        print(f'Added weight in {time()-tstart}s.')
+        print(f'Added weight in {time()-tstart:3.3f}s.')
 
 
         tstart = time()
@@ -74,7 +74,7 @@ class Mosaic(Subimage):
                 self.masks = hdu_mask['PRIMARY'].data
         else:
             self.masks = None    
-        print(f'Added mask in {time()-tstart}s.')
+        print(f'Added mask in {time()-tstart:3.3f}s.')
 
         self.psfmodels = psfmodel
         self.bands = band
@@ -103,7 +103,7 @@ class Mosaic(Subimage):
             self.path_image = os.path.join(IMAGE_DIR, DETECTION_FILENAME.replace('EXT', IMAGE_EXT)) + f',{self.path_image}'
 
         # run SEXTRACTOR in LDAC mode (either forced or not)(can this be done with sep?!)
-        os.system(f'sextractor {self.path_image} -c config/config_psfex.sex -PARAMETERS_NAME config/param_psfex.sex -CATALOG_NAME {psf_cat} -CATALOG_TYPE FITS_LDAC -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME {path_segmap} -MAG_ZEROPOINT {self.mag_zeropoint}')
+        os.system(f'sextractor {self.path_image} -c config/config_psfex.sex -PARAMETERS_NAME config/param_psfex.sex -CATALOG_NAME {psf_cat} -CATALOG_TYPE FITS_LDAC -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME {path_segmap} -MAG_ZEROPOINT {self.mag_zeropoints}')
 
         # if not forced, then the cleaned segmap should be saved as the weight for the dual mode!
 
@@ -145,8 +145,14 @@ class Mosaic(Subimage):
         os.system(f'psfex {psf_cat} -c config/config.psfex -BASIS_TYPE PIXEL -PSF_SIZE 101,101 -PSF_DIR {psf_dir} -WRITE_XML Y -XML_NAME {path_savexml} -CHECKIMAGE_NAME {path_savechkimg} -CHECKPLOT_NAME {path_savechkplt}')
         
     
-    def _make_brick(self, brick_id, overwrite=False, nickname='MISCBRICK', 
+    def _make_brick(self, brick_id, overwrite=False, detection=False, 
             brick_width=BRICK_WIDTH, brick_height=BRICK_HEIGHT, brick_buffer=BRICK_BUFFER):
+
+        if detection:
+            nickname = DETECTION_NICKNAME
+        else:
+            nickname = MULTIBAND_NICKNAME
+
         save_fitsname = f'B{brick_id}_N{nickname}_W{brick_width}_H{brick_height}.fits'
         path_fitsname = os.path.join(BRICK_DIR, save_fitsname)
 
@@ -156,13 +162,18 @@ class Mosaic(Subimage):
         x0, y0 = self._get_origin(brick_id, brick_width, brick_height)
         subinfo = self._get_subimage(x0, y0, brick_width, brick_height, brick_buffer)
         subimage, subweight, submask, psfmodel, band, subwcs, subvector, slicepix, subslice = subinfo
+
+        if detection:
+            sbands = nickname
+        else:
+            sbands = self.bands
         
         # Make hdus
         head_image = self.master_head.copy()
         head_image.update(subwcs.to_header())
-        hdu_image = fits.ImageHDU(subimage, head_image, f'{self.bands}_SCI')
-        hdu_weight = fits.ImageHDU(subweight, head_image, f'{self.bands}_WEIGHT')
-        hdu_mask = fits.ImageHDU(submask.astype(int), head_image, f'{self.bands}_MASK')
+        hdu_image = fits.ImageHDU(subimage, head_image, f'{sbands}_SCI')
+        hdu_weight = fits.ImageHDU(subweight, head_image, f'{sbands}_WEIGHT')
+        hdu_mask = fits.ImageHDU(submask.astype(int), head_image, f'{sbands}_MASK')
         
         # if overwrite, make it
         if overwrite:

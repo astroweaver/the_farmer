@@ -6,8 +6,10 @@ CATALOG_DIR = '/Volumes/WD4/Current/tractor_pipeline/data/catalogs'
 INTERIM_DIR = '/Volumes/WD4/Current/tractor_pipeline/data/interim'
 BRICK_DIR = '/Volumes/WD4/Current/tractor_pipeline/data/bricks'
 
+DETECTION_NICKNAME = 'DETECTION'
 DETECTION_FILENAME = 'mosaic_hsc_i.EXT.fits' # fill with 'EXT'
-FORCED_FILENAME = 'mosaic_BAND.EXT.fits' # fill with 'BAND' and 'EXT'
+MULTIBAND_NICKNAME = 'MULTIBAND'
+MULTIBAND_FILENAME = 'mosaic_BAND.EXT.fits' # fill with 'BAND' and 'EXT'
 BANDS = ['hsc_i', 'hsc_z']
 
 IMAGE_EXT = 'img'
@@ -15,6 +17,7 @@ WEIGHT_EXT = 'wht'
 MASK_EXT = 'mask'
 
 VERBOSE = True # NOT IN USE
+NTHREADS = 6
 
 # SOURCE DETECTION WITH SEXTRACTOR
 BW = 3
