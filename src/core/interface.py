@@ -42,7 +42,7 @@ def makebricks(multiband_only=False, single_band=None):
         # Detection
         if conf.VERBOSE: print('Making mosaic for detection')
         detmosaic = Mosaic(conf.DETECTION_NICKNAME, detection=True)
-        #detmosaic._make_psf()
+        detmosaic._make_psf()
 
         if conf.NTHREADS > 0:
             if conf.VERBOSE: print('Making bricks for detection (in parallel)')
@@ -69,7 +69,7 @@ def makebricks(multiband_only=False, single_band=None):
 
         if conf.VERBOSE: print(f'Making mosaic for band {band}')
         bandmosaic = Mosaic(band)
-        #bandmosaic._make_psf(forced_psf=True)
+        bandmosaic._make_psf(forced_psf=True)
 
         if conf.NTHREADS > 0:
             if conf.VERBOSE: print(f'Making bricks for band {band} (in parallel)')
@@ -88,7 +88,7 @@ def tractor(brick_id): # need to add overwrite args!
 
     # Create detection brick
     tstart = time()
-    detbrick = _stage_brickfiles(brick_id, nickname=conf.DETECTION_NICKNAME, detection=True)
+    detbrick = stage_brickfiles(brick_id, nickname=conf.DETECTION_NICKNAME, detection=True)
 
     if conf.VERBOSE: print(f'Detection brick #{brick_id} created ({time() - tstart:3.3f}s)')
 
@@ -108,7 +108,7 @@ def tractor(brick_id): # need to add overwrite args!
 
     # Create and update multiband brick
     tstart = time()
-    fbrick = _stage_brickfiles(brick_id, nickname=conf.MULTIBAND_NICKNAME, detection=False)
+    fbrick = stage_brickfiles(brick_id, nickname=conf.MULTIBAND_NICKNAME, detection=False)
     fbrick.blobmap = detbrick.blobmap
     fbrick.segmap = detbrick.segmap
     fbrick.catalog = detbrick.catalog
@@ -119,12 +119,12 @@ def tractor(brick_id): # need to add overwrite args!
 
     if conf.NTHREADS > 0:
         pool = mp.ProcessingPool(processes=conf.NTHREADS)
-        rows = pool.map(partial(_runblob, detbrick=detbrick, fbrick=fbrick), np.arange(1, detbrick.n_blobs))
+        rows = pool.map(partial(runblob, detbrick=detbrick, fbrick=fbrick), np.arange(1, detbrick.n_blobs))
     else:
-        [_runblob(blob_id, detbrick, fbrick) for blob_id in np.arange(1, detbrick.n_blobs)]
+        [runblob(blob_id, detbrick, fbrick) for blob_id in np.arange(1, detbrick.n_blobs)]
 
 
-def _runblob(blob_id, detbrick, fbrick):
+def runblob(blob_id, detbrick, fbrick):
 
     #####################3
     print()
@@ -194,6 +194,8 @@ def _runblob(blob_id, detbrick, fbrick):
     ax[1].imshow(tweight)
     ax[2].imshow(myblob.masks[i])
     ###################
+
+
     status = myblob.tractor_phot()
 
     if not status:
@@ -217,7 +219,7 @@ def _runblob(blob_id, detbrick, fbrick):
     print(f'Solution for {myblob.n_sources} sources arrived at in {duration}s ({duration/myblob.n_sources:2.2f}s per src)')
 
 
-def _stage_brickfiles(brick_id, nickname='MISCBRICK', detection=False):
+def stage_brickfiles(brick_id, nickname='MISCBRICK', detection=False):
     # Wraps Brick with a single parameter call
     # THIS ASSUMES YOU HAVE IMG, WGT, and MSK FOR ALL BANDS!
 
@@ -266,4 +268,8 @@ def _stage_brickfiles(brick_id, nickname='MISCBRICK', detection=False):
 
     print('shape of images: ', np.shape(images))
     print(wcs)
+    print('THE SHAPE OF STUFF BEFORE FIX: ', np.shape(images))
+    if detection:
+        images, weights, masks = images[0], weights[0], masks[0]
+    print('FIX WAS APPLIED IF DETECTION, SHAPE IS NOW: ', np.shape(images))
     return Brick(images=images, weights=weights, masks=masks, psfmodels=psfmodels, wcs=wcs, bands=np.array(sbands))

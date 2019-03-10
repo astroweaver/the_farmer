@@ -325,11 +325,11 @@ class Blob(Subimage):
 
         start = time()
         for i in range(conf.TRACTOR_MAXSTEPS):
-            if True:
-            # try:
+            # if True:
+            try:
                 fig, ax = plt.subplots(ncols=3, figsize=(15,5))
-                ax[0].imshow(self.tr.getImage(0).getImage(), vmin=0, vmax=0.1)
-                ax[1].imshow(self.tr.getModelImage(0), vmin=0, vmax=0.1)
+                ax[0].imshow(self.tr.getImage(0).getImage(), vmin=0, vmax=3*self.backgrounds[0].globalrms)
+                ax[1].imshow(self.tr.getModelImage(0), vmin=0, vmax=3*self.backgrounds[0].globalrms)
                 ax[2].imshow(self.tr.getChiImage(0))
                 plt.pause(1)
 
@@ -341,13 +341,13 @@ class Blob(Subimage):
 
                 print(np.max(self.tr.getModelImage(0)))
                 fig, ax = plt.subplots(ncols=3, figsize=(15,5))
-                ax[0].imshow(self.images[0], vmin=0, vmax=0.1)
-                ax[1].imshow(self.tr.getModelImage(0), vmin=0, vmax=0.1)
+                ax[0].imshow(self.images[0], vmin=0, vmax=3*self.backgrounds[0].globalrms)
+                ax[1].imshow(self.tr.getModelImage(0), vmin=0, vmax=3*self.backgrounds[0].globalrms)
                 ax[2].imshow(self.tr.getChiImage(0))
                 plt.pause(1)
-            # except:
-            #     print('FAILED')
-            return False
+            except:
+                print('FAILED')
+                return False
 
             if dlnp < conf.TRACTOR_CONTHRESH:
                 break

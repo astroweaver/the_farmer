@@ -163,7 +163,7 @@ class Subimage():
             if ndim == 2:
                 self._masks = array[None, :, :]
 
-            if ndim == 3:
+            elif ndim == 3:
                 self._masks = array
 
             else:
@@ -243,6 +243,8 @@ class Subimage():
             subwcs = self.wcs.deepcopy()
             subwcs.wcs.crpix -= (left, bottom)
             subwcs.array_shape = subshape[1:]
+        else:
+            subwcs = None
 
         # FIXME: too many return values; maybe try a namedtuple? a class?
         return subimages, subweights, submasks, self.psfmodels, self.bands, subwcs, subvector, self.slicepix, self.slice

@@ -148,7 +148,7 @@ class Mosaic(Subimage):
     def _make_brick(self, brick_id, overwrite=False, detection=False, 
             brick_width=conf.BRICK_WIDTH, brick_height=conf.BRICK_HEIGHT, brick_buffer=conf.BRICK_BUFFER):
 
-        print(f'Making brick {brick_id}')
+        print(f'Making brick {brick_id}/{self.n_bricks()}')
 
         if detection:
             nickname = conf.DETECTION_NICKNAME
@@ -197,7 +197,6 @@ class Mosaic(Subimage):
     def _get_origin(self, brick_id, brick_width=conf.BRICK_WIDTH, brick_height=conf.BRICK_HEIGHT):
         x0 = int(((brick_id - 1) * brick_width) % self.dims[0])
         y0 = int(((brick_id - 1) * brick_height) / self.dims[1]) * brick_height
-        print(f'ORIGIN for BRICK #{brick_id} of {brick_width}x{brick_height} is ({x0},{y0})')
         return np.array([x0, y0])
 
 
