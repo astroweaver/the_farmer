@@ -337,6 +337,8 @@ class Blob(Subimage):
                 print(tr.getAllParams())
                 print(tr.getThawedParams())
                 print(tr.getFrozenParams())
+                print(tr.getImage(0).getImage())
+                print(tr.getCatalog())
                 dlnp, X, alpha, var = tr.optimize(variance=True)
 
                 print(np.max(self.tr.getModelImage(0)))

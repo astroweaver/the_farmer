@@ -265,6 +265,10 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', detection=False):
         if os.path.exists(path_psffile):
             with fits.open(path_psffile) as hdul:
                 psfmodels[i] = hdul[0].data
+        else:
+            raise ValueError(f'PSFmodel File not found under {path_psffile}')
+            psfmodels = None
+            break
 
     print('shape of images: ', np.shape(images))
     print(wcs)
