@@ -172,13 +172,6 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', detection=False):
     # Wraps Brick with a single parameter call
     # THIS ASSUMES YOU HAVE IMG, WGT, and MSK FOR ALL BANDS!
 
-    if nickname == 'MULTIBAND':
-        conf.IMAGE_EXT = 'img'
-        conf.WEIGHT_EXT = 'wgt'
-    else:
-        conf.IMAGE_EXT = 'sci'
-        conf.WEIGHT_EXT = 'weight'
-
     path_brickfile = os.path.join(conf.BRICK_DIR, f'B{brick_id}_N{nickname}_W{conf.BRICK_WIDTH}_H{conf.BRICK_HEIGHT}.fits')
 
     if detection:
