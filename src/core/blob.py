@@ -209,8 +209,8 @@ class Blob(Subimage):
         self.stage = 'Final Optimization'
         self.status = self.optimize_tractor()
 
-        self.solution_tractor = self.tr
         self.solution_catalog = self.tr.getCatalog()
+        self.solution_tractor = Tractor(self.timages, self.solution_catalog)
         self.parameter_variance = [self.variance[i][self.n_bands:] for i in np.arange(self.n_sources)]
         # print(f'PARAMETER VAR: {self.parameter_variance}')
 
@@ -350,10 +350,10 @@ class Blob(Subimage):
             counter += n_params
             self.variance.append(myvar)
 
-        expvar = np.sum([var_catalog[i].numberOfParams() for i in np.arange(len(var_catalog))])
-        # print(f'I have {len(var)} variance parameters for {self.n_sources} sources. I expected {expvar}.')
-        for i, mod in enumerate(var_catalog):
-            totalchisq = np.sum((self.tr.getChiImage(0)[self.segmap == self.catalog[i]['sid']])**2)
+        # expvar = np.sum([var_catalog[i].numberOfParams() for i in np.arange(len(var_catalog))])
+        # # print(f'I have {len(var)} variance parameters for {self.n_sources} sources. I expected {expvar}.')
+        # for i, mod in enumerate(var_catalog):
+        #     totalchisq = np.sum((self.tr.getChiImage(0)[self.segmap == self.catalog[i]['sid']])**2)
 
         return True
 
@@ -509,8 +509,8 @@ class Blob(Subimage):
                 #     totalchisq = 1E30
                 self.solution_chisq[i, j] = totalchisq
 
-        self.solution_tractor = self.tr
-        self.solution_catalog = self.solution_tractor.getCatalog()
+        self.solution_catalog = self.tr.getCatalog()
+        self.solution_tractor = Tractor(self.timages, self.solution_catalog)
 
         for idx, src in enumerate(self.solution_catalog):
             sid = self.catalog['sid'][idx]

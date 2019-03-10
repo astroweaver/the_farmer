@@ -111,7 +111,6 @@ def plot_blob(myblob, myfblob):
         mean, rms = back.globalback, back.globalrms
         noise = np.random.normal(mean, rms, size=myfblob.dims)
         tr = myfblob.solution_tractor
-        print(tr)
         
         img_opt = dict(cmap='Greys', vmin = mean, vmax = mean + 10 * rms)
         ax[i+1, 0].imshow(myfblob.images[i], **img_opt)
