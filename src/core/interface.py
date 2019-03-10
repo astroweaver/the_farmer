@@ -130,7 +130,10 @@ def tractor(brick_id, source_id=None): # need to add overwrite args!
         if conf.NTHREADS > 0:
             pool = mp.ProcessingPool(processes=conf.NTHREADS)
             #rows = pool.map(partial(runblob, detbrick=detbrick, fbrick=fbrick), np.arange(1, detbrick.n_blobs))
-            rows = pool.map(runblob, np.arange(1, detbrick.n_blobs+1))
+            detblobs = [detbrick.make_blob(i) for i in np.arange(1, detbrick.n_blobs+1)]
+            fblobs = [fbrick.make_blob(i) for i in np.arange(1, detbrick.n_blobs+1)]
+            #rows = pool.map(runblob, zip(detblobs, fblobs))
+            pool.map(runblob, zip(detblobs, fblobs))
         else:
             [runblob(blob_id, detbrick, fbrick) for blob_id in np.arange(1, detbrick.n_blobs+1)]
 
@@ -138,14 +141,15 @@ def tractor(brick_id, source_id=None): # need to add overwrite args!
     fbrick.catalog.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat'), format='fits')
 
 
-def runblob(blob_id, plotting=False):
+def runblob(blobs, plotting=False):
 
     if conf.VERBOSE: print()
     if conf.VERBOSE: print(f'Starting on Blob #{blob_id}')
     tstart = time()
 
     # Make blob with detection image    
-    myblob = detbrick.make_blob(blob_id)
+    #myblob = detbrick.make_blob(blob_id)
+    myblob = blobs[0]
     if myblob is None:
         if conf.VERBOSE: print('BLOB REJECTED!')
         return
@@ -159,7 +163,8 @@ def runblob(blob_id, plotting=False):
         return
 
     # make new blob with band information
-    myfblob = fbrick.make_blob(blob_id)
+    #myfblob = fbrick.make_blob(blob_id)
+    myfblob = blobs[1]
     myfblob.model_catalog = myblob.solution_catalog
     myfblob.position_variance = myblob.position_variance
     myfblob.parameter_variance = myblob.parameter_variance
@@ -168,8 +173,8 @@ def runblob(blob_id, plotting=False):
     myfblob.stage_images()
     status = myfblob.forced_phot()
 
-    if plotting:
-        plot_blob(myblob, myfblob)
+    # if plotting:
+    #     plot_blob(myblob, myfblob)
 
     # Run follow-up phot
     try:
