@@ -14,6 +14,7 @@ import os
 import numpy as np
 from tractor.galaxy import ExpGalaxy
 from tractor import EllipseE
+from tractor.galaxy import ExpGalaxy
 import matplotlib.pyplot as plt
 
 import config as conf
@@ -85,9 +86,9 @@ def plot_blob(myblob, myfblob):
     img_opt = dict(cmap='Greys', vmin = mean, vmax = mean + 10 * rms)
 
     ax[0, 0].imshow(myblob.images[0], **img_opt)
-    ax[0, 1].imshow(tr.getModelImage(0) + noise, **img_opt)
-    ax[0, 2].imshow(myblob.images[0] - tr.getModelImage(0), cmap='RdGy', vmin=-10*rms, vmax=10*rms)    
-    ax[0, 3].imshow(tr.getChiImage(0), cmap='RdGy', vmin = -7, vmax = 7)
+    ax[0, 1].imshow(myblob.solution_model_images[0] + noise, **img_opt)
+    ax[0, 2].imshow(myblob.images[0] - myblob.solution_model_images[0], cmap='RdGy', vmin=-10*rms, vmax=10*rms)    
+    ax[0, 3].imshow(myblob.solution_chi_images[0], cmap='RdGy', vmin = -7, vmax = 7)
     
     ax[0, 0].set_ylabel(f'Detection ({myblob.bands[0]})')
     ax[0, 0].set_title('Data')
@@ -114,9 +115,9 @@ def plot_blob(myblob, myfblob):
         
         img_opt = dict(cmap='Greys', vmin = mean, vmax = mean + 10 * rms)
         ax[i+1, 0].imshow(myfblob.images[i], **img_opt)
-        ax[i+1, 1].imshow(tr.getModelImage(i) + noise, **img_opt)
-        ax[i+1, 2].imshow(myfblob.images[i] - tr.getModelImage(i), cmap='RdGy', vmin=-10*rms, vmax=10*rms)  
-        ax[i+1, 3].imshow(tr.getChiImage(i), cmap='RdGy', vmin = -7, vmax = 7)
+        ax[i+1, 1].imshow(myfblob.solution_model_images[i] + noise, **img_opt)
+        ax[i+1, 2].imshow(myfblob.images[i] - myfblob.solution_model_images[i], cmap='RdGy', vmin=-10*rms, vmax=10*rms)    
+        ax[i+1, 3].imshow(myfblob.solution_chi_images[i], cmap='RdGy', vmin = -7, vmax = 7)
         
         ax[i+1, 0].set_ylabel(myfblob.bands[i])
         

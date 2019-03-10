@@ -47,9 +47,11 @@ def makebricks(multiband_only=False, single_band=None, skip_psf=False):
             detmosaic._make_psf()
 
         if conf.NTHREADS > 0:
-            if conf.VERBOSE: print('Making bricks for detection (in parallel)')
-            pool = mp.ProcessingPool(processes=conf.NTHREADS)
-            pool.map(partial(detmosaic._make_brick, detection=True, overwrite=True), np.arange(0, detmosaic.n_bricks()))
+            pass
+            # BUGGY DUE TO MEM ALLOC
+            # if conf.VERBOSE: print('Making bricks for detection (in parallel)')
+            # pool = mp.ProcessingPool(processes=conf.NTHREADS)
+            # pool.map(partial(detmosaic._make_brick, detection=True, overwrite=True), np.arange(0, detmosaic.n_bricks()))
 
         else:
             if conf.VERBOSE: print('Making bricks for detection (in serial)')

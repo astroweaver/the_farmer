@@ -211,6 +211,8 @@ class Blob(Subimage):
 
         self.solution_catalog = self.tr.getCatalog()
         self.solution_tractor = Tractor(self.timages, self.solution_catalog)
+        self.solution_model_images = np.array([self.tr.getModelImage(i) for i in np.arange(self.n_bands)])
+        self.solution_chi_images = np.array([self.tr.getChiImage(i) for i in np.arange(self.n_bands)])
         self.parameter_variance = [self.variance[i][self.n_bands:] for i in np.arange(self.n_sources)]
         # print(f'PARAMETER VAR: {self.parameter_variance}')
 
@@ -511,6 +513,8 @@ class Blob(Subimage):
 
         self.solution_catalog = self.tr.getCatalog()
         self.solution_tractor = Tractor(self.timages, self.solution_catalog)
+        self.solution_model_images = np.array([self.tr.getModelImage(i) for i in np.arange(self.n_bands)])
+        self.solution_chi_images = np.array([self.tr.getChiImage(i) for i in np.arange(self.n_bands)])
 
         for idx, src in enumerate(self.solution_catalog):
             sid = self.catalog['sid'][idx]
@@ -530,10 +534,10 @@ class Blob(Subimage):
         self.brick.catalog[row]['y_model'] = src.pos[1] + self.subvector[1]
         self.brick.catalog[row]['x_model_err'] = np.sqrt(self.position_variance[idx, 0])
         self.brick.catalog[row]['y_model_err'] = np.sqrt(self.position_variance[idx, 1])
-        # if self._wcs is not None:
-        #     skyc = self._wcs.wcs.pixel_to_world(src.pos[0] + self.subvector[0], src.pos[1] + self.subvector[1])
-        #     self.brick.catalog[row]['RA'] = skyc[0]
-        #     self.brick.catalog[row]['Dec'] = skyc[1]
+        if self._wcs is not None:
+            skyc = self._wcs.pixel_to_world(src.pos[0] + self.subvector[0], src.pos[1] + self.subvector[1])
+            self.brick.catalog[row]['RA'] = skyc[0]
+            self.brick.catalog[row]['Dec'] = skyc[1]
         try:
             self.brick.catalog[row]['solmodel'] = src.name
             skip = False
