@@ -129,15 +129,16 @@ def tractor(brick_id, source_id=None): # need to add overwrite args!
     else:
         if conf.NTHREADS > 0:
             pool = mp.ProcessingPool(processes=conf.NTHREADS)
-            rows = pool.map(partial(runblob, detbrick=detbrick, fbrick=fbrick), np.arange(1, detbrick.n_blobs))
+            #rows = pool.map(partial(runblob, detbrick=detbrick, fbrick=fbrick), np.arange(1, detbrick.n_blobs))
+            rows = pool.map(runblob, np.arange(1, detbrick.n_blobs+1))
         else:
-            [runblob(blob_id, detbrick, fbrick) for blob_id in np.arange(1, detbrick.n_blobs)]
+            [runblob(blob_id, detbrick, fbrick) for blob_id in np.arange(1, detbrick.n_blobs+1)]
 
     # write out cat
     fbrick.catalog.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat'), format='fits')
 
 
-def runblob(blob_id, detbrick, fbrick, plotting=False):
+def runblob(blob_id, plotting=False):
 
     if conf.VERBOSE: print()
     if conf.VERBOSE: print(f'Starting on Blob #{blob_id}')
