@@ -126,75 +126,18 @@ def tractor(brick_id): # need to add overwrite args!
 
 def runblob(blob_id, detbrick, fbrick):
 
-    #####################3
-    print()
-    print(f'Starting on Blob #{blob_id}')
+    if conf.VERBOSE: print()
+    if conf.VERBOSE: print(f'Starting on Blob #{blob_id}')
     tstart = time()
 
-    # Make blob with detection image
-    fig, ax = plt.subplots(nrows = 1, ncols = 3,
-                       sharex=True, sharey=True,
-                       figsize=(15, 5))
-
-    band = detbrick.bands
-    i=0
-    back = detbrick.backgrounds[i]
-    mean, rms = back.globalback, back.globalrms
-    
-    img_opt = dict(cmap='magma', vmin = mean + 5 * rms, vmax = mean + 10 * rms)
-    #wgt_opt = dict(cmap='magma', vmin = mean - rms, vmax = mean + rms)
-    
-    ax[0].imshow(detbrick.images[i], **img_opt)
-    ax[1].imshow(detbrick.weights[i])
-    ax[2].imshow(detbrick.masks[i])
-    ##########################
-    
+    # Make blob with detection image    
     myblob = detbrick.make_blob(blob_id)
     if myblob is None:
-        print('BLOB REJECTED!')
+        if conf.VERBOSE: print('BLOB REJECTED!')
         return
-
-    ##############3
-    fig, ax = plt.subplots(nrows = 1, ncols = 3,
-                       sharex=True, sharey=True,
-                       figsize=(15, 5))
-
-    band = myblob.bands
-    i=0
-    back = myblob.backgrounds[i]
-    mean, rms = back.globalback, back.globalrms
-    
-    img_opt = dict(cmap='magma', vmin = mean + 5 * rms, vmax = mean + 10 * rms)
-    #wgt_opt = dict(cmap='magma', vmin = mean - rms, vmax = mean + rms)
-    
-    ax[0].imshow(myblob.images[i], **img_opt)
-    ax[1].imshow(myblob.weights[i])
-    ax[2].imshow(myblob.masks[i])
-    ###################
 
     # Run models
     myblob.stage_images()
-
-        ##############3
-    fig, ax = plt.subplots(nrows = 1, ncols = 3,
-                       sharex=True, sharey=True,
-                       figsize=(15, 5))
-
-    band = myblob.bands
-    i=0
-    back = myblob.backgrounds[i]
-    mean, rms = back.globalback, back.globalrms
-    
-    img_opt = dict(cmap='magma', vmin = mean + 5 * rms, vmax = mean + 10 * rms)
-    #wgt_opt = dict(cmap='magma', vmin = mean - rms, vmax = mean + rms)
-    
-    tweight = myblob.weights[i].copy()
-    tweight[myblob.masks[i]] = 0
-    ax[0].imshow(myblob.images[i], **img_opt)
-    ax[1].imshow(tweight)
-    ax[2].imshow(myblob.masks[i])
-    ###################
-
 
     status = myblob.tractor_phot()
 
@@ -216,7 +159,7 @@ def runblob(blob_id, detbrick, fbrick):
     [myfblob.sextract_phot(band) for band in myfblob.bands]
 
     duration = time() - tstart
-    print(f'Solution for {myblob.n_sources} sources arrived at in {duration}s ({duration/myblob.n_sources:2.2f}s per src)')
+    if conf.VERBOSE: print(f'Solution for {myblob.n_sources} sources arrived at in {duration}s ({duration/myblob.n_sources:2.2f}s per src)')
 
 
 def stage_brickfiles(brick_id, nickname='MISCBRICK', detection=False):
@@ -253,9 +196,9 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', detection=False):
 
             # Stuff data into arrays
             for i, tband in enumerate(sbands):
-                images[i] = hdul_brick[f"{tband}_{conf.IMAGE_EXT.upper()}"].data[0] # QUICK FIX. The extra dimension SHOULD NOT EXIST!
-                weights[i] = hdul_brick[f"{tband}_{conf.WEIGHT_EXT.upper()}"].data[0]
-                masks[i] = hdul_brick[f"{tband}_{conf.MASK_EXT.upper()}"].data[0]
+                images[i] = hdul_brick[f"{tband}_{conf.IMAGE_EXT.upper()}"].data
+                weights[i] = hdul_brick[f"{tband}_{conf.WEIGHT_EXT.upper()}"].data
+                masks[i] = hdul_brick[f"{tband}_{conf.MASK_EXT.upper()}"].data
     else:
         raise ValueError(f'Brick file not found for {path_brickfile}')
 
@@ -270,10 +213,7 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', detection=False):
             psfmodels = None
             break
 
-    print('shape of images: ', np.shape(images))
-    print(wcs)
-    print('THE SHAPE OF STUFF BEFORE FIX: ', np.shape(images))
     if detection:
         images, weights, masks = images[0], weights[0], masks[0]
-    print('FIX WAS APPLIED IF DETECTION, SHAPE IS NOW: ', np.shape(images))
+
     return Brick(images=images, weights=weights, masks=masks, psfmodels=psfmodels, wcs=wcs, bands=np.array(sbands))

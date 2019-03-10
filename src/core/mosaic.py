@@ -57,7 +57,7 @@ class Mosaic(Subimage):
                 self.wcs = WCS(self.master_head)
         else:
             raise ValueError(f'No image found at {self.path_image}')
-        print(f'Added image in {time()-tstart:3.3f}s.')
+        if conf.VERBOSE: print(f'Added image in {time()-tstart:3.3f}s.')
 
         tstart = time()
         if os.path.exists(self.path_weight):
@@ -66,7 +66,7 @@ class Mosaic(Subimage):
         else:
             raise ValueError(f'No weight found at {self.path_image}')
             self.weights = None
-        print(f'Added weight in {time()-tstart:3.3f}s.')
+        if conf.VERBOSE: print(f'Added weight in {time()-tstart:3.3f}s.')
 
 
         tstart = time()
@@ -75,20 +75,13 @@ class Mosaic(Subimage):
                 self.masks = hdu_mask['PRIMARY'].data
         else:
             self.masks = None    
-        print(f'Added mask in {time()-tstart:3.3f}s.')
+        if conf.VERBOSE: print(f'Added mask in {time()-tstart:3.3f}s.')
 
         self.psfmodels = psfmodel
         self.bands = band
         self.mag_zeropoints = mag_zeropoint
         
         super().__init__()
-    
-    # def about(self):
-    #     print(f'*** Mosaic')
-    #     print(f' Shape: {self.shape}')
-    #     print(f' Nbands: {self.n_bands}')
-    #     print(f' Origin: {self.subvector}')
-    #     print()
 
     def _make_psf(self, forced_psf=False):
 
@@ -104,7 +97,7 @@ class Mosaic(Subimage):
             self.path_image = os.path.join(conf.IMAGE_DIR, conf.DETECTION_FILENAME.replace('EXT', conf.IMAGE_EXT)) + f',{self.path_image}'
 
         # run SEXTRACTOR in LDAC mode (either forced or not)(can this be done with sep?!)
-        os.system(f'sextractor {self.path_image} -c config/config_psfex.sex -PARAMETERS_NAME config/param_psfex.sex -CATALOG_NAME {psf_cat} -CATALOG_TYPE FITS_LDAC -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME {path_segmap} -MAG_ZEROPOINT {self.mag_zeropoints}')
+        os.system(f'sex {self.path_image} -c config/config_psfex.sex -PARAMETERS_NAME config/param_psfex.sex -CATALOG_NAME {psf_cat} -CATALOG_TYPE FITS_LDAC -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME {path_segmap} -MAG_ZEROPOINT {self.mag_zeropoints}')
 
         # if not forced, then the cleaned segmap should be saved as the weight for the dual mode!
 
@@ -149,7 +142,7 @@ class Mosaic(Subimage):
     def _make_brick(self, brick_id, overwrite=False, detection=False, 
             brick_width=conf.BRICK_WIDTH, brick_height=conf.BRICK_HEIGHT, brick_buffer=conf.BRICK_BUFFER):
 
-        print(f'Making brick {brick_id}/{self.n_bricks()}')
+        if conf.VERBOSE: print(f'Making brick {brick_id}/{self.n_bricks()}')
 
         if detection:
             nickname = conf.DETECTION_NICKNAME

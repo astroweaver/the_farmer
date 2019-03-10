@@ -327,42 +327,13 @@ class Blob(Subimage):
         for i in range(conf.TRACTOR_MAXSTEPS):
             # if True:
             try:
-                fig, ax = plt.subplots(ncols=3, figsize=(15,5))
-                ax[0].imshow(self.tr.getImage(0).getImage(), vmin=0, vmax=3*self.backgrounds[0].globalrms)
-                ax[1].imshow(self.tr.getModelImage(0), vmin=0, vmax=3*self.backgrounds[0].globalrms)
-                ax[2].imshow(self.tr.getChiImage(0))
-                plt.pause(1)
-
-                print(tr.getNamedParams())
-                print(tr.getAllParams())
-                print(tr.getThawedParams())
-                print(tr.getFrozenParams())
-                print(tr.getImage(0).getImage())
-                print(tr.getCatalog())
                 dlnp, X, alpha, var = tr.optimize(variance=True)
-
-                print(np.max(self.tr.getModelImage(0)))
-                fig, ax = plt.subplots(ncols=3, figsize=(15,5))
-                ax[0].imshow(self.images[0], vmin=0, vmax=3*self.backgrounds[0].globalrms)
-                ax[1].imshow(self.tr.getModelImage(0), vmin=0, vmax=3*self.backgrounds[0].globalrms)
-                ax[2].imshow(self.tr.getChiImage(0))
-                plt.pause(1)
             except:
-                print('FAILED')
+                if conf.VERBOSE: print('FAILED')
                 return False
 
             if dlnp < conf.TRACTOR_CONTHRESH:
                 break
-
-           
-
-        print()
-        print(np.shape(self.images))
-        print(np.shape(self.weights), np.mean(self.weights))
-        print(self.catalog)
-        print(self.model_catalog)
-        print(tr.getCatalog())
-        print(var)
 
         if (self.solution_catalog != 0).all():
             # print('CHANGING TO SOLUTION CATALOG FOR PARAMETERS')
@@ -486,7 +457,7 @@ class Blob(Subimage):
             n_residual_sources = len(catalog)
             self.residual_segmap = segmap
             self.n_residual_sources[idx] = n_residual_sources
-            print(f'SExtractor Found {n_residual_sources} in {band} residual!')
+            if conf.VERBOSE: print(f'SExtractor Found {n_residual_sources} in {band} residual!')
 
             if f'{band}_n_residual_sources' not in self.brick.catalog.colnames:
                 self.brick.catalog.add_column(Column(np.zeros(len(self.brick.catalog), dtype=bool), name=f'{band}_n_residual_sources'))
@@ -498,7 +469,7 @@ class Blob(Subimage):
 
             return catalog, segmap
         else:
-            print('No objects found by SExtractor.')
+            if conf.VERBOSE: print('No objects found by SExtractor.')
 
 
         pass
@@ -566,6 +537,3 @@ class Blob(Subimage):
             self.brick.catalog[row]['reff_err'] = np.sqrt(self.parameter_variance[idx][0])
             self.brick.catalog[row]['ab_err'] = np.sqrt(self.parameter_variance[idx][1])
             self.brick.catalog[row]['phi_err'] = np.sqrt(self.parameter_variance[idx][2])
-
-
-        # add model chisq, band chisqs, ra, dec
