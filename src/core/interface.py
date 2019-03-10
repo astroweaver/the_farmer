@@ -132,7 +132,7 @@ def tractor(brick_id, source_id=None): # need to add overwrite args!
             [runblob(blob_id, detbrick, fbrick) for blob_id in np.arange(1, detbrick.n_blobs)]
 
     # write out cat
-    fbrick.catalog.write(os.path.join(conf.CATALOG_DIR, f'{fbrick.brick_id}.cat', format='fits'))
+    fbrick.catalog.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat'), format='fits')
 
 
 def runblob(blob_id, detbrick, fbrick, plotting=False):
@@ -166,7 +166,7 @@ def runblob(blob_id, detbrick, fbrick, plotting=False):
     status = myfblob.forced_phot()
 
     if plotting:
-        plot_blob(detbrick, fbrick)
+        plot_blob(myblob, myfblob)
 
     # Run follow-up phot
     try:
@@ -225,4 +225,4 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', detection=False):
     if detection:
         images, weights, masks = images[0], weights[0], masks[0]
 
-    return Brick(images=images, weights=weights, masks=masks, psfmodels=psfmodels, wcs=wcs, bands=np.array(sbands))
+    return Brick(images=images, weights=weights, masks=masks, psfmodels=psfmodels, wcs=wcs, bands=np.array(sbands), brick_id=brick_id)

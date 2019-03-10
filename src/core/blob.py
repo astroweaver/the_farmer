@@ -24,7 +24,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import ascii, fits
 from astropy.table import Table, Column
-from tractor import NCircularGaussianPSF, PixelizedPSF, Image, Tractor, LinearPhotoCal, NullWCS, ConstantSky, GalaxyShape, Fluxes, PixPos
+from tractor import NCircularGaussianPSF, PixelizedPSF, Image, Tractor, FluxesPhotoCal, NullWCS, ConstantSky, GalaxyShape, Fluxes, PixPos
 from tractor.galaxy import ExpGalaxy, DevGalaxy, FixedCompositeGalaxy, SoftenedFracDev
 from tractor.pointsource import PointSource
 from time import time
@@ -49,6 +49,7 @@ class Blob(Subimage):
             blob = None
 
         self.brick = brick
+        self.brick_id = brick.brick_id
 
         # Grab blob
         self.blob_id = blob_id
@@ -114,7 +115,7 @@ class Blob(Subimage):
                             invvar=tweight,
                             psf=psfmodel,
                             wcs=NullWCS(),
-                            photocal=LinearPhotoCal(1, band),
+                            photocal=FluxesPhotoCal(band),
                             sky=ConstantSky(0.))
 
         self.timages = timages
@@ -135,7 +136,7 @@ class Blob(Subimage):
 
             if mid == 1:
                 self.model_catalog[i] = PointSource(position, flux)
-                self.model_catalog[i].name = 'PointSource' # HACK to get around Dustin's HACK.
+                # self.model_catalog[i].name = 'PointSource' # HACK to get around Dustin's HACK.
             elif mid == 2:
                 self.model_catalog[i] = SimpleGalaxy(position, flux)
             elif mid == 3:
@@ -431,7 +432,6 @@ class Blob(Subimage):
             self.brick.catalog[row][f'aperphot_{band}_{image_type}'] = tuple(apflux[idx])
             self.brick.catalog[row][f'aperphot_{band}_{image_type}_err'] = tuple(apflux_err[idx])
 
-
     def sextract_phot(self, band, sub_background=False):
         # SHOULD WE STACK THE RESIDUALS? (No?)
         # SHOULD WE DO THIS ON THE DETECTION IMAGE TOO? (I suppose we can already...!)
@@ -509,7 +509,7 @@ class Blob(Subimage):
                 #     totalchisq = 1E30
                 self.solution_chisq[i, j] = totalchisq
 
-        self.solution_tractor = Tractor(self.timages, self.tr.getCatalog())
+        self.solution_tractor = self.tr
         self.solution_catalog = self.solution_tractor.getCatalog()
 
         for idx, src in enumerate(self.solution_catalog):
@@ -538,7 +538,7 @@ class Blob(Subimage):
             self.brick.catalog[row]['solmodel'] = src.name
         except:
             self.brick.catalog[row]['solmodel'] = 'maybe_PS'
-        if src.name in ('ExpGalaxy', 'DevGalaxy', 'CompositeGalaxy'):
+        if src.name in ('SimpleGalaxy', 'ExpGalaxy', 'DevGalaxy', 'CompositeGalaxy'):
             self.brick.catalog[row]['reff'] = src.shape.re
             self.brick.catalog[row]['ab'] = src.shape.ab
             self.brick.catalog[row]['phi'] = src.shape.phi
