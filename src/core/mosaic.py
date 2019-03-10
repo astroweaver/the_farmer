@@ -125,16 +125,18 @@ class Mosaic(Subimage):
             # this is just to remove non-PS from the other LDACs
 
             segmap.writeto('detection_segmap_clean.fits')
+            hdul_ldac.close()
 
         else:
             segmap = fits.open('detection_segmap_clean.fits')[0].data
             idx_obj = np.unique(segmap)[1:] - 1 # rm zero, shift to index-zero
             segmap[segmap > 0] = 1
 
-            hdul_ldac = fits.open(psf_cat)
+            hdul_ldac = fits.open(psf_cat, ignore_missing_end=True)
             tab_ldac = hdul_ldac['LDAC_OBJECTS'].data[idx_obj]
 
             tab_ldac.writeto(psf_cat, overwrite=True)
+            tab_ldac.close()
 
         # RUN PSF
         os.system(f'psfex {psf_cat} -c config/config.psfex -BASIS_TYPE PIXEL -PSF_SIZE 101,101 -PSF_DIR {psf_dir} -WRITE_XML Y -XML_NAME {path_savexml} -CHECKIMAGE_NAME {path_savechkimg} -CHECKPLOT_NAME {path_savechkplt}')
