@@ -169,9 +169,6 @@ class Blob(Subimage):
                 self.stage_models()
 
                 # store
-                print("PRINT MEEE")
-                print(self.timages)
-                print(self.model_catalog)
                 self.tr = Tractor(self.timages, self.model_catalog)
 
                 # optimize
@@ -407,11 +404,19 @@ class Blob(Subimage):
         Iap = np.flatnonzero((apxy[0,:] >= 0)   * (apxy[1,:] >= 0) *
                             (apxy[0,:] <= W-1) * (apxy[1,:] <= H-1))
 
+        if var is None:
+            imgerr = None
+        else:
+            imgerr = np.sqrt(var)
+
         for i, rad in enumerate(apertures):
             aper = photutils.CircularAperture(apxy[:,Iap], rad)
-            p = photutils.aperture_photometry(image, aper, error=np.sqrt(var))
+            p = photutils.aperture_photometry(image, aper, error=imgerr)
             apflux[:, i] = p.field('aperture_sum')
-            apflux_err[:, i] = p.field('aperture_sum_err')
+            if var is None:
+                apflux_err[:, i] = -99 * np.ones_like(apflux[:, i])
+            else:
+                apflux_err[:, i] = p.field('aperture_sum_err')
 
         band = band.replace(' ', '_')
         if f'aperphot_{band}_{image_type}' not in self.brick.catalog.colnames:
@@ -524,8 +529,8 @@ class Blob(Subimage):
         self.brick.catalog[row]['x_model_err'] = np.sqrt(self.position_variance[idx, 0])
         self.brick.catalog[row]['y_model_err'] = np.sqrt(self.position_variance[idx, 1])
         skyc = self._wcs.pixel_to_world(src.pos[0] + self.subvector[0], src.pos[1] + self.subvector[1])
-        self.brick.catalog[row]['RA'] = skyc.ra.value
-        self.brick.catalog[row]['Dec'] = skyc.dec.value
+        self.brick.catalog[row]['RA'] = skyc[0]
+        self.brick.catalog[row]['Dec'] = skyc[1]
         try:
             self.brick.catalog[row]['solmodel'] = src.name
         except:

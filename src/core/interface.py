@@ -189,8 +189,6 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', detection=False):
         # Loop over expected bands
         with fits.open(path_brickfile) as hdul_brick:
 
-            hdul_brick.info()
-
             # Attempt a WCS
             wcs = WCS(hdul_brick[0].header)
 
