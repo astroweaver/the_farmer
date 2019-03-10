@@ -91,7 +91,7 @@ class Mosaic(Subimage):
         path_savexml = conf.PSF_DIR
         path_savechkimg = ','.join([os.path.join(conf.PSF_DIR, ext) for ext in ('chi', 'proto', 'samp', 'resi', 'snap')])
         path_savechkplt = ','.join([os.path.join(conf.PSF_DIR, ext) for ext in ('fwhm', 'ellipticity', 'counts', 'countfrac', 'chi2', 'resi')])
-        path_segmap = os.path.join(conf.IMAGE_DIR, f'{self.bands}_segmap')
+        path_segmap = os.path.join(conf.PSF_DIR, f'{self.bands}_segmap.fits')
 
         if forced_psf:
             self.path_image = os.path.join(conf.IMAGE_DIR, conf.DETECTION_FILENAME.replace('EXT', conf.IMAGE_EXT)) + f',{self.path_image}'
@@ -116,7 +116,7 @@ class Mosaic(Subimage):
             idx_exclude = np.arange(1, len(tab_ldac) + 1)[~mask_ldac]
 
             hdul_ldac['LDAC_OBJECTS'].data = tab_ldac[mask_ldac]
-            hdul_ldac.flush()
+            hdul_ldac.writeto(psf_cat, overwrite=True)
 
             # clean segmap
             segmap = fits.open(path_segmap)[1].data
