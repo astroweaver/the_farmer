@@ -541,10 +541,13 @@ class Blob(Subimage):
             self.brick.catalog[row]['solmodel'] = 'maybe_PS'
             skip = True
         if not skip:
-            if src.name in ('SimpleGalaxy', 'ExpGalaxy', 'DevGalaxy'): #skip composite for now
-                self.brick.catalog[row]['reff'] = src.shape.re
-                self.brick.catalog[row]['ab'] = src.shape.ab
-                self.brick.catalog[row]['phi'] = src.shape.phi
-                self.brick.catalog[row]['reff_err'] = np.sqrt(self.parameter_variance[idx][0])
-                self.brick.catalog[row]['ab_err'] = np.sqrt(self.parameter_variance[idx][1])
-                self.brick.catalog[row]['phi_err'] = np.sqrt(self.parameter_variance[idx][2])
+            if src.name in ('SimpleGalaxy', 'ExpGalaxy', 'DevGalaxy', 'CompositeGalaxy'):
+                try:
+                    self.brick.catalog[row]['reff'] = src.shape.re
+                    self.brick.catalog[row]['ab'] = src.shape.ab
+                    self.brick.catalog[row]['phi'] = src.shape.phi
+                    self.brick.catalog[row]['reff_err'] = np.sqrt(self.parameter_variance[idx][0])
+                    self.brick.catalog[row]['ab_err'] = np.sqrt(self.parameter_variance[idx][1])
+                    self.brick.catalog[row]['phi_err'] = np.sqrt(self.parameter_variance[idx][2])
+                except:
+                    if conf.VERBOSE: print('WARNING - model parameters not added to catalog.')
