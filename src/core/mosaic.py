@@ -98,8 +98,12 @@ class Mosaic(Subimage):
 
         # run SEXTRACTOR in LDAC mode (either forced or not)(can this be done with sep?!)
         if not os.path.exists(psf_cat):
-            os.system(f'sex {self.path_image} -c config/config_psfex.sex -PARAMETERS_NAME config/param_psfex.sex -CATALOG_NAME {psf_cat} -CATALOG_TYPE FITS_LDAC -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME {path_segmap} -MAG_ZEROPOINT {self.mag_zeropoints}')
-
+            try:
+                #os.system('sextractor {} -c config/config_psfex.sex -PARAMETERS_NAME config/param_psfex.sex -CATALOG_NAME {} -CATALOG_TYPE FITS_LDAC -WEIGHT_TYPE MAP_WEIGHT -WEIGHT_IMAGE {} -MAG_ZEROPOINT {}'.format(path_im, path_outcat, path_wt, zpt))
+                os.system(f'sex {self.path_image} -c config/config_psfex.sex -PARAMETERS_NAME config/param_psfex.sex -CATALOG_NAME {psf_cat} -CATALOG_TYPE FITS_LDAC -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME {path_segmap} -MAG_ZEROPOINT {self.mag_zeropoints}')
+                if conf.VERBOSE: print('SExtractor succeded!')
+            except:
+                raise ValueError('SExtractof failed!')
         # if not forced, then the cleaned segmap should be saved as the weight for the dual mode!
 
         # LDAC is only cleaned if not forced mode! (otherwise should be clean already)

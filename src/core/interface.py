@@ -155,8 +155,14 @@ def runblob(blob_id, detbrick, fbrick):
     status = myfblob.forced_phot()
 
     # Run follow-up phot
-    [[myfblob.aperture_phot(band, img_type) for band in myfblob.bands] for img_type in ('image', 'model', 'residual')]
-    [myfblob.sextract_phot(band) for band in myfblob.bands]
+    try:
+        [[myfblob.aperture_phot(band, img_type) for band in myfblob.bands] for img_type in ('image', 'model', 'residual')]
+    except:
+        if conf.VERBOSE: print(f'Aperture photmetry FAILED. Likely a bad blob.')
+    try:
+        [myfblob.sextract_phot(band) for band in myfblob.bands]
+    except:
+        if conf.VERBOSE: print(f'Residual Sextractor photmetry FAILED. Likely a bad blob.)')
 
     duration = time() - tstart
     if conf.VERBOSE: print(f'Solution for {myblob.n_sources} sources arrived at in {duration}s ({duration/myblob.n_sources:2.2f}s per src)')
@@ -207,7 +213,7 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', detection=False):
             with fits.open(path_psffile) as hdul:
                 psfmodels[i] = hdul[0].data
         else:
-            raise ValueError(f'PSFmodel File not found under {path_psffile}')
+            # raise ValueError(f'PSFmodel File not found under {path_psffile}')
             psfmodels = None
             break
 
