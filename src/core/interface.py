@@ -206,9 +206,7 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', detection=False):
             with fits.open(path_psffile) as hdul:
                 psfmodels[i] = hdul[0].data
         else:
-            # raise ValueError(f'PSFmodel File not found under {path_psffile}')
-            psfmodels = None
-            break
+            psfmodels[i] = -99
 
     if detection:
         images, weights, masks = images[0], weights[0], masks[0]
