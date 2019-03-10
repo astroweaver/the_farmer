@@ -528,10 +528,10 @@ class Blob(Subimage):
         self.brick.catalog[row]['y_model'] = src.pos[1] + self.subvector[1]
         self.brick.catalog[row]['x_model_err'] = np.sqrt(self.position_variance[idx, 0])
         self.brick.catalog[row]['y_model_err'] = np.sqrt(self.position_variance[idx, 1])
-        if self._wcs is not None:
-            skyc = self._wcs.wcs.pixel_to_world(src.pos[0] + self.subvector[0], src.pos[1] + self.subvector[1])
-            self.brick.catalog[row]['RA'] = skyc[0]
-            self.brick.catalog[row]['Dec'] = skyc[1]
+        # if self._wcs is not None:
+        #     skyc = self._wcs.wcs.pixel_to_world(src.pos[0] + self.subvector[0], src.pos[1] + self.subvector[1])
+        #     self.brick.catalog[row]['RA'] = skyc[0]
+        #     self.brick.catalog[row]['Dec'] = skyc[1]
         try:
             self.brick.catalog[row]['solmodel'] = src.name
         except:
