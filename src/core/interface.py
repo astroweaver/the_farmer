@@ -29,6 +29,7 @@ from astropy.wcs import WCS
 import numpy as np
 import pathos.multiprocessing as mp 
 from functools import partial
+import matplotlib.pyplot as plt
 
 from .brick import Brick
 from .mosaic import Mosaic
@@ -87,8 +88,7 @@ def tractor(brick_id): # need to add overwrite args!
 
     # Create detection brick
     tstart = time()
-    kwargs = _stage_brickfiles(brick_id, nickname=conf.DETECTION_NICKNAME, detection=True)
-    detbrick = Brick(**kwargs)
+    detbrick = _stage_brickfiles(brick_id, nickname=conf.DETECTION_NICKNAME, detection=True)
 
     if conf.VERBOSE: print(f'Detection brick #{brick_id} created ({time() - tstart:3.3f}s)')
 
@@ -104,7 +104,7 @@ def tractor(brick_id): # need to add overwrite args!
     # Cleanup
     tstart = time()
     detbrick.cleanup()
-    if conf.VERBOSE: print(f'Detection brick #{brick_id} cleaned with {detbrick.n_sources} remaining ({time() - tstart:3.3f}s)')
+    if conf.VERBOSE: print(f'Detection brick #{brick_id} gained {detbrick.n_blobs} blobs with {detbrick.n_sources} objects ({time() - tstart:3.3f}s)')
 
     # Create and update multiband brick
     tstart = time()
@@ -125,18 +125,75 @@ def tractor(brick_id): # need to add overwrite args!
 
 
 def _runblob(blob_id, detbrick, fbrick):
+
+    #####################3
     print()
     print(f'Starting on Blob #{blob_id}')
     tstart = time()
 
     # Make blob with detection image
+    fig, ax = plt.subplots(nrows = 1, ncols = 3,
+                       sharex=True, sharey=True,
+                       figsize=(15, 5))
+
+    band = detbrick.bands
+    i=0
+    back = detbrick.backgrounds[i]
+    mean, rms = back.globalback, back.globalrms
+    
+    img_opt = dict(cmap='magma', vmin = mean + 5 * rms, vmax = mean + 10 * rms)
+    #wgt_opt = dict(cmap='magma', vmin = mean - rms, vmax = mean + rms)
+    
+    ax[0].imshow(detbrick.images[i], **img_opt)
+    ax[1].imshow(detbrick.weights[i])
+    ax[2].imshow(detbrick.masks[i])
+    ##########################
+    
     myblob = detbrick.make_blob(blob_id)
     if myblob is None:
         print('BLOB REJECTED!')
         return
 
+    ##############3
+    fig, ax = plt.subplots(nrows = 1, ncols = 3,
+                       sharex=True, sharey=True,
+                       figsize=(15, 5))
+
+    band = myblob.bands
+    i=0
+    back = myblob.backgrounds[i]
+    mean, rms = back.globalback, back.globalrms
+    
+    img_opt = dict(cmap='magma', vmin = mean + 5 * rms, vmax = mean + 10 * rms)
+    #wgt_opt = dict(cmap='magma', vmin = mean - rms, vmax = mean + rms)
+    
+    ax[0].imshow(myblob.images[i], **img_opt)
+    ax[1].imshow(myblob.weights[i])
+    ax[2].imshow(myblob.masks[i])
+    ###################
+
     # Run models
     myblob.stage_images()
+
+        ##############3
+    fig, ax = plt.subplots(nrows = 1, ncols = 3,
+                       sharex=True, sharey=True,
+                       figsize=(15, 5))
+
+    band = myblob.bands
+    i=0
+    back = myblob.backgrounds[i]
+    mean, rms = back.globalback, back.globalrms
+    
+    img_opt = dict(cmap='magma', vmin = mean + 5 * rms, vmax = mean + 10 * rms)
+    #wgt_opt = dict(cmap='magma', vmin = mean - rms, vmax = mean + rms)
+    
+    tweight = myblob.weights[i].copy()
+    tweight[myblob.masks[i]] = 0
+    ax[0].imshow(myblob.images[i], **img_opt)
+    ax[1].imshow(tweight)
+    ax[2].imshow(myblob.masks[i])
+    ###################
     status = myblob.tractor_phot()
 
     if not status:
@@ -164,6 +221,13 @@ def _stage_brickfiles(brick_id, nickname='MISCBRICK', detection=False):
     # Wraps Brick with a single parameter call
     # THIS ASSUMES YOU HAVE IMG, WGT, and MSK FOR ALL BANDS!
 
+    if nickname == 'MULTIBAND':
+        conf.IMAGE_EXT = 'img'
+        conf.WEIGHT_EXT = 'wgt'
+    else:
+        conf.IMAGE_EXT = 'sci'
+        conf.WEIGHT_EXT = 'weight'
+
     path_brickfile = os.path.join(conf.BRICK_DIR, f'B{brick_id}_N{nickname}_W{conf.BRICK_WIDTH}_H{conf.BRICK_HEIGHT}.fits')
 
     if detection:
@@ -180,14 +244,16 @@ def _stage_brickfiles(brick_id, nickname='MISCBRICK', detection=False):
         # Loop over expected bands
         with fits.open(path_brickfile) as hdul_brick:
 
+            hdul_brick.info()
+
             # Attempt a WCS
             wcs = WCS(hdul_brick[0].header)
 
             # Stuff data into arrays
             for i, tband in enumerate(sbands):
-                images[i] = hdul_brick[f"{tband}_{conf.IMAGE_EXT.upper()}"].data
-                weights[i] = hdul_brick[f"{tband}_{conf.WEIGHT_EXT.upper()}"].data
-                masks[i] = hdul_brick[f"{tband}_{conf.MASK_EXT.upper()}"].data
+                images[i] = hdul_brick[f"{tband}_{conf.IMAGE_EXT.upper()}"].data[0] # QUICK FIX. The extra dimension SHOULD NOT EXIST!
+                weights[i] = hdul_brick[f"{tband}_{conf.WEIGHT_EXT.upper()}"].data[0]
+                masks[i] = hdul_brick[f"{tband}_{conf.MASK_EXT.upper()}"].data[0]
     else:
         raise ValueError(f'Brick file not found for {path_brickfile}')
 
@@ -198,4 +264,6 @@ def _stage_brickfiles(brick_id, nickname='MISCBRICK', detection=False):
             with fits.open(path_psffile) as hdul:
                 psfmodels[i] = hdul[0].data
 
-    return dict(images=images, weights=weights, masks=masks, psfmodels=psfmodels, wcs=wcs, bands=np.array(sbands))
+    print('shape of images: ', np.shape(images))
+    print(wcs)
+    return Brick(images=images, weights=weights, masks=masks, psfmodels=psfmodels, wcs=wcs, bands=np.array(sbands))

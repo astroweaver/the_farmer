@@ -234,7 +234,7 @@ class Subimage():
         self.slicepos = tuple([slice(0, self.n_bands),] + self.slice)
         self.slicepix = (slice(0, self.n_bands), slice(leftpix, rightpix), slice(bottompix, toppix))
 
-        print(self.slicepix, self.slicepos)
+        # print(self.slicepix, self.slicepos)
         subimages[self.slicepix] = self.images[self.slicepos]
         subweights[self.slicepix] = self.weights[self.slicepos]
         submasks[self.slicepix]= self.masks[self.slicepos]

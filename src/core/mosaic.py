@@ -169,6 +169,9 @@ class Mosaic(Subimage):
             sbands = nickname
         else:
             sbands = self.bands
+
+        # Remove n_bands = 1 dimension
+        subimage, subweight, submask = subimage[0], subweight[0], submask[0]
         
         # Make hdus
         head_image = self.master_head.copy()

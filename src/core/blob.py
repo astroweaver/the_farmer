@@ -24,7 +24,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import ascii, fits
 from astropy.table import Table, Column
-from tractor import NCircularGaussianPSF, PixelizedPSF, Image, Tractor, LinearPhotoCal, NullWCS, ConstantSky, GalaxyShape, Fluxes, Pointsource, ExpGalaxy, DevGalaxy, FixedCompositeGalaxy, SoftenedFracDev, PixPos
+from tractor import NCircularGaussianPSF, PixelizedPSF, Image, Tractor, LinearPhotoCal, NullWCS, ConstantSky, GalaxyShape, Fluxes, PixPos
+from tractor.galaxy import ExpGalaxy, DevGalaxy, FixedCompositeGalaxy, SoftenedFracDev
+from tractor.pointsource import PointSource
 from time import time
 import photutils
 import sep
@@ -103,6 +105,7 @@ class Blob(Subimage):
 
             if psf is -99:
                 psfmodel = NCircularGaussianPSF([2,], [1,])
+                print('USING A FAKE PSF')
             else:
                 psfmodel = PixelizedPSF(psf)
 
@@ -116,8 +119,6 @@ class Blob(Subimage):
         self.timages = timages
 
     def stage_models(self):
-        # Currently this makes NEW models for each trial. Do we want to freeze solution models and re-use them?
-
         # Trackers
 
         for i, (mid, src) in enumerate(zip(self.mids, self.catalog)):
@@ -168,6 +169,9 @@ class Blob(Subimage):
                 self.stage_models()
 
                 # store
+                print("PRINT MEEE")
+                print(self.timages)
+                print(self.model_catalog)
                 self.tr = Tractor(self.timages, self.model_catalog)
 
                 # optimize
@@ -317,23 +321,47 @@ class Blob(Subimage):
         if tr is None:
             tr = self.tr
 
-        tr.freezeParams('images')
-        #tr.thawAllParams()
+        tr.freezeParams('images')        
 
         start = time()
         for i in range(conf.TRACTOR_MAXSTEPS):
-            try:
+            if True:
+            # try:
+                fig, ax = plt.subplots(ncols=3, figsize=(15,5))
+                ax[0].imshow(self.tr.getImage(0).getImage(), vmin=0, vmax=0.1)
+                ax[1].imshow(self.tr.getModelImage(0), vmin=0, vmax=0.1)
+                ax[2].imshow(self.tr.getChiImage(0))
+                plt.pause(1)
+
+                print(tr.getNamedParams())
+                print(tr.getAllParams())
+                print(tr.getThawedParams())
+                print(tr.getFrozenParams())
                 dlnp, X, alpha, var = tr.optimize(variance=True)
-            except:
-                print('FAILED')
-                return False
+
+                print(np.max(self.tr.getModelImage(0)))
+                fig, ax = plt.subplots(ncols=3, figsize=(15,5))
+                ax[0].imshow(self.images[0], vmin=0, vmax=0.1)
+                ax[1].imshow(self.tr.getModelImage(0), vmin=0, vmax=0.1)
+                ax[2].imshow(self.tr.getChiImage(0))
+                plt.pause(1)
+            # except:
+            #     print('FAILED')
+            return False
 
             if dlnp < conf.TRACTOR_CONTHRESH:
                 break
 
-        # print()
-        # print(f'RAW VAR HAS {len(var)} VALUES')
-        # print(var)
+           
+
+        print()
+        print(np.shape(self.images))
+        print(np.shape(self.weights), np.mean(self.weights))
+        print(self.catalog)
+        print(self.model_catalog)
+        print(tr.getCatalog())
+        print(var)
+
         if (self.solution_catalog != 0).all():
             # print('CHANGING TO SOLUTION CATALOG FOR PARAMETERS')
             var_catalog = self.solution_catalog
