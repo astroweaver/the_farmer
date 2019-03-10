@@ -119,7 +119,7 @@ class Mosaic(Subimage):
             hdul_ldac.writeto(psf_cat, output_verify='ignore', overwrite=True)
 
             # clean segmap
-            segmap = fits.open(path_segmap)[1].data
+            segmap = fits.open(path_segmap)[0].data
             for idx in idx_exclude:
                 segmap[segmap == idx['id']] = 0
             # this is just to remove non-PS from the other LDACs
@@ -127,7 +127,7 @@ class Mosaic(Subimage):
             segmap.writeto('detection_segmap_clean.fits')
 
         else:
-            segmap = fits.open('detection_segmap_clean.fits')[1].data
+            segmap = fits.open('detection_segmap_clean.fits')[0].data
             idx_obj = np.unique(segmap)[1:] - 1 # rm zero, shift to index-zero
             segmap[segmap > 0] = 1
 
