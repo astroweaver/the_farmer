@@ -97,7 +97,8 @@ class Mosaic(Subimage):
             self.path_image = os.path.join(conf.IMAGE_DIR, conf.DETECTION_FILENAME.replace('EXT', conf.IMAGE_EXT)) + f',{self.path_image}'
 
         # run SEXTRACTOR in LDAC mode (either forced or not)(can this be done with sep?!)
-        os.system(f'sex {self.path_image} -c config/config_psfex.sex -PARAMETERS_NAME config/param_psfex.sex -CATALOG_NAME {psf_cat} -CATALOG_TYPE FITS_LDAC -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME {path_segmap} -MAG_ZEROPOINT {self.mag_zeropoints}')
+        if not os.path.exists(psf_cat):
+            os.system(f'sex {self.path_image} -c config/config_psfex.sex -PARAMETERS_NAME config/param_psfex.sex -CATALOG_NAME {psf_cat} -CATALOG_TYPE FITS_LDAC -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME {path_segmap} -MAG_ZEROPOINT {self.mag_zeropoints}')
 
         # if not forced, then the cleaned segmap should be saved as the weight for the dual mode!
 
@@ -115,7 +116,7 @@ class Mosaic(Subimage):
             idx_exclude = np.arange(1, len(tab_ldac) + 1)[~mask_ldac]
 
             hdul_ldac['LDAC_OBJECTS'].data = tab_ldac[mask_ldac]
-            hdul_ldac.writeto(psf_cat, overwrite=True)
+            hdul_ldac.flush()
 
             # clean segmap
             segmap = fits.open(path_segmap)[1].data
