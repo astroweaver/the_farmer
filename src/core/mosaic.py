@@ -91,7 +91,6 @@ class Mosaic(Subimage):
         path_savexml = conf.PSF_DIR
         path_savechkimg = ','.join([os.path.join(conf.PSF_DIR, ext) for ext in ('chi', 'proto', 'samp', 'resi', 'snap')])
         path_savechkplt = ','.join([os.path.join(conf.PSF_DIR, ext) for ext in ('fwhm', 'ellipticity', 'counts', 'countfrac', 'chi2', 'resi')])
-        path_segmap = os.path.join(conf.PSF_DIR, f'{self.bands}_segmap.fits')
 
         if forced_psf:
             self.path_image = os.path.join(conf.IMAGE_DIR, conf.DETECTION_FILENAME.replace('EXT', conf.IMAGE_EXT)) + f',{self.path_image}'
@@ -100,56 +99,32 @@ class Mosaic(Subimage):
         if not os.path.exists(psf_cat):
             try:
                 #os.system('sextractor {} -c config/config_psfex.sex -PARAMETERS_NAME config/param_psfex.sex -CATALOG_NAME {} -CATALOG_TYPE FITS_LDAC -WEIGHT_TYPE MAP_WEIGHT -WEIGHT_IMAGE {} -MAG_ZEROPOINT {}'.format(path_im, path_outcat, path_wt, zpt))
-                print(f'sex {self.path_image} -c config/config_psfex.sex -PARAMETERS_NAME config/param_psfex.sex -CATALOG_NAME {psf_cat} -CATALOG_TYPE FITS_LDAC -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME {path_segmap} -MAG_ZEROPOINT {self.mag_zeropoints}')
-                os.system(f'sex {self.path_image} -c config/config_psfex.sex -PARAMETERS_NAME config/param_psfex.sex -CATALOG_NAME {psf_cat} -CATALOG_TYPE FITS_LDAC -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME {path_segmap} -MAG_ZEROPOINT {self.mag_zeropoints}')
-                #print('RUNNING SEXTRACTOR WITHOUT SEGMAP')
-                #os.system(f'sex {self.path_image} -c config/config_psfex.sex -PARAMETERS_NAME config/param_psfex.sex -CATALOG_NAME {psf_cat} -CATALOG_TYPE FITS_LDAC -MAG_ZEROPOINT {self.mag_zeropoints}')
-                sys.exit()
+                # print(f'sex {self.path_image} -c config/config_psfex.sex -PARAMETERS_NAME config/param_psfex.sex -CATALOG_NAME {psf_cat} -CATALOG_TYPE FITS_LDAC -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME {path_segmap} -MAG_ZEROPOINT {self.mag_zeropoints}')
+                os.system(f'sex {self.path_image} -c config/config_psfex.sex -PARAMETERS_NAME config/param_psfex.sex -CATALOG_NAME {psf_cat} -CATALOG_TYPE FITS_LDAC -MAG_ZEROPOINT {self.mag_zeropoints}')
+                # #print('RUNNING SEXTRACTOR WITHOUT SEGMAP')
+                # #os.system(f'sex {self.path_image} -c config/config_psfex.sex -PARAMETERS_NAME config/param_psfex.sex -CATALOG_NAME {psf_cat} -CATALOG_TYPE FITS_LDAC -MAG_ZEROPOINT {self.mag_zeropoints}')
+                # sys.exit()
                 if conf.VERBOSE: print('SExtractor succeded!')
             except:
                 raise ValueError('SExtractof failed!')
-        # if not forced, then the cleaned segmap should be saved as the weight for the dual mode!
-
-        # LDAC is only cleaned if not forced mode! (otherwise should be clean already)
-        if not forced_psf:
 
             hdul_ldac = fits.open(psf_cat, ignore_missing_end=True, mode='update')
             tab_ldac = hdul_ldac['LDAC_OBJECTS'].data
 
-            mask_ldac = (tab_ldac['MAG_AUTO'] > conf.DET_VAL_LIMITS[0]) &\
-                    (tab_ldac['MAG_AUTO'] < conf.DET_VAL_LIMITS[1]) &\
-                    (tab_ldac['FLUX_RADIUS'] > conf.DET_REFF_LIMITS[0]) &\
-                    (tab_ldac['FLUX_RADIUS'] < conf.DET_REFF_LIMITS[1])
+            mask_ldac = (tab_ldac['MAG_AUTO'] > conf.VAL_LIMITS[0]) &\
+                    (tab_ldac['MAG_AUTO'] < conf.VAL_LIMITS[1]) &\
+                    (tab_ldac['FLUX_RADIUS'] > conf.REFF_LIMITS[0]) &\
+                    (tab_ldac['FLUX_RADIUS'] < conf.REFF_LIMITS[1])
 
             idx_exclude = np.arange(1, len(tab_ldac) + 1)[~mask_ldac]
 
             hdul_ldac['LDAC_OBJECTS'].data = tab_ldac[mask_ldac]
             hdul_ldac.flush()
 
-            # clean segmap
-            segmap = fits.open(path_segmap)[0].data
-            for idx in idx_exclude:
-                segmap[segmap == idx['id']] = 0
-            # this is just to remove non-PS from the other LDACs
-
-            segmap.writeto('detection_segmap_clean.fits')
-            hdul_ldac.close()
-
-        else:
-            segmap = fits.open('detection_segmap_clean.fits')[0].data
-            idx_obj = np.unique(segmap)[1:] - 1 # rm zero, shift to index-zero
-            segmap[segmap > 0] = 1
-
-            hdul_ldac = fits.open(psf_cat, ignore_missing_end=True)
-            tab_ldac = hdul_ldac['LDAC_OBJECTS'].data[idx_obj]
-
-            tab_ldac.writeto(psf_cat, overwrite=True)
-            tab_ldac.close()
-
-        # RUN PSF
-        os.system(f'psfex {psf_cat} -c config/config.psfex -BASIS_TYPE PIXEL -PSF_SIZE 101,101 -PSF_DIR {psf_dir} -WRITE_XML Y -XML_NAME {path_savexml} -CHECKIMAGE_NAME {path_savechkimg} -CHECKPLOT_NAME {path_savechkplt}')
+            # RUN PSF
+            os.system(f'psfex {psf_cat} -c config/config.psfex -BASIS_TYPE PIXEL -PSF_SIZE 101,101 -PSF_DIR {psf_dir} -WRITE_XML Y -XML_NAME {path_savexml} -CHECKIMAGE_NAME {path_savechkimg} -CHECKPLOT_NAME {path_savechkplt}')
+            
         
-    
     def _make_brick(self, brick_id, overwrite=False, detection=False, 
             brick_width=conf.BRICK_WIDTH, brick_height=conf.BRICK_HEIGHT, brick_buffer=conf.BRICK_BUFFER):
 

@@ -87,3 +87,4 @@ MEMORY_BUFSIZE   20000            # number of lines in buffer
 #----------------------------- Miscellaneous ---------------------------------
 
 VERBOSE_TYPE     NORMAL         # can be QUIET, NORMAL or FULL
+NTHREADS         10
