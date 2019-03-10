@@ -134,6 +134,7 @@ class Blob(Subimage):
 
             if mid == 1:
                 self.model_catalog[i] = PointSource(position, flux)
+                self.model_catalog[i].name = 'PointSource'
             elif mid == 2:
                 self.model_catalog[i] = SimpleGalaxy(position, flux)
             elif mid == 3:
