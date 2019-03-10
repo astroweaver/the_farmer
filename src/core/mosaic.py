@@ -105,7 +105,7 @@ class Mosaic(Subimage):
         # LDAC is only cleaned if not forced mode! (otherwise should be clean already)
         if not forced_psf:
 
-            hdul_ldac = fits.open(psf_cat, ignore_missing_end=True)
+            hdul_ldac = fits.open(psf_cat, ignore_missing_end=True, mode='update')
             tab_ldac = hdul_ldac['LDAC_OBJECTS'].data
 
             mask_ldac = (tab_ldac['MAG_AUTO'] > conf.DET_VAL_LIMITS[0]) &\
@@ -116,7 +116,7 @@ class Mosaic(Subimage):
             idx_exclude = np.arange(1, len(tab_ldac) + 1)[~mask_ldac]
 
             hdul_ldac['LDAC_OBJECTS'].data = tab_ldac[mask_ldac]
-            hdul_ldac.writeto(psf_cat, overwrite=True)
+            hdul_ldac.flush()
 
             # clean segmap
             segmap = fits.open(path_segmap)[0].data
