@@ -116,7 +116,7 @@ class Mosaic(Subimage):
             idx_exclude = np.arange(1, len(tab_ldac) + 1)[~mask_ldac]
 
             hdul_ldac['LDAC_OBJECTS'].data = tab_ldac[mask_ldac]
-            hdul_ldac.writeto(psf_cat, overwrite=True)
+            hdul_ldac.writeto(psf_cat, output_verify='ignore', overwrite=True)
 
             # clean segmap
             segmap = fits.open(path_segmap)[1].data
