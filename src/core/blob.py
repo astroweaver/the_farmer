@@ -536,12 +536,15 @@ class Blob(Subimage):
         #     self.brick.catalog[row]['Dec'] = skyc[1]
         try:
             self.brick.catalog[row]['solmodel'] = src.name
+            skip = False
         except:
             self.brick.catalog[row]['solmodel'] = 'maybe_PS'
-        if src.name in ('SimpleGalaxy', 'ExpGalaxy', 'DevGalaxy', 'CompositeGalaxy'):
-            self.brick.catalog[row]['reff'] = src.shape.re
-            self.brick.catalog[row]['ab'] = src.shape.ab
-            self.brick.catalog[row]['phi'] = src.shape.phi
-            self.brick.catalog[row]['reff_err'] = np.sqrt(self.parameter_variance[idx][0])
-            self.brick.catalog[row]['ab_err'] = np.sqrt(self.parameter_variance[idx][1])
-            self.brick.catalog[row]['phi_err'] = np.sqrt(self.parameter_variance[idx][2])
+            skip = True
+        if not skip:
+            if src.name in ('SimpleGalaxy', 'ExpGalaxy', 'DevGalaxy', 'CompositeGalaxy'):
+                self.brick.catalog[row]['reff'] = src.shape.re
+                self.brick.catalog[row]['ab'] = src.shape.ab
+                self.brick.catalog[row]['phi'] = src.shape.phi
+                self.brick.catalog[row]['reff_err'] = np.sqrt(self.parameter_variance[idx][0])
+                self.brick.catalog[row]['ab_err'] = np.sqrt(self.parameter_variance[idx][1])
+                self.brick.catalog[row]['phi_err'] = np.sqrt(self.parameter_variance[idx][2])
