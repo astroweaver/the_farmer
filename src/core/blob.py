@@ -541,7 +541,7 @@ class Blob(Subimage):
             self.brick.catalog[row]['solmodel'] = 'maybe_PS'
             skip = True
         if not skip:
-            if src.name in ('SimpleGalaxy', 'ExpGalaxy', 'DevGalaxy', 'CompositeGalaxy'):
+            if src.name in ('SimpleGalaxy', 'ExpGalaxy', 'DevGalaxy'): #skip composite for now
                 self.brick.catalog[row]['reff'] = src.shape.re
                 self.brick.catalog[row]['ab'] = src.shape.ab
                 self.brick.catalog[row]['phi'] = src.shape.phi
