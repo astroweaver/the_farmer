@@ -86,6 +86,7 @@ class Blob(Subimage):
         self.position_variance = np.zeros((self.n_sources, 2))
         self.parameter_variance = np.zeros((self.n_sources, 3))
         self.forced_variance = np.zeros((self.n_sources, self.n_bands))
+        self.solution_tractor = None
 
         self.residual_catalog = np.zeros((self.n_bands), dtype=object)
         self.residual_segmap = np.zeros_like(self.segmap)
@@ -134,7 +135,7 @@ class Blob(Subimage):
 
             if mid == 1:
                 self.model_catalog[i] = PointSource(position, flux)
-                self.model_catalog[i].name = 'PointSource'
+                self.model_catalog[i].name = 'PointSource' # HACK to get around Dustin's HACK.
             elif mid == 2:
                 self.model_catalog[i] = SimpleGalaxy(position, flux)
             elif mid == 3:

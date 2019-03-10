@@ -33,16 +33,18 @@ import matplotlib.pyplot as plt
 
 from .brick import Brick
 from .mosaic import Mosaic
+from .utils import plot_blob
 
 import config as conf
 
-def makebricks(multiband_only=False, single_band=None):
+def makebricks(multiband_only=False, single_band=None, skip_psf=False):
 
     if not multiband_only:
         # Detection
         if conf.VERBOSE: print('Making mosaic for detection')
         detmosaic = Mosaic(conf.DETECTION_NICKNAME, detection=True)
-        detmosaic._make_psf()
+        if not skip_psf: 
+            detmosaic._make_psf()
 
         if conf.NTHREADS > 0:
             if conf.VERBOSE: print('Making bricks for detection (in parallel)')
@@ -69,7 +71,8 @@ def makebricks(multiband_only=False, single_band=None):
 
         if conf.VERBOSE: print(f'Making mosaic for band {band}')
         bandmosaic = Mosaic(band)
-        bandmosaic._make_psf(forced_psf=True)
+        if not skip_psf: 
+            bandmosaic._make_psf(forced_psf=True)
 
         if conf.NTHREADS > 0:
             if conf.VERBOSE: print(f'Making bricks for band {band} (in parallel)')
@@ -82,7 +85,7 @@ def makebricks(multiband_only=False, single_band=None):
                 bandmosaic._make_brick(brick_id, detection=False, overwrite=overwrite)
 
 
-def tractor(brick_id): # need to add overwrite args!
+def tractor(brick_id, source_id=None): # need to add overwrite args!
 
     # Send out list of bricks to each node to call this function!
 
@@ -114,17 +117,25 @@ def tractor(brick_id): # need to add overwrite args!
     fbrick.catalog = detbrick.catalog
     fbrick.add_columns()
     fbrick.catalog
-
     if conf.VERBOSE: print(f'Multiband brick #{brick_id} created ({time() - tstart:3.3f}s)')
 
-    if conf.NTHREADS > 0:
-        pool = mp.ProcessingPool(processes=conf.NTHREADS)
-        rows = pool.map(partial(runblob, detbrick=detbrick, fbrick=fbrick), np.arange(1, detbrick.n_blobs))
+    if source_id is not None:
+        blob_id = np.unique(fbrick.blobmap[fbrick.segmap == source_id])
+        assert(len(blob_id) == 1, 'More than one blob inhabits that segment!')
+        runblob(blob_id[0], detbrick, fbrick, plotting=conf.PLOT)
+
     else:
-        [runblob(blob_id, detbrick, fbrick) for blob_id in np.arange(1, detbrick.n_blobs)]
+        if conf.NTHREADS > 0:
+            pool = mp.ProcessingPool(processes=conf.NTHREADS)
+            rows = pool.map(partial(runblob, detbrick=detbrick, fbrick=fbrick), np.arange(1, detbrick.n_blobs))
+        else:
+            [runblob(blob_id, detbrick, fbrick) for blob_id in np.arange(1, detbrick.n_blobs)]
+
+    # write out cat
+    fbrick.catalog.write(os.path.join(conf.CATALOG_DIR, f'{fbrick.brick_id}.cat', format='fits'))
 
 
-def runblob(blob_id, detbrick, fbrick):
+def runblob(blob_id, detbrick, fbrick, plotting=False):
 
     if conf.VERBOSE: print()
     if conf.VERBOSE: print(f'Starting on Blob #{blob_id}')
@@ -153,6 +164,9 @@ def runblob(blob_id, detbrick, fbrick):
     # Forced phot
     myfblob.stage_images()
     status = myfblob.forced_phot()
+
+    if plotting:
+        plot_blob(detbrick, fbrick)
 
     # Run follow-up phot
     try:
