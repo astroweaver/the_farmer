@@ -111,10 +111,10 @@ class Mosaic(Subimage):
             hdul_ldac = fits.open(psf_cat, ignore_missing_end=True, mode='update')
             tab_ldac = hdul_ldac['LDAC_OBJECTS'].data
 
-            mask_ldac = (tab_ldac['MAG_AUTO'] > conf.VAL_LIMITS[0]) &\
-                    (tab_ldac['MAG_AUTO'] < conf.VAL_LIMITS[1]) &\
-                    (tab_ldac['FLUX_RADIUS'] > conf.REFF_LIMITS[0]) &\
-                    (tab_ldac['FLUX_RADIUS'] < conf.REFF_LIMITS[1])
+            mask_ldac = (tab_ldac['MAG_AUTO'] > conf.DET_VAL_LIMITS[0]) &\
+                    (tab_ldac['MAG_AUTO'] < conf.DET_VAL_LIMITS[1]) &\
+                    (tab_ldac['FLUX_RADIUS'] > conf.DET_REFF_LIMITS[0]) &\
+                    (tab_ldac['FLUX_RADIUS'] < conf.DET_REFF_LIMITS[1])
 
             idx_exclude = np.arange(1, len(tab_ldac) + 1)[~mask_ldac]
 
