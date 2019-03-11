@@ -424,15 +424,15 @@ class Blob(Subimage):
                 apflux_err[:, i] = p.field('aperture_sum_err')
 
         band = band.replace(' ', '_')
-        if f'aperphot_{band}_{image_type}' not in self.brick.catalog.colnames:
-            self.brick.catalog.add_column(Column(np.zeros(len(self.brick.catalog), dtype=(float, len(apertures))), name=f'aperphot_{band}_{image_type}'))
-            self.brick.catalog.add_column(Column(np.zeros(len(self.brick.catalog), dtype=(float, len(apertures))), name=f'aperphot_{band}_{image_type}_err'))
+        if f'aperphot_{band}_{image_type}' not in self.catalog.colnames:
+            self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=(float, len(apertures))), name=f'aperphot_{band}_{image_type}'))
+            self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=(float, len(apertures))), name=f'aperphot_{band}_{image_type}_err'))
 
         for idx, src in enumerate(self.solution_catalog):
             sid = self.catalog['sid'][idx]
-            row = np.argwhere(self.brick.catalog['sid'] == sid)[0][0]
-            self.brick.catalog[row][f'aperphot_{band}_{image_type}'] = tuple(apflux[idx])
-            self.brick.catalog[row][f'aperphot_{band}_{image_type}_err'] = tuple(apflux_err[idx])
+            row = np.argwhere(self.catalog['sid'] == sid)[0][0]
+            self.catalog[row][f'aperphot_{band}_{image_type}'] = tuple(apflux[idx])
+            self.catalog[row][f'aperphot_{band}_{image_type}_err'] = tuple(apflux_err[idx])
 
     def sextract_phot(self, band, sub_background=False):
         # SHOULD WE STACK THE RESIDUALS? (No?)
@@ -460,28 +460,26 @@ class Blob(Subimage):
         kwargs = dict(var=var, minarea=conf.RES_MINAREA, segmentation_map=True, deblend_nthresh=conf.RES_DEBLEND_NTHRESH, deblend_cont=conf.RES_DEBLEND_CONT)
         catalog, segmap = sep.extract(residual, thresh, **kwargs)
 
+        if f'{band}_n_residual_sources' not in self.catalog.colnames:
+                self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=bool), name=f'{band}_n_residual_sources'))
+
         if len(catalog) != 0:
-            catalog = Table(catalog)
             self.residual_catalog[idx] = catalog
             n_residual_sources = len(catalog)
             self.residual_segmap = segmap
             self.n_residual_sources[idx] = n_residual_sources
             if conf.VERBOSE2: print(f'SExtractor Found {n_residual_sources} in {band} residual!')
 
-            if f'{band}_n_residual_sources' not in self.brick.catalog.colnames:
-                self.brick.catalog.add_column(Column(np.zeros(len(self.brick.catalog), dtype=bool), name=f'{band}_n_residual_sources'))
 
             for idx, src in enumerate(self.solution_catalog):
                 sid = self.catalog['sid'][idx]
-                row = np.argwhere(self.brick.catalog['sid'] == sid)[0][0]
-                self.brick.catalog[row][f'{band}_n_residual_sources'] = True
+                row = np.argwhere(self.catalog['sid'] == sid)[0][0]
+                self.catalog[row][f'{band}_n_residual_sources'] = True
 
             return catalog, segmap
         else:
             if conf.VERBOSE2: print('No objects found by SExtractor.')
 
-
-        pass
 
     def forced_phot(self):
 
@@ -516,26 +514,26 @@ class Blob(Subimage):
         self.solution_model_images = np.array([self.tr.getModelImage(i) for i in np.arange(self.n_bands)])
         self.solution_chi_images = np.array([self.tr.getChiImage(i) for i in np.arange(self.n_bands)])
 
-        self.rows = np.zeros(len(self.solution_catalog))
+        # self.rows = np.zeros(len(self.solution_catalog))
         for idx, src in enumerate(self.solution_catalog):
             sid = self.catalog['sid'][idx]
-            row = np.argwhere(self.brick.catalog['sid'] == sid)[0][0]
-            self.rows[idx] = row
+            # row = np.argwhere(self.brick.catalog['sid'] == sid)[0][0]
+            # self.rows[idx] = row
             # print(f'STASHING {sid} IN ROW {row}')
-            self.get_catalog(row, idx, src)
+            self.get_catalog(idx, src)
 
         return status
 
-    def get_catalog(self, row, idx, src):
+    def get_catalog(self, row, src):
         for i, band in enumerate(self.bands):
             band = band.replace(' ', '_')
             self.catalog[row][band] = src.brightness[i]
-            self.catalog[row][band+'_err'] = np.sqrt(self.forced_variance[idx][i])
-            self.catalog[row][band+'_chisq'] = self.solution_chisq[idx, i]
+            self.catalog[row][band+'_err'] = np.sqrt(self.forced_variance[row][i])
+            self.catalog[row][band+'_chisq'] = self.solution_chisq[row, i]
         self.catalog[row]['x_model'] = src.pos[0] + self.subvector[0]
         self.catalog[row]['y_model'] = src.pos[1] + self.subvector[1]
-        self.catalog[row]['x_model_err'] = np.sqrt(self.position_variance[idx, 0])
-        self.catalog[row]['y_model_err'] = np.sqrt(self.position_variance[idx, 1])
+        self.catalog[row]['x_model_err'] = np.sqrt(self.position_variance[row, 0])
+        self.catalog[row]['y_model_err'] = np.sqrt(self.position_variance[row, 1])
         if self._wcs is not None:
             skyc = self._wcs.pixel_to_world(src.pos[0] + self.subvector[0], src.pos[1] + self.subvector[1])
             self.catalog[row]['RA'] = skyc[0]
@@ -552,8 +550,8 @@ class Blob(Subimage):
                     self.catalog[row]['reff'] = src.shape.re
                     self.catalog[row]['ab'] = src.shape.ab
                     self.catalog[row]['phi'] = src.shape.phi
-                    self.catalog[row]['reff_err'] = np.sqrt(self.parameter_variance[idx][0])
-                    self.catalog[row]['ab_err'] = np.sqrt(self.parameter_variance[idx][1])
-                    self.catalog[row]['phi_err'] = np.sqrt(self.parameter_variance[idx][2])
+                    self.catalog[row]['reff_err'] = np.sqrt(self.parameter_variance[row][0])
+                    self.catalog[row]['ab_err'] = np.sqrt(self.parameter_variance[row][1])
+                    self.catalog[row]['phi_err'] = np.sqrt(self.parameter_variance[row][2])
                 except:
                     if conf.VERBOSE: print('WARNING - model parameters not added to catalog.')

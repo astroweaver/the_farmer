@@ -112,7 +112,7 @@ class Brick(Subimage):
         self.catalog.add_column(Column(sid_col, name='sid'), 0)
 
         brick_col = float(self.brick_id) * np.ones(self.n_sources, dtype=int)
-        self.catalog.add_column(Column(brick_col, name='bid'), 0)
+        self.catalog.add_column(Column(brick_col.astype(int), name='bid'), 0)
 
     def add_columns(self):
         """TODO: docstring"""

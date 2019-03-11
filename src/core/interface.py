@@ -25,6 +25,7 @@ from functools import partial
 sys.path.insert(0, os.path.join(os.getcwd(), 'config'))
 
 from astropy.io import fits
+from astropy.table import Table, Column, vstack, join
 from astropy.wcs import WCS
 import numpy as np
 import pathos.multiprocessing as mp 
@@ -123,6 +124,7 @@ def tractor(brick_id, source_id=None): # need to add overwrite args!
     fbrick.catalog
     if conf.VERBOSE: print(f'Multiband brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
 
+    tstart = time.time()
     if source_id is not None:
         blob_id = np.unique(fbrick.blobmap[fbrick.segmap == source_id])
         assert(len(blob_id) == 1, 'More than one blob inhabits that segment!')
@@ -132,23 +134,28 @@ def tractor(brick_id, source_id=None): # need to add overwrite args!
         if conf.NTHREADS > 0:
             pool = mp.ProcessingPool(processes=conf.NTHREADS)
             #rows = pool.map(partial(runblob, detbrick=detbrick, fbrick=fbrick), np.arange(1, detbrick.n_blobs))
-            detblobs = [detbrick.make_blob(i) for i in np.arange(1, detbrick.n_blobs+1)]
+            # detblobs = [detbrick.make_blob(i) for i in np.arange(1, detbrick.n_blobs+1)]
             #fblobs = [fbrick.make_blob(i) for i in np.arange(1, detbrick.n_blobs+1)]
             #rows = pool.map(runblob, zip(detblobs, fblobs))
-            tstart = time.time()
-            results = pool.amap(partial(runblob, detbrick=detbrick, fbrick=fbrick), np.arange(1, 10)) #detbrick.n_blobs))
-            while not results.ready():
-                time.sleep(10)
-                if not conf.VERBOSE2: print(".", end=' ')
-            if conf.VERBOSE: print(f'Completed {detbrick.n_blobs} in {time.time() - tstart:3.3f}s')
+            
+            output_rows = pool.map(partial(runblob, detbrick=detbrick, fbrick=fbrick), np.arange(1, 10)) #detbrick.n_blobs))
+            # while not results.ready():
+            #     time.sleep(10)
+            #     if not conf.VERBOSE2: print(".", end=' ')
             pool.close()
-            output_rows = results.get()
+            # output_rows = results.get()
         else:
-            output_rows = [runblob(blob_id, detbrick, fbrick) for blob_id in np.arange(1, detbrick.n_blobs+1)]
+            output_rows = [runblob(blob_id, detbrick, fbrick, plotting=conf.PLOT) for blob_id in np.arange(1, 10)] #detbrick.n_blobs+1)]
     
-    output_cat = np.vstack(output_rows)
+        if conf.VERBOSE: print(f'Completed {detbrick.n_blobs} blobs in {time.time() - tstart:3.3f}s')
+
+    output_cat = vstack(output_rows)
+    #for colname in output_cat.colnames:
+    #    if colname not in fbrick.catalog.colnames:
+    #        fbrick.catalog.add_column(Column(np.zeros_like(output_cat[colname], dtype=output_cat[colname].dtype), name=colname))
+    #fbrick.catalog = join(fbrick.catalog, output_cat, join_type='left', )
     for row in output_cat:
-        fbrick.catalog[fbrick.catalog['sid'] == row['sid']] = row
+         fbrick.catalog[np.where(fbrick.catalog['sid'] == row['sid'])[0]] = row
 
     # write out cat
     fbrick.catalog.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat'), format='fits')
@@ -191,14 +198,16 @@ def runblob(blob_id, detbrick, fbrick, plotting=False):
     #     plot_blob(myblob, myfblob)
 
     # Run follow-up phot
-    try:
-        [[myfblob.aperture_phot(band, img_type) for band in myfblob.bands] for img_type in ('image', 'model', 'residual')]
-    except:
-        if conf.VERBOSE2: print(f'Aperture photmetry FAILED. Likely a bad blob.')
-    try:
-        [myfblob.sextract_phot(band) for band in myfblob.bands]
-    except:
-        if conf.VERBOSE2: print(f'Residual Sextractor photmetry FAILED. Likely a bad blob.)')
+    if conf.DO_APPHOT:
+        try:
+            [[myfblob.aperture_phot(band, img_type) for band in myfblob.bands] for img_type in ('image', 'model', 'residual')]
+        except:
+            if conf.VERBOSE2: print(f'Aperture photmetry FAILED. Likely a bad blob.')
+    if conf.DO_SEXPHOT:
+        try:
+            [myfblob.sextract_phot(band) for band in myfblob.bands]
+        except:
+            if conf.VERBOSE2: print(f'Residual Sextractor photmetry FAILED. Likely a bad blob.)')
 
     duration = time.time() - tstart
     if conf.VERBOSE2: print(f'Solution for {myblob.n_sources} sources arrived at in {duration}s ({duration/myblob.n_sources:2.2f}s per src)')
