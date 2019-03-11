@@ -132,12 +132,13 @@ def tractor(brick_id, source_id=None): # need to add overwrite args!
             detblobs = [detbrick.make_blob(i) for i in np.arange(1, detbrick.n_blobs+1)]
             #fblobs = [fbrick.make_blob(i) for i in np.arange(1, detbrick.n_blobs+1)]
             #rows = pool.map(runblob, zip(detblobs, fblobs))
-            pool.map(partial(runblob, detbrick=detbrick, fbrick=fbrick), np.arange(1, detbrick.n_blobs))
+            pool.map_async(partial(runblob, detbrick=detbrick, fbrick=fbrick), np.arange(1, detbrick.n_blobs))
         else:
             [runblob(blob_id, detbrick, fbrick) for blob_id in np.arange(1, detbrick.n_blobs+1)]
 
     # write out cat
     fbrick.catalog.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat'), format='fits')
+
 
 def runblob(blob_id, detbrick, fbrick, plotting=False):
 
