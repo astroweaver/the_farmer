@@ -138,14 +138,14 @@ def tractor(brick_id, source_id=None): # need to add overwrite args!
             #fblobs = [fbrick.make_blob(i) for i in np.arange(1, detbrick.n_blobs+1)]
             #rows = pool.map(runblob, zip(detblobs, fblobs))
             
-            output_rows = pool.map(partial(runblob, detbrick=detbrick, fbrick=fbrick), np.arange(1, 10)) #detbrick.n_blobs))
+            output_rows = pool.map(partial(runblob, detbrick=detbrick, fbrick=fbrick), np.arange(1, detbrick.n_blobs))
             # while not results.ready():
             #     time.sleep(10)
             #     if not conf.VERBOSE2: print(".", end=' ')
             pool.close()
             # output_rows = results.get()
         else:
-            output_rows = [runblob(blob_id, detbrick, fbrick, plotting=conf.PLOT) for blob_id in np.arange(1, 10)] #detbrick.n_blobs+1)]
+            output_rows = [runblob(blob_id, detbrick, fbrick, plotting=conf.PLOT) for blob_id in np.arange(1, detbrick.n_blobs+1)]
     
         if conf.VERBOSE: print(f'Completed {detbrick.n_blobs} blobs in {time.time() - tstart:3.3f}s')
 
