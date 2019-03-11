@@ -466,7 +466,7 @@ class Blob(Subimage):
             n_residual_sources = len(catalog)
             self.residual_segmap = segmap
             self.n_residual_sources[idx] = n_residual_sources
-            if conf.VERBOSE: print(f'SExtractor Found {n_residual_sources} in {band} residual!')
+            if conf.VERBOSE2: print(f'SExtractor Found {n_residual_sources} in {band} residual!')
 
             if f'{band}_n_residual_sources' not in self.brick.catalog.colnames:
                 self.brick.catalog.add_column(Column(np.zeros(len(self.brick.catalog), dtype=bool), name=f'{band}_n_residual_sources'))
@@ -478,7 +478,7 @@ class Blob(Subimage):
 
             return catalog, segmap
         else:
-            if conf.VERBOSE: print('No objects found by SExtractor.')
+            if conf.VERBOSE2: print('No objects found by SExtractor.')
 
 
         pass
@@ -516,42 +516,44 @@ class Blob(Subimage):
         self.solution_model_images = np.array([self.tr.getModelImage(i) for i in np.arange(self.n_bands)])
         self.solution_chi_images = np.array([self.tr.getChiImage(i) for i in np.arange(self.n_bands)])
 
+        self.rows = np.zeros(len(self.solution_catalog))
         for idx, src in enumerate(self.solution_catalog):
             sid = self.catalog['sid'][idx]
             row = np.argwhere(self.brick.catalog['sid'] == sid)[0][0]
+            self.rows[idx] = row
             # print(f'STASHING {sid} IN ROW {row}')
-            self.add_to_catalog(row, idx, src)
+            self.get_catalog(row, idx, src)
 
         return status
 
-    def add_to_catalog(self, row, idx, src):
+    def get_catalog(self, row, idx, src):
         for i, band in enumerate(self.bands):
             band = band.replace(' ', '_')
-            self.brick.catalog[row][band] = src.brightness[i]
-            self.brick.catalog[row][band+'_err'] = np.sqrt(self.forced_variance[idx][i])
-            self.brick.catalog[row][band+'_chisq'] = self.solution_chisq[idx, i]
-        self.brick.catalog[row]['x_model'] = src.pos[0] + self.subvector[0]
-        self.brick.catalog[row]['y_model'] = src.pos[1] + self.subvector[1]
-        self.brick.catalog[row]['x_model_err'] = np.sqrt(self.position_variance[idx, 0])
-        self.brick.catalog[row]['y_model_err'] = np.sqrt(self.position_variance[idx, 1])
+            self.catalog[row][band] = src.brightness[i]
+            self.catalog[row][band+'_err'] = np.sqrt(self.forced_variance[idx][i])
+            self.catalog[row][band+'_chisq'] = self.solution_chisq[idx, i]
+        self.catalog[row]['x_model'] = src.pos[0] + self.subvector[0]
+        self.catalog[row]['y_model'] = src.pos[1] + self.subvector[1]
+        self.catalog[row]['x_model_err'] = np.sqrt(self.position_variance[idx, 0])
+        self.catalog[row]['y_model_err'] = np.sqrt(self.position_variance[idx, 1])
         if self._wcs is not None:
             skyc = self._wcs.pixel_to_world(src.pos[0] + self.subvector[0], src.pos[1] + self.subvector[1])
-            self.brick.catalog[row]['RA'] = skyc[0]
-            self.brick.catalog[row]['Dec'] = skyc[1]
+            self.catalog[row]['RA'] = skyc[0]
+            self.catalog[row]['Dec'] = skyc[1]
         try:
-            self.brick.catalog[row]['solmodel'] = src.name
+            self.catalog[row]['solmodel'] = src.name
             skip = False
         except:
-            self.brick.catalog[row]['solmodel'] = 'maybe_PS'
+            self.catalog[row]['solmodel'] = 'maybe_PS'
             skip = True
         if not skip:
             if src.name in ('SimpleGalaxy', 'ExpGalaxy', 'DevGalaxy', 'CompositeGalaxy'):
                 try:
-                    self.brick.catalog[row]['reff'] = src.shape.re
-                    self.brick.catalog[row]['ab'] = src.shape.ab
-                    self.brick.catalog[row]['phi'] = src.shape.phi
-                    self.brick.catalog[row]['reff_err'] = np.sqrt(self.parameter_variance[idx][0])
-                    self.brick.catalog[row]['ab_err'] = np.sqrt(self.parameter_variance[idx][1])
-                    self.brick.catalog[row]['phi_err'] = np.sqrt(self.parameter_variance[idx][2])
+                    self.catalog[row]['reff'] = src.shape.re
+                    self.catalog[row]['ab'] = src.shape.ab
+                    self.catalog[row]['phi'] = src.shape.phi
+                    self.catalog[row]['reff_err'] = np.sqrt(self.parameter_variance[idx][0])
+                    self.catalog[row]['ab_err'] = np.sqrt(self.parameter_variance[idx][1])
+                    self.catalog[row]['phi_err'] = np.sqrt(self.parameter_variance[idx][2])
                 except:
                     if conf.VERBOSE: print('WARNING - model parameters not added to catalog.')

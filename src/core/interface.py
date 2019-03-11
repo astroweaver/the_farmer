@@ -20,7 +20,7 @@ None
 
 import os
 import sys
-from time import time
+import time
 from functools import partial
 sys.path.insert(0, os.path.join(os.getcwd(), 'config'))
 
@@ -86,39 +86,42 @@ def makebricks(multiband_only=False, single_band=None, skip_psf=False):
             for brick_id in np.arange(1, bandmosaic.n_bricks()):
                 bandmosaic._make_brick(brick_id, detection=False, overwrite=overwrite)
 
+    return
+
+
 def tractor(brick_id, source_id=None): # need to add overwrite args!
 
     # Send out list of bricks to each node to call this function!
 
     # Create detection brick
-    tstart = time()
+    tstart = time.time()
     detbrick = stage_brickfiles(brick_id, nickname=conf.DETECTION_NICKNAME, detection=True)
 
-    if conf.VERBOSE: print(f'Detection brick #{brick_id} created ({time() - tstart:3.3f}s)')
+    if conf.VERBOSE: print(f'Detection brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
 
     # Sextract sources
-    tstart = time()
+    tstart = time.time()
     try:
         detbrick.sextract(conf.DETECTION_NICKNAME)
-        if conf.VERBOSE: print(f'Detection brick #{brick_id} sextracted {detbrick.n_sources} objects ({time() - tstart:3.3f}s)')
+        if conf.VERBOSE: print(f'Detection brick #{brick_id} sextracted {detbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
     except:
-        if conf.VERBOSE: print(f'Detection brick #{brick_id} sextraction FAILED. ({time() - tstart:3.3f}s)')
+        if conf.VERBOSE: print(f'Detection brick #{brick_id} sextraction FAILED. ({time.time() - tstart:3.3f}s)')
         return
 
     # Cleanup
-    tstart = time()
+    tstart = time.time()
     detbrick.cleanup()
-    if conf.VERBOSE: print(f'Detection brick #{brick_id} gained {detbrick.n_blobs} blobs with {detbrick.n_sources} objects ({time() - tstart:3.3f}s)')
+    if conf.VERBOSE: print(f'Detection brick #{brick_id} gained {detbrick.n_blobs} blobs with {detbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
 
     # Create and update multiband brick
-    tstart = time()
+    tstart = time.time()
     fbrick = stage_brickfiles(brick_id, nickname=conf.MULTIBAND_NICKNAME, detection=False)
     fbrick.blobmap = detbrick.blobmap
     fbrick.segmap = detbrick.segmap
     fbrick.catalog = detbrick.catalog
     fbrick.add_columns()
     fbrick.catalog
-    if conf.VERBOSE: print(f'Multiband brick #{brick_id} created ({time() - tstart:3.3f}s)')
+    if conf.VERBOSE: print(f'Multiband brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
 
     if source_id is not None:
         blob_id = np.unique(fbrick.blobmap[fbrick.segmap == source_id])
@@ -132,25 +135,37 @@ def tractor(brick_id, source_id=None): # need to add overwrite args!
             detblobs = [detbrick.make_blob(i) for i in np.arange(1, detbrick.n_blobs+1)]
             #fblobs = [fbrick.make_blob(i) for i in np.arange(1, detbrick.n_blobs+1)]
             #rows = pool.map(runblob, zip(detblobs, fblobs))
-            pool.map(partial(runblob, detbrick=detbrick, fbrick=fbrick), np.arange(1, detbrick.n_blobs))
+            tstart = time.time()
+            results = pool.amap(partial(runblob, detbrick=detbrick, fbrick=fbrick), np.arange(1, 10)) #detbrick.n_blobs))
+            while not results.ready():
+                time.sleep(10)
+                if not conf.VERBOSE2: print(".", end=' ')
+            if conf.VERBOSE: print(f'Completed {detbrick.n_blobs} in {time.time() - tstart:3.3f}s')
+            pool.close()
+            output_rows = results.get()
         else:
-            [runblob(blob_id, detbrick, fbrick) for blob_id in np.arange(1, detbrick.n_blobs+1)]
+            output_rows = [runblob(blob_id, detbrick, fbrick) for blob_id in np.arange(1, detbrick.n_blobs+1)]
+    
+    output_cat = np.vstack(output_rows)
+    for row in output_cat:
+        fbrick.catalog[fbrick.catalog['sid'] == row['sid']] = row
 
     # write out cat
     fbrick.catalog.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat'), format='fits')
 
+    return
 
 def runblob(blob_id, detbrick, fbrick, plotting=False):
 
-    if conf.VERBOSE: print()
-    if conf.VERBOSE: print(f'Starting on Blob #{blob_id}')
-    tstart = time()
+    if conf.VERBOSE2: print()
+    if conf.VERBOSE2: print(f'Starting on Blob #{blob_id}')
+    tstart = time.time()
 
     # Make blob with detection image    
     myblob = detbrick.make_blob(blob_id)
 
     if myblob is None:
-        if conf.VERBOSE: print('BLOB REJECTED!')
+        if conf.VERBOSE2: print('BLOB REJECTED!')
         return
 
     # Run models
@@ -179,15 +194,16 @@ def runblob(blob_id, detbrick, fbrick, plotting=False):
     try:
         [[myfblob.aperture_phot(band, img_type) for band in myfblob.bands] for img_type in ('image', 'model', 'residual')]
     except:
-        if conf.VERBOSE: print(f'Aperture photmetry FAILED. Likely a bad blob.')
+        if conf.VERBOSE2: print(f'Aperture photmetry FAILED. Likely a bad blob.')
     try:
         [myfblob.sextract_phot(band) for band in myfblob.bands]
     except:
-        if conf.VERBOSE: print(f'Residual Sextractor photmetry FAILED. Likely a bad blob.)')
+        if conf.VERBOSE2: print(f'Residual Sextractor photmetry FAILED. Likely a bad blob.)')
 
-    duration = time() - tstart
-    if conf.VERBOSE: print(f'Solution for {myblob.n_sources} sources arrived at in {duration}s ({duration/myblob.n_sources:2.2f}s per src)')
-
+    duration = time.time() - tstart
+    if conf.VERBOSE2: print(f'Solution for {myblob.n_sources} sources arrived at in {duration}s ({duration/myblob.n_sources:2.2f}s per src)')
+    
+    return myfblob.catalog
 
 
 
