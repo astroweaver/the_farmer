@@ -337,6 +337,10 @@ class Blob(Subimage):
             if dlnp < conf.TRACTOR_CONTHRESH:
                 break
 
+        if var is None:
+            if conf.VERBOSE: print(f'WARNING - Optimization failed on blob #{self.blob_id}')
+            return False
+
         if (self.solution_catalog != 0).all():
             # print('CHANGING TO SOLUTION CATALOG FOR PARAMETERS')
             var_catalog = self.solution_catalog
@@ -530,8 +534,8 @@ class Blob(Subimage):
             self.catalog[row][band] = src.brightness[i]
             self.catalog[row][band+'_err'] = np.sqrt(self.forced_variance[row][i])
             self.catalog[row][band+'_chisq'] = self.solution_chisq[row, i]
-        self.catalog[row]['x_model'] = src.pos[0] + self.subvector[0]
-        self.catalog[row]['y_model'] = src.pos[1] + self.subvector[1]
+        self.catalog[row]['x_model'] = src.pos[0] + self.subvector[0] + self.brick.mosaic_origin[0]
+        self.catalog[row]['y_model'] = src.pos[1] + self.subvector[1] + self.brick.mosaic_origin[0]
         self.catalog[row]['x_model_err'] = np.sqrt(self.position_variance[row, 0])
         self.catalog[row]['y_model_err'] = np.sqrt(self.position_variance[row, 1])
         if self._wcs is not None:

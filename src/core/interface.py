@@ -168,31 +168,43 @@ def runblob(blob_id, detbrick, fbrick, plotting=False):
     if conf.VERBOSE2: print(f'Starting on Blob #{blob_id}')
     tstart = time.time()
 
-    # Make blob with detection image    
-    myblob = detbrick.make_blob(blob_id)
+    # Make blob with detection image   
+    try: 
+        myblob = detbrick.make_blob(blob_id)
+    except:
+        return
 
     if myblob is None:
         if conf.VERBOSE2: print('BLOB REJECTED!')
         return
 
     # Run models
-    myblob.stage_images()
+    try:
+        myblob.stage_images()
 
-    status = myblob.tractor_phot()
+        status = myblob.tractor_phot()
+    except:
+        return
 
     if not status:
         return
 
-    # make new blob with band information
-    myfblob = fbrick.make_blob(blob_id)
+    try:
+        # make new blob with band information
+        myfblob = fbrick.make_blob(blob_id)
 
-    myfblob.model_catalog = myblob.solution_catalog
-    myfblob.position_variance = myblob.position_variance
-    myfblob.parameter_variance = myblob.parameter_variance
+        myfblob.model_catalog = myblob.solution_catalog
+        myfblob.position_variance = myblob.position_variance
+        myfblob.parameter_variance = myblob.parameter_variance
+    except:
+        return
 
     # Forced phot
-    myfblob.stage_images()
-    status = myfblob.forced_phot()
+    try:
+        myfblob.stage_images()
+        status = myfblob.forced_phot()
+    except:
+        return
 
     # if plotting:
     #     plot_blob(myblob, myfblob)

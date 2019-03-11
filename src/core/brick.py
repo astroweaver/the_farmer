@@ -50,6 +50,7 @@ class Brick(Subimage):
         self.psfmodels = psfmodels
         self.bands = np.array(bands)
 
+
         super().__init__()
 
         self._buffer = buffer
@@ -66,6 +67,10 @@ class Brick(Subimage):
         self._masks[:, :self._buff_bottom] = True
         self._masks[:, self._buff_top:] = True
 
+        x0 = (((brick_id - 1) * conf.BRICK_WIDTH) % 50000) - buffer
+        y0 = int(((brick_id - 1) * conf.BRICK_HEIGHT) / 50000) * conf.BRICK_HEIGHT - buffer
+        self.mosaic_origin = np.array([x0, y0])
+
     @property
     def buffer(self):
         return self._buffer
@@ -81,16 +86,6 @@ class Brick(Subimage):
         self.dilate()
 
         self.relabel()
-
-    def about(self):
-        """
-        FIXME: I assume that this is temporary? If it's not just for debugging purposes, this needs to be fixed (logging)
-        """
-        print(f'*** Brick {self.brick_id}')
-        print(f' Shape: {self.shape}')
-        print(f' Nbands: {self.n_bands}')
-        print(f' Origin: {self.subvector}')
-        print()
 
     def clean_segmap(self):
         """TODO: docstring"""
