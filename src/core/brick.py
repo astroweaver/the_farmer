@@ -67,8 +67,8 @@ class Brick(Subimage):
         self._masks[:, :self._buff_bottom] = True
         self._masks[:, self._buff_top:] = True
 
-        x0 = (((brick_id - 1) * conf.BRICK_WIDTH) % 50000) - buffer
-        y0 = int(((brick_id - 1) * conf.BRICK_HEIGHT) / 50000) * conf.BRICK_HEIGHT - buffer
+        x0 = (((brick_id - 1) * conf.BRICK_WIDTH) % 50000)
+        y0 = int(((brick_id - 1) * conf.BRICK_HEIGHT) / 50000) * conf.BRICK_HEIGHT
         self.mosaic_origin = np.array([x0, y0])
 
     @property
@@ -92,9 +92,9 @@ class Brick(Subimage):
         coords = np.array([self.catalog['x'], self.catalog['y']]).T
         self._allowed_sources = (coords[:,0] > self._buff_left) & (coords[:,0] < self._buff_right )\
                         & (coords[:,1] > self._buff_bottom) & (coords[:,1] < self._buff_top)
-        idx = np.where(~self._allowed_sources)[0] + 1
+        idx = np.where(~self._allowed_sources)[0]
         for i in idx:
-            self.segmap[self.segmap == i] = 0
+            self.segmap[self.segmap == i+1] = 0
 
     def clean_catalog(self):
         """TODO: docstring"""

@@ -131,6 +131,13 @@ def tractor(brick_id, source_id=None): # need to add overwrite args!
         runblob(blob_id[0], detbrick, fbrick, plotting=conf.PLOT)
 
     else:
+
+        if conf.NBLOBS > 0:
+            run_n_blobs = conf.NBLOBS
+        else:
+            run_n_blobs = detbrick.n_blobs
+        
+
         if conf.NTHREADS > 0:
             pool = mp.ProcessingPool(processes=conf.NTHREADS)
             #rows = pool.map(partial(runblob, detbrick=detbrick, fbrick=fbrick), np.arange(1, detbrick.n_blobs))
@@ -138,18 +145,21 @@ def tractor(brick_id, source_id=None): # need to add overwrite args!
             #fblobs = [fbrick.make_blob(i) for i in np.arange(1, detbrick.n_blobs+1)]
             #rows = pool.map(runblob, zip(detblobs, fblobs))
             
-            output_rows = pool.map(partial(runblob, detbrick=detbrick, fbrick=fbrick), np.arange(1, detbrick.n_blobs))
+            output_rows = pool.map(partial(runblob, detbrick=detbrick, fbrick=fbrick), np.arange(1, run_n_blobs))
             # while not results.ready():
             #     time.sleep(10)
             #     if not conf.VERBOSE2: print(".", end=' ')
             pool.close()
             # output_rows = results.get()
         else:
-            output_rows = [runblob(blob_id, detbrick, fbrick, plotting=conf.PLOT) for blob_id in np.arange(1, detbrick.n_blobs+1)]
+            output_rows = [runblob(blob_id, detbrick, fbrick, plotting=conf.PLOT) for blob_id in np.arange(1, run_n_blobs+1)]
     
-        if conf.VERBOSE: print(f'Completed {detbrick.n_blobs} blobs in {time.time() - tstart:3.3f}s')
+        if conf.VERBOSE: print(f'Completed {run_n_blobs} blobs in {time.time() - tstart:3.3f}s')
+
+    output_rows = [x for x in output_rows if x is not None]
 
     output_cat = vstack(output_rows)
+            
     #for colname in output_cat.colnames:
     #    if colname not in fbrick.catalog.colnames:
     #        fbrick.catalog.add_column(Column(np.zeros_like(output_cat[colname], dtype=output_cat[colname].dtype), name=colname))
@@ -158,6 +168,8 @@ def tractor(brick_id, source_id=None): # need to add overwrite args!
          fbrick.catalog[np.where(fbrick.catalog['sid'] == row['sid'])[0]] = row
 
     # write out cat
+    fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER
+    fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER
     fbrick.catalog.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat'), format='fits')
 
     return
@@ -169,42 +181,36 @@ def runblob(blob_id, detbrick, fbrick, plotting=False):
     tstart = time.time()
 
     # Make blob with detection image   
-    try: 
-        myblob = detbrick.make_blob(blob_id)
-    except:
-        return
+    myblob = detbrick.make_blob(blob_id)
+    print(myblob.subvector)
 
     if myblob is None:
         if conf.VERBOSE2: print('BLOB REJECTED!')
         return
 
     # Run models
-    try:
-        myblob.stage_images()
 
-        status = myblob.tractor_phot()
-    except:
-        return
+    myblob.stage_images()
+
+    status = myblob.tractor_phot()
 
     if not status:
         return
 
-    try:
-        # make new blob with band information
-        myfblob = fbrick.make_blob(blob_id)
 
-        myfblob.model_catalog = myblob.solution_catalog
-        myfblob.position_variance = myblob.position_variance
-        myfblob.parameter_variance = myblob.parameter_variance
-    except:
-        return
+    # make new blob with band information
+    myfblob = fbrick.make_blob(blob_id)
+
+    myfblob.model_catalog = myblob.solution_catalog
+    myfblob.position_variance = myblob.position_variance
+    myfblob.parameter_variance = myblob.parameter_variance
+
 
     # Forced phot
-    try:
-        myfblob.stage_images()
-        status = myfblob.forced_phot()
-    except:
-        return
+
+    myfblob.stage_images()
+    status = myfblob.forced_phot()
+
 
     # if plotting:
     #     plot_blob(myblob, myfblob)
@@ -249,7 +255,8 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', detection=False):
         with fits.open(path_brickfile) as hdul_brick:
 
             # Attempt a WCS
-            wcs = WCS(hdul_brick[0].header)
+            wcs = WCS(hdul_brick[1].header)
+            print('ATTEMPT A WCS', wcs)
 
             # Stuff data into arrays
             for i, tband in enumerate(sbands):
