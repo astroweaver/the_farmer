@@ -182,7 +182,6 @@ def runblob(blob_id, detbrick, fbrick, plotting=False):
 
     # Make blob with detection image   
     myblob = detbrick.make_blob(blob_id)
-    print(myblob.subvector)
 
     if myblob is None:
         if conf.VERBOSE2: print('BLOB REJECTED!')
@@ -256,7 +255,6 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', detection=False):
 
             # Attempt a WCS
             wcs = WCS(hdul_brick[1].header)
-            print('ATTEMPT A WCS', wcs)
 
             # Stuff data into arrays
             for i, tband in enumerate(sbands):
