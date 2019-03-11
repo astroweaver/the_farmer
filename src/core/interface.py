@@ -140,6 +140,7 @@ def tractor(brick_id, source_id=None): # need to add overwrite args!
 
         if conf.NTHREADS > 0:
             pool = mp.ProcessingPool(processes=conf.NTHREADS)
+            pool.map(f, range(mp.cpu_count()))
             #rows = pool.map(partial(runblob, detbrick=detbrick, fbrick=fbrick), np.arange(1, detbrick.n_blobs))
             # detblobs = [detbrick.make_blob(i) for i in np.arange(1, detbrick.n_blobs+1)]
             #fblobs = [fbrick.make_blob(i) for i in np.arange(1, detbrick.n_blobs+1)]
@@ -150,29 +151,31 @@ def tractor(brick_id, source_id=None): # need to add overwrite args!
             #     time.sleep(10)
             #     if not conf.VERBOSE2: print(".", end=' ')
             pool.close()
+            pool.join()
+            pool.terminate()
             # output_rows = results.get()
         else:
             output_rows = [runblob(blob_id, detbrick, fbrick, plotting=conf.PLOT) for blob_id in np.arange(1, run_n_blobs+1)]
     
         if conf.VERBOSE: print(f'Completed {run_n_blobs} blobs in {time.time() - tstart:3.3f}s')
 
-    output_rows = [x for x in output_rows if x is not None]
+        output_rows = [x for x in output_rows if x is not None]
 
-    output_cat = vstack(output_rows)
-            
-    #for colname in output_cat.colnames:
-    #    if colname not in fbrick.catalog.colnames:
-    #        fbrick.catalog.add_column(Column(np.zeros_like(output_cat[colname], dtype=output_cat[colname].dtype), name=colname))
-    #fbrick.catalog = join(fbrick.catalog, output_cat, join_type='left', )
-    for row in output_cat:
-         fbrick.catalog[np.where(fbrick.catalog['sid'] == row['sid'])[0]] = row
+        output_cat = vstack(output_rows)
+                
+        #for colname in output_cat.colnames:
+        #    if colname not in fbrick.catalog.colnames:
+        #        fbrick.catalog.add_column(Column(np.zeros_like(output_cat[colname], dtype=output_cat[colname].dtype), name=colname))
+        #fbrick.catalog = join(fbrick.catalog, output_cat, join_type='left', )
+        for row in output_cat:
+            fbrick.catalog[np.where(fbrick.catalog['sid'] == row['sid'])[0]] = row
 
-    # write out cat
-    fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER
-    fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER
-    fbrick.catalog.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat'), format='fits')
+        # write out cat
+        fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER
+        fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER
+        fbrick.catalog.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat'), format='fits')
 
-    return
+        return
 
 def runblob(blob_id, detbrick, fbrick, plotting=False):
 
@@ -211,8 +214,8 @@ def runblob(blob_id, detbrick, fbrick, plotting=False):
     status = myfblob.forced_phot()
 
 
-    # if plotting:
-    #     plot_blob(myblob, myfblob)
+    if plotting:
+        plot_blob(myblob, myfblob)
 
     # Run follow-up phot
     if conf.DO_APPHOT:

@@ -79,7 +79,7 @@ def plot_blob(myblob, myfblob):
     fig, ax = plt.subplots(ncols=4, nrows=1+myfblob.n_bands, figsize=(5 + 5*myfblob.n_bands, 10), sharex=True, sharey=True)
         
     back = myblob.backgrounds[0]
-    mean, rms = back.globalback, back.globalrms
+    mean, rms = back[0], back[1]
     noise = np.random.normal(mean, rms, size=myfblob.dims)
     tr = myblob.solution_tractor
     
@@ -109,7 +109,7 @@ def plot_blob(myblob, myfblob):
 
     for i in np.arange(myfblob.n_bands):
         back = myfblob.backgrounds[i]
-        mean, rms = back.globalback, back.globalrms
+        mean, rms = back[0], back[1]
         noise = np.random.normal(mean, rms, size=myfblob.dims)
         tr = myfblob.solution_tractor
         
