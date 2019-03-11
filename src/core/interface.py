@@ -140,7 +140,6 @@ def tractor(brick_id, source_id=None): # need to add overwrite args!
 
         if conf.NTHREADS > 0:
             pool = mp.ProcessingPool(processes=conf.NTHREADS)
-            pool.map(f, range(mp.cpu_count()))
             #rows = pool.map(partial(runblob, detbrick=detbrick, fbrick=fbrick), np.arange(1, detbrick.n_blobs))
             # detblobs = [detbrick.make_blob(i) for i in np.arange(1, detbrick.n_blobs+1)]
             #fblobs = [fbrick.make_blob(i) for i in np.arange(1, detbrick.n_blobs+1)]
