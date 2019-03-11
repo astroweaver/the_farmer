@@ -86,7 +86,6 @@ def makebricks(multiband_only=False, single_band=None, skip_psf=False):
             for brick_id in np.arange(1, bandmosaic.n_bricks()):
                 bandmosaic._make_brick(brick_id, detection=False, overwrite=overwrite)
 
-
 def tractor(brick_id, source_id=None): # need to add overwrite args!
 
     # Send out list of bricks to each node to call this function!
@@ -131,25 +130,24 @@ def tractor(brick_id, source_id=None): # need to add overwrite args!
             pool = mp.ProcessingPool(processes=conf.NTHREADS)
             #rows = pool.map(partial(runblob, detbrick=detbrick, fbrick=fbrick), np.arange(1, detbrick.n_blobs))
             detblobs = [detbrick.make_blob(i) for i in np.arange(1, detbrick.n_blobs+1)]
-            fblobs = [fbrick.make_blob(i) for i in np.arange(1, detbrick.n_blobs+1)]
+            #fblobs = [fbrick.make_blob(i) for i in np.arange(1, detbrick.n_blobs+1)]
             #rows = pool.map(runblob, zip(detblobs, fblobs))
-            pool.map(runblob, zip(detblobs, fblobs))
+            pool.map(partial(runblob, detbrick=detbrick, fbrick=fbrick), np.arange(1, detbrick.n_blobs))
         else:
             [runblob(blob_id, detbrick, fbrick) for blob_id in np.arange(1, detbrick.n_blobs+1)]
 
     # write out cat
     fbrick.catalog.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat'), format='fits')
 
-
-def runblob(blobs, plotting=False):
+def runblob(blob_id, detbrick, fbrick, plotting=False):
 
     if conf.VERBOSE: print()
     if conf.VERBOSE: print(f'Starting on Blob #{blob_id}')
     tstart = time()
 
     # Make blob with detection image    
-    #myblob = detbrick.make_blob(blob_id)
-    myblob = blobs[0]
+    myblob = detbrick.make_blob(blob_id)
+
     if myblob is None:
         if conf.VERBOSE: print('BLOB REJECTED!')
         return
@@ -163,8 +161,8 @@ def runblob(blobs, plotting=False):
         return
 
     # make new blob with band information
-    #myfblob = fbrick.make_blob(blob_id)
-    myfblob = blobs[1]
+    myfblob = fbrick.make_blob(blob_id)
+
     myfblob.model_catalog = myblob.solution_catalog
     myfblob.position_variance = myblob.position_variance
     myfblob.parameter_variance = myblob.parameter_variance
@@ -188,6 +186,8 @@ def runblob(blobs, plotting=False):
 
     duration = time() - tstart
     if conf.VERBOSE: print(f'Solution for {myblob.n_sources} sources arrived at in {duration}s ({duration/myblob.n_sources:2.2f}s per src)')
+
+
 
 
 def stage_brickfiles(brick_id, nickname='MISCBRICK', detection=False):

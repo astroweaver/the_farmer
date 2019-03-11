@@ -111,7 +111,7 @@ class Brick(Subimage):
         sid_col = np.arange(1, self.n_sources+1, dtype=int)
         self.catalog.add_column(Column(sid_col, name='sid'), 0)
 
-        brick_col = self.brick_id * np.ones(self.n_sources, dtype=int)
+        brick_col = float(self.brick_id) * np.ones(self.n_sources, dtype=int)
         self.catalog.add_column(Column(brick_col, name='bid'), 0)
 
     def add_columns(self):

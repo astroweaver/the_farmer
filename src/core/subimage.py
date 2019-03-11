@@ -107,11 +107,15 @@ class Subimage():
 
         # Generate backgrounds
         if (self.shape[1] * self.shape[2]) < 1E8:
-            self.backgrounds = np.zeros(self.n_bands, dtype=object)
+            self.backgrounds = np.zeros((self.n_bands, 2), dtype=float)
+            self.background_images = np.zeros_like(self._images) 
             for i, img in enumerate(self._images):
-                self.backgrounds[i] = sep.Background(img, bw = conf.BW, bh = conf.BH)
+                background = sep.Background(img, bw = conf.BW, bh = conf.BH)
+                self.backgrounds[i] = background.globalback, background.globalrms
+                self.background_images[i] = background.back()
         else:
             self.backgrounds = None
+            self.background_images = None
 
 
     ### DATA VALIDATION - WEIGHTS
@@ -273,9 +277,9 @@ class Subimage():
         if (self.weights == 1).all():
             # No weight given - kinda
             var = None
-            thresh = conf.THRESH * background.globalrms
+            thresh = conf.THRESH * background[1]
             if not sub_background:
-                thresh += background.globalback
+                thresh += background[0]
         else:
             thresh = conf.THRESH
 
@@ -285,7 +289,7 @@ class Subimage():
             mask = None
 
         if sub_background:
-            image -= background.back()
+            image -= self.background_images[idx]
 
         kwargs = dict(var=var, mask=mask, minarea=conf.MINAREA, segmentation_map=True, 
                 deblend_nthresh=conf.DEBLEND_NTHRESH, deblend_cont=conf.DEBLEND_CONT)
