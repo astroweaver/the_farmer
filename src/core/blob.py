@@ -210,6 +210,9 @@ class Blob(Subimage):
 
         self.stage = 'Final Optimization'
         self.status = self.optimize_tractor()
+        
+        if not self.status:
+            return False
 
         self.solution_catalog = self.tr.getCatalog()
         self.solution_tractor = Tractor(self.timages, self.solution_catalog)

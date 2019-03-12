@@ -133,7 +133,7 @@ def tractor(brick_id, source_id=None, blob_id=None): # need to add overwrite arg
             blob_id = np.unique(fbrick.blobmap[fbrick.segmap == source_id])
             assert(len(blob_id) == 1)
             blob_id = blob_id[0]
-        
+        detblob, fblob = detbrick.make_blob(blob_id), fbrick.make_blob(blob_id)
         runblob(blob_id, detbrick, fbrick, plotting=conf.PLOT)
 
     else:
@@ -147,11 +147,11 @@ def tractor(brick_id, source_id=None, blob_id=None): # need to add overwrite arg
         if conf.NTHREADS > 0:
             pool = mp.ProcessingPool(processes=conf.NTHREADS)
             #rows = pool.map(partial(runblob, detbrick=detbrick, fbrick=fbrick), np.arange(1, detbrick.n_blobs))
-            # detblobs = [detbrick.make_blob(i) for i in np.arange(1, detbrick.n_blobs+1)]
-            #fblobs = [fbrick.make_blob(i) for i in np.arange(1, detbrick.n_blobs+1)]
+            detblobs = [detbrick.make_blob(i) for i in np.arange(1, detbrick.n_blobs+1)]
+            fblobs = [fbrick.make_blob(i) for i in np.arange(1, detbrick.n_blobs+1)]
             #rows = pool.map(runblob, zip(detblobs, fblobs))
             
-            output_rows = pool.map(partial(runblob, detbrick=detbrick, fbrick=fbrick), np.arange(1, run_n_blobs))
+            output_rows = pool.map(runblob, zip(np.arange(1, run_n_blobs), detblobs, fblobs))
             # while not results.ready():
             #     time.sleep(10)
             #     if not conf.VERBOSE2: print(".", end=' ')
@@ -160,7 +160,7 @@ def tractor(brick_id, source_id=None, blob_id=None): # need to add overwrite arg
             pool.terminate()
             # output_rows = results.get()
         else:
-            output_rows = [runblob(blob_id, detbrick, fbrick, plotting=conf.PLOT) for blob_id in np.arange(1, run_n_blobs+1)]
+            output_rows = [runblob(blob_id, detblobs[i-1], fblobs[i-1], plotting=conf.PLOT) for blob_id in np.arange(1, run_n_blobs+1)]
     
         if conf.VERBOSE: print(f'Completed {run_n_blobs} blobs in {time.time() - tstart:3.3f}s')
 
@@ -182,18 +182,18 @@ def tractor(brick_id, source_id=None, blob_id=None): # need to add overwrite arg
 
         return
 
-def runblob(blob_id, detbrick, fbrick, plotting=False):
+def runblob(blob_id, detblob, fblob, plotting=False):
 
     if conf.VERBOSE2: print()
     if conf.VERBOSE2: print(f'Starting on Blob #{blob_id}')
     tstart = time.time()
 
     # Make blob with detection image   
-    myblob = detbrick.make_blob(blob_id)
+    myblob = detblob
 
     if myblob is None:
         if conf.VERBOSE2: print('BLOB REJECTED!')
-        return
+        return None
 
     # Run models
 
@@ -202,11 +202,11 @@ def runblob(blob_id, detbrick, fbrick, plotting=False):
     status = myblob.tractor_phot()
 
     if not status:
-        return
+        return None
 
 
     # make new blob with band information
-    myfblob = fbrick.make_blob(blob_id)
+    myfblob = fblob
 
     myfblob.model_catalog = myblob.solution_catalog
     myfblob.position_variance = myblob.position_variance
@@ -217,6 +217,9 @@ def runblob(blob_id, detbrick, fbrick, plotting=False):
 
     myfblob.stage_images()
     status = myfblob.forced_phot()
+
+    if not status:
+        return None
 
 
     if plotting:

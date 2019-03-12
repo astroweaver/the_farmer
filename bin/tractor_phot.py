@@ -7,4 +7,4 @@ sys.path.insert(0, os.path.join(os.getcwd(), 'config'))
 from core import interface
 
 
-interface.tractor(sys.argv[1])
+interface.tractor(int(sys.argv[1]))
