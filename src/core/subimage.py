@@ -266,9 +266,9 @@ class Subimage():
         # perform sextractor on single band only (may expand for matched source phot)
         # Generate segmap and segmask
         idx = self._band2idx(band)
-        image = self.images[idx]
-        var = 1. / self.weights[idx] # TODO: WRITE TO UTILS
-        mask = self.masks[idx]
+        image = self.images[idx].copy()
+        var = 1. / self.weights[idx].copy() # TODO: WRITE TO UTILS
+        mask = self.masks[idx].copy()
         background = self.backgrounds[idx]
 
         # Supply a segmap to "match" detection
@@ -304,5 +304,11 @@ class Subimage():
             return catalog, segmap
         else:
             raise ValueError('No objects found by SExtractor.')
+
+    def subtract_background(self, idx=None):
+        if idx is None:
+            self.images -= self.background_images
+        else:
+            self.images[idx] -= self.background_images[idx]
 
 

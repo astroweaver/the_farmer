@@ -105,7 +105,7 @@ def tractor(brick_id, source_id=None): # need to add overwrite args!
     # Sextract sources
     tstart = time.time()
     try:
-        detbrick.sextract(conf.DETECTION_NICKNAME)
+        detbrick.sextract(conf.DETECTION_NICKNAME, sub_background=True)
         if conf.VERBOSE: print(f'Detection brick #{brick_id} sextracted {detbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
     except:
         if conf.VERBOSE: print(f'Detection brick #{brick_id} sextraction FAILED. ({time.time() - tstart:3.3f}s)')
@@ -172,8 +172,8 @@ def tractor(brick_id, source_id=None): # need to add overwrite args!
             fbrick.catalog[np.where(fbrick.catalog['sid'] == row['sid'])[0]] = row
 
         # write out cat
-        fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
-        fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
+        fbrick.catalog['x'] = detbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
+        fbrick.catalog['y'] = detbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
         fbrick.catalog.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat'), format='fits')
 
         return
@@ -216,6 +216,7 @@ def runblob(blob_id, detbrick, fbrick, plotting=False):
 
 
     if plotting:
+        print(myblob.chisq)
         plot_blob(myblob, myfblob)
 
     # Run follow-up phot

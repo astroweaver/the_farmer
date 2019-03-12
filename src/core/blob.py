@@ -100,6 +100,8 @@ class Blob(Subimage):
 
         timages = np.zeros(self.n_bands, dtype=object)
 
+        self.subtract_background()
+
         # TODO: try to simplify this. particularly the zip...
         for i, (image, weight, mask, psf, band) in enumerate(zip(self.images, self.weights, self.masks, self.psfmodels, self.bands)):
             tweight = weight.copy()
@@ -543,7 +545,6 @@ class Blob(Subimage):
             self.catalog[row][band+'_chisq'] = self.solution_chisq[row, i]
         self.catalog[row]['x_model'] = src.pos[0] + self.subvector[1] + self.brick.mosaic_origin[1] - conf.BRICK_BUFFER + 1
         self.catalog[row]['y_model'] = src.pos[1] + self.subvector[0] + self.brick.mosaic_origin[0] - conf.BRICK_BUFFER + 1
-        print('ADDED MODEL POSITIONS AT ', self.catalog[row]['x_model'], self.catalog[row]['y_model'])
         self.catalog[row]['x_model_err'] = np.sqrt(self.position_variance[row, 0])
         self.catalog[row]['y_model_err'] = np.sqrt(self.position_variance[row, 1])
         if self.wcs is not None:
@@ -556,10 +557,10 @@ class Blob(Subimage):
             self.catalog[row]['solmodel'] = src.name
             skip = False
         except:
-            self.catalog[row]['solmodel'] = 'maybe_PS'
+            self.catalog[row]['solmodel'] = 'PointSource'
             skip = True
         if not skip:
-            if src.name in ('SimpleGalaxy', 'ExpGalaxy', 'DevGalaxy', 'CompositeGalaxy'):
+            if src.name in ('SimpleGalaxy', 'ExpGalaxy', 'DevGalaxy', 'FixedCompositeGalaxy'):
                 try:
                     self.catalog[row]['reff'] = src.shape.re
                     self.catalog[row]['ab'] = src.shape.ab
@@ -567,5 +568,8 @@ class Blob(Subimage):
                     self.catalog[row]['reff_err'] = np.sqrt(self.parameter_variance[row][0])
                     self.catalog[row]['ab_err'] = np.sqrt(self.parameter_variance[row][1])
                     self.catalog[row]['phi_err'] = np.sqrt(self.parameter_variance[row][2])
+
+                    print(f"REFF: {self.catalog[row]['reff']}+/-{self.catalog[row]['reff_err']}")
+                    print(f"FLUX: {self.catalog[0][band]}+/-{self.catalog[0][band+'_err']}")
                 except:
                     if conf.VERBOSE: print('WARNING - model parameters not added to catalog.')
