@@ -134,7 +134,7 @@ def tractor(brick_id, source_id=None, blob_id=None): # need to add overwrite arg
             assert(len(blob_id) == 1)
             blob_id = blob_id[0]
         detblob, fblob = detbrick.make_blob(blob_id), fbrick.make_blob(blob_id)
-        runblob(blob_id, detbrick, fbrick, plotting=conf.PLOT)
+        runblob(blob_id, detblob, fblob, plotting=conf.PLOT)
 
     else:
 
