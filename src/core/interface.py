@@ -104,6 +104,7 @@ def tractor(brick_id, source_id=None): # need to add overwrite args!
 
     # Sextract sources
     tstart = time.time()
+    detbrick.sextract(conf.DETECTION_NICKNAME, sub_background=True)
     try:
         detbrick.sextract(conf.DETECTION_NICKNAME, sub_background=True)
         if conf.VERBOSE: print(f'Detection brick #{brick_id} sextracted {detbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')

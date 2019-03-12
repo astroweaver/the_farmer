@@ -284,6 +284,15 @@ class Subimage():
         else:
             thresh = conf.THRESH
 
+        convfilt = None
+        if conf.FILTER_KERNEL is not None:
+            dirname = os.path.dirname(__file__)
+            filename = os.path.join(dirname, '../../config/conv_filters/'+conf.FILTER_KERNEL)
+            if os.path.exists(filename):
+                convfilt = np.array(np.array(ascii.read(filename, data_start=2)).tolist())
+            else:
+                raise FileExistsError(f"Convolution file at {filename} does not exist!")
+
         if use_mask:
             mask = mask
         else:
@@ -292,7 +301,8 @@ class Subimage():
         if sub_background:
             image -= self.background_images[idx]
 
-        kwargs = dict(var=var, mask=mask, minarea=conf.MINAREA, segmentation_map=True, 
+        kwargs = dict(var=var, mask=mask, minarea=conf.MINAREA, filter_kernel=convfilt, 
+                filter_type=conf.FILTER_TYPE, segmentation_map=True, 
                 deblend_nthresh=conf.DEBLEND_NTHRESH, deblend_cont=conf.DEBLEND_CONT)
         catalog, segmap = sep.extract(image, thresh, **kwargs)
 
