@@ -152,7 +152,8 @@ def plot_blob(myblob, myfblob):
                 ax[i,j].plot([x, x], [y - 10, y - 5], c=color)
                 ax[i,j].plot([x - 10, x - 5], [y, y], c=color)
                 
-        
+    
+    [[ax[i,j].set(xlims=(0,myfblob.dims[0]), ylims=(0,myfblob.dims[1])) for i in np.arange(myfblob.n_bands+1)] for j in np.arange(5)]
         
     #fig.suptitle(f'Solution for {blob_id}')
     fig.subplots_adjust(wspace=0.01, hspace=0, right=0.8)

@@ -92,7 +92,7 @@ def makebricks(multiband_only=False, single_band=None, insert=True, skip_psf=Fal
     return
 
 
-def tractor(brick_id, source_id=None): # need to add overwrite args!
+def tractor(brick_id, source_id=None, blob_id=None): # need to add overwrite args!
 
     # Send out list of bricks to each node to call this function!
 
@@ -128,10 +128,13 @@ def tractor(brick_id, source_id=None): # need to add overwrite args!
     if conf.VERBOSE: print(f'Multiband brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
 
     tstart = time.time()
-    if source_id is not None:
-        blob_id = np.unique(fbrick.blobmap[fbrick.segmap == source_id])
-        assert(len(blob_id) == 1)
-        runblob(blob_id[0], detbrick, fbrick, plotting=conf.PLOT)
+    if (source_id is not None) | (blob_id is not None):
+        if source_id is not None:
+            blob_id = np.unique(fbrick.blobmap[fbrick.segmap == source_id])
+            assert(len(blob_id) == 1)
+            blob_id = blob_id[0]
+        
+        runblob(blob_id, detbrick, fbrick, plotting=conf.PLOT)
 
     else:
 
