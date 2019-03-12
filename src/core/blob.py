@@ -504,6 +504,9 @@ class Blob(Subimage):
         # Optimize
         status = self.optimize_tractor()
 
+        if not status:
+            return status
+
         # Chisq
         self.forced_variance = self.variance
         # print(f'FLUX VAR: {self.forced_variance}')
