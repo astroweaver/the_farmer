@@ -38,7 +38,7 @@ from .utils import plot_blob
 
 import config as conf
 
-def makebricks(multiband_only=False, single_band=None, skip_psf=False):
+def makebricks(multiband_only=False, single_band=None, insert=True, skip_psf=False):
 
     if not multiband_only:
         # Detection
@@ -69,13 +69,15 @@ def makebricks(multiband_only=False, single_band=None, skip_psf=False):
     for i, band in enumerate(sbands):
 
         overwrite = True
-        if i > 0:
+        if insert:
+            overwrite=False
+        elif i > 0:
             overwrite = False
 
         if conf.VERBOSE: print(f'Making mosaic for band {band}')
         bandmosaic = Mosaic(band)
         if not skip_psf: 
-            bandmosaic._make_psf(forced_psf=True)
+            bandmosaic._make_psf()
 
         if conf.NTHREADS > 0:
             if conf.VERBOSE: print(f'Making bricks for band {band} (in parallel)')
@@ -127,7 +129,7 @@ def tractor(brick_id, source_id=None): # need to add overwrite args!
     tstart = time.time()
     if source_id is not None:
         blob_id = np.unique(fbrick.blobmap[fbrick.segmap == source_id])
-        assert(len(blob_id) == 1, 'More than one blob inhabits that segment!')
+        assert(len(blob_id) == 1)
         runblob(blob_id[0], detbrick, fbrick, plotting=conf.PLOT)
 
     else:
@@ -170,8 +172,8 @@ def tractor(brick_id, source_id=None): # need to add overwrite args!
             fbrick.catalog[np.where(fbrick.catalog['sid'] == row['sid'])[0]] = row
 
         # write out cat
-        fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER
-        fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER
+        fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
+        fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
         fbrick.catalog.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat'), format='fits')
 
         return
