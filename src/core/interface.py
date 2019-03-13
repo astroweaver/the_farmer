@@ -142,8 +142,8 @@ def tractor(brick_id, source_id=None, blob_id=None): # need to add overwrite arg
         else:
             run_n_blobs = detbrick.n_blobs
         
-        detblobs = [detbrick.make_blob(i) for i in np.arange(1, detbrick.n_blobs+1)]
-        fblobs = [fbrick.make_blob(i) for i in np.arange(1, detbrick.n_blobs+1)]
+        detblobs = [detbrick.make_blob(i) for i in np.arange(1, run_n_blobs+1)]
+        fblobs = [fbrick.make_blob(i) for i in np.arange(1, run_n_blobs+1)]
 
         if conf.NTHREADS > 0:
             pool = mp.ProcessingPool(processes=conf.NTHREADS)
