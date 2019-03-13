@@ -158,6 +158,7 @@ class Blob(Subimage):
 
         # TODO: The meaning of the following line is not clear
         idx_models = ((1, 2), (3, 4), (5,))
+        if conf.VERBOSE2: print(f'Attempting to model {self.n_sources}')
 
         self._solved = self.solution_catalog != 0
 
