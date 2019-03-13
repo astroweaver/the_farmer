@@ -48,7 +48,8 @@ class Blob(Subimage):
             print('Blob is rejected as mask is sparse - likely an artefact issue.')
             blob = None
 
-        self.brick = brick
+        self.brick_wcs = brick.wcs 
+        self.mosaic_origin = brick.mosaic_origin
         self.brick_id = brick.brick_id
 
         # Grab blob
@@ -550,13 +551,13 @@ class Blob(Subimage):
             self.catalog[row][band] = src.brightness[i]
             self.catalog[row][band+'_err'] = np.sqrt(self.forced_variance[row][i])
             self.catalog[row][band+'_chisq'] = self.solution_chisq[row, i]
-        self.catalog[row]['x_model'] = src.pos[0] + self.subvector[1] + self.brick.mosaic_origin[1] - conf.BRICK_BUFFER + 1
-        self.catalog[row]['y_model'] = src.pos[1] + self.subvector[0] + self.brick.mosaic_origin[0] - conf.BRICK_BUFFER + 1
+        self.catalog[row]['x_model'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
+        self.catalog[row]['y_model'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
         self.catalog[row]['x_model_err'] = np.sqrt(self.position_variance[row, 0])
         self.catalog[row]['y_model_err'] = np.sqrt(self.position_variance[row, 1])
         if self.wcs is not None:
             # print(self.brick.wcs)
-            skyc = self.brick.wcs.all_pix2world(self.catalog[row]['x_model'], self.catalog[row]['y_model'], 0)
+            skyc = self.brick_wcs.all_pix2world(self.catalog[row]['x_model'], self.catalog[row]['y_model'], 0)
             # print('COORDINATES: ', skyc)
             self.catalog[row]['RA'] = skyc[0]
             self.catalog[row]['Dec'] = skyc[1]
