@@ -578,5 +578,5 @@ class Blob(Subimage):
 
                     #print(f"REFF: {self.catalog[row]['reff']}+/-{self.catalog[row]['reff_err']}")
                     #print(f"FLUX: {self.catalog[0][band]}+/-{self.catalog[0][band+'_err']}")
-                # except:
-                #     if conf.VERBOSE: print('WARNING - model parameters not added to catalog.')
+                except:
+                    if conf.VERBOSE: print('WARNING - model parameters not added to catalog.')
