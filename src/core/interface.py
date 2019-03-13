@@ -71,8 +71,10 @@ def makebricks(multiband_only=False, single_band=None, insert=True, skip_psf=Fal
         overwrite = True
         if insert:
             overwrite=False
-        elif i > 0:
+        if i > 0:
             overwrite = False
+        
+        print(overwrite)
 
         if conf.VERBOSE: print(f'Making mosaic for band {band}')
         bandmosaic = Mosaic(band)
@@ -86,7 +88,7 @@ def makebricks(multiband_only=False, single_band=None, insert=True, skip_psf=Fal
 
         else:
             if conf.VERBOSE: print(f'Making bricks for band {band} (in serial)')
-            for brick_id in np.arange(1, bandmosaic.n_bricks()):
+            for brick_id in np.arange(1, bandmosaic.n_bricks()+1):
                 bandmosaic._make_brick(brick_id, detection=False, overwrite=overwrite)
 
     return
