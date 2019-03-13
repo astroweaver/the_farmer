@@ -334,7 +334,7 @@ class Blob(Subimage):
         tr.freezeParams('images')        
 
         start = time()
-        if conv.VERBOSE2: print(f'Starting optimization ({conf.TRACTOR_MAXSTEPS}, {conf.TRACTOR_CONTHRESH})')
+        if conf.VERBOSE2: print(f'Starting optimization ({conf.TRACTOR_MAXSTEPS}, {conf.TRACTOR_CONTHRESH})')
         for i in range(conf.TRACTOR_MAXSTEPS):
             # if True:
             try:
