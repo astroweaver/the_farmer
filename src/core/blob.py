@@ -351,6 +351,7 @@ class Blob(Subimage):
         ax[0].imshow(self.images[0], **img_opt)
         ax[1].imshow(self.tr.getModelImage(0), **img_opt)
         fig.savefig(os.path.join(conf.PLOT_DIR, f'{self.brick_id}_{self.blob_id}_DEBUG0.pdf'))
+        plt.close()
 
 
         for i in range(conf.TRACTOR_MAXSTEPS):
@@ -366,6 +367,7 @@ class Blob(Subimage):
                 ax[0].imshow(self.images[0], **img_opt)
                 ax[1].imshow(self.tr.getModelImage(0), **img_opt)
                 fig.savefig(os.path.join(conf.PLOT_DIR, f'{self.brick_id}_{self.blob_id}_DEBUG{int(i)}.pdf'))
+                plt.close()
 
                 if conf.VERBOSE2: print(dlnp)
             except:
