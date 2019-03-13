@@ -30,6 +30,7 @@ from tractor.pointsource import PointSource
 from time import time
 import photutils
 import sep
+from matplotlib.colors import LogNorm
 
 from .subimage import Subimage
 from .utils import SimpleGalaxy
@@ -365,7 +366,7 @@ class Blob(Subimage):
                 ax[0].imshow(self.images[0], **img_opt)
                 ax[1].imshow(self.tr.getModelImage(0), **img_opt)
                 fig.savefig(os.path.join(conf.PLOT_DIR, f'{myblob.brick_id}_{myblob.blob_id}_DEBUG{int(i)}.pdf'))
-                
+
                 if conf.VERBOSE2: print(dlnp)
             except:
                 if conf.VERBOSE: print(f'WARNING - Optimization failed on step {i} for blob #{self.blob_id}')
