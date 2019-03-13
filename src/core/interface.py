@@ -200,11 +200,11 @@ def runblob(blob_id, detblob, fblob, plotting=False):
 
     astart = time.time()
     myblob.stage_images()
-    if conf.VERBOSE2: print(f'Images staged. ({astart -time.time():3.3f})s')
+    if conf.VERBOSE2: print(f'Images staged. ({time.time() - astart:3.3f})s')
 
     astart = time.time()
     status = myblob.tractor_phot()
-    if conf.VERBOSE2: print(f'Morphology determined. ({astart -time.time():3.3f})s')
+    if conf.VERBOSE2: print(f'Morphology determined. ({time.time() - astart:3.3f})s')
 
     if not status:
         return None
@@ -217,16 +217,16 @@ def runblob(blob_id, detblob, fblob, plotting=False):
     myfblob.model_catalog = myblob.solution_catalog
     myfblob.position_variance = myblob.position_variance
     myfblob.parameter_variance = myblob.parameter_variance
-    if conf.VERBOSE2: print(f'Solution parameters transferred. ({astart -time.time():3.3f})s')
+    if conf.VERBOSE2: print(f'Solution parameters transferred. ({time.time() - astart:3.3f})s')
 
     # Forced phot
     astart = time.time() 
     myfblob.stage_images()
-    if conf.VERBOSE2: print(f'Multiband images staged. ({astart -time.time():3.3f})s')
+    if conf.VERBOSE2: print(f'Multiband images staged. ({time.time() - astart:3.3f})s')
 
     astart = time.time() 
     status = myfblob.forced_phot()
-    if conf.VERBOSE2: print(f'Force photometry complete. ({astart -time.time():3.3f})s')
+    if conf.VERBOSE2: print(f'Force photometry complete. ({time.time() - astart:3.3f})s')
 
     if not status:
         return None

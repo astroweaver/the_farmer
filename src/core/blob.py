@@ -177,6 +177,7 @@ class Blob(Subimage):
                 self.tr = Tractor(self.timages, self.model_catalog)
 
                 # optimize
+                if conf.VERBOSE2: print(self.stage)
                 self.status = self.optimize_tractor()
 
                 if self.status == False:
@@ -209,6 +210,7 @@ class Blob(Subimage):
         self.tr = Tractor(self.timages, self.model_catalog)
 
         self.stage = 'Final Optimization'
+        if conf.VERBOSE2: print(self.stage)
         self.status = self.optimize_tractor()
         
         if not self.status:
@@ -331,10 +333,12 @@ class Blob(Subimage):
         tr.freezeParams('images')        
 
         start = time()
+        if conv.VERBOSE2: print(f'Starting optimization ({conf.TRACTOR_MAXSTEPS}, {conf.TRACTOR_CONTHRESH})')
         for i in range(conf.TRACTOR_MAXSTEPS):
             # if True:
             try:
                 dlnp, X, alpha, var = tr.optimize(variance=True)
+                if conf.VERBOSE2: print(dlnp)
             except:
                 if conf.VERBOSE: print('FAILED')
                 return False
