@@ -346,14 +346,14 @@ class Blob(Subimage):
                 dlnp, X, alpha, var = tr.optimize(variance=True)
                 if conf.VERBOSE2: print(dlnp)
             except:
-                if conf.VERBOSE: print('FAILED')
+                if conf.VERBOSE: print(f'WARNING - Optimization failed on blob #{self.blob_id}')
                 return False
 
             if dlnp < conf.TRACTOR_CONTHRESH:
                 break
 
         if var is None:
-            if conf.VERBOSE: print(f'WARNING - Optimization failed on blob #{self.blob_id}')
+            if conf.VERBOSE: print(f'WARNING - VAR is NONE for blob #{self.blob_id}')
             return False
 
         if (self.solution_catalog != 0).all():
