@@ -104,7 +104,6 @@ def tractor(brick_id, source_id=None, blob_id=None): # need to add overwrite arg
 
     # Sextract sources
     tstart = time.time()
-    detbrick.sextract(conf.DETECTION_NICKNAME, sub_background=True)
     try:
         detbrick.sextract(conf.DETECTION_NICKNAME, sub_background=True)
         if conf.VERBOSE: print(f'Detection brick #{brick_id} sextracted {detbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
@@ -177,16 +176,16 @@ def tractor(brick_id, source_id=None, blob_id=None): # need to add overwrite arg
             fbrick.catalog[np.where(fbrick.catalog['sid'] == row['sid'])[0]] = row
 
         # write out cat
-        fbrick.catalog['x'] = detbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
-        fbrick.catalog['y'] = detbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
+        fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
+        fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
         fbrick.catalog.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat'), format='fits')
 
         return
 
 def runblob(blob_id, detblob, fblob, plotting=False):
 
-    if conf.VERBOSE2: print()
-    if conf.VERBOSE2: print(f'Starting on Blob #{blob_id}')
+    if conf.VERBOSE: print()
+    if conf.VERBOSE: print(f'Starting on Blob #{blob_id}')
     tstart = time.time()
 
     # Make blob with detection image   
@@ -249,9 +248,9 @@ def runblob(blob_id, detblob, fblob, plotting=False):
             if conf.VERBOSE2: print(f'Residual Sextractor photmetry FAILED. Likely a bad blob.)')
 
     duration = time.time() - tstart
-    if conf.VERBOSE2: print(f'Solution for {myblob.n_sources} sources arrived at in {duration}s ({duration/myblob.n_sources:2.2f}s per src)')
+    if conf.VERBOSE: print(f'Solution for {myblob.n_sources} sources arrived at in {duration}s ({duration/myblob.n_sources:2.2f}s per src)')
     
-    return myfblob.catalog
+    return myfblob.bcatalog
 
 
 

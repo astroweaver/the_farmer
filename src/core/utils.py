@@ -88,6 +88,7 @@ def plot_blob(myblob, myfblob):
     img_opt = dict(cmap='Greys', norm=norm)
 
     ax[0, 0].imshow(myblob.images[0], **img_opt)
+    ax[0, 0].imshow(myblob.blobmask, alpha=0.3, cmap='Greys')
     ax[0, 1].imshow(myblob.solution_model_images[0] + noise, **img_opt)
     ax[0, 2].imshow(myblob.images[0] - myblob.solution_model_images[0], cmap='RdGy', vmin=-5*rms, vmax=5*rms)    
     ax[0, 3].imshow(myblob.solution_chi_images[0], cmap='RdGy', vmin = -7, vmax = 7)
@@ -109,48 +110,60 @@ def plot_blob(myblob, myfblob):
         ax[0, 3].text(1.05, ystart - 0.2, f'  F({band}) = {flux:4.4f}', **topt)
         ax[0, 3].text(1.05, ystart - 0.3, f'  $\chi^{2}$ = {chisq:4.4f}', **topt)
 
-    for i in np.arange(myfblob.n_bands):
-        back = myfblob.backgrounds[i]
-        mean, rms = back[0], back[1]
-        noise = np.random.normal(mean, rms, size=myfblob.dims)
-        tr = myfblob.solution_tractor
-        
-        norm = LogNorm(np.max([mean + rms, 1E-5]), myblob.images.max(), clip='True')
-        img_opt = dict(cmap='Greys', norm=norm)
+        objects = myblob.catalog[j]
+        e = Ellipse(xy=(objects['x'], objects['y']),
+                    width=6*objects['a'],
+                    height=6*objects['b'],
+                    angle=objects['theta'] * 180. / np.pi)
+        e.set_facecolor('none')
+        e.set_edgecolor('red')
+        ax[0, 3].add_artist(e)
 
-        ax[i+1, 0].imshow(myfblob.images[i], **img_opt)
-        ax[i+1, 1].imshow(myfblob.solution_model_images[i] + noise, **img_opt)
-        ax[i+1, 2].imshow(myfblob.images[i] - myfblob.solution_model_images[i], cmap='RdGy', vmin=-5*rms, vmax=5*rms)    
-        ax[i+1, 3].imshow(myfblob.solution_chi_images[i], cmap='RdGy', vmin = -7, vmax = 7)
-        
-        ax[i+1, 0].set_ylabel(myfblob.bands[i])
-        
-        band = myfblob.bands[i]
-        for j, src in enumerate(myfblob.solution_catalog):
-            mtype = src.name
-            flux = src.brightness[i]
-            chisq = myfblob.solution_chisq[j, i]
-            Nres = myfblob.n_residual_sources[i]
-            topt = dict(color=colors[j], transform = ax[i+1, 3].transAxes)
-            ystart = 0.99 - j * 0.4
-            ax[i+1, 3].text(1.05, ystart - 0.1, f'{j}) {mtype}', **topt)
-            ax[i+1, 3].text(1.05, ystart - 0.2, f'  F({band}) = {flux:4.4f}', **topt)
-            ax[i+1, 3].text(1.05, ystart - 0.3, f'  $\chi^{2}$ = {chisq:4.4f}', **topt)
-            if Nres > 0:
-                ax[i+1, 3].text(1.05, ystart - 0.4, f'{Nres} residual sources found!', **topt)
-                
-                res_x = myfblob.residual_catalog[i]['x']
-                res_y = myfblob.residual_catalog[i]['y']
-                for x, y in zip(res_x, res_y):
-                    ax[i+1, 3].scatter(x, y, marker='+', color='r')
-        
-    for s, src in enumerate(myfblob.solution_catalog):
-        x, y = src.pos
-        color = colors[s]
-        for i in np.arange(1 + myfblob.n_bands):
-            for j in np.arange(4):
-                ax[i,j].plot([x, x], [y - 10, y - 5], c=color)
-                ax[i,j].plot([x - 10, x - 5], [y, y], c=color)
+    try:
+        for i in np.arange(myfblob.n_bands):
+            back = myfblob.backgrounds[i]
+            mean, rms = back[0], back[1]
+            noise = np.random.normal(mean, rms, size=myfblob.dims)
+            tr = myfblob.solution_tractor
+            
+            norm = LogNorm(np.max([mean + rms, 1E-5]), myblob.images.max(), clip='True')
+            img_opt = dict(cmap='Greys', norm=norm)
+
+            ax[i+1, 0].imshow(myfblob.images[i], **img_opt)
+            ax[i+1, 1].imshow(myfblob.solution_model_images[i] + noise, **img_opt)
+            ax[i+1, 2].imshow(myfblob.images[i] - myfblob.solution_model_images[i], cmap='RdGy', vmin=-5*rms, vmax=5*rms)    
+            ax[i+1, 3].imshow(myfblob.solution_chi_images[i], cmap='RdGy', vmin = -7, vmax = 7)
+            
+            ax[i+1, 0].set_ylabel(myfblob.bands[i])
+            
+            band = myfblob.bands[i]
+            for j, src in enumerate(myfblob.solution_catalog):
+                mtype = src.name
+                flux = src.brightness[i]
+                chisq = myfblob.solution_chisq[j, i]
+                Nres = myfblob.n_residual_sources[i]
+                topt = dict(color=colors[j], transform = ax[i+1, 3].transAxes)
+                ystart = 0.99 - j * 0.4
+                ax[i+1, 3].text(1.05, ystart - 0.1, f'{j}) {mtype}', **topt)
+                ax[i+1, 3].text(1.05, ystart - 0.2, f'  F({band}) = {flux:4.4f}', **topt)
+                ax[i+1, 3].text(1.05, ystart - 0.3, f'  $\chi^{2}$ = {chisq:4.4f}', **topt)
+                if Nres > 0:
+                    ax[i+1, 3].text(1.05, ystart - 0.4, f'{Nres} residual sources found!', **topt)
+                    
+                    res_x = myfblob.residual_catalog[i]['x']
+                    res_y = myfblob.residual_catalog[i]['y']
+                    for x, y in zip(res_x, res_y):
+                        ax[i+1, 3].scatter(x, y, marker='+', color='r')
+            
+        for s, src in enumerate(myfblob.solution_catalog):
+            x, y = src.pos
+            color = colors[s]
+            for i in np.arange(1 + myfblob.n_bands):
+                for j in np.arange(4):
+                    ax[i,j].plot([x, x], [y - 10, y - 5], c=color)
+                    ax[i,j].plot([x - 10, x - 5], [y, y], c=color)
+    except:
+        print(f'COULD NOT PLOT MULTIBAND FITTING!')
                 
     
     [[ax[i,j].set(xlim=(0,myfblob.dims[1]), ylim=(0,myfblob.dims[0])) for i in np.arange(myfblob.n_bands+1)] for j in np.arange(4)]

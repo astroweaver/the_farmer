@@ -54,7 +54,7 @@ class Blob(Subimage):
 
         # Grab blob
         self.blob_id = blob_id
-        blobmask = np.array(brick.blobmap == self.blob_id, bool)
+        self.blobmask = blobmask
         blob_sources = np.unique(brick.segmap[blobmask])
 
         # Dimensions
@@ -74,10 +74,10 @@ class Blob(Subimage):
 
         # Clean
         blob_sourcemask = np.in1d(brick.catalog['sid'], blob_sources)
-        self.catalog = brick.catalog[blob_sourcemask].copy()
-        self.catalog['x'] -= self.subvector[1]
-        self.catalog['y'] -= self.subvector[0]
-        self.n_sources = len(self.catalog)
+        self.bcatalog = brick.catalog[blob_sourcemask].copy()
+        self.bcatalog['x'] -= self.subvector[1]
+        self.bcatalog['y'] -= self.subvector[0]
+        self.n_sources = len(self.bcatalog)
 
         self.mids = np.ones(self.n_sources, dtype=int)
         self.model_catalog = np.zeros(self.n_sources, dtype=object)
@@ -101,7 +101,7 @@ class Blob(Subimage):
 
         timages = np.zeros(self.n_bands, dtype=object)
 
-        self.subtract_background()
+        # self.subtract_background()
 
         # TODO: try to simplify this. particularly the zip...
         for i, (image, weight, mask, psf, band) in enumerate(zip(self.images, self.weights, self.masks, self.psfmodels, self.bands)):
@@ -126,7 +126,7 @@ class Blob(Subimage):
     def stage_models(self):
         # Trackers
 
-        for i, (mid, src) in enumerate(zip(self.mids, self.catalog)):
+        for i, (mid, src) in enumerate(zip(self.mids, self.bcatalog)):
 
             freeze_position = (self.mids >= 2).all()
             if freeze_position:
@@ -196,7 +196,7 @@ class Blob(Subimage):
                     self.position_variance = np.array([self.variance[i][:2] for i in np.arange(self.n_sources)]) # THIS MAY JUST WORK!
                     # print(f'POSITION VAR: {self.position_variance}')
 
-                for i, src in enumerate(self.catalog):
+                for i, src in enumerate(self.bcatalog):
                     if self._solved[i]:
                         continue
                     totalchisq = np.sum((self.tr.getChiImage(0)[self.segmap == src['sid']])**2)
@@ -229,7 +229,7 @@ class Blob(Subimage):
         self.parameter_variance = [self.variance[i][self.n_bands:] for i in np.arange(self.n_sources)]
         # print(f'PARAMETER VAR: {self.parameter_variance}')
 
-        for i, src in enumerate(self.catalog):
+        for i, src in enumerate(self.bcatalog):
             totalchisq = np.sum((self.tr.getChiImage(0)[self.segmap == src['sid']])**2)
             self.solved_chisq[i] = totalchisq
 
@@ -448,14 +448,14 @@ class Blob(Subimage):
 
         band = band.replace(' ', '_')
         if f'aperphot_{band}_{image_type}' not in self.catalog.colnames:
-            self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=(float, len(apertures))), name=f'aperphot_{band}_{image_type}'))
-            self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=(float, len(apertures))), name=f'aperphot_{band}_{image_type}_err'))
+            self.bcatalog.add_column(Column(np.zeros(len(self.bcatalog), dtype=(float, len(apertures))), name=f'aperphot_{band}_{image_type}'))
+            self.bcatalog.add_column(Column(np.zeros(len(self.bcatalog), dtype=(float, len(apertures))), name=f'aperphot_{band}_{image_type}_err'))
 
         for idx, src in enumerate(self.solution_catalog):
             sid = self.catalog['sid'][idx]
             row = np.argwhere(self.catalog['sid'] == sid)[0][0]
-            self.catalog[row][f'aperphot_{band}_{image_type}'] = tuple(apflux[idx])
-            self.catalog[row][f'aperphot_{band}_{image_type}_err'] = tuple(apflux_err[idx])
+            self.bcatalog[row][f'aperphot_{band}_{image_type}'] = tuple(apflux[idx])
+            self.bcatalog[row][f'aperphot_{band}_{image_type}_err'] = tuple(apflux_err[idx])
 
     def sextract_phot(self, band, sub_background=False):
         # SHOULD WE STACK THE RESIDUALS? (No?)
@@ -483,8 +483,8 @@ class Blob(Subimage):
         kwargs = dict(var=var, minarea=conf.RES_MINAREA, segmentation_map=True, deblend_nthresh=conf.RES_DEBLEND_NTHRESH, deblend_cont=conf.RES_DEBLEND_CONT)
         catalog, segmap = sep.extract(residual, thresh, **kwargs)
 
-        if f'{band}_n_residual_sources' not in self.catalog.colnames:
-                self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=bool), name=f'{band}_n_residual_sources'))
+        if f'{band}_n_residual_sources' not in self.bcatalog.colnames:
+                self.bcatalog.add_column(Column(np.zeros(len(self.bcatalog), dtype=bool), name=f'{band}_n_residual_sources'))
 
         if len(catalog) != 0:
             self.residual_catalog[idx] = catalog
@@ -495,9 +495,9 @@ class Blob(Subimage):
 
 
             for idx, src in enumerate(self.solution_catalog):
-                sid = self.catalog['sid'][idx]
+                sid = self.bcatalog['sid'][idx]
                 row = np.argwhere(self.catalog['sid'] == sid)[0][0]
-                self.catalog[row][f'{band}_n_residual_sources'] = True
+                self.bcatalog[row][f'{band}_n_residual_sources'] = True
 
             return catalog, segmap
         else:
@@ -526,7 +526,7 @@ class Blob(Subimage):
         self.forced_variance = self.variance
         # print(f'FLUX VAR: {self.forced_variance}')
         self.solution_chisq = np.zeros((self.n_sources, self.n_bands))
-        for i, src in enumerate(self.catalog):
+        for i, src in enumerate(self.bcatalog):
             for j, band in enumerate(self.bands):
                 totalchisq = np.sum((self.tr.getChiImage(j)[self.segmap == src['sid']])**2)# / (np.sum(self.segmap == src['sid']) - self.model_catalog[i].numberOfParams())
                 ### PENALTIES ARE TBD
@@ -542,7 +542,7 @@ class Blob(Subimage):
 
         # self.rows = np.zeros(len(self.solution_catalog))
         for idx, src in enumerate(self.solution_catalog):
-            sid = self.catalog['sid'][idx]
+            sid = self.bcatalog['sid'][idx]
             # row = np.argwhere(self.brick.catalog['sid'] == sid)[0][0]
             # self.rows[idx] = row
             # print(f'STASHING {sid} IN ROW {row}')
@@ -553,34 +553,34 @@ class Blob(Subimage):
     def get_catalog(self, row, src):
         for i, band in enumerate(self.bands):
             band = band.replace(' ', '_')
-            self.catalog[row][band] = src.brightness[i]
-            self.catalog[row][band+'_err'] = np.sqrt(self.forced_variance[row][i])
-            self.catalog[row][band+'_chisq'] = self.solution_chisq[row, i]
-        self.catalog[row]['x_model'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
-        self.catalog[row]['y_model'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
-        self.catalog[row]['x_model_err'] = np.sqrt(self.position_variance[row, 0])
-        self.catalog[row]['y_model_err'] = np.sqrt(self.position_variance[row, 1])
+            self.bcatalog[row][band] = src.brightness[i]
+            self.bcatalog[row][band+'_err'] = np.sqrt(self.forced_variance[row][i])
+            self.bcatalog[row][band+'_chisq'] = self.solution_chisq[row, i]
+        self.bcatalog[row]['x_model'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
+        self.bcatalog[row]['y_model'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
+        self.bcatalog[row]['x_model_err'] = np.sqrt(self.position_variance[row, 0])
+        self.bcatalog[row]['y_model_err'] = np.sqrt(self.position_variance[row, 1])
         if self.wcs is not None:
             # print(self.brick.wcs)
-            skyc = self.brick_wcs.all_pix2world(self.catalog[row]['x_model'], self.catalog[row]['y_model'], 0)
+            skyc = self.brick_wcs.all_pix2world(self.bcatalog[row]['x_model'], self.bcatalog[row]['y_model'], 0)
             # print('COORDINATES: ', skyc)
-            self.catalog[row]['RA'] = skyc[0]
-            self.catalog[row]['Dec'] = skyc[1]
+            self.bcatalog[row]['RA'] = skyc[0]
+            self.bcatalog[row]['Dec'] = skyc[1]
         try:
-            self.catalog[row]['solmodel'] = src.name
+            self.bcatalog[row]['solmodel'] = src.name
             skip = False
         except:
-            self.catalog[row]['solmodel'] = 'PointSource'
+            self.bcatalog[row]['solmodel'] = 'PointSource'
             skip = True
         if not skip:
             if src.name in ('SimpleGalaxy', 'ExpGalaxy', 'DevGalaxy', 'FixedCompositeGalaxy'):
                 try:
-                    self.catalog[row]['reff'] = src.shape.re
-                    self.catalog[row]['ab'] = src.shape.ab
-                    self.catalog[row]['phi'] = src.shape.phi
-                    self.catalog[row]['reff_err'] = np.sqrt(self.parameter_variance[row][0])
-                    self.catalog[row]['ab_err'] = np.sqrt(self.parameter_variance[row][1])
-                    self.catalog[row]['phi_err'] = np.sqrt(self.parameter_variance[row][2])
+                    self.bcatalog[row]['reff'] = src.shape.re
+                    self.bcatalog[row]['ab'] = src.shape.ab
+                    self.bcatalog[row]['phi'] = src.shape.phi
+                    self.bcatalog[row]['reff_err'] = np.sqrt(self.parameter_variance[row][0])
+                    self.bcatalog[row]['ab_err'] = np.sqrt(self.parameter_variance[row][1])
+                    self.bcatalog[row]['phi_err'] = np.sqrt(self.parameter_variance[row][2])
 
                     #print(f"REFF: {self.catalog[row]['reff']}+/-{self.catalog[row]['reff_err']}")
                     #print(f"FLUX: {self.catalog[0][band]}+/-{self.catalog[0][band+'_err']}")
