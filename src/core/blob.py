@@ -154,6 +154,8 @@ class Blob(Subimage):
             if freeze_position:
                 self.model_catalog[i].freezeParams('pos')
 
+            if conf.VERBOSE2: print(f'Instatiated a model at {position}')
+
     def tractor_phot(self):
 
         # TODO: The meaning of the following line is not clear

@@ -158,4 +158,3 @@ def plot_blob(myblob, myfblob):
     #fig.suptitle(f'Solution for {blob_id}')
     fig.subplots_adjust(wspace=0.01, hspace=0, right=0.8)
     fig.savefig(os.path.join(conf.PLOT_DIR, f'{myblob.brick_id}_{myblob.blob_id}.pdf'))
-    plt.pause(0.1)
