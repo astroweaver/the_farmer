@@ -38,7 +38,7 @@ from .utils import plot_blob
 
 import config as conf
 
-def makebricks(multiband_only=False, single_band=None, insert=True, skip_psf=False):
+def makebricks(multiband_only=False, single_band=None, insert=False, skip_psf=False):
 
     if not multiband_only:
         # Detection
@@ -73,8 +73,6 @@ def makebricks(multiband_only=False, single_band=None, insert=True, skip_psf=Fal
             overwrite=False
         if i > 0:
             overwrite = False
-        
-        print(overwrite)
 
         if conf.VERBOSE: print(f'Making mosaic for band {band}')
         bandmosaic = Mosaic(band)
@@ -154,7 +152,7 @@ def tractor(brick_id, source_id=None, blob_id=None): # need to add overwrite arg
             
             #rows = pool.map(runblob, zip(detblobs, fblobs))
             
-            output_rows = pool.map(runblob, zip(np.arange(1, run_n_blobs), detblobs, fblobs))
+            output_rows = pool.map(runblob, np.arange(1, run_n_blobs), detblobs, fblobs)
             # while not results.ready():
             #     time.sleep(10)
             #     if not conf.VERBOSE2: print(".", end=' ')
