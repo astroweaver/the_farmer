@@ -153,8 +153,10 @@ class Blob(Subimage):
                                                 shape, shape)
             if freeze_position:
                 self.model_catalog[i].freezeParams('pos')
+                if conf.VERBOSE2: print(f'Position parameter frozen at {position}')
 
             if conf.VERBOSE2: print(f'Instatiated a model at {position}')
+            if conf.VERBOSE2: print(f'Parameters: {self.model_catalog[i].getThawedParams()}')
 
     def tractor_phot(self):
 
