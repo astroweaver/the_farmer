@@ -161,7 +161,7 @@ def tractor(brick_id, source_id=None, blob_id=None): # need to add overwrite arg
             pool.terminate()
             # output_rows = results.get()
         else:
-            output_rows = [runblob(blob_id, detblobs[i-1], fblobs[i-1], plotting=conf.PLOT) for blob_id in np.arange(1, run_n_blobs+1)]
+            output_rows = [runblob(blob_id, detblobs[blob_id-1], fblobs[blob_id-1], plotting=conf.PLOT) for blob_id in np.arange(1, run_n_blobs+1)]
     
         if conf.VERBOSE: print(f'Completed {run_n_blobs} blobs in {time.time() - tstart:3.3f}s')
 
