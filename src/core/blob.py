@@ -24,7 +24,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import ascii, fits
 from astropy.table import Table, Column
-from tractor import NCircularGaussianPSF, PixelizedPSF, Image, Tractor, FluxesPhotoCal, NullWCS, ConstantSky, GalaxyShape, Fluxes, PixPos, CeresOptimizer
+from tractor import NCircularGaussianPSF, PixelizedPSF, Image, Tractor, FluxesPhotoCal, NullWCS, ConstantSky, GalaxyShape, Fluxes, PixPos
 from tractor.galaxy import ExpGalaxy, DevGalaxy, FixedCompositeGalaxy, SoftenedFracDev
 from tractor.pointsource import PointSource
 from time import time
@@ -341,7 +341,6 @@ class Blob(Subimage):
 
         if tr is None:
             tr = self.tr
-            tr.optimizer = CeresOptimizer
 
         tr.freezeParams('images')        
 
