@@ -72,6 +72,8 @@ class Blob(Subimage):
 
         self.masks[self.slicepix] = np.logical_not(blobmask[self.slice], dtype=bool)
         self.segmap = brick.segmap[self.slice]
+        self._level = 0
+        self._sublevel = 0
 
         # Clean
         blob_sourcemask = np.in1d(brick.catalog['sid'], blob_sources)
@@ -136,7 +138,7 @@ class Blob(Subimage):
                 position = PixPos(src['x'], src['y'])
             flux = Fluxes(**dict(zip(self.bands, src['flux'] * np.ones(self.n_bands))))
 
-            shape = GalaxyShape(1, src['b'] / src['a'], src['theta'])
+            shape = GalaxyShape(src['a'], src['b'] / src['a'], src['theta'])
 
             if mid == 1:
                 self.model_catalog[i] = PointSource(position, flux)
@@ -157,7 +159,7 @@ class Blob(Subimage):
                 if conf.VERBOSE2: print(f'Position parameter frozen at {position}')
 
             if conf.VERBOSE2: print(f'Instatiated a model at {position}')
-            if conf.VERBOSE2: print(f'Parameters: {self.model_catalog[i].getThawedParams()}')
+            if conf.VERBOSE2: print(f'Parameters: {flux}, {shape}')
 
     def tractor_phot(self):
 
@@ -209,14 +211,16 @@ class Blob(Subimage):
 
             # decide
             self.decide_winners()
+            print(self.solution_catalog)
             self._solved = self.solution_catalog != 0
 
         # print('Starting final optimization')
         # Final optimization
-        self.model_catalog = self.solution_catalog
+        self.model_catalog = self.solution_catalog.copy()
         self.tr = Tractor(self.timages, self.model_catalog)
 
         self.stage = 'Final Optimization'
+        self._level, self._sublevel = 'FO', 'FO'
         if conf.VERBOSE2: print(self.stage)
         self.status = self.optimize_tractor()
         
@@ -329,6 +333,7 @@ class Blob(Subimage):
         # hand back
         self.chisq[~self._solved] = chisq
         self.solution_catalog[~self._solved] = solution_catalog
+        print(f'Solved {np.sum(solution_catalog!=0)} sources')
         self.solved_chisq[~self._solved] = solved_chisq
         self.mids[~self._solved] = mids
 
@@ -346,11 +351,21 @@ class Blob(Subimage):
         fig, ax = plt.subplots(ncols=2)
         back = self.backgrounds[0]
         mean, rms = back[0], back[1]
-        norm = LogNorm(np.max([mean + rms, 1E-5]), self.images.max(), clip='True')
+        norm = LogNorm(np.max([mean + rms, 1E-5]), self.images[0].max(), clip='True')
         img_opt = dict(cmap='Greys', norm=norm)
         ax[0].imshow(self.images[0], **img_opt)
         ax[1].imshow(self.tr.getModelImage(0), **img_opt)
-        fig.savefig(os.path.join(conf.PLOT_DIR, f'{self.brick_id}_{self.blob_id}_DEBUG0.pdf'))
+        for s, src in enumerate(self.solution_catalog):
+            if src == 0:
+                continue
+            x, y = src.pos
+            color = 'r'
+
+            ax[0].plot([x, x], [y - 10, y - 5], c=color)
+            ax[0].plot([x - 10, x - 5], [y, y], c=color)
+
+        fig.suptitle(f'L{self._level}_SL{self._sublevel}')
+        fig.savefig(os.path.join(conf.PLOT_DIR, f'{self.brick_id}_{self.blob_id}_L{self._level}_SL{self._sublevel}_DEBUG0.pdf'))
         plt.close()
 
 
@@ -362,11 +377,20 @@ class Blob(Subimage):
                 fig, ax = plt.subplots(ncols=2)
                 back = self.backgrounds[0]
                 mean, rms = back[0], back[1]
-                norm = LogNorm(np.max([mean + rms, 1E-5]), self.images.max(), clip='True')
+                norm = LogNorm(np.max([mean + rms, 1E-5]), self.images[0].max(), clip='True')
                 img_opt = dict(cmap='Greys', norm=norm)
                 ax[0].imshow(self.images[0], **img_opt)
                 ax[1].imshow(self.tr.getModelImage(0), **img_opt)
-                fig.savefig(os.path.join(conf.PLOT_DIR, f'{self.brick_id}_{self.blob_id}_DEBUG{int(i)}.pdf'))
+                for s, src in enumerate(self.solution_catalog):
+                    if src == 0:
+                        continue
+                    x, y = src.pos
+                    color = 'r'
+
+                    ax[0].plot([x, x], [y - 10, y - 5], c=color)
+                    ax[0].plot([x - 10, x - 5], [y, y], c=color)
+                fig.suptitle(f'L{self._level}_SL{self._sublevel}')    
+                fig.savefig(os.path.join(conf.PLOT_DIR, f'{self.brick_id}_{self.blob_id}_L{self._level}_SL{self._sublevel}_DEBUG{int(i+1)}.pdf'))
                 plt.close()
 
                 if conf.VERBOSE2: print(dlnp)

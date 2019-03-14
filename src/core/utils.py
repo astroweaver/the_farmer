@@ -17,6 +17,7 @@ from tractor import EllipseE
 from tractor.galaxy import ExpGalaxy
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
+from matplotlib.patches import Ellipse
 
 import config as conf
 import matplotlib.cm as cm
@@ -88,7 +89,7 @@ def plot_blob(myblob, myfblob):
     img_opt = dict(cmap='Greys', norm=norm)
 
     ax[0, 0].imshow(myblob.images[0], **img_opt)
-    ax[0, 0].imshow(myblob.blobmask, alpha=0.3, cmap='Greys')
+    ax[0, 0].imshow(10*myblob.masks[0], alpha=0.5, cmap='Greys')
     ax[0, 1].imshow(myblob.solution_model_images[0] + noise, **img_opt)
     ax[0, 2].imshow(myblob.images[0] - myblob.solution_model_images[0], cmap='RdGy', vmin=-5*rms, vmax=5*rms)    
     ax[0, 3].imshow(myblob.solution_chi_images[0], cmap='RdGy', vmin = -7, vmax = 7)
@@ -110,14 +111,14 @@ def plot_blob(myblob, myfblob):
         ax[0, 3].text(1.05, ystart - 0.2, f'  F({band}) = {flux:4.4f}', **topt)
         ax[0, 3].text(1.05, ystart - 0.3, f'  $\chi^{2}$ = {chisq:4.4f}', **topt)
 
-        objects = myblob.catalog[j]
+        objects = myblob.bcatalog[j]
         e = Ellipse(xy=(objects['x'], objects['y']),
                     width=6*objects['a'],
                     height=6*objects['b'],
                     angle=objects['theta'] * 180. / np.pi)
         e.set_facecolor('none')
         e.set_edgecolor('red')
-        ax[0, 3].add_artist(e)
+        ax[0, 0].add_artist(e)
 
     try:
         for i in np.arange(myfblob.n_bands):
