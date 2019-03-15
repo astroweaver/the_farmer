@@ -67,8 +67,8 @@ class Brick(Subimage):
         self._masks[:, :self._buff_bottom] = True
         self._masks[:, self._buff_top:] = True
 
-        x0 = (((brick_id - 1) * conf.BRICK_WIDTH) % 50000)
-        y0 = int(((brick_id - 1) * conf.BRICK_HEIGHT) / 50000) * conf.BRICK_HEIGHT
+        x0 = int(((brick_id - 1) * conf.BRICK_WIDTH) % conf.MOSAIC_WIDTH)
+        y0 = int(((brick_id - 1) * conf.BRICK_HEIGHT) / conf.MOSAIC_HEIGHT) * conf.BRICK_HEIGHT
         self.mosaic_origin = np.array([x0, y0])
 
     @property

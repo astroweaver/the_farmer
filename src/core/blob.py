@@ -142,7 +142,7 @@ class Blob(Subimage):
 
             if mid == 1:
                 self.model_catalog[i] = PointSource(position, flux)
-                self.model_catalog[i].name = 'PointSource' # HACK to get around Dustin's HACK.
+                # self.model_catalog[i].name = 'PointSource' # HACK to get around Dustin's HACK.
             elif mid == 2:
                 self.model_catalog[i] = SimpleGalaxy(position, flux)
             elif mid == 3:
@@ -211,7 +211,6 @@ class Blob(Subimage):
 
             # decide
             self.decide_winners()
-            print(self.solution_catalog)
             self._solved = self.solution_catalog != 0
 
         # print('Starting final optimization')
@@ -333,7 +332,6 @@ class Blob(Subimage):
         # hand back
         self.chisq[~self._solved] = chisq
         self.solution_catalog[~self._solved] = solution_catalog
-        print(f'Solved {np.sum(solution_catalog!=0)} sources')
         self.solved_chisq[~self._solved] = solved_chisq
         self.mids[~self._solved] = mids
 
@@ -348,25 +346,25 @@ class Blob(Subimage):
         if conf.VERBOSE2: print(f'Starting optimization ({conf.TRACTOR_MAXSTEPS}, {conf.TRACTOR_CONTHRESH})')
 
 
-        fig, ax = plt.subplots(ncols=2)
-        back = self.backgrounds[0]
-        mean, rms = back[0], back[1]
-        norm = LogNorm(np.max([mean + rms, 1E-5]), self.images[0].max(), clip='True')
-        img_opt = dict(cmap='Greys', norm=norm)
-        ax[0].imshow(self.images[0], **img_opt)
-        ax[1].imshow(self.tr.getModelImage(0), **img_opt)
-        for s, src in enumerate(self.solution_catalog):
-            if src == 0:
-                continue
-            x, y = src.pos
-            color = 'r'
+        # fig, ax = plt.subplots(ncols=2)
+        # back = self.backgrounds[0]
+        # mean, rms = back[0], back[1]
+        # norm = LogNorm(np.max([mean + rms, 1E-5]), self.images[0].max(), clip='True')
+        # img_opt = dict(cmap='Greys', norm=norm)
+        # ax[0].imshow(self.images[0], **img_opt)
+        # ax[1].imshow(self.tr.getModelImage(0), **img_opt)
+        # for s, src in enumerate(self.solution_catalog):
+        #     if src == 0:
+        #         continue
+        #     x, y = src.pos
+        #     color = 'r'
 
-            ax[0].plot([x, x], [y - 10, y - 5], c=color)
-            ax[0].plot([x - 10, x - 5], [y, y], c=color)
+        #     ax[0].plot([x, x], [y - 10, y - 5], c=color)
+        #     ax[0].plot([x - 10, x - 5], [y, y], c=color)
 
-        fig.suptitle(f'L{self._level}_SL{self._sublevel}')
-        fig.savefig(os.path.join(conf.PLOT_DIR, f'{self.brick_id}_{self.blob_id}_L{self._level}_SL{self._sublevel}_DEBUG0.pdf'))
-        plt.close()
+        # fig.suptitle(f'L{self._level}_SL{self._sublevel}')
+        # fig.savefig(os.path.join(conf.PLOT_DIR, f'{self.brick_id}_{self.blob_id}_L{self._level}_SL{self._sublevel}_DEBUG0.pdf'))
+        # plt.close()
 
 
         for i in range(conf.TRACTOR_MAXSTEPS):
@@ -374,24 +372,24 @@ class Blob(Subimage):
             try:
                 dlnp, X, alpha, var = tr.optimize(variance=True)
 
-                fig, ax = plt.subplots(ncols=2)
-                back = self.backgrounds[0]
-                mean, rms = back[0], back[1]
-                norm = LogNorm(np.max([mean + rms, 1E-5]), self.images[0].max(), clip='True')
-                img_opt = dict(cmap='Greys', norm=norm)
-                ax[0].imshow(self.images[0], **img_opt)
-                ax[1].imshow(self.tr.getModelImage(0), **img_opt)
-                for s, src in enumerate(self.solution_catalog):
-                    if src == 0:
-                        continue
-                    x, y = src.pos
-                    color = 'r'
+                # fig, ax = plt.subplots(ncols=2)
+                # back = self.backgrounds[0]
+                # mean, rms = back[0], back[1]
+                # norm = LogNorm(np.max([mean + rms, 1E-5]), self.images[0].max(), clip='True')
+                # img_opt = dict(cmap='Greys', norm=norm)
+                # ax[0].imshow(self.images[0], **img_opt)
+                # ax[1].imshow(self.tr.getModelImage(0), **img_opt)
+                # for s, src in enumerate(self.solution_catalog):
+                #     if src == 0:
+                #         continue
+                #     x, y = src.pos
+                #     color = 'r'
 
-                    ax[0].plot([x, x], [y - 10, y - 5], c=color)
-                    ax[0].plot([x - 10, x - 5], [y, y], c=color)
-                fig.suptitle(f'L{self._level}_SL{self._sublevel}')    
-                fig.savefig(os.path.join(conf.PLOT_DIR, f'{self.brick_id}_{self.blob_id}_L{self._level}_SL{self._sublevel}_DEBUG{int(i+1)}.pdf'))
-                plt.close()
+                #     ax[0].plot([x, x], [y - 10, y - 5], c=color)
+                #     ax[0].plot([x - 10, x - 5], [y, y], c=color)
+                # fig.suptitle(f'L{self._level}_SL{self._sublevel}')    
+                # fig.savefig(os.path.join(conf.PLOT_DIR, f'{self.brick_id}_{self.blob_id}_L{self._level}_SL{self._sublevel}_DEBUG{int(i+1)}.pdf'))
+                # plt.close()
 
                 if conf.VERBOSE2: print(dlnp)
             except:

@@ -17,7 +17,7 @@ None
 
 """
 
-from __future__ import print_function
+
 import os
 import sys
 import time
@@ -121,13 +121,13 @@ def tractor(brick_id, source_id=None, blob_id=None): # need to add overwrite arg
     fbrick = stage_brickfiles(brick_id, nickname=conf.MULTIBAND_NICKNAME, detection=False)
     fbrick.blobmap = detbrick.blobmap
     fbrick.segmap = detbrick.segmap
-    fbrick.catalog = detbrick.catalog
+    fbrick.catalog = detbrick.catalog.copy()
     fbrick.add_columns()
-    fbrick.catalog
     if conf.VERBOSE: print(f'Multiband brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
 
     tstart = time.time()
     if (source_id is not None) | (blob_id is not None):
+        conf.PLOT = True
         if source_id is not None:
             blob_id = np.unique(fbrick.blobmap[fbrick.segmap == source_id])
             assert(len(blob_id) == 1)
@@ -142,8 +142,10 @@ def tractor(brick_id, source_id=None, blob_id=None): # need to add overwrite arg
         else:
             run_n_blobs = detbrick.n_blobs
         
+        itstart = time.time()
         detblobs = [detbrick.make_blob(i) for i in np.arange(1, run_n_blobs+1)]
         fblobs = [fbrick.make_blob(i) for i in np.arange(1, run_n_blobs+1)]
+        if conf.VERBOSE: print(f'Blobs created in {time.time() - itstart:3.3f}s')
 
         if conf.NTHREADS > 0:
             pool = mp.ProcessingPool(processes=conf.NTHREADS)
@@ -151,16 +153,16 @@ def tractor(brick_id, source_id=None, blob_id=None): # need to add overwrite arg
             
             #rows = pool.map(runblob, zip(detblobs, fblobs))
             
-            output_rows = pool.map(runblob, np.arange(1, run_n_blobs), detblobs, fblobs)
+            output_rows = pool.map(runblob, np.arange(1, run_n_blobs+1), detblobs, fblobs)
             # while not results.ready():
             #     time.sleep(10)
             #     if not conf.VERBOSE2: print(".", end=' ')
-            pool.close()
-            pool.join()
-            pool.terminate()
+            # pool.close()
+            # pool.join()
+            # pool.terminate()
             # output_rows = results.get()
         else:
-            output_rows = [runblob(blob_id, detblobs[blob_id-1], fblobs[blob_id-1], plotting=conf.PLOT) for blob_id in np.arange(1, run_n_blobs+1)]
+            output_rows = [runblob(kblob_id, detblobs[kblob_id-1], fblobs[kblob_id-1], plotting=conf.PLOT) for kblob_id in np.arange(1, run_n_blobs+1)]
     
         if conf.VERBOSE: print(f'Completed {run_n_blobs} blobs in {time.time() - tstart:3.3f}s')
 
@@ -176,8 +178,8 @@ def tractor(brick_id, source_id=None, blob_id=None): # need to add overwrite arg
             fbrick.catalog[np.where(fbrick.catalog['sid'] == row['sid'])[0]] = row
 
         # write out cat
-        fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
-        fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
+        fbrick.catalog['x'] = detbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
+        fbrick.catalog['y'] = detbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
         fbrick.catalog.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat'), format='fits')
 
         return
@@ -188,21 +190,20 @@ def runblob(blob_id, detblob, fblob, plotting=False):
     if conf.VERBOSE: print(f'Starting on Blob #{blob_id}')
     tstart = time.time()
 
-    # Make blob with detection image   
-    myblob = detblob
+    # Make blob with detection image 
 
-    if myblob is None:
+    if detblob is None:
         if conf.VERBOSE2: print('BLOB REJECTED!')
         return None
 
     # Run models
 
     astart = time.time()
-    myblob.stage_images()
+    detblob.stage_images()
     if conf.VERBOSE2: print(f'Images staged. ({time.time() - astart:3.3f})s')
 
     astart = time.time()
-    status = myblob.tractor_phot()
+    status = detblob.tractor_phot()
     if conf.VERBOSE2: print(f'Morphology determined. ({time.time() - astart:3.3f})s')
 
     if not status:
@@ -211,20 +212,19 @@ def runblob(blob_id, detblob, fblob, plotting=False):
 
     # make new blob with band information
     astart = time.time() 
-    myfblob = fblob
 
-    myfblob.model_catalog = myblob.solution_catalog
-    myfblob.position_variance = myblob.position_variance
-    myfblob.parameter_variance = myblob.parameter_variance
+    fblob.model_catalog = detblob.solution_catalog
+    fblob.position_variance = detblob.position_variance
+    fblob.parameter_variance = detblob.parameter_variance
     if conf.VERBOSE2: print(f'Solution parameters transferred. ({time.time() - astart:3.3f})s')
 
     # Forced phot
     astart = time.time() 
-    myfblob.stage_images()
+    fblob.stage_images()
     if conf.VERBOSE2: print(f'Multiband images staged. ({time.time() - astart:3.3f})s')
 
     astart = time.time() 
-    status = myfblob.forced_phot()
+    status = fblob.forced_phot()
     if conf.VERBOSE2: print(f'Force photometry complete. ({time.time() - astart:3.3f})s')
 
     if not status:
@@ -232,25 +232,27 @@ def runblob(blob_id, detblob, fblob, plotting=False):
 
 
     if plotting:
-        print(myblob.chisq)
-        plot_blob(myblob, myfblob)
+        plot_blob(detblob, fblob)
 
     # Run follow-up phot
     if conf.DO_APPHOT:
         try:
-            [[myfblob.aperture_phot(band, img_type) for band in myfblob.bands] for img_type in ('image', 'model', 'residual')]
+            [[fblob.aperture_phot(band, img_type) for band in fblob.bands] for img_type in ('image', 'model', 'residual')]
         except:
             if conf.VERBOSE2: print(f'Aperture photmetry FAILED. Likely a bad blob.')
     if conf.DO_SEXPHOT:
         try:
-            [myfblob.sextract_phot(band) for band in myfblob.bands]
+            [fblob.sextract_phot(band) for band in fblob.bands]
         except:
             if conf.VERBOSE2: print(f'Residual Sextractor photmetry FAILED. Likely a bad blob.)')
 
     duration = time.time() - tstart
-    if conf.VERBOSE: print(f'Solution for {myblob.n_sources} sources arrived at in {duration}s ({duration/myblob.n_sources:2.2f}s per src)')
+    if conf.VERBOSE: print(f'Solution for blob {detblob.blob_id} (N={detblob.n_sources}) arrived at in {duration}s ({duration/detblob.n_sources:2.2f}s per src)')
     
-    return myfblob.bcatalog
+    catout = fblob.bcatalog.copy()
+    del detblob, fblob
+
+    return catout
 
 
 
