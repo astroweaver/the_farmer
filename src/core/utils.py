@@ -88,8 +88,10 @@ def plot_blob(myblob, myfblob):
     norm = LogNorm(np.max([mean + rms, 1E-5]), myblob.images.max(), clip='True')
     img_opt = dict(cmap='Greys', norm=norm)
 
+    mmask = myblob.masks[0].copy()
+    mmask[mmask==1] = np.nan
     ax[0, 0].imshow(myblob.images[0], **img_opt)
-    ax[0, 0].imshow(10*myblob.masks[0], alpha=0.5, cmap='Greys')
+    ax[0, 0].imshow(mmask, alpha=0.5, cmap='Greys')
     ax[0, 1].imshow(myblob.solution_model_images[0] + noise, **img_opt)
     ax[0, 2].imshow(myblob.images[0] - myblob.solution_model_images[0], cmap='RdGy', vmin=-5*rms, vmax=5*rms)    
     ax[0, 3].imshow(myblob.solution_chi_images[0], cmap='RdGy', vmin = -7, vmax = 7)
@@ -103,7 +105,7 @@ def plot_blob(myblob, myfblob):
     band = myblob.bands[0]
     for j, src in enumerate(myblob.solution_catalog):
         mtype = src.name
-        flux = src.brightness[0]
+        flux = src.getBrightness().getFlux(band)
         chisq = myblob.solved_chisq[j]
         topt = dict(color=colors[j], transform = ax[0, 3].transAxes)
         ystart = 0.99 - j * 0.4
@@ -140,7 +142,7 @@ def plot_blob(myblob, myfblob):
             band = myfblob.bands[i]
             for j, src in enumerate(myfblob.solution_catalog):
                 mtype = src.name
-                flux = src.brightness[i]
+                flux = src.getBrightness().getFlux(band)
                 chisq = myfblob.solution_chisq[j, i]
                 Nres = myfblob.n_residual_sources[i]
                 topt = dict(color=colors[j], transform = ax[i+1, 3].transAxes)

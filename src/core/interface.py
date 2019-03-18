@@ -213,9 +213,9 @@ def runblob(blob_id, detblob, fblob, plotting=False):
     # make new blob with band information
     astart = time.time() 
 
-    fblob.model_catalog = detblob.solution_catalog
-    fblob.position_variance = detblob.position_variance
-    fblob.parameter_variance = detblob.parameter_variance
+    fblob.model_catalog = detblob.solution_catalog.copy()
+    fblob.position_variance = detblob.position_variance.copy()
+    fblob.parameter_variance = detblob.parameter_variance.copy()
     if conf.VERBOSE2: print(f'Solution parameters transferred. ({time.time() - astart:3.3f})s')
 
     # Forced phot
@@ -247,7 +247,7 @@ def runblob(blob_id, detblob, fblob, plotting=False):
             if conf.VERBOSE2: print(f'Residual Sextractor photmetry FAILED. Likely a bad blob.)')
 
     duration = time.time() - tstart
-    if conf.VERBOSE: print(f'Solution for blob {detblob.blob_id} (N={detblob.n_sources}) arrived at in {duration}s ({duration/detblob.n_sources:2.2f}s per src)')
+    if conf.VERBOSE: print(f'Solution for blob {detblob.blob_id} (N={detblob.n_sources}) arrived at in {duration:3.3f}s ({duration/detblob.n_sources:2.2f}s per src)')
     
     catout = fblob.bcatalog.copy()
     del detblob, fblob

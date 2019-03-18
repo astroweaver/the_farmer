@@ -113,7 +113,7 @@ class Blob(Subimage):
 
             if psf is -99:
                 psfmodel = NCircularGaussianPSF([2,], [1,])
-                print('USING A FAKE PSF')
+                print('WARNING - Adopting FAKE PSF model!')
             else:
                 psfmodel = PixelizedPSF(psf)
 
@@ -132,7 +132,7 @@ class Blob(Subimage):
         for i, (mid, src) in enumerate(zip(self.mids, self.bcatalog)):
 
             freeze_position = (self.mids >= 2).all()
-            if freeze_position:
+            if freeze_position & (conf.FREEZE_POSITION):
                 position = self.tr_catalogs[i,0,0].getPosition()
             else:
                 position = PixPos(src['x'], src['y'])
@@ -154,7 +154,7 @@ class Blob(Subimage):
                                                 position, flux,
                                                 SoftenedFracDev(0.5),
                                                 shape, shape)
-            if freeze_position:
+            if freeze_position & (conf.FREEZE_POSITION):
                 self.model_catalog[i].freezeParams('pos')
                 if conf.VERBOSE2: print(f'Position parameter frozen at {position}')
 
@@ -165,7 +165,7 @@ class Blob(Subimage):
 
         # TODO: The meaning of the following line is not clear
         idx_models = ((1, 2), (3, 4), (5,))
-        if conf.VERBOSE2: print(f'Attempting to model {self.n_sources}')
+        if conf.VERBOSE2: print(f'Attempting to model {self.n_sources} sources.')
 
         self._solved = self.solution_catalog != 0
 
@@ -203,6 +203,14 @@ class Blob(Subimage):
                     if self._solved[i]:
                         continue
                     totalchisq = np.sum((self.tr.getChiImage(0)[self.segmap == src['sid']])**2)
+                    if conf.USE_REDUCEDCHISQ:
+                        totalchisq /= (np.sum(self.segmap == src['sid']) - self.model_catalog[i].numberOfParams())
+                    # PENALTIES TBD
+                    # residual = self.images[0] - self.tr.getModelImage(0)
+                    # if np.median(residual[self.masks[0]]) < 0:
+                    #     if conf.VERBOSE2: print(f'Applying heavy penalty on source #{i+1} ({self.model_catalog[i].name})!')
+                    #     totalchisq = 1E30
+                    if conf.VERBOSE2: print(f'Source #{i+1} with {self.model_catalog[i].name} has chisq={totalchisq:3.3f}')
                     self.chisq[i, self._level, self._sublevel] = totalchisq
 
                 # Move unsolved to next sublevel
@@ -235,6 +243,8 @@ class Blob(Subimage):
 
         for i, src in enumerate(self.bcatalog):
             totalchisq = np.sum((self.tr.getChiImage(0)[self.segmap == src['sid']])**2)
+            if conf.USE_REDUCEDCHISQ:
+                totalchisq /= (np.sum(self.segmap == src['sid']) - self.model_catalog[i].numberOfParams())
             self.solved_chisq[i] = totalchisq
 
         return True
@@ -510,7 +520,7 @@ class Blob(Subimage):
         idx = self._band2idx(band)
         residual = self.images[idx] - self.solution_tractor.getModelImage(idx)
         tweight = self.weights[idx].copy()
-        tweight[self.masks[idx]] = 0 # Well this isn't going to go well.
+        tweight[self.masks[idx]] = 0 # OK this isn't going to go well.
         var = 1. / tweight # TODO: WRITE TO UTILS
         background = self.backgrounds[idx]
 
@@ -575,11 +585,9 @@ class Blob(Subimage):
         self.solution_chisq = np.zeros((self.n_sources, self.n_bands))
         for i, src in enumerate(self.bcatalog):
             for j, band in enumerate(self.bands):
-                totalchisq = np.sum((self.tr.getChiImage(j)[self.segmap == src['sid']])**2)# / (np.sum(self.segmap == src['sid']) - self.model_catalog[i].numberOfParams())
-                ### PENALTIES ARE TBD
-                # residual = self.images[j] - self.tr.getModelImage(j)
-                # if np.median(residual[self.masks[j]]) < 0:
-                #     totalchisq = 1E30
+                totalchisq = np.sum((self.tr.getChiImage(j)[self.segmap == src['sid']])**2)
+                if conf.USE_REDUCEDCHISQ:
+                    totalchisq /= (np.sum(self.segmap == src['sid']) - self.model_catalog[i].numberOfParams())
                 self.solution_chisq[i, j] = totalchisq
 
         self.solution_catalog = self.tr.getCatalog()
@@ -600,7 +608,7 @@ class Blob(Subimage):
     def get_catalog(self, row, src):
         for i, band in enumerate(self.bands):
             band = band.replace(' ', '_')
-            self.bcatalog[row][band] = src.brightness[i]
+            self.bcatalog[row][band] = src.getBrightness().getFlux(band)
             self.bcatalog[row][band+'_err'] = np.sqrt(self.forced_variance[row][i])
             self.bcatalog[row][band+'_chisq'] = self.solution_chisq[row, i]
         self.bcatalog[row]['x_model'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
