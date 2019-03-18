@@ -91,6 +91,8 @@ class Subimage():
 
         if ndim == 2:
             self.ndim = ndim
+            if array.dtype.byteorder == '=':
+                array = array.byteswap().newbyteorder()
             self._images = array[None, :, :]
             self.shape = self._images.shape
 
