@@ -64,7 +64,7 @@ class Mosaic(Subimage):
             with fits.open(self.path_weight) as hdu_weight:
                 self.weights = hdu_weight['PRIMARY'].data
         else:
-            raise ValueError(f'No weight found at {self.path_weight}')
+            #raise ValueError(f'No weight found at {self.path_weight}')
             self.weights = None
         if conf.VERBOSE: print(f'Added weight in {time()-tstart:3.3f}s.')
 
