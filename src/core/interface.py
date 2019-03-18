@@ -56,7 +56,7 @@ def makebricks(multiband_only=False, single_band=None, insert=False, skip_psf=Fa
 
         else:
             if conf.VERBOSE: print('Making bricks for detection (in serial)')
-            for brick_id in np.arange(1, detmosaic.n_bricks()):
+            for brick_id in np.arange(1, detmosaic.n_bricks()+1):
                 detmosaic._make_brick(brick_id, detection=True, overwrite=True)
 
 
