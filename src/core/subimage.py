@@ -84,6 +84,7 @@ class Subimage():
     def images(self, array):
         try:
             array = np.array(array)
+            print(f'ANDREAS HAS AN ARRAY WITH BYTEORDER: {array.dtype.byteorder}!')
             ndim = array.ndim
 
         except:
