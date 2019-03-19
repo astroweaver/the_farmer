@@ -112,7 +112,7 @@ class Blob(Subimage):
             tweight[mask] = 0
 
             if psf is -99:
-                psfmodel = NCircularGaussianPSF([2,], [1,])
+                psfmodel = NCircularGaussianPSF([conf.PSF_SIGMA,], [1,])
                 print('WARNING - Adopting FAKE PSF model!')
             else:
                 psfmodel = PixelizedPSF(psf)
