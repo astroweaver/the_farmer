@@ -104,7 +104,10 @@ def plot_blob(myblob, myfblob):
     
     band = myblob.bands[0]
     for j, src in enumerate(myblob.solution_catalog):
-        mtype = src.name
+        try:
+            mtype = src.name
+        except:
+            mtype = 'PointSource'
         flux = src.getBrightness().getFlux(band)
         chisq = myblob.solved_chisq[j]
         topt = dict(color=colors[j], transform = ax[0, 3].transAxes)
