@@ -287,12 +287,14 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', detection=False):
     else:
         raise ValueError(f'Brick file not found for {path_brickfile}')
 
-    psfmodels = np.zeros((len(sbands), 101, 101))
     for i, band in enumerate(sbands):
         path_psffile = os.path.join(conf.PSF_DIR, f'snap_{band}.fits')
         if os.path.exists(path_psffile):
             with fits.open(path_psffile) as hdul:
-                psfmodels[i] = hdul[0].data
+                psfmodel = hdul[0].data
+                if i == 1:
+                    psfmodels = np.zeros((len(sbands), psfmodel.shape[0], psfmodel.shape[1]))
+                psfmodels[i] = psfmodel
         else:
             psfmodels[i] = -99
 
