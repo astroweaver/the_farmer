@@ -111,11 +111,13 @@ class Blob(Subimage):
             tweight = weight.copy()
             tweight[mask] = 0
 
-            if psf == -99:
+            print(self.psfmodels, psf)
+            try:
+                psfmodel = PixelizedPSF(psf)
+            except:
                 psfmodel = NCircularGaussianPSF([conf.PSF_SIGMA,], [1,])
                 print('WARNING - Adopting FAKE PSF model!')
-            else:
-                psfmodel = PixelizedPSF(psf)
+
 
             timages[i] = Image(data=image,
                             invvar=tweight,
