@@ -141,7 +141,10 @@ def plot_blob(myblob, myfblob):
             
             band = myfblob.bands[i]
             for j, src in enumerate(myfblob.solution_catalog):
-                mtype = src.name
+                try:
+                    mtype = src.name
+                except:
+                    mtype = 'PointSource'
                 flux = src.getBrightness().getFlux(band)
                 chisq = myfblob.solution_chisq[j, i]
                 Nres = myfblob.n_residual_sources[i]
