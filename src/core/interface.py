@@ -287,6 +287,7 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', detection=False):
     else:
         raise ValueError(f'Brick file not found for {path_brickfile}')
 
+    psfmodels = np.zeros((len(sbands)))
     for i, band in enumerate(sbands):
         path_psffile = os.path.join(conf.PSF_DIR, f'snap_{band}.fits')
         if os.path.exists(path_psffile):
