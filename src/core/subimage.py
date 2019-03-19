@@ -310,6 +310,12 @@ class Subimage():
                 deblend_nthresh=conf.DEBLEND_NTHRESH, deblend_cont=conf.DEBLEND_CONT)
         catalog, segmap = sep.extract(image, thresh, **kwargs)
 
+
+        hdu = fits.PrimaryHDU()
+        hdu.data = segmap
+        hdu.writeto(os.path.join(conf.PLOT_DIR, 'segmap.fits')
+        
+
         if len(catalog) != 0:
             catalog = Table(catalog)
             self.catalog = catalog
