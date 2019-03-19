@@ -170,9 +170,9 @@ def tractor(brick_id, source_id=None, blob_id=None): # need to add overwrite arg
 
         output_cat = vstack(output_rows)
                 
-        #for colname in output_cat.colnames:
-        #    if colname not in fbrick.catalog.colnames:
-        #        fbrick.catalog.add_column(Column(np.zeros_like(output_cat[colname], dtype=output_cat[colname].dtype), name=colname))
+        for colname in output_cat.colnames:
+           if colname not in fbrick.catalog.colnames:
+               fbrick.catalog.add_column(Column(np.zeros_like(output_cat[colname], dtype=output_cat[colname].dtype), name=colname))
         #fbrick.catalog = join(fbrick.catalog, output_cat, join_type='left', )
         for row in output_cat:
             fbrick.catalog[np.where(fbrick.catalog['sid'] == row['sid'])[0]] = row
