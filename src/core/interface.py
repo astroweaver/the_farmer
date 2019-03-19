@@ -292,7 +292,7 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', detection=False):
         if os.path.exists(path_psffile):
             with fits.open(path_psffile) as hdul:
                 psfmodel = hdul[0].data
-                if i == 1:
+                if i == 0:
                     psfmodels = np.zeros((len(sbands), psfmodel.shape[0], psfmodel.shape[1]))
                 psfmodels[i] = psfmodel
         else:
