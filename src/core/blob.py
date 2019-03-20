@@ -111,7 +111,6 @@ class Blob(Subimage):
             tweight = weight.copy()
             tweight[mask] = 0
 
-            print(self.psfmodels, psf)
             try:
                 psfmodel = PixelizedPSF(psf)
             except:
