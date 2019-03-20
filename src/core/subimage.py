@@ -314,11 +314,6 @@ class Subimage():
         catalog, segmap = sep.extract(image, thresh, **kwargs)
 
 
-        hdu = fits.PrimaryHDU()
-        hdu.data = segmap
-        hdu.writeto(os.path.join(conf.PLOT_DIR, 'segmap.fits'), overwrite=True)
-
-
         if len(catalog) != 0:
             catalog = Table(catalog)
             self.catalog = catalog
