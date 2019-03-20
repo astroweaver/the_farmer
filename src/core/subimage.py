@@ -266,12 +266,15 @@ class Subimage():
         else:
             raise ValueError(f"{band} is not a valid band.")
 
-    def sextract(self, band, include_mask=True, sub_background=False, force_segmap=None, use_mask=False):
+    def sextract(self, band, sub_background=False, force_segmap=None, use_mask=False):
         # perform sextractor on single band only (may expand for matched source phot)
         # Generate segmap and segmask
         idx = self._band2idx(band)
         image = self.images[idx].copy()
-        var = 1. / self.weights[idx].copy() # TODO: WRITE TO UTILS
+        wgts = self.weights[idx].copy()
+        wgts[wgts==0] = -1
+        var = 1. / wgts
+        var[wgts==-1] = 0
         mask = self.masks[idx].copy()
         background = self.backgrounds[idx]
 
@@ -280,7 +283,7 @@ class Subimage():
             var[force_segmap] = 0
 
         if (self.weights == 1).all():
-            # No weight given - kinda
+            # No weight supplied by user
             var = None
             thresh = conf.THRESH * background[1]
             if not sub_background:

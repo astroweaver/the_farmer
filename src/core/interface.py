@@ -104,12 +104,12 @@ def tractor(brick_id, source_id=None, blob_id=None): # need to add overwrite arg
 
     # Sextract sources
     tstart = time.time()
-    try:
-        detbrick.sextract(conf.DETECTION_NICKNAME, sub_background=True)
-        if conf.VERBOSE: print(f'Detection brick #{brick_id} sextracted {detbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
-    except:
-        if conf.VERBOSE: print(f'Detection brick #{brick_id} sextraction FAILED. ({time.time() - tstart:3.3f}s)')
-        return
+    #try:
+    detbrick.sextract(conf.DETECTION_NICKNAME, sub_background=True)
+    if conf.VERBOSE: print(f'Detection brick #{brick_id} sextracted {detbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
+    #except:
+    #    if conf.VERBOSE: print(f'Detection brick #{brick_id} sextraction FAILED. ({time.time() - tstart:3.3f}s)')
+    #    return
 
     # Cleanup
     tstart = time.time()
@@ -297,6 +297,7 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', detection=False):
                     psfmodels = np.zeros((len(sbands), psfmodel.shape[0], psfmodel.shape[1]))
                 psfmodels[i] = psfmodel
         else:
+            raise ValueError(f'PSF model not found for {band}!')
             psfmodels[i] = -99
 
     if detection:
