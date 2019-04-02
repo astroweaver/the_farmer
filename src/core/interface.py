@@ -36,7 +36,7 @@ import pathos.multiprocessing as mp
 import pathos.parallel as pp
 from functools import partial
 import matplotlib.pyplot as plt
-import psutil
+# import psutil
 import weakref
 
 from .brick import Brick
