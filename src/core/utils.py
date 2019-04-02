@@ -18,13 +18,15 @@ from tractor.galaxy import ExpGalaxy
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 from matplotlib.patches import Ellipse
+from matplotlib.patches import Rectangle
+from skimage.segmentation import find_boundaries
 
 import config as conf
 import matplotlib.cm as cm
 import random
 
-colors = cm.rainbow(np.linspace(0, 1, 100))
-cidx = np.arange(0, 100)
+colors = cm.rainbow(np.linspace(0, 1, 1000))
+cidx = np.arange(0, 1000)
 random.shuffle(cidx)
 colors = colors[cidx]
 
@@ -73,7 +75,7 @@ class SimpleGalaxy(ExpGalaxy):
     def isParamFrozen(self, pname):
         if pname == 'shape':
             return True
-        return super(SimpleGalaxy, self).isParamFrozen(pname)
+        return super(SimpleGalaxy, self).isParamFrozen(pname)   
 
 
 def plot_blob(myblob, myfblob):
@@ -181,5 +183,227 @@ def plot_blob(myblob, myfblob):
     fig.subplots_adjust(wspace=0.01, hspace=0, right=0.8)
     fig.savefig(os.path.join(conf.PLOT_DIR, f'{myblob.brick_id}_{myblob.blob_id}.pdf'))
 
+def plot_detblob(blob, fig=None, ax=None, level=0, sublevel=0, final_opt=False, init=False):
 
+    back = blob.backgrounds[0]
+    mean, rms = back[0], back[1]
+    noise = np.random.normal(mean, rms, size=blob.dims)
+    tr = blob.solution_tractor
+    
+    norm = LogNorm(np.max([mean + rms, 1E-5]), blob.images.max(), clip='True')
+    img_opt = dict(cmap='Greys', norm=norm)
+
+    # Init
+    if fig is None:
+        plt.ioff()
+        fig, ax = plt.subplots(figsize=(24,48), ncols=6, nrows=12)
+
+        # Detection image
+        ax[0,0].imshow(blob.images[0], **img_opt)
+        [ax[0,i].axis('off') for i in np.arange(1, 6)]
+
+        for j, src in enumerate(blob.bcatalog):
+            objects = blob.bcatalog[j]
+            e = Ellipse(xy=(objects['X_MODEL'], objects['Y_MODEL']),
+                        width=6*objects['a'],
+                        height=6*objects['b'],
+                        angle=objects['theta'] * 180. / np.pi)
+            e.set_facecolor('none')
+            e.set_edgecolor(colors[j])
+            ax[0, 0].add_artist(e)
+
+        ax[0,1].text(0.1, 0.9, f'Blob #{blob.blob_id}', transform=ax[0,1].transAxes)
+        ax[0,1].text(0.1, 0.8, f'{blob.n_sources} source(s)', transform=ax[0,1].transAxes)
+
+    elif final_opt:
+        nrow = 4 * level + 2* sublevel + 2
+        [[ax[i,j].axis('off') for i in np.arange(nrow+1, 11)] for j in np.arange(0, 6)]
+
+        ax[11,0].axis('off')
+        residual = blob.images[0] - blob.solution_model_images[0]
+        ax[11,1].imshow(blob.solution_model_images[0], **img_opt)
+        ax[11,2].imshow(blob.solution_model_images[0] + noise, **img_opt)
+        ax[11,3].imshow(residual, cmap='RdGy', vmin=-5*rms, vmax=5*rms)
+        ax[11,4].imshow(blob.tr.getChiImage(0), cmap='RdGy', vmin = -5, vmax = 5)
+
+        ax[11,1].set_ylabel('Solution')
+
+        bins = np.linspace(np.nanmin(residual), np.nanmax(residual), 30)
+        minx, maxx = 0, 0
+        for i, src in enumerate(blob.bcatalog):
+            res_seg = residual[blob.segmap==src['source_id']].flatten()
+            ax[11,5].hist(res_seg, bins=20, histtype='step', color=colors[i], density=True)
+            resmin, resmax = np.nanmin(res_seg), np.nanmax(res_seg)
+            if resmin < minx:
+                minx = resmin
+            if resmax > maxx:
+                maxx = resmax
+        ax[11,5].set_xlim(minx, maxx)
+        ax[11,5].axvline(0, c='grey', ls='dotted')
+        ax[11,5].set_ylim(bottom=0)
+
+        # Solution params
+        for i, src in enumerate(blob.solution_catalog):
+            ax[1,0].text(0.1, 0.8 - 0.4*i, f'#{blob.bcatalog[i]["source_id"]} Model:{src.name}', color=colors[i], transform=ax[1,0].transAxes)
+            ax[1,0].text(0.1, 0.8 - 0.4*i - 0.1, f'       Flux: {src.brightness[0]:3.3f}', color=colors[i], transform=ax[1,0].transAxes)
+            ax[1,0].text(0.1, 0.8 - 0.4*i - 0.2, f'       Chi2/N: {blob.solution_chisq[i,0]:3.3f}', color=colors[i], transform=ax[1,0].transAxes)
+
+
+        #fig.subplots_adjust(wspace=0, hspace=0)
+        outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{conf.DETECTION_NICKNAME}.pdf')
+        fig.savefig(outpath)
+        plt.close()
+        if conf.VERBOSE2: print(f'Saving figure: {outpath}')
+
+    else:
+        if init:
+            nrow = 4 * level + 2 * sublevel + 1
+        else:
+            nrow = 4 * level + 2 * sublevel + 2
+        residual = blob.images[0] - blob.tr.getModelImage(0)
+        ax[nrow,0].axis('off')
+        ax[nrow,1].imshow(blob.tr.getModelImage(0), **img_opt)
+        ax[nrow,2].imshow(blob.tr.getModelImage(0) + noise, **img_opt)
+        ax[nrow,3].imshow(residual, cmap='RdGy', vmin=-5*rms, vmax=5*rms)
+        ax[nrow,4].imshow(blob.tr.getChiImage(0), cmap='RdGy', vmin = -5, vmax = 5)
+
+        models = {1:'PointSource', 3:'SimpleGalaxy', 5:'ExpGalaxy', 7:'DevGalaxy', 9:'CompositeGalaxy'}
+        if init:
+            ax[nrow,1].set_ylabel(models[nrow])
+        
+        bins = np.linspace(np.nanmin(residual), np.nanmax(residual), 30)
+        minx, maxx = 0, 0
+        for i, src in enumerate(blob.bcatalog):
+            res_seg = residual[blob.segmap==src['source_id']].flatten()
+            ax[nrow,5].hist(res_seg, histtype='step', color=colors[i], density=True)
+            resmin, resmax = np.nanmin(res_seg), np.nanmax(res_seg)
+            if resmin < minx:
+                minx = resmin
+            if resmax > maxx:
+                maxx = resmax
+            if not init:
+                ax[nrow,4].text(0.01, 0.9 - 0.1*i, r'$\chi^{2}$'+f'={blob.chisq[i, level, sublevel]:2.2f}',
+                         color=colors[i], transform=ax[nrow,4].transAxes)
+        ax[nrow,5].set_xlim(minx, maxx)
+        ax[nrow,5].axvline(0, c='grey', ls='dotted')
+        ax[nrow,5].set_ylim(bottom=0)
+
+        for i, src in enumerate(blob.bcatalog):
+            x, y = src['x'], src['y']
+            color = colors[i]
+            if not blob._solved[i]:
+                ax[nrow,1].plot([x, x], [y - 10, y - 5], ls='dotted', c=color)
+                ax[nrow,1].plot([x - 10, x - 5], [y, y], ls='dotted', c=color)
+            else:
+                ax[nrow,1].plot([x, x], [y - 10, y - 5], c=color)
+                ax[nrow,1].plot([x - 10, x - 5], [y, y], c=color)
+
+    return fig, ax
+
+def plot_fblob(blob, fig=None, ax=None):
+    
+    back = blob.backgrounds[0]
+    mean, rms = back[0], back[1]
+    noise = np.random.normal(mean, rms, size=blob.dims)
+    tr = blob.solution_tractor
+    
+    norm = LogNorm(np.max([mean + rms, 1E-5]), blob.images.max(), clip='True')
+    img_opt = dict(cmap='Greys', norm=norm)
+
+    # Init
+    if fig is None:
+        plt.ioff()
+        fig, ax = plt.subplots(figsize=(24,8), ncols=6, nrows=2)
+
+        # Detection image
+        ax[0,0].imshow(blob.images[0], **img_opt)
+        [ax[0,i].axis('off') for i in np.arange(1, 6)]
+
+        for j, src in enumerate(blob.bcatalog):
+            objects = blob.bcatalog[j]
+            e = Ellipse(xy=(objects['x'], objects['y']),
+                        width=6*objects['a'],
+                        height=6*objects['b'],
+                        angle=objects['theta'] * 180. / np.pi)
+            e.set_facecolor('none')
+            e.set_edgecolor(colors[j])
+            ax[0, 0].add_artist(e)
+
+    ax[0,1].text(0.1, 0.9, f'Blob #{blob.blob_id}', transform=ax[0,1].transAxes)
+    ax[0,1].text(0.1, 0.8, f'{blob.n_sources} source(s)', transform=ax[0,1].transAxes)
+
+    nrow = 0
+    [ax[0,j].axis('off') for j in np.arange(1, 6)]
+
+    ax[1,0].axis('off')
+    residual = blob.images[0] - blob.solution_model_images[0]
+    ax[1,1].imshow(blob.solution_model_images[0], **img_opt)
+    ax[1,2].imshow(blob.solution_model_images[0] + noise, **img_opt)
+    ax[1,3].imshow(residual, cmap='RdGy', vmin=-5*rms, vmax=5*rms)
+    ax[1,4].imshow(blob.tr.getChiImage(0), cmap='RdGy', vmin = -5, vmax = 5)
+
+    ax[1,1].set_ylabel('Solution')
+
+    bins = np.linspace(np.nanmin(residual), np.nanmax(residual), 30)
+    minx, maxx = 0, 0
+    for i, src in enumerate(blob.bcatalog):
+        res_seg = residual[blob.segmap==src['source_id']].flatten()
+        ax[1,5].hist(res_seg, bins=20, histtype='step', color=colors[i], density=True)
+        resmin, resmax = np.nanmin(res_seg), np.nanmax(res_seg)
+        if resmin < minx:
+            minx = resmin
+        if resmax > maxx:
+            maxx = resmax
+    ax[1,5].set_xlim(minx, maxx)
+    ax[1,5].axvline(0, c='grey', ls='dotted')
+    ax[1,5].set_ylim(bottom=0)
+
+    # Solution params
+    for i, src in enumerate(blob.solution_catalog):
+        ax[1,0].text(0.1, 0.8 - 0.4*i, f'#{blob.bcatalog[i]["source_id"]} Model:{src.name}', color=colors[i], transform=ax[1,0].transAxes)
+        ax[1,0].text(0.1, 0.8 - 0.4*i - 0.1, f'       Flux: {src.brightness[0]:3.3f}', color=colors[i], transform=ax[1,0].transAxes)
+        ax[1,0].text(0.1, 0.8 - 0.4*i - 0.2, f'       Chi2/N: {blob.solution_chisq[i,0]:3.3f}', color=colors[i], transform=ax[1,0].transAxes)
+
+    #fig.subplots_adjust(wspace=0, hspace=0)
+    outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{blob.bands[0]}.pdf')
+    fig.savefig(outpath)
+    plt.close()
+    if conf.VERBOSE2: print(f'Saving figure: {outpath}')
+
+
+def plot_blobmap(brick):
+    fig, ax = plt.subplots(figsize=(20,20))
+    # imgs_marked = mark_boundaries(brick.images[0], brick.blobmap, color='red')[:,:,0]
+    imgs_marked = find_boundaries(brick.blobmap, mode='thick').astype(int)
+    imgs_marked[imgs_marked==0] = -99
+    backlevel, noisesigma = brick.backgrounds[0]
+    vmin, vmax = backlevel, backlevel + 5 * noisesigma
+    norm = LogNorm(np.max([backlevel + noisesigma, 1E-5]), imgs_marked.max(), clip='True')
+    ax.imshow(brick.images[0], cmap='Greys', origin='lower', norm=norm)
+    mycmap = plt.cm.magma
+    mycmap.set_under('k', alpha=0)
+    ax.imshow(imgs_marked, alpha=0.9, cmap=mycmap, vmin=0, zorder=2, origin='lower')
+    ax.scatter(brick.catalog['x'], brick.catalog['y'], marker='+', color='limegreen', s=0.1)
+
+
+    for i in np.arange(brick.n_blobs):
+        idx, idy = np.nonzero(brick.blobmap == i+1)
+        xlo, xhi = np.min(idx) - conf.BLOB_BUFFER, np.max(idx) + 1 + conf.BLOB_BUFFER
+        ylo, yhi = np.min(idy) - conf.BLOB_BUFFER, np.max(idy) + 1 + conf.BLOB_BUFFER
+        w = xhi - xlo + 2 * conf.BLOB_BUFFER
+        h = yhi - ylo + 2 * conf.BLOB_BUFFER
+        rect = Rectangle((ylo, xlo), h, w, fill=False, alpha=0.3,
+                                edgecolor='red', zorder=3, linewidth=1)
+        ax.add_patch(rect)
+        ax.annotate(str(i+1), (xlo, xlo), color='r', fontsize=2)
+        #ax.scatter(x + width/2., y + height/2., marker='+', c='r')
+
+    # Add collection to axes
+    #ax.axis('off')
+    out_path = os.path.join(conf.PLOT_DIR, f'B{brick.brick_id}_blobmaster.pdf')
+    ax.axis('off')
+    ax.margins(0,0)
+    fig.savefig(out_path, dpi = 300, overwrite=True, pad_inches=0.0)
+    plt.close()
+    if conf.VERBOSE2: print(f'Saving figure: {out_path}')
 

@@ -56,6 +56,9 @@ class Brick(Subimage):
         self._buffer = buffer
         self.brick_id = brick_id
 
+        self.segmap = None
+        self.blobmap = None
+
         self._buff_left = self._buffer
         self._buff_right = self.dims[0] - self._buffer
         self._buff_bottom = self._buffer
@@ -79,52 +82,51 @@ class Brick(Subimage):
         """TODO: docstring"""
         self.clean_segmap()
 
-        self.add_sid()
-
         self.clean_catalog()
 
         self.dilate()
 
         self.relabel()
 
+        self.add_ids()
+
     def clean_segmap(self):
         """TODO: docstring"""
         coords = np.array([self.catalog['x'], self.catalog['y']]).T
         self._allowed_sources = (coords[:,0] > self._buff_left) & (coords[:,0] < self._buff_right )\
                         & (coords[:,1] > self._buff_bottom) & (coords[:,1] < self._buff_top)
+        
         idx = np.where(~self._allowed_sources)[0]
         for i in idx:
             self.segmap[self.segmap == i+1] = 0
 
+    
+
     def clean_catalog(self):
         """TODO: docstring"""
+        sid_col = np.arange(1, self.n_sources+1, dtype=int)
+        self.catalog.add_column(Column(sid_col.astype(int), name='source_id'), 0)
         self.catalog = self.catalog[self._allowed_sources]
         self.n_sources = len(self.catalog)
 
-    def add_sid(self):
-        """TODO: docstring. rename sid and bid throughout"""
-        sid_col = np.arange(1, self.n_sources+1, dtype=int)
-        self.catalog.add_column(Column(sid_col, name='sid'), 0)
-
-        brick_col = float(self.brick_id) * np.ones(self.n_sources, dtype=int)
-        self.catalog.add_column(Column(brick_col.astype(int), name='bid'), 0)
-
-    def add_columns(self):
+    def add_columns(self, band_only=False):
         """TODO: docstring"""
         filler = np.zeros(len(self.catalog))
-        self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype='S20'), name='solmodel'))
         for colname in self.bands:
             colname = colname.replace(' ', '_')
-            self.catalog.add_column(Column(filler, name=colname))
-        for colname in self.bands:
-            colname = colname.replace(' ', '_')
-            self.catalog.add_column(Column(filler, name=colname+'_err'))
-        for colname in self.bands:
-            colname = colname.replace(' ', '_')
-            self.catalog.add_column(Column(filler, name=colname+'_chisq'))
-        for colname in ('x_model', 'y_model', 'RA', 'Dec', 'reff', 'ab', 'phi'):
-            self.catalog.add_column(Column(filler, name=colname))
-            self.catalog.add_column(Column(filler, name=colname+'_err'))
+            self.catalog.add_column(Column(filler, name=f'MAG_{colname}'))
+            self.catalog.add_column(Column(filler, name=f'MAGERR_{colname}'))
+            self.catalog.add_column(Column(filler, name=f'FLUX_{colname}'))
+            self.catalog.add_column(Column(filler, name=f'FLUXERR_{colname}'))
+            self.catalog.add_column(Column(filler, name=f'CHISQ_{colname}'))
+        if not band_only:
+            for colname in ('X_MODEL', 'Y_MODEL', 'XERR_MODEL', 'YERR_MODEL', 'RA', 'DEC'):
+                self.catalog.add_column(Column(filler, name=colname))
+            self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype='S20'), name='SOLMODEL'))
+            for colname in ('REFF', 'REFF_ERR', 'AB', 'AB_ERR', 'THETA', 'THETA_ERR',
+                        'FRACDEV', 'EXP_REFF', 'EXP_REFF_ERR', 'EXP_AB', 'EXP_AB_ERR', 'EXP_THETA', 'EXP_THETA_ERR', 
+                        'DEV_REFF', 'DEV_REFF_ERR', 'DEV_AB', 'DEV_AB_ERR', 'DEV_THETA', 'DEV_THETA_ERR' ):
+                self.catalog.add_column(Column(filler, name=colname))
 
     def dilate(self, radius=conf.DILATION_RADIUS, fill_holes=True):
         """TODO: docstring"""
@@ -145,6 +147,14 @@ class Brick(Subimage):
         self.blobmap, self.n_blobs = label(self.segmask)
 
         return self.blobmap, self.n_blobs
+
+    def add_ids(self):
+        """TODO: docstring. rename sid and bid throughout"""
+        brick_col = float(self.brick_id) * np.ones(self.n_sources, dtype=int)
+        self.catalog.add_column(Column(brick_col.astype(int), name='brick_id'), 1)
+
+        blob_col = np.array([np.unique(self.blobmap[self.segmap == sid])[0] for sid in self.catalog['source_id']])
+        self.catalog.add_column(Column(blob_col.astype(int), name='blob_id'), 1)
 
     def make_blob(self, blob_id):
 

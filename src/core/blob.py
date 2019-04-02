@@ -24,7 +24,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import ascii, fits
 from astropy.table import Table, Column
-from tractor import NCircularGaussianPSF, PixelizedPSF, Image, Tractor, FluxesPhotoCal, NullWCS, ConstantSky, GalaxyShape, Fluxes, PixPos
+from tractor import NCircularGaussianPSF, PixelizedPSF, Image, Tractor, FluxesPhotoCal, NullWCS, ConstantSky, EllipseESoft, Fluxes, PixPos
 from tractor.galaxy import ExpGalaxy, DevGalaxy, FixedCompositeGalaxy, SoftenedFracDev
 from tractor.pointsource import PointSource
 from time import time
@@ -33,7 +33,7 @@ import sep
 from matplotlib.colors import LogNorm
 
 from .subimage import Subimage
-from .utils import SimpleGalaxy
+from .utils import SimpleGalaxy, plot_detblob, plot_fblob
 import config as conf
 
 
@@ -46,10 +46,10 @@ class Blob(Subimage):
         blobmask = np.array(brick.blobmap == blob_id, bool)
         mask_frac = blobmask.sum() / blobmask.size
         if (mask_frac > conf.SPARSE_THRESH) & (blobmask.size > conf.SPARSE_SIZE):
-            print('Blob is rejected as mask is sparse - likely an artefact issue.')
+            if conf.VERBOSE: print('Blob is rejected as mask is sparse - likely an artefact issue.')
             blob = None
 
-        self.brick_wcs = brick.wcs 
+        self.brick_wcs = brick.wcs.copy()
         self.mosaic_origin = brick.mosaic_origin
         self.brick_id = brick.brick_id
 
@@ -76,7 +76,7 @@ class Blob(Subimage):
         self._sublevel = 0
 
         # Clean
-        blob_sourcemask = np.in1d(brick.catalog['sid'], blob_sources)
+        blob_sourcemask = np.in1d(brick.catalog['source_id'], blob_sources)
         self.bcatalog = brick.catalog[blob_sourcemask].copy()
         self.bcatalog['x'] -= self.subvector[1]
         self.bcatalog['y'] -= self.subvector[0]
@@ -88,14 +88,16 @@ class Blob(Subimage):
         self.solved_chisq = np.zeros(self.n_sources)
         self.tr_catalogs = np.zeros((self.n_sources, 3, 2), dtype=object)
         self.chisq = np.zeros((self.n_sources, 3, 2))
-        self.position_variance = np.zeros((self.n_sources, 2))
-        self.parameter_variance = np.zeros((self.n_sources, 3))
-        self.forced_variance = np.zeros((self.n_sources, self.n_bands))
+        # self.position_variance = np.zeros((self.n_sources, 2))
+        # self.parameter_variance = np.zeros((self.n_sources, 3))
+        # self.forced_variance = np.zeros((self.n_sources, self.n_bands))
         self.solution_tractor = None
 
         self.residual_catalog = np.zeros((self.n_bands), dtype=object)
         self.residual_segmap = np.zeros_like(self.segmap)
         self.n_residual_sources = np.zeros(self.n_bands, dtype=int)
+
+        del brick
 
         # TODO NEED TO LOOK AT OLD SCRIPT FOR AN IDEA ABOUT WHAT COMPOSITE SPITS OUT!!!
 
@@ -115,7 +117,7 @@ class Blob(Subimage):
                 psfmodel = PixelizedPSF(psf)
             except:
                 psfmodel = NCircularGaussianPSF([conf.PSF_SIGMA,], [1,])
-                print('WARNING - Adopting FAKE PSF model!')
+                if conf.VERBOSE: print('WARNING - Adopting FAKE PSF model!')
 
 
             timages[i] = Image(data=image,
@@ -129,6 +131,7 @@ class Blob(Subimage):
 
     def stage_models(self):
         # Trackers
+        if conf.VERBOSE2: print()
 
         for i, (mid, src) in enumerate(zip(self.mids, self.bcatalog)):
 
@@ -137,9 +140,11 @@ class Blob(Subimage):
                 position = self.tr_catalogs[i,0,0].getPosition()
             else:
                 position = PixPos(src['x'], src['y'])
-            flux = Fluxes(**dict(zip(self.bands, src['flux'] * np.ones(self.n_bands))))
+            flux = Fluxes(**dict(zip(self.bands, 3*src['flux'] * np.ones(self.n_bands))))
 
-            shape = GalaxyShape(src['a'], src['b'] / src['a'], src['theta'])
+            #shape = GalaxyShape(src['a'], src['b'] / src['a'], src['theta'])
+            shape = EllipseESoft.fromRAbPhi(src['a'], src['a'] / src['b'], np.rad2deg(src['theta']))
+            #shape = EllipseESoft.fromRAbPhi(1, 1, 0)
 
             if mid == 1:
                 self.model_catalog[i] = PointSource(position, flux)
@@ -159,8 +164,9 @@ class Blob(Subimage):
                 self.model_catalog[i].freezeParams('pos')
                 if conf.VERBOSE2: print(f'Position parameter frozen at {position}')
 
-            if conf.VERBOSE2: print(f'Instatiated a model at {position}')
-            if conf.VERBOSE2: print(f'Parameters: {flux}, {shape}')
+            if conf.VERBOSE2: print(f'Source #{i+1}: {self.model_catalog[i].name} model at {position}')
+            if conf.VERBOSE2: print(f'               {flux}') 
+            if conf.VERBOSE2: print(f'               {shape}')
 
     def tractor_phot(self):
 
@@ -171,6 +177,9 @@ class Blob(Subimage):
         self._solved = self.solution_catalog != 0
 
         self._level = -1
+
+        if conf.PLOT:
+            fig, ax = plot_detblob(self)
 
         while not self._solved.all():
             self._level += 1
@@ -186,6 +195,9 @@ class Blob(Subimage):
                 # store
                 self.tr = Tractor(self.timages, self.model_catalog)
 
+                if conf.PLOT:
+                    plot_detblob(self, fig, ax, level=self._level, sublevel=self._sublevel, init=True)
+
                 # optimize
                 if conf.VERBOSE2: print(self.stage)
                 self.status = self.optimize_tractor()
@@ -197,26 +209,30 @@ class Blob(Subimage):
                 self.tr_catalogs[:, self._level, self._sublevel] = self.tr.getCatalog()
 
                 if (self._level == 0) & (self._sublevel == 0):
-                    self.position_variance = np.array([self.variance[i][:2] for i in np.arange(self.n_sources)]) # THIS MAY JUST WORK!
+                    #self.position_variance = np.array([self.variance[i][:2] for i in np.arange(self.n_sources)]) # THIS MAY JUST WORK!
+                    self.position_variance = self.variance
                     # print(f'POSITION VAR: {self.position_variance}')
 
                 for i, src in enumerate(self.bcatalog):
                     if self._solved[i]:
                         continue
-                    totalchisq = np.sum((self.tr.getChiImage(0)[self.segmap == src['sid']])**2)
+                    totalchisq = np.sum((self.tr.getChiImage(0)[self.segmap == src['source_id']])**2)
                     if conf.USE_REDUCEDCHISQ:
-                        totalchisq /= (np.sum(self.segmap == src['sid']) - self.model_catalog[i].numberOfParams())
+                        totalchisq /= (np.sum(self.segmap == src['source_id']) - self.model_catalog[i].numberOfParams())
                     # PENALTIES TBD
                     # residual = self.images[0] - self.tr.getModelImage(0)
                     # if np.median(residual[self.masks[0]]) < 0:
                     #     if conf.VERBOSE2: print(f'Applying heavy penalty on source #{i+1} ({self.model_catalog[i].name})!')
                     #     totalchisq = 1E30
-                    if conf.VERBOSE2: print(f'Source #{i+1} with {self.model_catalog[i].name} has chisq={totalchisq:3.3f}')
+                    if conf.VERBOSE2: print(f'Source #{src["source_id"]} with {self.model_catalog[i].name} has chisq={totalchisq:3.3f}')
                     self.chisq[i, self._level, self._sublevel] = totalchisq
 
                 # Move unsolved to next sublevel
                 if sublevel == 0:
                     self.mids[~self._solved] += 1
+
+                if conf.PLOT:
+                    plot_detblob(self, fig, ax, level=self._level, sublevel=self._sublevel)
 
             # decide
             self.decide_winners()
@@ -227,28 +243,46 @@ class Blob(Subimage):
         self.model_catalog = self.solution_catalog.copy()
         self.tr = Tractor(self.timages, self.model_catalog)
 
+        if conf.VERBOSE2: print()
         self.stage = 'Final Optimization'
-        self._level, self._sublevel = 'FO', 'FO'
+        # self._level, self._sublevel = 'FO', 'FO'
         if conf.VERBOSE2: print(self.stage)
         self.status = self.optimize_tractor()
         
         if not self.status:
             return False
+        if conf.VERBOSE2: print(f'Optimization converged in {self.n_converge+1} steps.')
 
         self.solution_catalog = self.tr.getCatalog()
         self.solution_tractor = Tractor(self.timages, self.solution_catalog)
         self.solution_model_images = np.array([self.tr.getModelImage(i) for i in np.arange(self.n_bands)])
         self.solution_chi_images = np.array([self.tr.getChiImage(i) for i in np.arange(self.n_bands)])
-        self.parameter_variance = [self.variance[i][self.n_bands:] for i in np.arange(self.n_sources)]
+        self.parameter_variance = self.variance
         # print(f'PARAMETER VAR: {self.parameter_variance}')
 
+        self.solution_chisq = np.zeros((self.n_sources, self.n_bands))
         for i, src in enumerate(self.bcatalog):
-            totalchisq = np.sum((self.tr.getChiImage(0)[self.segmap == src['sid']])**2)
-            if conf.USE_REDUCEDCHISQ:
-                totalchisq /= (np.sum(self.segmap == src['sid']) - self.model_catalog[i].numberOfParams())
-            self.solved_chisq[i] = totalchisq
+            for j, band in enumerate(self.bands):
+                totalchisq = np.sum((self.tr.getChiImage(j)[self.segmap == src['source_id']])**2)
+                if conf.USE_REDUCEDCHISQ:
+                    totalchisq /= (np.sum(self.segmap == src['source_id']) - self.model_catalog[i].numberOfParams())
+                self.solution_chisq[i, j] = totalchisq
 
-        return True
+            if conf.VERBOSE2: print(f'Source #{i+1} with {self.solution_catalog[i].name} has chisq={totalchisq:3.3f}')
+
+        if conf.PLOT:
+            plot_detblob(self, fig, ax, level=self._level, sublevel=self._sublevel, final_opt=True)
+            plt.close()
+
+        # self.rows = np.zeros(len(self.solution_catalog))
+        for idx, src in enumerate(self.solution_catalog):
+            sid = self.bcatalog['source_id'][idx]
+            # row = np.argwhere(self.brick.catalog['source_id'] == sid)[0][0]
+            # self.rows[idx] = row
+            # print(f'STASHING {sid} IN ROW {row}')
+            self.get_catalog(idx, src)
+
+        return self.status
 
     def decide_winners(self):
         # take the model_catalog and chisq and figure out what's what
@@ -263,7 +297,7 @@ class Blob(Subimage):
 
         if self._level == 0:
             # Which have chi2(PS) < chi2(SG)?
-            chmask = (chisq[:, 0, 0] < chisq[:, 0, 1])
+            chmask = (abs(chisq[:, 0, 0] - chisq[:, 0, 1]) < conf.PS_SG_THRESH)
             if chmask.any():
                 solution_catalog[chmask] = tr_catalogs[chmask, 0, 0].copy()
                 solved_chisq[chmask] = chisq[chmask, 0, 0]
@@ -356,52 +390,11 @@ class Blob(Subimage):
         start = time()
         if conf.VERBOSE2: print(f'Starting optimization ({conf.TRACTOR_MAXSTEPS}, {conf.TRACTOR_CONTHRESH})')
 
-
-        # fig, ax = plt.subplots(ncols=2)
-        # back = self.backgrounds[0]
-        # mean, rms = back[0], back[1]
-        # norm = LogNorm(np.max([mean + rms, 1E-5]), self.images[0].max(), clip='True')
-        # img_opt = dict(cmap='Greys', norm=norm)
-        # ax[0].imshow(self.images[0], **img_opt)
-        # ax[1].imshow(self.tr.getModelImage(0), **img_opt)
-        # for s, src in enumerate(self.solution_catalog):
-        #     if src == 0:
-        #         continue
-        #     x, y = src.pos
-        #     color = 'r'
-
-        #     ax[0].plot([x, x], [y - 10, y - 5], c=color)
-        #     ax[0].plot([x - 10, x - 5], [y, y], c=color)
-
-        # fig.suptitle(f'L{self._level}_SL{self._sublevel}')
-        # fig.savefig(os.path.join(conf.PLOT_DIR, f'{self.brick_id}_{self.blob_id}_L{self._level}_SL{self._sublevel}_DEBUG0.pdf'))
-        # plt.close()
-
-
+        self.n_converge = 0
         for i in range(conf.TRACTOR_MAXSTEPS):
             # if True:
             try:
                 dlnp, X, alpha, var = tr.optimize(variance=True)
-
-                # fig, ax = plt.subplots(ncols=2)
-                # back = self.backgrounds[0]
-                # mean, rms = back[0], back[1]
-                # norm = LogNorm(np.max([mean + rms, 1E-5]), self.images[0].max(), clip='True')
-                # img_opt = dict(cmap='Greys', norm=norm)
-                # ax[0].imshow(self.images[0], **img_opt)
-                # ax[1].imshow(self.tr.getModelImage(0), **img_opt)
-                # for s, src in enumerate(self.solution_catalog):
-                #     if src == 0:
-                #         continue
-                #     x, y = src.pos
-                #     color = 'r'
-
-                #     ax[0].plot([x, x], [y - 10, y - 5], c=color)
-                #     ax[0].plot([x - 10, x - 5], [y, y], c=color)
-                # fig.suptitle(f'L{self._level}_SL{self._sublevel}')    
-                # fig.savefig(os.path.join(conf.PLOT_DIR, f'{self.brick_id}_{self.blob_id}_L{self._level}_SL{self._sublevel}_DEBUG{int(i+1)}.pdf'))
-                # plt.close()
-
                 if conf.VERBOSE2: print(dlnp)
             except:
                 if conf.VERBOSE: print(f'WARNING - Optimization failed on step {i} for blob #{self.blob_id}')
@@ -409,25 +402,29 @@ class Blob(Subimage):
 
             if dlnp < conf.TRACTOR_CONTHRESH:
                 break
+                self.nconverge = i
 
         if var is None:
             if conf.VERBOSE: print(f'WARNING - VAR is NONE for blob #{self.blob_id}')
             return False
 
-        if (self.solution_catalog != 0).all():
-            # print('CHANGING TO SOLUTION CATALOG FOR PARAMETERS')
-            var_catalog = self.solution_catalog
-        else:
-            var_catalog = self.model_catalog
+        cat = tr.getCatalog()
+        var_catalog = cat.copy()
+        var_catalog.setParams(var)
+        # if (cat != 0).all():
+        #     var_catalog = self.solution_catalog.copy()
+        #     var_catalog = var_catalog.setParams(var)
+        # else:
+        #     var_catalog = self.model_catalog.copy()
 
-        self.variance = []
-        counter = 0
-        for i, src in enumerate(np.arange(self.n_sources)):
-            n_params = var_catalog[i].numberOfParams()
-            myvar = var[counter: n_params + counter]
-            # print(f'{i}) {var_catalog[i].name} has {n_params} params and {len(myvar)} variances: {myvar}')
-            counter += n_params
-            self.variance.append(myvar)
+        self.variance = var_catalog
+        # counter = 0
+        # for i, src in enumerate(np.arange(self.n_sources)):
+        #     n_params = var_catalog[i].numberOfParams()
+        #     myvar = var[counter: n_params + counter]
+        #     # print(f'{i}) {var_catalog[i].name} has {n_params} params and {len(myvar)} variances: {myvar}')
+        #     counter += n_params
+        #     self.variance.append(myvar)
 
         if np.shape(self.tr.getChiImage(0)) != np.shape(self.segmap):
             if conf.VERBOSE: print(f'WARNING - Chimap and segmap are not the same shape for #{self.blob_id}')
@@ -436,7 +433,7 @@ class Blob(Subimage):
         # expvar = np.sum([var_catalog[i].numberOfParams() for i in np.arange(len(var_catalog))])
         # # print(f'I have {len(var)} variance parameters for {self.n_sources} sources. I expected {expvar}.')
         # for i, mod in enumerate(var_catalog):
-        #     totalchisq = np.sum((self.tr.getChiImage(0)[self.segmap == self.catalog[i]['sid']])**2)
+        #     totalchisq = np.sum((self.tr.getChiImage(0)[self.segmap == self.catalog[i]['source_id']])**2)
 
         return True
 
@@ -510,8 +507,8 @@ class Blob(Subimage):
             self.bcatalog.add_column(Column(np.zeros(len(self.bcatalog), dtype=(float, len(apertures))), name=f'aperphot_{band}_{image_type}_err'))
 
         for idx, src in enumerate(self.solution_catalog):
-            sid = self.catalog['sid'][idx]
-            row = np.argwhere(self.catalog['sid'] == sid)[0][0]
+            sid = self.catalog['source_id'][idx]
+            row = np.argwhere(self.catalog['source_id'] == sid)[0][0]
             self.bcatalog[row][f'aperphot_{band}_{image_type}'] = tuple(apflux[idx])
             self.bcatalog[row][f'aperphot_{band}_{image_type}_err'] = tuple(apflux_err[idx])
 
@@ -553,22 +550,34 @@ class Blob(Subimage):
 
 
             for idx, src in enumerate(self.solution_catalog):
-                sid = self.bcatalog['sid'][idx]
-                row = np.argwhere(self.catalog['sid'] == sid)[0][0]
+                sid = self.bcatalog['source_id'][idx]
+                row = np.argwhere(self.catalog['source_id'] == sid)[0][0]
                 self.bcatalog[row][f'{band}_n_residual_sources'] = True
 
             return catalog, segmap
         else:
             if conf.VERBOSE2: print('No objects found by SExtractor.')
 
-
     def forced_phot(self):
 
         # print('Starting forced photometry')
         # Update the incoming models
         for i, model in enumerate(self.model_catalog):
-            model.brightness = Fluxes(**dict(zip(self.bands, model.brightness[0] * np.ones(self.n_bands))))
-            model.freezeAllBut('brightness')
+            if model == -99:
+                if conf.VERBOSE: print(f"FAILED -- Source #{self.bcatalog[i]['source_id']} does not have a valid model!")
+                return False
+
+            self.model_catalog[i].brightness = Fluxes(**dict(zip(self.bands, model.brightness[0] * np.ones(self.n_bands))))
+            self.model_catalog[i].freezeAllBut('brightness')
+
+            if conf.VERBOSE2: print(f"Source #{self.bcatalog[i]['source_id']}: {self.model_catalog[i].name} model at {self.model_catalog[i].pos}")
+            if conf.VERBOSE2: print(f'               {self.model_catalog[i].brightness}')
+            if self.bcatalog[i]['SOLMODEL'] == 'FixedCompositeGalaxy':
+                if conf.VERBOSE2: print(f'               {self.model_catalog[i].shapeExp}')
+                if conf.VERBOSE2: print(f'               {self.model_catalog[i].shapeDev}')
+            elif self.bcatalog[i]['SOLMODEL'] in ('ExpGalaxy', 'DevGalaxy'):
+                if conf.VERBOSE2: print(f'               {self.model_catalog[i].shape}')
+
 
         # Stash in Tractor
         self.tr = Tractor(self.timages, self.model_catalog)
@@ -586,9 +595,9 @@ class Blob(Subimage):
         self.solution_chisq = np.zeros((self.n_sources, self.n_bands))
         for i, src in enumerate(self.bcatalog):
             for j, band in enumerate(self.bands):
-                totalchisq = np.sum((self.tr.getChiImage(j)[self.segmap == src['sid']])**2)
+                totalchisq = np.sum((self.tr.getChiImage(j)[self.segmap == src['source_id']])**2)
                 if conf.USE_REDUCEDCHISQ:
-                    totalchisq /= (np.sum(self.segmap == src['sid']) - self.model_catalog[i].numberOfParams())
+                    totalchisq /= (np.sum(self.segmap == src['source_id']) - self.model_catalog[i].numberOfParams())
                 self.solution_chisq[i, j] = totalchisq
 
         self.solution_catalog = self.tr.getCatalog()
@@ -598,47 +607,72 @@ class Blob(Subimage):
 
         # self.rows = np.zeros(len(self.solution_catalog))
         for idx, src in enumerate(self.solution_catalog):
-            sid = self.bcatalog['sid'][idx]
-            # row = np.argwhere(self.brick.catalog['sid'] == sid)[0][0]
+            sid = self.bcatalog['source_id'][idx]
+            # row = np.argwhere(self.brick.catalog['source_id'] == sid)[0][0]
             # self.rows[idx] = row
             # print(f'STASHING {sid} IN ROW {row}')
-            self.get_catalog(idx, src)
+            self.get_catalog(idx, src, multiband_only=True)
+
+        if conf.PLOT:
+            plot_fblob(self)
+
 
         return status
 
-    def get_catalog(self, row, src):
+    def get_catalog(self, row, src, multiband_only=False):
+
+        # Add band fluxes, flux errors
         for i, band in enumerate(self.bands):
             band = band.replace(' ', '_')
-            self.bcatalog[row][band] = src.getBrightness().getFlux(band)
-            self.bcatalog[row][band+'_err'] = np.sqrt(self.forced_variance[row][i])
-            self.bcatalog[row][band+'_chisq'] = self.solution_chisq[row, i]
-        self.bcatalog[row]['x_model'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
-        self.bcatalog[row]['y_model'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
-        self.bcatalog[row]['x_model_err'] = np.sqrt(self.position_variance[row, 0])
-        self.bcatalog[row]['y_model_err'] = np.sqrt(self.position_variance[row, 1])
-        if self.wcs is not None:
-            # print(self.brick.wcs)
-            skyc = self.brick_wcs.all_pix2world(self.bcatalog[row]['x_model'], self.bcatalog[row]['y_model'], 0)
-            # print('COORDINATES: ', skyc)
-            self.bcatalog[row]['RA'] = skyc[0]
-            self.bcatalog[row]['Dec'] = skyc[1]
-        try:
-            self.bcatalog[row]['solmodel'] = src.name
-            skip = False
-        except:
-            self.bcatalog[row]['solmodel'] = 'PointSource'
-            skip = True
-        if not skip:
-            if src.name in ('SimpleGalaxy', 'ExpGalaxy', 'DevGalaxy', 'FixedCompositeGalaxy'):
-                try:
-                    self.bcatalog[row]['reff'] = src.shape.re
-                    self.bcatalog[row]['ab'] = src.shape.ab
-                    self.bcatalog[row]['phi'] = src.shape.phi
-                    self.bcatalog[row]['reff_err'] = np.sqrt(self.parameter_variance[row][0])
-                    self.bcatalog[row]['ab_err'] = np.sqrt(self.parameter_variance[row][1])
-                    self.bcatalog[row]['phi_err'] = np.sqrt(self.parameter_variance[row][2])
+            if band == conf.DETECTION_NICKNAME:
+                zpt = conf.DETECTION_ZPT
+                flux_var = self.parameter_variance
+            else:
+                zpt = conf.MULTIBAND_ZPT[self._band2idx(band)]
+                flux_var = self.forced_variance
 
-                    #print(f"REFF: {self.catalog[row]['reff']}+/-{self.catalog[row]['reff_err']}")
-                    #print(f"FLUX: {self.catalog[0][band]}+/-{self.catalog[0][band+'_err']}")
-                except:
-                    if conf.VERBOSE: print('WARNING - model parameters not added to catalog.')
+            self.bcatalog[row]['MAG_'+band] = -2.5 * np.log10(src.getBrightness().getFlux(band)) + zpt
+            self.bcatalog[row]['MAGERR_'+band] = 1.09 * np.sqrt(flux_var[row].brightness.getParams()[i]) / src.getBrightness().getFlux(band)
+            self.bcatalog[row]['FLUX_'+band] = src.getBrightness().getFlux(band)
+            self.bcatalog[row]['FLUXERR_'+band] = np.sqrt(flux_var[row].brightness.getParams()[i])
+            self.bcatalog[row]['CHISQ_'+band] = self.solution_chisq[row, i]
+
+        if not multiband_only:
+            # Position information
+            self.bcatalog[row]['X_MODEL'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
+            self.bcatalog[row]['Y_MODEL'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
+            self.bcatalog[row]['XERR_MODEL'] = np.sqrt(self.position_variance[row].pos.getParams()[0])
+            self.bcatalog[row]['YERR_MODEL'] = np.sqrt(self.position_variance[row].pos.getParams()[1])
+            if self.wcs is not None:
+                skyc = self.brick_wcs.all_pix2world(self.bcatalog[row]['X_MODEL'], self.bcatalog[row]['Y_MODEL'], 0)
+                self.bcatalog[row]['RA'] = skyc[0]
+                self.bcatalog[row]['DEC'] = skyc[1]
+
+            # Model Parameters
+            self.bcatalog[row]['SOLMODEL'] = src.name
+
+            if src.name in ('SimpleGalaxy', 'ExpGalaxy', 'DevGalaxy'):
+                self.bcatalog[row]['REFF'] = src.shape.re
+                self.bcatalog[row]['REFF_ERR'] = np.sqrt(self.parameter_variance[row].shape.getParams()[0])
+                self.bcatalog[row]['AB'] = (src.shape.e + 1) / (src.shape.e - 1)
+                self.bcatalog[row]['AB_ERR'] = np.sqrt(self.parameter_variance[row].shape.getParams()[1])
+                self.bcatalog[row]['THETA'] = np.rad2deg(src.shape.theta)
+                self.bcatalog[row]['THETA_ERR'] = np.sqrt(self.parameter_variance[row].shape.getParams()[2])
+
+            elif src.name == 'FixedCompositeGalaxy':
+                self.bcatalog[row]['FRACDEV'] = src.fracDev.getValue()
+                self.bcatalog[row]['EXP_REFF'] = src.shapeExp.re
+                self.bcatalog[row]['EXP_REFF_ERR'] = np.sqrt(self.parameter_variance[row].shapeExp.getParams()[0])
+                self.bcatalog[row]['EXP_AB'] = (src.shapeExp.e + 1) / (src.shapeExp.e - 1)
+                self.bcatalog[row]['EXP_AB_ERR'] = np.sqrt(self.parameter_variance[row].shapeExp.getParams()[1])
+                self.bcatalog[row]['EXP_THETA'] = np.rad2deg(src.shapeExp.theta)
+                self.bcatalog[row]['EXP_THETA_ERR'] = np.sqrt(self.parameter_variance[row].shapeExp.getParams()[2])
+                self.bcatalog[row]['DEV_REFF'] = src.shapeDev.re
+                self.bcatalog[row]['DEV_REFF_ERR'] = np.sqrt(self.parameter_variance[row].shapeDev.getParams()[0])
+                self.bcatalog[row]['DEV_AB'] = (src.shapeDev.e + 1) / (src.shapeDev.e - 1)
+                self.bcatalog[row]['DEV_AB_ERR'] = np.sqrt(self.parameter_variance[row].shapeDev.getParams()[1])
+                self.bcatalog[row]['DEV_THETA'] = np.rad2deg(src.shapeDev.theta)
+                self.bcatalog[row]['DEV_THETA_ERR'] = np.sqrt(self.parameter_variance[row].shapeDev.getParams()[2])
+                # self.bcatalog[row]['reff_err'] = np.sqrt(self.parameter_variance[row][0])
+                # self.bcatalog[row]['ab_err'] = np.sqrt(self.parameter_variance[row][1])
+                # self.bcatalog[row]['phi_err'] = np.sqrt(self.parameter_variance[row][2])

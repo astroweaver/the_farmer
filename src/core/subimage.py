@@ -240,7 +240,8 @@ class Subimage():
 
         self.slice = [slice(leftpos, rightpos), slice(bottompos, toppos)]
         self.slicepos = tuple([slice(0, self.n_bands),] + self.slice)
-        self.slicepix = (slice(0, self.n_bands), slice(leftpix, rightpix), slice(bottompix, toppix))
+        self.slicepix = tuple([slice(0, self.n_bands), slice(leftpix, rightpix), slice(bottompix, toppix)])
+        self.slice = tuple(self.slice)
 
         # print(self.slicepix, self.slicepos)
         subimages[self.slicepix] = self.images[self.slicepos]
