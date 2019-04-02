@@ -320,7 +320,7 @@ def runblob(blob_id, blobs, detection=None, catalog=True, plotting=False):
         if conf.VERBOSE: print(f'Solution for blob {fblob.blob_id} (N={fblob.n_sources}) arrived at in {duration:3.3f}s ({duration/fblob.n_sources:2.2f}s per src)')
 
 
-        catout = fblob.bcatalog.copy()
+        catout = fblob.catalog.copy()
         del fblob
 
     return catout
@@ -362,7 +362,7 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
     hdul.append(fits.PrimaryHDU())
     hdul.append(fits.ImageHDU(data=detbrick.segmap, name='SEGMAP'))
     hdul.append(fits.ImageHDU(data=detbrick.blobmap, name='BLOBMAP'))
-    hdul.writeto(os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS_r.fits'), overwrite=conf.OVERWRITE)
+    hdul.writeto(os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits'), overwrite=conf.OVERWRITE)
     hdul.close()
 
     tstart = time.time()

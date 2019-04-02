@@ -77,7 +77,8 @@ class Blob(Subimage):
 
         # Clean
         blob_sourcemask = np.in1d(brick.catalog['source_id'], blob_sources)
-        self.bcatalog = brick.catalog[blob_sourcemask].copy()
+        self.catalog = brick.catalog[blob_sourcemask].copy() # untouchable copy
+        self.bcatalog = brick.catalog[blob_sourcemask].copy() # working copy
         self.bcatalog['x'] -= self.subvector[1]
         self.bcatalog['y'] -= self.subvector[0]
         self.n_sources = len(self.bcatalog)
@@ -631,48 +632,48 @@ class Blob(Subimage):
                 zpt = conf.MULTIBAND_ZPT[self._band2idx(band)]
                 flux_var = self.forced_variance
 
-            self.bcatalog[row]['MAG_'+band] = -2.5 * np.log10(src.getBrightness().getFlux(band)) + zpt
-            self.bcatalog[row]['MAGERR_'+band] = 1.09 * np.sqrt(flux_var[row].brightness.getParams()[i]) / src.getBrightness().getFlux(band)
-            self.bcatalog[row]['FLUX_'+band] = src.getBrightness().getFlux(band)
-            self.bcatalog[row]['FLUXERR_'+band] = np.sqrt(flux_var[row].brightness.getParams()[i])
-            self.bcatalog[row]['CHISQ_'+band] = self.solution_chisq[row, i]
+            self.catalog[row]['MAG_'+band] = -2.5 * np.log10(src.getBrightness().getFlux(band)) + zpt
+            self.catalog[row]['MAGERR_'+band] = 1.09 * np.sqrt(flux_var[row].brightness.getParams()[i]) / src.getBrightness().getFlux(band)
+            self.catalog[row]['FLUX_'+band] = src.getBrightness().getFlux(band)
+            self.catalog[row]['FLUXERR_'+band] = np.sqrt(flux_var[row].brightness.getParams()[i])
+            self.catalog[row]['CHISQ_'+band] = self.solution_chisq[row, i]
 
         if not multiband_only:
             # Position information
-            self.bcatalog[row]['X_MODEL'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
-            self.bcatalog[row]['Y_MODEL'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
-            self.bcatalog[row]['XERR_MODEL'] = np.sqrt(self.position_variance[row].pos.getParams()[0])
-            self.bcatalog[row]['YERR_MODEL'] = np.sqrt(self.position_variance[row].pos.getParams()[1])
+            self.catalog[row]['X_MODEL'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
+            self.catalog[row]['Y_MODEL'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
+            self.catalog[row]['XERR_MODEL'] = np.sqrt(self.position_variance[row].pos.getParams()[0])
+            self.catalog[row]['YERR_MODEL'] = np.sqrt(self.position_variance[row].pos.getParams()[1])
             if self.wcs is not None:
-                skyc = self.brick_wcs.all_pix2world(self.bcatalog[row]['X_MODEL'], self.bcatalog[row]['Y_MODEL'], 0)
-                self.bcatalog[row]['RA'] = skyc[0]
-                self.bcatalog[row]['DEC'] = skyc[1]
+                skyc = self.brick_wcs.all_pix2world(self.catalog[row]['X_MODEL'], self.catalog[row]['Y_MODEL'], 0)
+                self.catalog[row]['RA'] = skyc[0]
+                self.catalog[row]['DEC'] = skyc[1]
 
             # Model Parameters
-            self.bcatalog[row]['SOLMODEL'] = src.name
+            self.catalog[row]['SOLMODEL'] = src.name
 
             if src.name in ('SimpleGalaxy', 'ExpGalaxy', 'DevGalaxy'):
-                self.bcatalog[row]['REFF'] = src.shape.re
-                self.bcatalog[row]['REFF_ERR'] = np.sqrt(self.parameter_variance[row].shape.getParams()[0])
-                self.bcatalog[row]['AB'] = (src.shape.e + 1) / (src.shape.e - 1)
-                self.bcatalog[row]['AB_ERR'] = np.sqrt(self.parameter_variance[row].shape.getParams()[1])
-                self.bcatalog[row]['THETA'] = np.rad2deg(src.shape.theta)
-                self.bcatalog[row]['THETA_ERR'] = np.sqrt(self.parameter_variance[row].shape.getParams()[2])
+                self.catalog[row]['REFF'] = src.shape.re
+                self.catalog[row]['REFF_ERR'] = np.sqrt(self.parameter_variance[row].shape.getParams()[0])
+                self.catalog[row]['AB'] = (src.shape.e + 1) / (src.shape.e - 1)
+                self.catalog[row]['AB_ERR'] = np.sqrt(self.parameter_variance[row].shape.getParams()[1])
+                self.catalog[row]['THETA'] = np.rad2deg(src.shape.theta)
+                self.catalog[row]['THETA_ERR'] = np.sqrt(self.parameter_variance[row].shape.getParams()[2])
 
             elif src.name == 'FixedCompositeGalaxy':
-                self.bcatalog[row]['FRACDEV'] = src.fracDev.getValue()
-                self.bcatalog[row]['EXP_REFF'] = src.shapeExp.re
-                self.bcatalog[row]['EXP_REFF_ERR'] = np.sqrt(self.parameter_variance[row].shapeExp.getParams()[0])
-                self.bcatalog[row]['EXP_AB'] = (src.shapeExp.e + 1) / (src.shapeExp.e - 1)
-                self.bcatalog[row]['EXP_AB_ERR'] = np.sqrt(self.parameter_variance[row].shapeExp.getParams()[1])
-                self.bcatalog[row]['EXP_THETA'] = np.rad2deg(src.shapeExp.theta)
-                self.bcatalog[row]['EXP_THETA_ERR'] = np.sqrt(self.parameter_variance[row].shapeExp.getParams()[2])
-                self.bcatalog[row]['DEV_REFF'] = src.shapeDev.re
-                self.bcatalog[row]['DEV_REFF_ERR'] = np.sqrt(self.parameter_variance[row].shapeDev.getParams()[0])
-                self.bcatalog[row]['DEV_AB'] = (src.shapeDev.e + 1) / (src.shapeDev.e - 1)
-                self.bcatalog[row]['DEV_AB_ERR'] = np.sqrt(self.parameter_variance[row].shapeDev.getParams()[1])
-                self.bcatalog[row]['DEV_THETA'] = np.rad2deg(src.shapeDev.theta)
-                self.bcatalog[row]['DEV_THETA_ERR'] = np.sqrt(self.parameter_variance[row].shapeDev.getParams()[2])
+                self.catalog[row]['FRACDEV'] = src.fracDev.getValue()
+                self.catalog[row]['EXP_REFF'] = src.shapeExp.re
+                self.catalog[row]['EXP_REFF_ERR'] = np.sqrt(self.parameter_variance[row].shapeExp.getParams()[0])
+                self.catalog[row]['EXP_AB'] = (src.shapeExp.e + 1) / (src.shapeExp.e - 1)
+                self.catalog[row]['EXP_AB_ERR'] = np.sqrt(self.parameter_variance[row].shapeExp.getParams()[1])
+                self.catalog[row]['EXP_THETA'] = np.rad2deg(src.shapeExp.theta)
+                self.catalog[row]['EXP_THETA_ERR'] = np.sqrt(self.parameter_variance[row].shapeExp.getParams()[2])
+                self.catalog[row]['DEV_REFF'] = src.shapeDev.re
+                self.catalog[row]['DEV_REFF_ERR'] = np.sqrt(self.parameter_variance[row].shapeDev.getParams()[0])
+                self.catalog[row]['DEV_AB'] = (src.shapeDev.e + 1) / (src.shapeDev.e - 1)
+                self.catalog[row]['DEV_AB_ERR'] = np.sqrt(self.parameter_variance[row].shapeDev.getParams()[1])
+                self.catalog[row]['DEV_THETA'] = np.rad2deg(src.shapeDev.theta)
+                self.catalog[row]['DEV_THETA_ERR'] = np.sqrt(self.parameter_variance[row].shapeDev.getParams()[2])
                 # self.bcatalog[row]['reff_err'] = np.sqrt(self.parameter_variance[row][0])
                 # self.bcatalog[row]['ab_err'] = np.sqrt(self.parameter_variance[row][1])
                 # self.bcatalog[row]['phi_err'] = np.sqrt(self.parameter_variance[row][2])
