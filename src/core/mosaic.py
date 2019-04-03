@@ -106,7 +106,7 @@ class Mosaic(Subimage):
                 # sys.exit()
                 if conf.VERBOSE: print('SExtractor succeded!')
             except:
-                raise ValueError('SExtractof failed!')
+                raise ValueError('SExtractor failed!')
 
             hdul_ldac = fits.open(psf_cat, ignore_missing_end=True, mode='update')
             tab_ldac = hdul_ldac['LDAC_OBJECTS'].data
