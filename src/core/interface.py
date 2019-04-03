@@ -46,6 +46,7 @@ from .utils import plot_blob, SimpleGalaxy, plot_blobmap
 import config as conf
 plt.ioff()
 
+
 def make_bricks(multiband_only=False, single_band=None, insert=False, skip_psf=False):
 
     if not multiband_only:
@@ -225,7 +226,7 @@ def runblob(blob_id, blobs, detection=None, catalog=True, plotting=False):
         status = detblob.tractor_phot()
 
         if not status:
-            return None
+            return detblob.bcatalog.copy()
 
         if conf.VERBOSE2: print(f'Morphology determined. ({time.time() - astart:3.3f})s')
 
@@ -282,7 +283,7 @@ def runblob(blob_id, blobs, detection=None, catalog=True, plotting=False):
                 fblob.model_catalog = models_from_catalog(catalog, fblob.bands, fblob.mosaic_origin)
                 if (catalog['X_MODEL'] > fblob.images[0].shape[0]).any():
                     print('FAILED - BAD MODEL POSITION')
-                    return None
+                    return fblob.bcatalog.copy()
                     # raise ValueError('BAD MODEL POSITION - FIX')
 
                 fblob.position_variance = None
@@ -299,7 +300,7 @@ def runblob(blob_id, blobs, detection=None, catalog=True, plotting=False):
         status = fblob.forced_phot()
 
         if not status:
-            return None
+            return fblob.bcatalog.copy()
 
         if conf.VERBOSE2: print(f'Force photometry complete. ({time.time() - astart:3.3f})s')
 
@@ -412,7 +413,7 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
 
         if conf.VERBOSE: print(f'Completed {run_n_blobs} blobs in {time.time() - tstart:3.3f}s')
 
-        output_rows = [x for x in output_rows if x is not None]
+        #output_rows = [x for x in output_rows if x is not None]
 
         output_cat = vstack(output_rows)
                 
@@ -439,13 +440,12 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
         conf.NTHREADS = 0
         if conf.VERBOSE: print('WARNING - Multithreading not supported while forcing models!')
 
+    # for fband in band:
+    fbrick = stage_brickfiles(brick_id, nickname=conf.MULTIBAND_NICKNAME, band=band, detection=False)
+
     if band is None:
         band = conf.BANDS.copy()
-
-    fband = list(band)
-
-    # for fband in band:
-    fbrick = stage_brickfiles(brick_id, nickname=conf.MULTIBAND_NICKNAME, bands=None, detection=False)
+    fband = [band,]
     if conf.VERBOSE: print(f'{fband} brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
 
     if conf.VERBOSE: print(f'Forcing models on {fband}')
@@ -493,7 +493,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
 
         if conf.VERBOSE: print(f'Completed {run_n_blobs} blobs in {time.time() - tstart:3.3f}s')
 
-        output_rows = [x for x in output_rows if x is not None]
+        #output_rows = [x for x in output_rows if x is not None]
 
         output_cat = vstack(output_rows)
 
@@ -508,9 +508,10 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
                 newcols = np.in1d(output_cat.colnames, mastercat.colnames, invert=True)
                 # make fillers
                 for colname in np.array(output_cat.colnames)[newcols]:
-                    mastercat.add_column(Column(np.zeros(len(mastercat), dtype=output_cat[colname].dtype), name=colname))
-                for row in output_cat:
-                    mastercat[np.where(mastercat['source_id'] == row['source_id'])[0]] = row
+                    mastercat.add_column(output_cat[colname])
+                    # mastercat.add_column(Column(np.zeros(len(mastercat), dtype=output_cat[colname].dtype), name=colname))
+                # for row in output_cat:
+                #     mastercat[np.where(mastercat['source_id'] == row['source_id'])[0]] = row
                 # coordinate correction
                 # fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
                 # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
@@ -528,7 +529,10 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
 
             mode_ext = conf.MULTIBAND_NICKNAME
             if fband is not None:
-                mode_ext = fband.replace(' ', '_')
+                if len(fband) == 1:
+                    mode_ext = fband[0].replace(' ', '_')
+                else:
+                    mode_ext = conf.MULTIBAND_NICKNAME
 
             # write out cat
             fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
@@ -539,7 +543,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
     return
 
 
-def stage_brickfiles(brick_id, nickname='MISCBRICK', bands=None, detection=False):
+def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, detection=False):
     # Wraps Brick with a single parameter call
     # THIS ASSUMES YOU HAVE IMG, WGT, and MSK FOR ALL BANDS!
 
@@ -547,10 +551,10 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', bands=None, detection=False
 
     if detection:
         sbands = [nickname,]
-    elif bands is None:
+    elif band is None:
         sbands = conf.BANDS
     else:
-        sbands = [bands,]
+        sbands = [band,]
 
     if os.path.exists(path_brickfile):
         # Stage things
@@ -613,14 +617,14 @@ def models_from_catalog(catalog, band, rmvector):
         for i, src in enumerate(catalog):
 
             position = PixPos(src['X_MODEL'], src['Y_MODEL'])
-            flux = Fluxes(**dict(zip(band, src['flux'] * np.ones(len(band)))))
+            flux = Fluxes(**dict(zip(band, src['FLUX_DETECTION'] * np.ones(len(band)))))
 
-            # QUICK FIX
-            gamma = src['AB'].copy()
-            src['AB'] = (1/gamma**2) / (2 - (1/gamma**2))
+            # # QUICK FIX
+            # gamma = src['AB'].copy()
+            # src['AB'] = (1/gamma**2) / (2 - (1/gamma**2))
 
             #shape = GalaxyShape(src['REFF'], 1./src['AB'], src['theta'])
-            shape = EllipseESoft.fromRAbPhi(src['REFF'], 1./src['AB'], -src['THETA'])
+            shape = EllipseESoft.fromRAbPhi(src['REFF'], src['AB'], -src['THETA'])
 
             if src['SOLMODEL'] == 'PointSource':
                 model_catalog[i] = PointSource(position, flux)

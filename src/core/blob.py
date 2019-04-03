@@ -237,6 +237,7 @@ class Blob(Subimage):
             # decide
             self.decide_winners()
             self._solved = self.solution_catalog != 0
+            print(self.chisq)
 
         # print('Starting final optimization')
         # Final optimization
