@@ -621,10 +621,10 @@ def models_from_catalog(catalog, band, rmvector):
 
             # # QUICK FIX
             # gamma = src['AB'].copy()
-            # src['AB'] = (1/gamma**2) / (2 - (1/gamma**2))
+            # src['AB'] = (gamma**2) / (2 - (gamma**2))
 
             #shape = GalaxyShape(src['REFF'], 1./src['AB'], src['theta'])
-            shape = EllipseESoft.fromRAbPhi(src['REFF'], src['AB'], -src['THETA'])
+            shape = EllipseESoft.fromRAbPhi(src['REFF'], 1./src['AB'], -src['THETA'])
 
             if src['SOLMODEL'] == 'PointSource':
                 model_catalog[i] = PointSource(position, flux)
@@ -636,8 +636,8 @@ def models_from_catalog(catalog, band, rmvector):
             elif src['SOLMODEL'] == 'DevGalaxy':
                 model_catalog[i] = DevGalaxy(position, flux, shape)
             elif src['SOLMODEL'] == 'FixedCompositeGalaxy':
-                expshape = EllipseESoft.fromRAbPhi(src['EXP_REFF'], src['EXP_AB'],  -0.5*src['EXP_THETA'])
-                devshape = EllipseESoft.fromRAbPhi(src['DEV_REFF'], src['DEV_AB'],  -0.5*src['DEV_THETA'])
+                expshape = EllipseESoft.fromRAbPhi(src['EXP_REFF'], 1./src['EXP_AB'],  -src['EXP_THETA'])
+                devshape = EllipseESoft.fromRAbPhi(src['DEV_REFF'], 1./src['DEV_AB'],  -src['DEV_THETA'])
                 model_catalog[i] = FixedCompositeGalaxy(
                                                 position, flux,
                                                 SoftenedFracDev(src['FRACDEV']),

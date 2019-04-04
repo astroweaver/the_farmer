@@ -204,7 +204,7 @@ def plot_detblob(blob, fig=None, ax=None, level=0, sublevel=0, final_opt=False, 
 
         for j, src in enumerate(blob.bcatalog):
             objects = blob.bcatalog[j]
-            e = Ellipse(xy=(objects['X_MODEL'], objects['Y_MODEL']),
+            e = Ellipse(xy=(objects['x'], objects['y']),
                         width=6*objects['a'],
                         height=6*objects['b'],
                         angle=objects['theta'] * 180. / np.pi)
@@ -384,18 +384,18 @@ def plot_blobmap(brick):
     mycmap.set_under('k', alpha=0)
     ax.imshow(imgs_marked, alpha=0.9, cmap=mycmap, vmin=0, zorder=2, origin='lower')
     ax.scatter(brick.catalog['x'], brick.catalog['y'], marker='+', color='limegreen', s=0.1)
-
+    ax.add_patch(Rectangle((conf.BRICK_BUFFER, conf.BRICK_BUFFER), conf.BRICK_HEIGHT, conf.BRICK_WIDTH, fill=False, alpha=0.3, edgecolor='purple', linewidth=1))
 
     for i in np.arange(brick.n_blobs):
         idx, idy = np.nonzero(brick.blobmap == i+1)
         xlo, xhi = np.min(idx) - conf.BLOB_BUFFER, np.max(idx) + 1 + conf.BLOB_BUFFER
         ylo, yhi = np.min(idy) - conf.BLOB_BUFFER, np.max(idy) + 1 + conf.BLOB_BUFFER
-        w = xhi - xlo + 2 * conf.BLOB_BUFFER
-        h = yhi - ylo + 2 * conf.BLOB_BUFFER
+        w = xhi - xlo #+ 2 * conf.BLOB_BUFFER
+        h = yhi - ylo #+ 2 * conf.BLOB_BUFFER
         rect = Rectangle((ylo, xlo), h, w, fill=False, alpha=0.3,
                                 edgecolor='red', zorder=3, linewidth=1)
         ax.add_patch(rect)
-        ax.annotate(str(i+1), (xlo, xlo), color='r', fontsize=2)
+        ax.annotate(str(i+1), (ylo, xlo), color='r', fontsize=2)
         #ax.scatter(x + width/2., y + height/2., marker='+', c='r')
 
     # Add collection to axes
