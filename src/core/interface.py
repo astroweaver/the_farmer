@@ -47,6 +47,37 @@ import config as conf
 plt.ioff()
 
 
+def make_psf(multiband_only=False, sing_band=None):
+
+    if not multiband_only:
+        # Detection
+        if conf.VERBOSE: print(f'Making PSF for {conf.DETECTION_NICKNAME}')
+        detmosaic = Mosaic(conf.DETECTION_NICKNAME, detection=True)
+        if conf.VERBOSE: print(f'Mosaic loaded for {conf.DETECTION_NICKNAME}')
+        detmosaic._make_psf()
+        if conf.VERBOSE: print(f'PSF made successfully for {conf.DETECTION_NICKNAME}')
+
+    # Bands
+    if single_band is not None:
+        sbands = [single_band,]
+    else:
+        sbands = conf.BANDS
+
+    for i, band in enumerate(sbands):
+
+        overwrite = True
+        if insert:
+            overwrite=False
+        if i > 0:
+            overwrite = False
+
+        if conf.VERBOSE: print(f'Making PSF for {conf.MULTIBAND_NICKNAME} band {band}')
+        bandmosaic = Mosaic(band)
+        bandmosaic._make_psf()
+
+    return
+
+
 def make_bricks(multiband_only=False, single_band=None, insert=False, skip_psf=False):
 
     if not multiband_only:
