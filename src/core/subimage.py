@@ -324,10 +324,16 @@ class Subimage():
         else:
             raise ValueError('No objects found by SExtractor.')
 
-    def subtract_background(self, idx=None):
+    def subtract_background(self, idx=None, flat=False):
         if idx is None:
-            self.images -= self.background_images
+            if flat:
+                self.images -= self.backgrounds[0]
+            else:
+                self.images -= self.background_images
         else:
-            self.images[idx] -= self.background_images[idx]
+            if flat:
+                self.images -= self.backgrounds[idx][0]
+            else:
+                self.images[idx] -= self.background_images[idx]
 
 
