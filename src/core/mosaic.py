@@ -32,6 +32,7 @@ from astropy.wcs import WCS
 
 from .subimage import Subimage
 import config as conf
+from utils import plot_ldac
 
 
 class Mosaic(Subimage):
@@ -117,7 +118,7 @@ class Mosaic(Subimage):
                     (tab_ldac['FLUX_RADIUS'] < conf.DET_REFF_LIMITS[1])
 
             if conf.PLOT:
-                utils.plot_ldac(tab_ldac, self.bands, xlims=None, ylims=None, box=True)
+                plot_ldac(tab_ldac, self.bands, xlims=None, ylims=None, box=True)
 
             idx_exclude = np.arange(1, len(tab_ldac) + 1)[~mask_ldac]
 

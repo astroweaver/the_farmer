@@ -67,7 +67,10 @@ def make_psf(multiband_only=False, single_band=None):
 
         if conf.VERBOSE: print(f'Making PSF for {conf.MULTIBAND_NICKNAME} band {band}')
         bandmosaic = Mosaic(band)
+        if conf.VERBOSE: print(f'Mosaic loaded for {conf.MULTIBAND_NICKNAME}')
         bandmosaic._make_psf()
+        if conf.VERBOSE: print(f'PSF made successfully for {conf.MULTIBAND_NICKNAME}')
+
 
     return
 
