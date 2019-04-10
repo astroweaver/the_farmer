@@ -32,7 +32,7 @@ from astropy.wcs import WCS
 
 from .subimage import Subimage
 import config as conf
-from utils import plot_ldac
+from .utils import plot_ldac
 
 
 class Mosaic(Subimage):
