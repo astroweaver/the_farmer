@@ -52,7 +52,7 @@ def make_psf(multiband_only=False, single_band=None, override=False):
     if not multiband_only:
         # Detection
         if conf.VERBOSE: print(f'Making PSF for {conf.DETECTION_NICKNAME}')
-        detmosaic = Mosaic(conf.DETECTION_NICKNAME, detection=True)
+        detmosaic = Mosaic(conf.DETECTION_NICKNAME, detection=True, mag_zeropoint=conf.DETECTION_ZPT)
         if conf.VERBOSE: print(f'Mosaic loaded for {conf.DETECTION_NICKNAME}')
         detmosaic._make_psf(override=override)
         if conf.VERBOSE: print(f'PSF made successfully for {conf.DETECTION_NICKNAME}')
@@ -66,7 +66,7 @@ def make_psf(multiband_only=False, single_band=None, override=False):
     for i, band in enumerate(sbands):
 
         if conf.VERBOSE: print(f'Making PSF for {conf.MULTIBAND_NICKNAME} band {band}')
-        bandmosaic = Mosaic(band)
+        bandmosaic = Mosaic(band, mag_zeropoint=conf.MULTIBAND_ZPT[i])
         if conf.VERBOSE: print(f'Mosaic loaded for {conf.MULTIBAND_NICKNAME}')
         bandmosaic._make_psf(override=override)
         if conf.VERBOSE: print(f'PSF made successfully for {conf.MULTIBAND_NICKNAME}')

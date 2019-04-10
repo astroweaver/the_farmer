@@ -415,6 +415,6 @@ def plot_ldac(tab_ldac, band, xlims=None, ylims=None, box=False):
                                 edgecolor='r', facecolor='r', zorder=3, linewidth=1)
         ax.add_patch(rect)
     fig.subplots_adjust(bottom = 0.15)
-    # ax.set(xlabel='Half-light Radius (px)', xlim=(1, 10),
-    #         ylabel='Mag Auto (AB)', ylim=(26, 16))
+    ax.set(xlabel='Flux Radius (px)', xlim=(1, 10),
+            ylabel='Mag Auto (AB)', ylim=(26, 16))
     fig.savefig(os.path.join(conf.PLOT_DIR, f'{band}_ldac.pdf'), overwrite=True)
