@@ -116,6 +116,9 @@ class Mosaic(Subimage):
                     (tab_ldac['FLUX_RADIUS'] > conf.DET_REFF_LIMITS[0]) &\
                     (tab_ldac['FLUX_RADIUS'] < conf.DET_REFF_LIMITS[1])
 
+            if conf.PLOT:
+                utils.plot_ldac(tab_ldac, self.bands, xlims=None, ylims=None, box=True)
+
             idx_exclude = np.arange(1, len(tab_ldac) + 1)[~mask_ldac]
 
             hdul_ldac['LDAC_OBJECTS'].data = tab_ldac[mask_ldac]

@@ -407,3 +407,14 @@ def plot_blobmap(brick):
     plt.close()
     if conf.VERBOSE2: print(f'Saving figure: {out_path}')
 
+def plot_ldac(tab_ldac, band, xlims=None, ylims=None, box=False):
+    fig, ax = plt.subplots()
+    ax.scatter(tab_ldac['FLUX_RADIUS'], tab_ldac['MAG_AUTO'], c='k', s=0.5)
+    if box:
+        rect = Rectangle((ylims[0], xlims[0]), ylims[1] - ylims[0], xlims[1] - xlims[0], fill=True, alpha=0.3,
+                                edgecolor='r', facecolor='r', zorder=3, linewidth=1)
+        ax.add_patch(rect)
+    fig.subplots_adjust(bottom = 0.15)
+    ax.set(xlabel='Half-light Radius (px)', xlim=(1, 10),
+            ylabel='Mag Auto (AB)', ylim=(26, 16))
+    fig.savefig(os.path.join(conf.PLOT_DIR, f'{band}_ldac.pdf'), overwrite=True)
