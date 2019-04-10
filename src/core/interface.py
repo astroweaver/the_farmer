@@ -47,14 +47,14 @@ import config as conf
 plt.ioff()
 
 
-def make_psf(multiband_only=False, single_band=None):
+def make_psf(multiband_only=False, single_band=None, override=False):
 
     if not multiband_only:
         # Detection
         if conf.VERBOSE: print(f'Making PSF for {conf.DETECTION_NICKNAME}')
         detmosaic = Mosaic(conf.DETECTION_NICKNAME, detection=True)
         if conf.VERBOSE: print(f'Mosaic loaded for {conf.DETECTION_NICKNAME}')
-        detmosaic._make_psf()
+        detmosaic._make_psf(override=override)
         if conf.VERBOSE: print(f'PSF made successfully for {conf.DETECTION_NICKNAME}')
 
     # Bands
@@ -68,7 +68,7 @@ def make_psf(multiband_only=False, single_band=None):
         if conf.VERBOSE: print(f'Making PSF for {conf.MULTIBAND_NICKNAME} band {band}')
         bandmosaic = Mosaic(band)
         if conf.VERBOSE: print(f'Mosaic loaded for {conf.MULTIBAND_NICKNAME}')
-        bandmosaic._make_psf()
+        bandmosaic._make_psf(override=override)
         if conf.VERBOSE: print(f'PSF made successfully for {conf.MULTIBAND_NICKNAME}')
 
 
