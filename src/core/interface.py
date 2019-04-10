@@ -400,12 +400,29 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
     tstart = time.time()
     if (source_id is not None) | (blob_id is not None):
         conf.PLOT = True
+        outcatalog = detbrick.catalog.copy()
+        mosaic_origin = detbrick.mosaic_origin
+        brick_id = detbrick.brick_id
         if source_id is not None:
             blob_id = np.unique(detbrick.blobmap[detbrick.segmap == source_id])
             assert(len(blob_id) == 1)
             blob_id = blob_id[0]
         detblob = detbrick.make_blob(blob_id)
-        runblob(blob_id, detblob, detection=True, plotting=conf.PLOT)
+        output_rows = runblob(blob_id, detblob, detection=True, plotting=conf.PLOT)
+
+        output_cat = vstack(output_rows)
+                
+        for colname in output_cat.colnames:
+            if colname not in outcatalog.colnames:
+                outcatalog.add_column(Column(np.zeros(len(output_cat[colname]), dtype=output_cat[colname].dtype), name=colname))
+        #outcatalog = join(outcatalog, output_cat, join_type='left', )
+        for row in output_cat:
+            outcatalog[np.where(outcatalog['source_id'] == row['source_id'])[0]] = row
+
+        # write out cat
+        outcatalog['x'] = outcatalog['x'] + mosaic_origin[1] - conf.BRICK_BUFFER + 1.
+        outcatalog['y'] = outcatalog['y'] + mosaic_origin[0] - conf.BRICK_BUFFER + 1.
+        outcatalog.write(os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat'), format='fits', overwrite=conf.OVERWRITE)
 
     else:
 
@@ -489,7 +506,53 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
             assert(len(blob_id) == 1)
             blob_id = blob_id[0]
         fblob = fbrick.make_blob(blob_id)
-        runblob(blob_id, fblob, detection=False, plotting=conf.PLOT)
+        output_rows = runblob(blob_id, fblob, detection=False, catalog=fbrick.catalog, plotting=conf.PLOT)
+
+        output_cat = vstack(output_rows)
+
+    
+        if insert & conf.OVERWRITE & (conf.NBLOBS==0):
+            # open old cat
+            path_mastercat = os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat')
+            if os.path.exists(path_mastercat):
+                mastercat = Table.read(path_mastercat)
+
+                # find new columns
+                newcols = np.in1d(output_cat.colnames, mastercat.colnames, invert=True)
+                # make fillers
+                for colname in np.array(output_cat.colnames)[newcols]:
+                    mastercat.add_column(output_cat[colname])
+                    # mastercat.add_column(Column(np.zeros(len(mastercat), dtype=output_cat[colname].dtype), name=colname))
+                # for row in output_cat:
+                #     mastercat[np.where(mastercat['source_id'] == row['source_id'])[0]] = row
+                # coordinate correction
+                # fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
+                # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
+                # save
+                mastercat.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat'), format='fits', overwrite=conf.OVERWRITE)
+                if conf.VERBOSE: print(f'Saving results for brick #{fbrick.brick_id} to existing catalog file.')
+        else:
+                
+            for colname in output_cat.colnames:
+                if colname not in fbrick.catalog.colnames:
+                    fbrick.catalog.add_column(Column(np.zeros(len(output_cat[colname]), dtype=output_cat[colname].dtype), name=colname))
+            #fbrick.catalog = join(fbrick.catalog, output_cat, join_type='left', )
+            for row in output_cat:
+                fbrick.catalog[np.where(fbrick.catalog['source_id'] == row['source_id'])[0]] = row
+
+            mode_ext = conf.MULTIBAND_NICKNAME
+            if fband is not None:
+                if len(fband) == 1:
+                    mode_ext = fband[0].replace(' ', '_')
+                else:
+                    mode_ext = conf.MULTIBAND_NICKNAME
+
+            # write out cat
+            fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
+            fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
+            fbrick.catalog.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{mode_ext}.cat'), format='fits', overwrite=conf.OVERWRITE)
+            if conf.VERBOSE: print(f'Saving results for brick #{fbrick.brick_id} to new {fbrick.bands} catalog file.')
+
 
     else:
 

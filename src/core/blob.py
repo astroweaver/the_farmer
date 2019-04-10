@@ -106,7 +106,7 @@ class Blob(Subimage):
 
         timages = np.zeros(self.n_bands, dtype=object)
 
-        # self.subtract_background()
+        #self.subtract_background()
 
         # TODO: try to simplify this. particularly the zip...
         for i, (image, weight, mask, psf, band) in enumerate(zip(self.images, self.weights, self.masks, self.psfmodels, self.bands)):
