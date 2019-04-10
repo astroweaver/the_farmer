@@ -65,12 +65,6 @@ def make_psf(multiband_only=False, single_band=None):
 
     for i, band in enumerate(sbands):
 
-        overwrite = True
-        if insert:
-            overwrite=False
-        if i > 0:
-            overwrite = False
-
         if conf.VERBOSE: print(f'Making PSF for {conf.MULTIBAND_NICKNAME} band {band}')
         bandmosaic = Mosaic(band)
         bandmosaic._make_psf()
