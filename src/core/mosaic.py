@@ -118,7 +118,7 @@ class Mosaic(Subimage):
                     (tab_ldac['FLUX_RADIUS'] < conf.DET_REFF_LIMITS[1])
 
             if conf.PLOT:
-                plot_ldac(tab_ldac, self.bands, xlims=None, ylims=None, box=True)
+                plot_ldac(tab_ldac, self.bands, xlims=None, ylims=None, box=False)
 
             idx_exclude = np.arange(1, len(tab_ldac) + 1)[~mask_ldac]
 
