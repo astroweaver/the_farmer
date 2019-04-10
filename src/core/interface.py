@@ -47,7 +47,7 @@ import config as conf
 plt.ioff()
 
 
-def make_psf(multiband_only=False, sing_band=None):
+def make_psf(multiband_only=False, single_band=None):
 
     if not multiband_only:
         # Detection
