@@ -84,7 +84,7 @@ class Mosaic(Subimage):
         
         super().__init__()
 
-    def _make_psf(self, override=False):
+    def _make_psf(self, xlims, ylims, override=False):
 
         # Set filenames
         psf_dir = conf.PSF_DIR
@@ -112,15 +112,19 @@ class Mosaic(Subimage):
             hdul_ldac = fits.open(psf_cat, ignore_missing_end=True, mode='update')
             tab_ldac = hdul_ldac['LDAC_OBJECTS'].data
 
-            mask_ldac = (tab_ldac['MAG_AUTO'] > conf.DET_VAL_LIMITS[0]) &\
-                    (tab_ldac['MAG_AUTO'] < conf.DET_VAL_LIMITS[1]) &\
-                    (tab_ldac['FLUX_RADIUS'] > conf.DET_REFF_LIMITS[0]) &\
-                    (tab_ldac['FLUX_RADIUS'] < conf.DET_REFF_LIMITS[1])
+            if len(self.bands) > 1:
+                idx = np.where(self.bands == conf.BANDS)[0]
+            else:
+                idx = 0
+
+            mask_ldac = (tab_ldac['MAG_AUTO'] > ylims[0]) &\
+                    (tab_ldac['MAG_AUTO'] < ylims[1]) &\
+                    (tab_ldac['FLUX_RADIUS'] > xlims[0]) &\
+                    (tab_ldac['FLUX_RADIUS'] < xlims[1])
 
             if conf.PLOT:
                 if conf.VERBOSE: print('Plotting LDAC for pointsource bounding box')
-                print(tab_ldac)
-                plot_ldac(tab_ldac, self.bands, xlims=None, ylims=None, box=False)
+                plot_ldac(tab_ldac, self.bands, xlims=xlims, ylims=ylims, box=True)
 
             idx_exclude = np.arange(1, len(tab_ldac) + 1)[~mask_ldac]
 
