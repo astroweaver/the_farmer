@@ -411,7 +411,7 @@ def plot_ldac(tab_ldac, band, xlims=None, ylims=None, box=False):
     fig, ax = plt.subplots()
     ax.scatter(tab_ldac['FLUX_RADIUS'], tab_ldac['MAG_AUTO'], c='k', s=0.5)
     if box:
-        rect = Rectangle((ylims[0], xlims[0]), ylims[1] - ylims[0], xlims[1] - xlims[0], fill=True, alpha=0.3,
+        rect = Rectangle((xlims[0], ylims[0]), xlims[1] - xlims[0], ylims[1] - ylims[0], fill=True, alpha=0.3,
                                 edgecolor='r', facecolor='r', zorder=3, linewidth=1)
         ax.add_patch(rect)
     fig.subplots_adjust(bottom = 0.15)
