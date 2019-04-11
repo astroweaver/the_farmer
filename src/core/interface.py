@@ -66,7 +66,7 @@ def make_psf(multiband_only=False, single_band=None, override=False):
     for i, band in enumerate(sbands):
 
         multi_xlims = conf.MULTIBAND_REFF_LIMITS[i]
-        multi_ylims = conf.MULTIBAND_VAL_LIMIS[i]
+        multi_ylims = conf.MULTIBAND_VAL_LIMITS[i]
 
         if conf.VERBOSE: print(f'Making PSF for {conf.MULTIBAND_NICKNAME} band {band}')
         bandmosaic = Mosaic(band, mag_zeropoint=conf.MULTIBAND_ZPT[i])
