@@ -327,12 +327,12 @@ class Subimage():
     def subtract_background(self, idx=None, flat=False):
         if idx is None:
             if flat:
-                self.images -= self.backgrounds[0]
+                self.images -= self.backgrounds[0][0]
             else:
                 self.images -= self.background_images
         else:
             if flat:
-                self.images -= self.backgrounds[idx][0]
+                self.images[idx] -= self.backgrounds[idx][0]
             else:
                 self.images[idx] -= self.background_images[idx]
 
