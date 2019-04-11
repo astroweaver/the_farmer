@@ -297,7 +297,7 @@ class Blob(Subimage):
 
         if self._level == 0:
             # Which have chi2(PS) < chi2(SG)?
-            chmask = (abs(chisq[:, 0, 0] - chisq[:, 0, 1]) < conf.PS_SG_THRESH)
+            chmask = ((chisq[:, 0, 0] - chisq[:, 0, 1]) < conf.PS_SG_THRESH)
             if chmask.any():
                 solution_catalog[chmask] = tr_catalogs[chmask, 0, 0].copy()
                 solved_chisq[chmask] = chisq[chmask, 0, 0]
