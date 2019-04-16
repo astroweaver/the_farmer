@@ -106,7 +106,8 @@ class Blob(Subimage):
 
         timages = np.zeros(self.n_bands, dtype=object)
 
-        self.subtract_background(flat=True)
+        use_flat = False
+        self.subtract_background(flat=use_flat)
 
         # TODO: try to simplify this. particularly the zip...
         for i, (image, weight, mask, psf, band) in enumerate(zip(self.images, self.weights, self.masks, self.psfmodels, self.bands)):
@@ -132,10 +133,13 @@ class Blob(Subimage):
     def stage_models(self):
         # Trackers
         if conf.VERBOSE2: print()
+        if conf.VERBOSE2: print(f'Loading models for blob #{self.blob_id}')
 
         for i, (mid, src) in enumerate(zip(self.mids, self.bcatalog)):
 
-            freeze_position = (self.mids >= 2).all()
+            freeze_position = (self.mids != 1).any()
+            # print(f'DEBUG: {self.mids}')
+            # print(f'DEBUG: Freeze position? {freeze_position}')
             if freeze_position & (conf.FREEZE_POSITION):
                 position = self.tr_catalogs[i,0,0].getPosition()
             else:
@@ -164,9 +168,10 @@ class Blob(Subimage):
                 self.model_catalog[i].freezeParams('pos')
                 if conf.VERBOSE2: print(f'Position parameter frozen at {position}')
 
-            if conf.VERBOSE2: print(f'Source #{i+1}: {self.model_catalog[i].name} model at {position}')
+            if conf.VERBOSE2: print(f'Source #{src["source_id"]}: {self.model_catalog[i].name} model at {position}')
             if conf.VERBOSE2: print(f'               {flux}') 
-            if conf.VERBOSE2: print(f'               {shape}')
+            if mid not in (1,2):
+                if conf.VERBOSE2: print(f'               {shape}')
 
     def tractor_phot(self):
 
@@ -241,6 +246,19 @@ class Blob(Subimage):
         # print('Starting final optimization')
         # Final optimization
         self.model_catalog = self.solution_catalog.copy()
+        if conf.VERBOSE2: print(f'Starting final optimization for blob #{self.blob_id}')
+        for i, (mid, src) in enumerate(zip(self.mids, self.bcatalog)):
+            if conf.VERBOSE2: print(f'Source #{src["source_id"]}: {self.model_catalog[i].name} model at {self.model_catalog[i].pos}')
+            if conf.VERBOSE2: print(f'               Fluxes: {self.bands[0]}={self.model_catalog[i].getBrightness().getFlux(self.bands[0]):3.3f}') 
+            if self.model_catalog[i].name not in ('PointSource', 'SimpleGalaxy'):
+                if self.model_catalog[i].name == 'FixedCompositeGalaxy':
+                    if conf.VERBOSE2: print(f'               {self.model_catalog[i].shapeExp}')
+                    if conf.VERBOSE2: print(f'               {self.model_catalog[i].shapeDev}')
+                else:
+                    if conf.VERBOSE2: print(f'               {self.model_catalog[i].shape}')
+            if conf.FREEZE_POSITION:
+                self.model_catalog[i].freezeParams('pos')
+                if conf.VERBOSE2: print(f'Position parameter frozen at {self.model_catalog[i].pos}')
         self.tr = Tractor(self.timages, self.model_catalog)
 
         if conf.VERBOSE2: print()
@@ -260,6 +278,7 @@ class Blob(Subimage):
         self.parameter_variance = self.variance
         # print(f'PARAMETER VAR: {self.parameter_variance}')
 
+        if conf.VERBOSE2: print(f'Resulting model parameters for blob #{self.blob_id}')
         self.solution_chisq = np.zeros((self.n_sources, self.n_bands))
         for i, src in enumerate(self.bcatalog):
             for j, band in enumerate(self.bands):
@@ -268,7 +287,15 @@ class Blob(Subimage):
                     totalchisq /= (np.sum(self.segmap == src['source_id']) - self.model_catalog[i].numberOfParams())
                 self.solution_chisq[i, j] = totalchisq
 
-            if conf.VERBOSE2: print(f'Source #{i+1} with {self.solution_catalog[i].name} has chisq={totalchisq:3.3f}')
+            if conf.VERBOSE2: print(f'Source #{src["source_id"]}: {self.solution_catalog[i].name} model at {self.solution_catalog[i].pos}')
+            if conf.VERBOSE2: print(f'               Fluxes: {self.bands[0]}={self.solution_catalog[i].getBrightness().getFlux(self.bands[0])}') 
+            if self.solution_catalog[i].name not in ('PointSource', 'SimpleGalaxy'):
+                if self.solution_catalog[i].name == 'FixedCompositeGalaxy':
+                    if conf.VERBOSE2: print(f'               {self.solution_catalog[i].shapeExp}')
+                    if conf.VERBOSE2: print(f'               {self.solution_catalog[i].shapeDev}')
+                else:
+                    if conf.VERBOSE2: print(f'               {self.solution_catalog[i].shape}')
+            if conf.VERBOSE2: print(f'Source #{src["source_id"]} with {self.solution_catalog[i].name} has chisq={totalchisq:3.3f}')
 
         if conf.PLOT:
             plot_detblob(self, fig, ax, level=self._level, sublevel=self._sublevel, final_opt=True)
@@ -288,6 +315,11 @@ class Blob(Subimage):
         # take the model_catalog and chisq and figure out what's what
         # Only look at unsolved models!
 
+        if conf.USE_REDUCEDCHISQ:
+            chisq_exp = 1.0
+        else:
+            chisq_exp = 0.0
+
         # holders - or else it's pure insanity.
         chisq = self.chisq[~self._solved]
         solution_catalog = self.solution_catalog[~self._solved]
@@ -297,7 +329,7 @@ class Blob(Subimage):
 
         if self._level == 0:
             # Which have chi2(PS) < chi2(SG)?
-            chmask = ((chisq[:, 0, 0] - chisq[:, 0, 1]) < conf.PS_SG_THRESH)
+            chmask = ((abs(chisq_exp - chisq[:, 0, 0]) - abs(chisq_exp - chisq[:, 0, 1])) < conf.PS_SG_THRESH)
             if chmask.any():
                 solution_catalog[chmask] = tr_catalogs[chmask, 0, 0].copy()
                 solved_chisq[chmask] = chisq[chmask, 0, 0]
@@ -311,10 +343,10 @@ class Blob(Subimage):
             movemask = (abs(chisq[:, 1, 0] - chisq[:, 1, 1]) < conf.EXP_DEV_THRESH)
 
             # Has Exp beaten SG?
-            expmask = (chisq[:, 1, 0] < chisq[:, 0, 1])
+            expmask = (abs(chisq_exp - chisq[:, 1, 0]) < abs(chisq_exp - chisq[:, 0, 1]))
 
             # Has Dev beaten SG?
-            devmask = (chisq[:, 1, 1] < chisq[:, 0, 1])
+            devmask = (abs(chisq_exp - chisq[:, 1, 1]) < abs(chisq_exp - chisq[:, 0, 1]))
 
             # Which better than SG but nearly equally good?
             nextmask = expmask & devmask & movemask
@@ -323,10 +355,10 @@ class Blob(Subimage):
             premask = ~expmask & ~devmask
 
             # If Exp beats Dev by a lot
-            nexpmask = expmask & ~movemask & (chisq[:, 1, 0] < chisq[:, 1, 1])
+            nexpmask = expmask & ~movemask & (abs(chisq_exp - chisq[:, 1, 0])  <  abs(chisq_exp - chisq[:, 1, 1]))
 
              # If Dev beats Exp by a lot
-            ndevmask = devmask & ~movemask & (chisq[:, 1, 1] < chisq[:, 1, 0])
+            ndevmask = devmask & ~movemask & (abs(chisq_exp - chisq[:, 1, 1]) < abs(chisq_exp - chisq[:, 1, 0]))
 
             if nextmask.any():
                 mids[nextmask] = 5
@@ -350,8 +382,8 @@ class Blob(Subimage):
 
         if self._level == 2:
             # For which did Comp beat EXP and DEV?
-            compmask = (chisq[:, 2, 0] < chisq[:, 1, 0]) &\
-                       (chisq[:, 2, 0] < chisq[:, 1, 1])
+            compmask = (abs(chisq_exp - chisq[:, 2, 0]) < abs(chisq_exp - chisq[:, 1, 0])) &\
+                       (abs(chisq_exp - chisq[:, 2, 0]) < abs(chisq_exp - chisq[:, 1, 1]))
 
             if compmask.any():
                 solution_catalog[compmask] = tr_catalogs[compmask, 2, 0].copy()
@@ -360,14 +392,14 @@ class Blob(Subimage):
 
             # where better as EXP or DEV
             if (~compmask).any():
-                ch_exp = (chisq[:, 1, 0] < chisq[:, 1, 1]) & ~compmask
+                ch_exp = (abs(chisq_exp - chisq[:, 1, 0]) < abs(chisq_exp - chisq[:, 1, 1])) & ~compmask
 
                 if ch_exp.any():
                     solution_catalog[ch_exp] = tr_catalogs[ch_exp, 1, 0].copy()
                     solved_chisq[ch_exp] = chisq[ch_exp, 1, 0]
                     mids[ch_exp] = 3
 
-                ch_dev = (chisq[:, 1, 1] < chisq[:, 1, 0]) & ~compmask
+                ch_dev = (abs(chisq_exp - chisq[:, 1, 1]) < abs(chisq_exp - chisq[:, 1, 0])) & ~compmask
 
                 if ch_dev.any():
                     solution_catalog[ch_dev] = tr_catalogs[ch_dev, 1, 1].copy()
@@ -562,6 +594,8 @@ class Blob(Subimage):
 
         # print('Starting forced photometry')
         # Update the incoming models
+        if conf.VERBOSE2: print()
+        if conf.VERBOSE2: print('Reviewing sources to be modelled.')
         for i, model in enumerate(self.model_catalog):
             if model == -99:
                 if conf.VERBOSE: print(f"FAILED -- Source #{self.bcatalog[i]['source_id']} does not have a valid model!")
@@ -583,6 +617,9 @@ class Blob(Subimage):
         self.tr = Tractor(self.timages, self.model_catalog)
         self.stage = 'Forced Photometry'
 
+        if conf.PLOT:
+            axlist = [plot_fblob(self, band=band) for band in self.bands]
+
         # Optimize
         status = self.optimize_tractor()
 
@@ -591,30 +628,38 @@ class Blob(Subimage):
 
         # Chisq
         self.forced_variance = self.variance
-        # print(f'FLUX VAR: {self.forced_variance}')
         self.solution_chisq = np.zeros((self.n_sources, self.n_bands))
-        for i, src in enumerate(self.bcatalog):
-            for j, band in enumerate(self.bands):
-                totalchisq = np.sum((self.tr.getChiImage(j)[self.segmap == src['source_id']])**2)
-                if conf.USE_REDUCEDCHISQ:
-                    totalchisq /= (np.sum(self.segmap == src['source_id']) - self.model_catalog[i].numberOfParams())
-                self.solution_chisq[i, j] = totalchisq
-
         self.solution_catalog = self.tr.getCatalog()
         self.solution_tractor = Tractor(self.timages, self.solution_catalog)
         self.solution_model_images = np.array([self.tr.getModelImage(i) for i in np.arange(self.n_bands)])
         self.solution_chi_images = np.array([self.tr.getChiImage(i) for i in np.arange(self.n_bands)])
 
+        if conf.VERBOSE2: print(f'Resulting model parameters for blob #{self.blob_id}')
+        for i, src in enumerate(self.bcatalog):
+            if conf.VERBOSE2: print(f'Source #{src["source_id"]}: {self.solution_catalog[i].name} model at {self.solution_catalog[i].pos}')
+            if self.solution_catalog[i].name not in ('PointSource', 'SimpleGalaxy'):
+                if self.solution_catalog[i].name == 'FixedCompositeGalaxy':
+                    if conf.VERBOSE2: print(f'               {self.solution_catalog[i].shapeExp}')
+                    if conf.VERBOSE2: print(f'               {self.solution_catalog[i].shapeDev}')
+                else:
+                    if conf.VERBOSE2: print(f'               {self.solution_catalog[i].shape}')
+            for j, band in enumerate(self.bands):
+                totalchisq = np.sum((self.tr.getChiImage(j)[self.segmap == src['source_id']])**2)
+                if conf.USE_REDUCEDCHISQ:
+                    totalchisq /= (np.sum(self.segmap == src['source_id']) - self.model_catalog[i].numberOfParams())
+                self.solution_chisq[i, j] = totalchisq
+                if conf.VERBOSE2: print(f'               Fluxes: {self.bands[j]}={self.solution_catalog[i].getBrightness().getFlux(self.bands[j]):3.3f}') 
+                if conf.VERBOSE2: print(f'               Chisq:  {self.bands[j]}={totalchisq:3.3f}')
+
+
         # self.rows = np.zeros(len(self.solution_catalog))
         for idx, src in enumerate(self.solution_catalog):
             sid = self.bcatalog['source_id'][idx]
-            # row = np.argwhere(self.brick.catalog['source_id'] == sid)[0][0]
-            # self.rows[idx] = row
-            # print(f'STASHING {sid} IN ROW {row}')
             self.get_catalog(idx, src, multiband_only=True)
 
+
         if conf.PLOT:
-            plot_fblob(self)
+            [plot_fblob(self, band, axlist[idx][0], axlist[idx][1], final_opt=True) for idx, band in enumerate(self.bands)]
 
 
         return status
@@ -639,8 +684,6 @@ class Blob(Subimage):
 
         if not multiband_only:
             # Position information
-            self.bcatalog[row]['x'] += self.subvector[1]
-            self.bcatalog[row]['y'] += self.subvector[0]
             self.bcatalog[row]['X_MODEL'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
             self.bcatalog[row]['Y_MODEL'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
             self.bcatalog[row]['XERR_MODEL'] = np.sqrt(self.position_variance[row].pos.getParams()[0])

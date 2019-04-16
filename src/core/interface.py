@@ -225,7 +225,6 @@ def tractor(brick_id, detection=True, multiband=True, source_id=None, blob_id=No
         return
 """
         
-
 def runblob(blob_id, blobs, detection=None, catalog=True, plotting=False):
 
     if conf.VERBOSE: print()
@@ -312,8 +311,10 @@ def runblob(blob_id, blobs, detection=None, catalog=True, plotting=False):
                 # print(catalog['Y_MODEL'])
 
                 fblob.model_catalog = models_from_catalog(catalog, fblob.bands, fblob.mosaic_origin)
-                if (catalog['X_MODEL'] > fblob.images[0].shape[0]).any():
+                if (catalog['X_MODEL'] > fblob.images[0].shape[1]).any():
                     print('FAILED - BAD MODEL POSITION')
+                    catalog['X_MODEL'] += fblob.subvector[1] + fblob.mosaic_origin[1] - conf.BRICK_BUFFER + 1
+                    catalog['Y_MODEL'] += fblob.subvector[0] + fblob.mosaic_origin[0] - conf.BRICK_BUFFER + 1
                     return fblob.bcatalog.copy()
                     # raise ValueError('BAD MODEL POSITION - FIX')
 
@@ -329,6 +330,9 @@ def runblob(blob_id, blobs, detection=None, catalog=True, plotting=False):
 
         astart = time.time() 
         status = fblob.forced_phot()
+
+        catalog['X_MODEL'] += fblob.subvector[1] + fblob.mosaic_origin[1] - conf.BRICK_BUFFER + 1
+        catalog['Y_MODEL'] += fblob.subvector[0] + fblob.mosaic_origin[0] - conf.BRICK_BUFFER + 1
 
         if not status:
             return fblob.bcatalog.copy()
@@ -492,8 +496,9 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
     fbrick = stage_brickfiles(brick_id, nickname=conf.MULTIBAND_NICKNAME, band=band, detection=False)
 
     if band is None:
-        band = conf.BANDS.copy()
-    fband = [band,]
+        fband = conf.BANDS.copy()
+    else:
+        fband = [band,]
     if conf.VERBOSE: print(f'{fband} brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
 
     if conf.VERBOSE: print(f'Forcing models on {fband}')
@@ -521,10 +526,10 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
                 newcols = np.in1d(output_cat.colnames, mastercat.colnames, invert=True)
                 # make fillers
                 for colname in np.array(output_cat.colnames)[newcols]:
-                    mastercat.add_column(output_cat[colname])
-                    # mastercat.add_column(Column(np.zeros(len(mastercat), dtype=output_cat[colname].dtype), name=colname))
-                # for row in output_cat:
-                #     mastercat[np.where(mastercat['source_id'] == row['source_id'])[0]] = row
+                    #mastercat.add_column(output_cat[colname])
+                    mastercat.add_column(Column(np.zeros(len(mastercat), dtype=output_cat[colname].dtype), name=colname))
+                for row in output_cat:
+                    mastercat[np.where(mastercat['source_id'] == row['source_id'])[0]] = row
                 # coordinate correction
                 # fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
                 # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
@@ -548,8 +553,8 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
                     mode_ext = conf.MULTIBAND_NICKNAME
 
             # write out cat
-            fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
-            fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
+            # fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
+            # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
             fbrick.catalog.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{mode_ext}.cat'), format='fits', overwrite=conf.OVERWRITE)
             if conf.VERBOSE: print(f'Saving results for brick #{fbrick.brick_id} to new {fbrick.bands} catalog file.')
 
@@ -602,13 +607,13 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
                 newcols = np.in1d(output_cat.colnames, mastercat.colnames, invert=True)
                 # make fillers
                 for colname in np.array(output_cat.colnames)[newcols]:
-                    mastercat.add_column(output_cat[colname])
-                    # mastercat.add_column(Column(np.zeros(len(mastercat), dtype=output_cat[colname].dtype), name=colname))
-                # for row in output_cat:
-                #     mastercat[np.where(mastercat['source_id'] == row['source_id'])[0]] = row
+                    #mastercat.add_column(output_cat[colname])
+                    mastercat.add_column(Column(np.zeros(len(mastercat), dtype=output_cat[colname].dtype), name=colname))
+                for row in output_cat:
+                    mastercat[np.where(mastercat['source_id'] == row['source_id'])[0]] = row
                 # coordinate correction
-                # fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
-                # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
+                fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
+                fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
                 # save
                 mastercat.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat'), format='fits', overwrite=conf.OVERWRITE)
                 if conf.VERBOSE: print(f'Saving results for brick #{fbrick.brick_id} to existing catalog file.')
@@ -706,7 +711,8 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, detection=False)
 
 def models_from_catalog(catalog, band, rmvector):
         # make multiband catalog from det output
-
+        if conf.VERBOSE2: print()
+        if conf.VERBOSE2: print('Adopting sources from existing catalog.')
         model_catalog = -99 * np.ones(len(catalog), dtype=object)
         for i, src in enumerate(catalog):
 
@@ -718,7 +724,8 @@ def models_from_catalog(catalog, band, rmvector):
             # src['AB'] = (gamma**2) / (2 - (gamma**2))
 
             #shape = GalaxyShape(src['REFF'], 1./src['AB'], src['theta'])
-            shape = EllipseESoft.fromRAbPhi(src['REFF'], 1./src['AB'], -src['THETA'])
+            if src['SOLMODEL'] not in ('PointSource', 'SimpleGalaxy'):
+                shape = EllipseESoft.fromRAbPhi(src['REFF'], 1./src['AB'], -src['THETA'])
 
             if src['SOLMODEL'] == 'PointSource':
                 model_catalog[i] = PointSource(position, flux)
@@ -736,5 +743,14 @@ def models_from_catalog(catalog, band, rmvector):
                                                 position, flux,
                                                 SoftenedFracDev(src['FRACDEV']),
                                                 expshape, devshape)
+
+            if conf.VERBOSE2: print(f'Source #{src["source_id"]}: {src["SOLMODEL"]} model at {position}')
+            if conf.VERBOSE2: print(f'               {flux}') 
+            if src['SOLMODEL'] not in ('PointSource', 'SimpleGalaxy'):
+                if src['SOLMODEL'] != 'FixedCompositeGalaxy':
+                    if conf.VERBOSE2: print(f'               {shape}')
+                else:
+                    if conf.VERBOSE2: print(f'               {expshape}')
+                    if conf.VERBOSE2: print(f'               {devshape}')
 
         return model_catalog

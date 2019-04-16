@@ -215,6 +215,8 @@ def plot_detblob(blob, fig=None, ax=None, level=0, sublevel=0, final_opt=False, 
         ax[0,1].text(0.1, 0.9, f'Blob #{blob.blob_id}', transform=ax[0,1].transAxes)
         ax[0,1].text(0.1, 0.8, f'{blob.n_sources} source(s)', transform=ax[0,1].transAxes)
 
+        [ax[1,i+1].set_title(title, fontsize=20) for i, title in enumerate(('Model', 'Model+Noise', 'Image-Model', '$\chi^{2}$', 'Residuals'))]
+
     elif final_opt:
         nrow = 4 * level + 2* sublevel + 2
         [[ax[i,j].axis('off') for i in np.arange(nrow+1, 11)] for j in np.arange(0, 6)]
@@ -300,9 +302,11 @@ def plot_detblob(blob, fig=None, ax=None, level=0, sublevel=0, final_opt=False, 
 
     return fig, ax
 
-def plot_fblob(blob, fig=None, ax=None):
+def plot_fblob(blob, band, fig=None, ax=None, final_opt=False):
+
+    idx = blob._band2idx(band)
     
-    back = blob.backgrounds[0]
+    back = blob.backgrounds[idx]
     mean, rms = back[0], back[1]
     noise = np.random.normal(mean, rms, size=blob.dims)
     tr = blob.solution_tractor
@@ -310,65 +314,94 @@ def plot_fblob(blob, fig=None, ax=None):
     norm = LogNorm(np.max([mean + rms, 1E-5]), blob.images.max(), clip='True')
     img_opt = dict(cmap='Greys', norm=norm)
 
-    # Init
-    if fig is None:
-        plt.ioff()
-        fig, ax = plt.subplots(figsize=(24,8), ncols=6, nrows=2)
+    if final_opt:
+        
+        ax[2,0].axis('off')
+        residual = blob.images[idx] - blob.solution_model_images[idx]
+        ax[2,1].imshow(blob.solution_model_images[idx], **img_opt)
+        ax[2,2].imshow(blob.solution_model_images[idx] + noise, **img_opt)
+        ax[2,3].imshow(residual, cmap='RdGy', vmin=-5*rms, vmax=5*rms)
+        ax[2,4].imshow(blob.tr.getChiImage(0), cmap='RdGy', vmin = -5, vmax = 5)
 
-        # Detection image
-        ax[0,0].imshow(blob.images[0], **img_opt)
-        [ax[0,i].axis('off') for i in np.arange(1, 6)]
+        ax[2,1].set_ylabel('Solution')
 
-        for j, src in enumerate(blob.bcatalog):
-            objects = blob.bcatalog[j]
-            e = Ellipse(xy=(objects['x'], objects['y']),
-                        width=6*objects['a'],
-                        height=6*objects['b'],
-                        angle=objects['theta'] * 180. / np.pi)
-            e.set_facecolor('none')
-            e.set_edgecolor(colors[j])
-            ax[0, 0].add_artist(e)
+        bins = np.linspace(np.nanmin(residual), np.nanmax(residual), 30)
+        minx, maxx = 0, 0
+        for i, src in enumerate(blob.bcatalog):
+            res_seg = residual[blob.segmap==src['source_id']].flatten()
+            ax[2,5].hist(res_seg, bins=20, histtype='step', color=colors[i], density=True)
+            resmin, resmax = np.nanmin(res_seg), np.nanmax(res_seg)
+            if resmin < minx:
+                minx = resmin
+            if resmax > maxx:
+                maxx = resmax
+        ax[2,5].set_xlim(minx, maxx)
+        ax[2,5].axvline(0, c='grey', ls='dotted')
+        ax[2,5].set_ylim(bottom=0)
 
-    ax[0,1].text(0.1, 0.9, f'Blob #{blob.blob_id}', transform=ax[0,1].transAxes)
-    ax[0,1].text(0.1, 0.8, f'{blob.n_sources} source(s)', transform=ax[0,1].transAxes)
+        # Solution params
+        for i, src in enumerate(blob.solution_catalog):
+            ax[1,0].text(0.1, 0.8 - 0.4*i, f'#{blob.bcatalog[i]["source_id"]} Model:{src.name}', color=colors[i], transform=ax[1,0].transAxes)
+            ax[1,0].text(0.1, 0.8 - 0.4*i - 0.1, f'       Flux: {src.brightness[idx]:3.3f}', color=colors[i], transform=ax[1,0].transAxes)
+            ax[1,0].text(0.1, 0.8 - 0.4*i - 0.2, f'       Chi2/N: {blob.solution_chisq[i,0]:3.3f}', color=colors[i], transform=ax[1,0].transAxes)
 
-    nrow = 0
-    [ax[0,j].axis('off') for j in np.arange(1, 6)]
+        #fig.subplots_adjust(wspace=0, hspace=0)
+        outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{blob.bands[idx]}.pdf')
+        fig.savefig(outpath)
+        plt.close()
+        if conf.VERBOSE2: print(f'Saving figure: {outpath}')
 
-    ax[1,0].axis('off')
-    residual = blob.images[0] - blob.solution_model_images[0]
-    ax[1,1].imshow(blob.solution_model_images[0], **img_opt)
-    ax[1,2].imshow(blob.solution_model_images[0] + noise, **img_opt)
-    ax[1,3].imshow(residual, cmap='RdGy', vmin=-5*rms, vmax=5*rms)
-    ax[1,4].imshow(blob.tr.getChiImage(0), cmap='RdGy', vmin = -5, vmax = 5)
+    else:
+        # Init
+        if fig is None:
+            plt.ioff()
+            fig, ax = plt.subplots(figsize=(24,8), ncols=6, nrows=3)
 
-    ax[1,1].set_ylabel('Solution')
+            # Detection image
+            ax[0,0].imshow(blob.images[idx], **img_opt)
+            [ax[0,i].axis('off') for i in np.arange(1, 6)]
 
-    bins = np.linspace(np.nanmin(residual), np.nanmax(residual), 30)
-    minx, maxx = 0, 0
-    for i, src in enumerate(blob.bcatalog):
-        res_seg = residual[blob.segmap==src['source_id']].flatten()
-        ax[1,5].hist(res_seg, bins=20, histtype='step', color=colors[i], density=True)
-        resmin, resmax = np.nanmin(res_seg), np.nanmax(res_seg)
-        if resmin < minx:
-            minx = resmin
-        if resmax > maxx:
-            maxx = resmax
-    ax[1,5].set_xlim(minx, maxx)
-    ax[1,5].axvline(0, c='grey', ls='dotted')
-    ax[1,5].set_ylim(bottom=0)
+            for j, src in enumerate(blob.bcatalog):
+                objects = blob.bcatalog[j]
+                e = Ellipse(xy=(objects['x'], objects['y']),
+                            width=6*objects['a'],
+                            height=6*objects['b'],
+                            angle=objects['theta'] * 180. / np.pi)
+                e.set_facecolor('none')
+                e.set_edgecolor(colors[j])
+                ax[0, 0].add_artist(e)
 
-    # Solution params
-    for i, src in enumerate(blob.solution_catalog):
-        ax[1,0].text(0.1, 0.8 - 0.4*i, f'#{blob.bcatalog[i]["source_id"]} Model:{src.name}', color=colors[i], transform=ax[1,0].transAxes)
-        ax[1,0].text(0.1, 0.8 - 0.4*i - 0.1, f'       Flux: {src.brightness[0]:3.3f}', color=colors[i], transform=ax[1,0].transAxes)
-        ax[1,0].text(0.1, 0.8 - 0.4*i - 0.2, f'       Chi2/N: {blob.solution_chisq[i,0]:3.3f}', color=colors[i], transform=ax[1,0].transAxes)
+        ax[0,1].text(0.1, 0.9, f'Blob #{blob.blob_id}', transform=ax[0,1].transAxes)
+        ax[0,1].text(0.1, 0.8, f'{blob.n_sources} source(s)', transform=ax[0,1].transAxes)
 
-    #fig.subplots_adjust(wspace=0, hspace=0)
-    outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{blob.bands[0]}.pdf')
-    fig.savefig(outpath)
-    plt.close()
-    if conf.VERBOSE2: print(f'Saving figure: {outpath}')
+        [ax[0,j].axis('off') for j in np.arange(1, 6)]
+
+        ax[1,0].axis('off')
+        residual = blob.images[idx] - blob.tr.getModelImage(idx)
+        ax[1,0].axis('off')
+        ax[1,1].imshow(blob.tr.getModelImage(idx), **img_opt)
+        ax[1,2].imshow(blob.tr.getModelImage(idx) + noise, **img_opt)
+        ax[1,3].imshow(residual, cmap='RdGy', vmin=-5*rms, vmax=5*rms)
+        ax[1,4].imshow(blob.tr.getChiImage(idx), cmap='RdGy', vmin = -5, vmax = 5)
+
+        bins = np.linspace(np.nanmin(residual), np.nanmax(residual), 30)
+        minx, maxx = 0, 0
+        for i, src in enumerate(blob.bcatalog):
+            res_seg = residual[blob.segmap==src['source_id']].flatten()
+            ax[1,5].hist(res_seg, bins=20, histtype='step', color=colors[i], density=True)
+            resmin, resmax = np.nanmin(res_seg), np.nanmax(res_seg)
+            if resmin < minx:
+                minx = resmin
+            if resmax > maxx:
+                maxx = resmax
+        ax[1,5].set_xlim(minx, maxx)
+        ax[1,5].axvline(0, c='grey', ls='dotted')
+        ax[1,5].set_ylim(bottom=0)
+
+        [ax[1,i+1].set_title(title, fontsize=20) for i, title in enumerate(('Model', 'Model+Noise', 'Image-Model', '$\chi^{2}$', 'Residuals'))]
+
+    
+    return fig, ax
 
 
 def plot_blobmap(brick):

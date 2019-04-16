@@ -114,12 +114,25 @@ class Subimage():
             self.backgrounds = np.zeros((self.n_bands, 2), dtype=float)
             self.background_images = np.zeros_like(self._images) 
             for i, img in enumerate(self._images):
-                background = sep.Background(img, bw = conf.BW, bh = conf.BH)
+                background = sep.Background(img, bw = conf.SUBTRACT_BW, bh = conf.SUBTRACT_BH)
                 self.backgrounds[i] = background.globalback, background.globalrms
                 self.background_images[i] = background.back()
         else:
             self.backgrounds = None
             self.background_images = None
+
+        # if conf.VERBOSE2:
+        #     print('--- Image Details ---')
+        #     print(f'Mean = {np.mean(self._images, (1,2))}')
+        #     print(f'Std = {np.std(self._images, (1,2))}')
+
+        #     print('--- Background Details ---')
+        #     print(f'Mesh size = ({conf.SUBTRACT_BW}, {conf.SUBTRACT_BH})')
+        #     print(f'Mean = {np.mean(self.background_images, (1,2))}')
+        #     print(f'Std = {np.std(self.background_images, (1,2))}')
+        #     print(f'Global = {self.backgrounds[:,0]}')
+        #     print(f'RMS = {self.backgrounds[:,1]}')
+
 
 
     ### DATA VALIDATION - WEIGHTS
@@ -307,7 +320,8 @@ class Subimage():
             mask = None
 
         if sub_background:
-            image -= self.background_images[idx]
+            background = sep.Background(self.images[idx], bw = conf.DETECT_BW, bh = conf.DETECT_BH)
+            image -= background.back()
 
         kwargs = dict(var=var, mask=mask, minarea=conf.MINAREA, filter_kernel=convfilt, 
                 filter_type=conf.FILTER_TYPE, segmentation_map=True, 
@@ -325,6 +339,7 @@ class Subimage():
             raise ValueError('No objects found by SExtractor.')
 
     def subtract_background(self, idx=None, flat=False):
+        if conf.VERBOSE2: print(f'Subtracting background. (flat={flat})')
         if idx is None:
             if flat:
                 self.images -= self.backgrounds[0][0]
@@ -335,5 +350,13 @@ class Subimage():
                 self.images[idx] -= self.backgrounds[idx][0]
             else:
                 self.images[idx] -= self.background_images[idx]
+
+        if conf.VERBOSE2:
+            print(f'Mesh size = ({conf.SUBTRACT_BW}, {conf.SUBTRACT_BH})')
+            print(f'Mean = {np.mean(self.background_images, (1,2))}')
+            print(f'Std = {np.std(self.background_images, (1,2))}')
+            print(f'Global = {self.backgrounds[:,0]}')
+            print(f'RMS = {self.backgrounds[:,1]}')
+            print()
 
 
