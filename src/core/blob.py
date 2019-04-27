@@ -99,15 +99,12 @@ class Blob(Subimage):
 
         del brick
 
-        # TODO NEED TO LOOK AT OLD SCRIPT FOR AN IDEA ABOUT WHAT COMPOSITE SPITS OUT!!!
-
     def stage_images(self):
         """TODO: docstring"""
 
         timages = np.zeros(self.n_bands, dtype=object)
 
-        use_flat = False
-        self.subtract_background(flat=use_flat)
+        self.subtract_background(flat=conf.USE_FLAT)
 
         # TODO: try to simplify this. particularly the zip...
         for i, (image, weight, mask, psf, band) in enumerate(zip(self.images, self.weights, self.masks, self.psfmodels, self.bands)):
@@ -144,7 +141,7 @@ class Blob(Subimage):
                 position = self.tr_catalogs[i,0,0].getPosition()
             else:
                 position = PixPos(src['x'], src['y'])
-            flux = Fluxes(**dict(zip(self.bands, 3*src['flux'] * np.ones(self.n_bands))))
+            flux = Fluxes(**dict(zip(self.bands, 1*np.ones(self.n_bands))))
 
             #shape = GalaxyShape(src['a'], src['b'] / src['a'], src['theta'])
             shape = EllipseESoft.fromRAbPhi(src['a'], src['a'] / src['b'], np.rad2deg(src['theta']))
@@ -534,19 +531,19 @@ class Blob(Subimage):
                 apflux_err[:, i] = p.field('aperture_sum_err')
 
         band = band.replace(' ', '_')
-        if f'aperphot_{band}_{image_type}' not in self.catalog.colnames:
-            self.bcatalog.add_column(Column(np.zeros(len(self.bcatalog), dtype=(float, len(apertures))), name=f'aperphot_{band}_{image_type}'))
-            self.bcatalog.add_column(Column(np.zeros(len(self.bcatalog), dtype=(float, len(apertures))), name=f'aperphot_{band}_{image_type}_err'))
+        if f'aperphot_{band}_{image_type}' not in self.bcatalog.colnames:
+            self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, shape=len(apertures), name=f'FLUX_APER_{band}_{image_type}'))
+            self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, shape=len(apertures), name=f'FLUX_APER_{band}_{image_type}_err'))
 
         for idx, src in enumerate(self.solution_catalog):
-            sid = self.catalog['source_id'][idx]
-            row = np.argwhere(self.catalog['source_id'] == sid)[0][0]
-            self.bcatalog[row][f'aperphot_{band}_{image_type}'] = tuple(apflux[idx])
-            self.bcatalog[row][f'aperphot_{band}_{image_type}_err'] = tuple(apflux_err[idx])
+            sid = self.bcatalog['source_id'][idx]
+            row = np.argwhere(self.bcatalog['source_id'] == sid)[0][0]
+            self.bcatalog[row][f'FLUX_APER_{band}_{image_type}'] = tuple(apflux[idx])
+            self.bcatalog[row][f'FLUX_APER_{band}_{image_type}_err'] = tuple(apflux_err[idx])
 
     def sextract_phot(self, band, sub_background=False):
         # SHOULD WE STACK THE RESIDUALS? (No?)
-        # SHOULD WE DO THIS ON THE DETECTION IMAGE TOO? (I suppose we can already...!)
+        # SHOULD WE DO THIS ON THE MODELING IMAGE TOO? (I suppose we can already...!)
         idx = self._band2idx(band)
         residual = self.images[idx] - self.solution_tractor.getModelImage(idx)
         tweight = self.weights[idx].copy()
@@ -669,8 +666,8 @@ class Blob(Subimage):
         # Add band fluxes, flux errors
         for i, band in enumerate(self.bands):
             band = band.replace(' ', '_')
-            if band == conf.DETECTION_NICKNAME:
-                zpt = conf.DETECTION_ZPT
+            if band == conf.MODELING_NICKNAME:
+                zpt = conf.MODELING_ZPT
                 flux_var = self.parameter_variance
             else:
                 zpt = conf.MULTIBAND_ZPT[self._band2idx(band)]

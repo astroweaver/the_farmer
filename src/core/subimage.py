@@ -23,7 +23,7 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import ascii, fits
-from astropy.table import Table
+from astropy.table import Table, Column
 from astropy.wcs import WCS
 import sep
 from astropy.wcs.utils import proj_plane_pixel_scales
@@ -280,7 +280,7 @@ class Subimage():
         else:
             raise ValueError(f"{band} is not a valid band.")
 
-    def sextract(self, band, sub_background=False, force_segmap=None, use_mask=False):
+    def sextract(self, band, sub_background=False, force_segmap=None, use_mask=False, incl_apphot=False):
         # perform sextractor on single band only (may expand for matched source phot)
         # Generate segmap and segmask
         idx = self._band2idx(band)
@@ -328,9 +328,29 @@ class Subimage():
                 deblend_nthresh=conf.DEBLEND_NTHRESH, deblend_cont=conf.DEBLEND_CONT)
         catalog, segmap = sep.extract(image, thresh, **kwargs)
 
-
         if len(catalog) != 0:
             catalog = Table(catalog)
+
+            # Aperture Photometry
+            if incl_apphot:
+                flux = np.zeros(len(catalog), dtype=(float, len(conf.APER_PHOT)))
+                flux_err = flux.copy()
+                flag = np.zeros_like(catalog['x'], dtype=bool)
+                for i, radius in enumerate(conf.APER_PHOT): # in arcsec
+                    flux[:,i], flux_err[:,i], flag = sep.sum_circle(image,
+                                        x=catalog['x'],
+                                        y=catalog['y'],
+                                        r=radius / conf.PIXEL_SCALE,
+                                        var=var)
+
+                mag = -2.5 * np.log10(flux) + conf.MODELING_ZPT
+                mag_err = 1.09 * flux_err / flux
+                catalog.add_column(Column(flux, name='flux_aper' ))
+                catalog.add_column(Column(flux_err, name='fluxerr_aper' ))
+                catalog.add_column(Column(mag, name='mag_aper' ))
+                catalog.add_column(Column(mag_err, name='magerr_aper' ))
+                catalog.add_column(Column(flag, name='flag_aper' ))
+
             self.catalog = catalog
             self.n_sources = len(catalog)
             self.segmap = segmap

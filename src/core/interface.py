@@ -51,11 +51,11 @@ def make_psf(multiband_only=False, single_band=None, override=False):
 
     if not multiband_only:
         # Detection
-        if conf.VERBOSE: print(f'Making PSF for {conf.DETECTION_NICKNAME}')
-        detmosaic = Mosaic(conf.DETECTION_NICKNAME, detection=True, mag_zeropoint=conf.DETECTION_ZPT)
-        if conf.VERBOSE: print(f'Mosaic loaded for {conf.DETECTION_NICKNAME}')
-        detmosaic._make_psf(xlims=conf.DET_REFF_LIMITS, ylims=conf.DET_VAL_LIMIS, override=override)
-        if conf.VERBOSE: print(f'PSF made successfully for {conf.DETECTION_NICKNAME}')
+        if conf.VERBOSE: print(f'Making PSF for {conf.MODELING_NICKNAME}')
+        detmosaic = Mosaic(conf.MODELING_NICKNAME, detection=True, mag_zeropoint=conf.MODELING_ZPT)
+        if conf.VERBOSE: print(f'Mosaic loaded for {conf.MODELING_NICKNAME}')
+        detmosaic._make_psf(xlims=conf.DET_REFF_LIMITS, ylims=conf.DET_VAL_LIMITS, override=override)
+        if conf.VERBOSE: print(f'PSF made successfully for {conf.MODELING_NICKNAME}')
 
     # Bands
     if single_band is not None:
@@ -78,9 +78,9 @@ def make_psf(multiband_only=False, single_band=None, override=False):
     return
 
 
-def make_bricks(multiband_only=False, single_band=None, insert=False, skip_psf=False):
+def make_bricks(image_type=conf.MULTIBAND_NICKNAME, single_band=None, insert=False, skip_psf=False):
 
-    if not multiband_only:
+    if image_type==conf.DETECTION_NICKNAME:
         # Detection
         if conf.VERBOSE: print('Making mosaic for detection')
         detmosaic = Mosaic(conf.DETECTION_NICKNAME, detection=True)
@@ -99,35 +99,56 @@ def make_bricks(multiband_only=False, single_band=None, insert=False, skip_psf=F
             for brick_id in np.arange(1, detmosaic.n_bricks()+1):
                 detmosaic._make_brick(brick_id, detection=True, overwrite=True)
 
-
-    # Bands
-    if single_band is not None:
-        sbands = [single_band,]
-    else:
-        sbands = conf.BANDS
-
-    for i, band in enumerate(sbands):
-
-        overwrite = True
-        if insert:
-            overwrite=False
-        if i > 0:
-            overwrite = False
-
-        if conf.VERBOSE: print(f'Making mosaic for band {band}')
-        bandmosaic = Mosaic(band)
-        if not skip_psf: 
-            bandmosaic._make_psf()
+    elif image_type==conf.MODELING_NICKNAME:
+        # Modeling
+        if conf.VERBOSE: print('Making mosaic for modeling')
+        modmosaic = Mosaic(conf.MODELING_NICKNAME, modeling=True)
 
         if conf.NTHREADS > 0:
-            if conf.VERBOSE: print(f'Making bricks for band {band} (in parallel)')
-            pool = mp.ProcessingPool(processes=conf.NTHREADS)
-            pool.map(partial(bandmosaic._make_brick, detection=False, overwrite=overwrite), np.arange(0, detmosaic.n_bricks()))
+            pass
+            # BUGGY DUE TO MEM ALLOC
+            # if conf.VERBOSE: print('Making bricks for detection (in parallel)')
+            # pool = mp.ProcessingPool(processes=conf.NTHREADS)
+            # pool.map(partial(modmosaic._make_brick, detection=True, overwrite=True), np.arange(0, modmosaic.n_bricks()))
 
         else:
-            if conf.VERBOSE: print(f'Making bricks for band {band} (in serial)')
-            for brick_id in np.arange(1, bandmosaic.n_bricks()+1):
-                bandmosaic._make_brick(brick_id, detection=False, overwrite=overwrite)
+            if conf.VERBOSE: print('Making bricks for modeling (in serial)')
+            for brick_id in np.arange(1, modmosaic.n_bricks()+1):
+                modmosaic._make_brick(brick_id, modeling=True, overwrite=True)
+    
+    elif image_type==conf.DETECTION_NICKNAME:
+
+        # Bands
+        if single_band is not None:
+            sbands = [single_band,]
+        else:
+            sbands = conf.BANDS
+
+        for i, band in enumerate(sbands):
+
+            overwrite = True
+            if insert:
+                overwrite=False
+            if i > 0:
+                overwrite = False
+
+            if conf.VERBOSE: print(f'Making mosaic for band {band}')
+            bandmosaic = Mosaic(band)
+            if not skip_psf: 
+                bandmosaic._make_psf()
+
+            if conf.NTHREADS > 0:
+                if conf.VERBOSE: print(f'Making bricks for band {band} (in parallel)')
+                pool = mp.ProcessingPool(processes=conf.NTHREADS)
+                pool.map(partial(bandmosaic._make_brick, detection=False, overwrite=overwrite), np.arange(0, detmosaic.n_bricks()))
+
+            else:
+                if conf.VERBOSE: print(f'Making bricks for band {band} (in serial)')
+                for brick_id in np.arange(1, bandmosaic.n_bricks()+1):
+                    bandmosaic._make_brick(brick_id, detection=False, overwrite=overwrite)
+
+    else:
+        if conf.VERBOSE: print(f'FATAL ERROR -- {img_type} is an unrecognized nickname (see {conf.DETECTION_NICKNAME}, {conf.MODELING_NICKNAME}, {conf.MULTIBAND_NICKNAME})')
 
     return
 
@@ -263,15 +284,17 @@ def runblob(blob_id, blobs, detection=None, catalog=True, plotting=False):
 
         # Run follow-up phot
         if conf.DO_APPHOT:
-            try:
-                [[detblob.aperture_phot(band, img_type) for band in detblob.bands] for img_type in ('image', 'model', 'residual')]
-            except:
-                if conf.VERBOSE2: print(f'Aperture photmetry FAILED. Likely a bad blob.')
+            for img_type in ('image', 'model', 'residual'):
+                for band in detblob.bands:
+                    try:
+                        detblob.aperture_phot(band, img_type)
+                    except:
+                        if conf.VERBOSE: print(f'Aperture photmetry FAILED for {band} {img_type}. Likely a bad blob.')
         if conf.DO_SEXPHOT:
             try:
                 [detblob.sextract_phot(band) for band in detblob.bands]
             except:
-                if conf.VERBOSE2: print(f'Residual Sextractor photmetry FAILED. Likely a bad blob.)')    
+                if conf.VERBOSE: print(f'Residual Sextractor photmetry FAILED. Likely a bad blob.)')    
 
         duration = time.time() - tstart
         if conf.VERBOSE: print(f'Solution for Blob #{detblob.blob_id} (N={detblob.n_sources}) arrived at in {duration:3.3f}s ({duration/detblob.n_sources:2.2f}s per src)')
@@ -342,15 +365,17 @@ def runblob(blob_id, blobs, detection=None, catalog=True, plotting=False):
 
         # Run follow-up phot
         if conf.DO_APPHOT:
-            try:
-                [[fblob.aperture_phot(band, img_type) for band in fblob.bands] for img_type in ('image', 'model', 'residual')]
-            except:
-                if conf.VERBOSE2: print(f'Aperture photmetry FAILED. Likely a bad blob.')
+            for img_type in ('image', 'model', 'residual'):
+                for band in fblob.bands:
+                    try:
+                        fblob.aperture_phot(band, img_type)
+                    except:
+                        if conf.VERBOSE: print(f'Aperture photmetry FAILED for {band} {img_type}. Likely a bad blob.')
         if conf.DO_SEXPHOT:
             try:
                 [fblob.sextract_phot(band) for band in fblob.bands]
             except:
-                if conf.VERBOSE2: print(f'Residual Sextractor photmetry FAILED. Likely a bad blob.)')
+                if conf.VERBOSE: print(f'Residual Sextractor photmetry FAILED. Likely a bad blob.)')
 
         duration = time.time() - tstart
         if conf.VERBOSE: print(f'Solution for blob {fblob.blob_id} (N={fblob.n_sources}) arrived at in {duration:3.3f}s ({duration/fblob.n_sources:2.2f}s per src)')
@@ -373,7 +398,7 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
     tstart = time.time()
     #try:
     if (segmap is None) & (catalog is None):
-        detbrick.sextract(conf.DETECTION_NICKNAME, sub_background=True, use_mask=False)
+        detbrick.sextract(conf.DETECTION_NICKNAME, sub_background=True, use_mask=False, incl_apphot=True)
         if conf.VERBOSE: print(f'Detection brick #{brick_id} sextracted {detbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
     #except:
     #    if conf.VERBOSE: print(f'Detection brick #{brick_id} sextraction FAILED. ({time.time() - tstart:3.3f}s)')
@@ -384,41 +409,55 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
     else:
         raise ValueError('No valid segmap and catalog provided to override SExtraction!')
 
-    # Cleanup
+    # Create modbrick
     tstart = time.time()
-    detbrick.cleanup()
-    detbrick.add_columns()
-    if conf.VERBOSE: print(f'Detection brick #{brick_id} gained {detbrick.n_blobs} blobs with {detbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
+    modbrick = stage_brickfiles(brick_id, nickname=conf.MODELING_NICKNAME, detection=True)
+    if conf.VERBOSE: print(f'Modeling brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
+
+    modbrick.catalog = detbrick.catalog
+    modbrick.segmap = detbrick.segmap
+    modbrick.n_sources = detbrick.n_sources
+
+    # Cleanup on MODBRICK
+    tstart = time.time()
+    modbrick.cleanup()
+    modbrick.add_columns() # doing on detbrick gets column names wrong
+    if conf.VERBOSE: print(f'Detection brick #{brick_id} gained {modbrick.n_blobs} blobs with {modbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
 
     if conf.PLOT:
-        plot_blobmap(detbrick)
+        plot_blobmap(modbrick)
 
     # Save segmap and blobmaps
     hdul = fits.HDUList()
     hdul.append(fits.PrimaryHDU())
-    hdul.append(fits.ImageHDU(data=detbrick.segmap, name='SEGMAP'))
-    hdul.append(fits.ImageHDU(data=detbrick.blobmap, name='BLOBMAP'))
+    hdul.append(fits.ImageHDU(data=modbrick.segmap, name='SEGMAP'))
+    hdul.append(fits.ImageHDU(data=modbrick.blobmap, name='BLOBMAP'))
     hdul.writeto(os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits'), overwrite=conf.OVERWRITE)
     hdul.close()
 
     tstart = time.time()
     if (source_id is not None) | (blob_id is not None):
         conf.PLOT = True
-        outcatalog = detbrick.catalog.copy()
-        mosaic_origin = detbrick.mosaic_origin
-        brick_id = detbrick.brick_id
+        outcatalog = modbrick.catalog.copy()
+        mosaic_origin = modbrick.mosaic_origin
+        brick_id = modbrick.brick_id
         if source_id is not None:
-            blob_id = np.unique(detbrick.blobmap[detbrick.segmap == source_id])
+            blob_id = np.unique(modbrick.blobmap[modbrick.segmap == source_id])
             assert(len(blob_id) == 1)
             blob_id = blob_id[0]
-        detblob = detbrick.make_blob(blob_id)
-        output_rows = runblob(blob_id, detblob, detection=True, plotting=conf.PLOT)
+        modblob = modbrick.make_blob(blob_id)
+        output_rows = runblob(blob_id, modblob, detection=True, plotting=conf.PLOT)
 
         output_cat = vstack(output_rows)
                 
         for colname in output_cat.colnames:
             if colname not in outcatalog.colnames:
-                outcatalog.add_column(Column(np.zeros(len(output_cat[colname]), dtype=output_cat[colname].dtype), name=colname))
+                colshape = output_cat[colname].shape
+                if len(colshape) == 1:
+                    rshape = 1
+                elif len(colshape) == 2:
+                    rshape = colshape[1]
+                outcatalog.add_column(Column(length=len(outcatalog), dtype=output_cat[colname].dtype, shape=rshape, name=colname))
         #outcatalog = join(outcatalog, output_cat, join_type='left', )
         for row in output_cat:
             outcatalog[np.where(outcatalog['source_id'] == row['source_id'])[0]] = row
@@ -433,21 +472,21 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
         if conf.NBLOBS > 0:
             run_n_blobs = conf.NBLOBS
         else:
-            run_n_blobs = detbrick.n_blobs
+            run_n_blobs = modbrick.n_blobs
         
-        outcatalog = detbrick.catalog.copy()
-        mosaic_origin = detbrick.mosaic_origin
-        brick_id = detbrick.brick_id
+        outcatalog = modbrick.catalog.copy()
+        mosaic_origin = modbrick.mosaic_origin
+        brick_id = modbrick.brick_id
 
-        #detblobs = [detbrick.make_blob(i) for i in np.arange(1, run_n_blobs+1)]
-        detblobs = (detbrick.make_blob(i) for i in np.arange(1, run_n_blobs+1))
-        #del detbrick
+        #detblobs = [modbrick.make_blob(i) for i in np.arange(1, run_n_blobs+1)]
+        modblobs = (modbrick.make_blob(i) for i in np.arange(1, run_n_blobs+1))
+        #del modbrick
 
         if conf.NTHREADS > 0:
 
             #pool = pp.ParallelPool(processes=conf.NTHREADS)
             with mp.ProcessPool(processes=conf.NTHREADS) as pool:
-                result = pool.map(partial(runblob, detection=True), np.arange(1, run_n_blobs+1), detblobs)
+                result = pool.map(partial(runblob, detection=True), np.arange(1, run_n_blobs+1), modblobs)
 
                 output_rows = [res for res in result]
 
@@ -461,7 +500,7 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
             # pool.terminate()
             # output_rows = results.get()
         else:
-            output_rows = [runblob(kblob_id+1, kblob, detection=True, plotting=conf.PLOT) for kblob_id, kblob in enumerate(detblobs)]
+            output_rows = [runblob(kblob_id+1, kblob, detection=True, plotting=conf.PLOT) for kblob_id, kblob in enumerate(modblobs)]
 
         if conf.VERBOSE: print(f'Completed {run_n_blobs} blobs in {time.time() - tstart:3.3f}s')
 
@@ -471,7 +510,12 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
                 
         for colname in output_cat.colnames:
             if colname not in outcatalog.colnames:
-                outcatalog.add_column(Column(np.zeros(len(output_cat[colname]), dtype=output_cat[colname].dtype), name=colname))
+                colshape = output_cat[colname].shape
+                if len(colshape) == 1:
+                    rshape = 1
+                elif len(colshape) == 2:
+                    rshape = colshape[1]
+                outcatalog.add_column(Column(length=len(outcatalog), dtype=output_cat[colname].dtype, shape=rshape, name=colname))
         #outcatalog = join(outcatalog, output_cat, join_type='left', )
         for row in output_cat:
             outcatalog[np.where(outcatalog['source_id'] == row['source_id'])[0]] = row
@@ -527,7 +571,12 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
                 # make fillers
                 for colname in np.array(output_cat.colnames)[newcols]:
                     #mastercat.add_column(output_cat[colname])
-                    mastercat.add_column(Column(np.zeros(len(mastercat), dtype=output_cat[colname].dtype), name=colname))
+                    colshape = output_cat[colname].shape
+                    if len(colshape) == 1:
+                        rshape = 1
+                    elif len(colshape) == 2:
+                        rshape = colshape[1]
+                    mastercat.add_column(Column(length=len(mastercat), dtype=output_cat[colname].dtype, shape=rshape, name=colname))
                 for row in output_cat:
                     mastercat[np.where(mastercat['source_id'] == row['source_id'])[0]] = row
                 # coordinate correction
@@ -540,7 +589,12 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
                 
             for colname in output_cat.colnames:
                 if colname not in fbrick.catalog.colnames:
-                    fbrick.catalog.add_column(Column(np.zeros(len(output_cat[colname]), dtype=output_cat[colname].dtype), name=colname))
+                    colshape = output_cat[colname].shape
+                    if len(colshape) == 1:
+                        rshape = 1
+                    elif len(colshape) == 2:
+                        rshape = colshape[1]
+                    fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=output_cat[colname].dtype, shape=rshape, name=colname))
             #fbrick.catalog = join(fbrick.catalog, output_cat, join_type='left', )
             for row in output_cat:
                 fbrick.catalog[np.where(fbrick.catalog['source_id'] == row['source_id'])[0]] = row
@@ -608,7 +662,12 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
                 # make fillers
                 for colname in np.array(output_cat.colnames)[newcols]:
                     #mastercat.add_column(output_cat[colname])
-                    mastercat.add_column(Column(np.zeros(len(mastercat), dtype=output_cat[colname].dtype), name=colname))
+                    colshape = output_cat[colname].shape
+                    if len(colshape) == 1:
+                        rshape = 1
+                    elif len(colshape) == 2:
+                        rshape = colshape[1]
+                    mastercat.add_column(Column(length=len(fbrick.catalog), dtype=output_cat[colname].dtype, shape=colshape, name=colname))
                 for row in output_cat:
                     mastercat[np.where(mastercat['source_id'] == row['source_id'])[0]] = row
                 # coordinate correction
@@ -621,7 +680,12 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
                 
             for colname in output_cat.colnames:
                 if colname not in fbrick.catalog.colnames:
-                    fbrick.catalog.add_column(Column(np.zeros(len(output_cat[colname]), dtype=output_cat[colname].dtype), name=colname))
+                    colshape = output_cat[colname].shape
+                    if len(colshape) == 1:
+                        rshape = 1
+                    elif len(colshape) == 2:
+                        rshape = colshape[1]
+                    fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=output_cat[colname].dtype, shape=colshape, name=colname))
             #fbrick.catalog = join(fbrick.catalog, output_cat, join_type='left', )
             for row in output_cat:
                 fbrick.catalog[np.where(fbrick.catalog['source_id'] == row['source_id'])[0]] = row
@@ -685,7 +749,7 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, detection=False)
                     psfmodels = np.zeros((len(sbands), psfmodel.shape[0], psfmodel.shape[1]))
                 psfmodels[i] = psfmodel
         else:
-            raise ValueError(f'PSF model not found for {band}!')
+            if conf.VERBOSE: print(f'PSF model not found for {band}!')
             psfmodels[i] = -99
 
     if detection:
@@ -717,7 +781,7 @@ def models_from_catalog(catalog, band, rmvector):
         for i, src in enumerate(catalog):
 
             position = PixPos(src['X_MODEL'], src['Y_MODEL'])
-            flux = Fluxes(**dict(zip(band, src['FLUX_DETECTION'] * np.ones(len(band)))))
+            flux = Fluxes(**dict(zip(band, src['FLUX_'+conf.MODELING_NICKNAME] * np.ones(len(band)))))
 
             # # QUICK FIX
             # gamma = src['AB'].copy()

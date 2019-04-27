@@ -37,13 +37,17 @@ from .utils import plot_ldac
 
 class Mosaic(Subimage):
     
-    def __init__(self, band, detection=False, psfmodel=None, wcs=None, header=None, mag_zeropoint=None,
+    def __init__(self, band, detection=False, modeling=False, psfmodel=None, wcs=None, header=None, mag_zeropoint=None,
                 ):
 
         if detection:
             self.path_image = os.path.join(conf.IMAGE_DIR, conf.DETECTION_FILENAME.replace('EXT', conf.IMAGE_EXT))
             self.path_weight = os.path.join(conf.IMAGE_DIR, conf.DETECTION_FILENAME.replace('EXT', conf.WEIGHT_EXT))
             self.path_mask = os.path.join(conf.IMAGE_DIR, conf.DETECTION_FILENAME.replace('EXT', conf.MASK_EXT))
+        elif modeling:
+            self.path_image = os.path.join(conf.IMAGE_DIR, conf.MODELING_FILENAME.replace('EXT', conf.IMAGE_EXT))
+            self.path_weight = os.path.join(conf.IMAGE_DIR, conf.MODELING_FILENAME.replace('EXT', conf.WEIGHT_EXT))
+            self.path_mask = os.path.join(conf.IMAGE_DIR, conf.MODELING_FILENAME.replace('EXT', conf.MASK_EXT))
         else:
             self.path_image = os.path.join(conf.IMAGE_DIR, conf.MULTIBAND_FILENAME.replace('EXT', conf.IMAGE_EXT).replace('BAND', band))
             self.path_weight = os.path.join(conf.IMAGE_DIR, conf.MULTIBAND_FILENAME.replace('EXT', conf.WEIGHT_EXT).replace('BAND', band))
@@ -133,15 +137,19 @@ class Mosaic(Subimage):
 
             # RUN PSF
             os.system(f'psfex {psf_cat} -c config/config.psfex -BASIS_TYPE PIXEL -PSF_SIZE 101,101 -PSF_DIR {psf_dir} -WRITE_XML Y -XML_NAME {path_savexml} -CHECKIMAGE_NAME {path_savechkimg} -CHECKPLOT_NAME {path_savechkplt}')
-            
         
-    def _make_brick(self, brick_id, overwrite=False, detection=False, 
+        else:
+            if conf.VERBOSE: print('No PSF attempted. PSF already exists and override is off')
+        
+    def _make_brick(self, brick_id, overwrite=False, detection=False, modeling=False,
             brick_width=conf.BRICK_WIDTH, brick_height=conf.BRICK_HEIGHT, brick_buffer=conf.BRICK_BUFFER):
 
         if conf.VERBOSE: print(f'Making brick {brick_id}/{self.n_bricks()}')
 
         if detection:
             nickname = conf.DETECTION_NICKNAME
+        elif modeling:
+            nickname = conf.MODELING_NICKNAME
         else:
             nickname = conf.MULTIBAND_NICKNAME
 
@@ -155,7 +163,7 @@ class Mosaic(Subimage):
         subinfo = self._get_subimage(x0, y0, brick_width, brick_height, brick_buffer)
         subimage, subweight, submask, psfmodel, band, subwcs, subvector, slicepix, subslice = subinfo
 
-        if detection:
+        if detection | modeling:
             sbands = nickname
         else:
             sbands = self.bands
@@ -174,7 +182,7 @@ class Mosaic(Subimage):
         if overwrite:
             hdu_prim = fits.PrimaryHDU()
             hdul_new = fits.HDUList([hdu_prim, hdu_image, hdu_weight, hdu_mask])
-            hdul_new.writeto(path_fitsname)
+            hdul_new.writeto(path_fitsname, overwrite=True)
         else:
         # otherwise add to it
             exist_hdul = fits.open(path_fitsname, mode='append')

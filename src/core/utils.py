@@ -377,6 +377,12 @@ def plot_fblob(blob, band, fig=None, ax=None, final_opt=False):
         [ax[0,j].axis('off') for j in np.arange(1, 6)]
 
         ax[1,0].axis('off')
+        print(blob.tr.getCatalog())
+        print(blob.bcatalog['SOLMODEL', 'AB', 'DEV_AB'])
+        print(idx)
+        print(band)
+        print(blob.bands)
+        print(blob.tr.getModelImage(idx))
         residual = blob.images[idx] - blob.tr.getModelImage(idx)
         ax[1,0].axis('off')
         ax[1,1].imshow(blob.tr.getModelImage(idx), **img_opt)
