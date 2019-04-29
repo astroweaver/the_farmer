@@ -34,7 +34,7 @@ import config as conf
 # Parameters
 # ------------------------------------------------------------------------------
 out_dir = conf.CATALOG_DIR
-out_dir = '/Volumes/WD4/Current/tractor_pipeline/data/catalogs/candide'
+out_dir = '/Volumes/WD4/Current/tractor_pipeline/data/catalogs/candide/grizy'
 cat_prefix = 'B'
 cat_suffix = 'cat'
 
