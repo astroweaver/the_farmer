@@ -531,7 +531,7 @@ class Blob(Subimage):
                 apflux_err[:, i] = p.field('aperture_sum_err')
 
         band = band.replace(' ', '_')
-        if f'aperphot_{band}_{image_type}' not in self.bcatalog.colnames:
+        if f'FLUX_APER_{band}_{image_type}' not in self.bcatalog.colnames:
             self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, shape=len(apertures), name=f'FLUX_APER_{band}_{image_type}'))
             self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, shape=len(apertures), name=f'FLUX_APER_{band}_{image_type}_err'))
 
@@ -692,6 +692,7 @@ class Blob(Subimage):
 
             # Model Parameters
             self.bcatalog[row]['SOLMODEL'] = src.name
+            self.bcatalog[row]['VALID_SOURCE'] = True
 
             if src.name in ('SimpleGalaxy', 'ExpGalaxy', 'DevGalaxy'):
                 self.bcatalog[row]['REFF'] = src.shape.re
