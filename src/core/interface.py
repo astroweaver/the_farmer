@@ -454,9 +454,9 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
             if colname not in outcatalog.colnames:
                 colshape = output_cat[colname].shape
                 if colname.startswith('FLUX_APER'):
-                    outcatalog.add_column(Column(length=len(outcatalog), dtype=float, shape=len(conf.APER_PHOT), name=colname))
+                    outcatalog.add_column(Column(length=len(outcatalog), dtype=float, shape=(len(conf.APER_PHOT)), name=colname))
                 else:
-                    outcatalog.add_column(Column(length=len(outcatalog), dtype=output_cat[colname].dtype, name=colname))
+                    outcatalog.add_column(Column(length=len(outcatalog), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
 
         #outcatalog = join(outcatalog, output_cat, join_type='left', )
         for row in output_cat:
@@ -511,10 +511,10 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
         for colname in output_cat.colnames:
             if colname not in outcatalog.colnames:
                 colshape = output_cat[colname].shape
-                if colname.starswith('FLUX_APER'):
-                    outcatalog.add_column(Column(length=len(outcatalog), dtype=float, shape=rshape, name=colname))
+                if colname.startswith('FLUX_APER'):
+                    outcatalog.add_column(Column(length=len(outcatalog), dtype=float, shape=(len(conf.APER_PHOT)), name=colname))
                 else:
-                    outcatalog.add_column(Column(length=len(outcatalog), dtype=output_cat[colname].dtype, name=colname))
+                    outcatalog.add_column(Column(length=len(outcatalog), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
         #outcatalog = join(outcatalog, output_cat, join_type='left', )
         for row in output_cat:
             outcatalog[np.where(outcatalog['source_id'] == row['source_id'])[0]] = row
@@ -572,9 +572,9 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
                     #mastercat.add_column(output_cat[colname])
                     colshape = output_cat[colname].shape
                     if colname.startswith('FLUX_APER'):
-                        mastercat.add_column(Column(length=len(mastercat), dtype=float, shape=len(conf.APER_PHOT), name=colname))
+                        mastercat.add_column(Column(length=len(mastercat), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
                     else:
-                        mastercat.add_column(Column(length=len(mastercat), dtype=output_cat[colname].dtype, name=colname))
+                        mastercat.add_column(Column(length=len(mastercat), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
 
                 for row in output_cat:
                     mastercat[np.where(mastercat['source_id'] == row['source_id'])[0]] = row
@@ -590,9 +590,9 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
                 if colname not in fbrick.catalog.colnames:
                     colshape = output_cat[colname].shape
                     if colname.startswith('FLUX_APER'):
-                        fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=float, shape=len(conf.APER_PHOT), name=colname))
+                        fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
                     else:
-                        fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=output_cat[colname].dtype, name=colname))
+                        fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
 
             #fbrick.catalog = join(fbrick.catalog, output_cat, join_type='left', )
             for row in output_cat:
@@ -660,13 +660,10 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
                 newcols = np.in1d(output_cat.colnames, mastercat.colnames, invert=True)
                 # make fillers
                 for colname in np.array(output_cat.colnames)[newcols]:
-                    #mastercat.add_column(output_cat[colname])
-                    colshape = output_cat[colname].shape
-                    if len(colshape) == 1:
-                        rshape = 1
-                    elif len(colshape) == 2:
-                        rshape = colshape[1]
-                    mastercat.add_column(Column(length=len(fbrick.catalog), dtype=output_cat[colname].dtype, shape=colshape, name=colname))
+                    if colname.startswith('FLUX_APER'):
+                        fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
+                    else:
+                        fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
                 for row in output_cat:
                     mastercat[np.where(mastercat['source_id'] == row['source_id'])[0]] = row
                 # coordinate correction
@@ -679,12 +676,10 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
                 
             for colname in output_cat.colnames:
                 if colname not in fbrick.catalog.colnames:
-                    colshape = output_cat[colname].shape
-                    if len(colshape) == 1:
-                        rshape = 1
-                    elif len(colshape) == 2:
-                        rshape = colshape[1]
-                    fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=output_cat[colname].dtype, shape=colshape, name=colname))
+                    if colname.startswith('FLUX_APER'):
+                        fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
+                    else:
+                        fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
             #fbrick.catalog = join(fbrick.catalog, output_cat, join_type='left', )
             for row in output_cat:
                 fbrick.catalog[np.where(fbrick.catalog['source_id'] == row['source_id'])[0]] = row
