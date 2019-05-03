@@ -246,7 +246,7 @@ def tractor(brick_id, detection=True, multiband=True, source_id=None, blob_id=No
         return
 """
         
-def runblob(blob_id, blobs, detection=None, catalog=True, plotting=False):
+def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
 
     if conf.VERBOSE: print()
     if conf.VERBOSE: print(f'Starting on Blob #{blob_id}')
@@ -398,14 +398,17 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
     tstart = time.time()
     #try:
     if (segmap is None) & (catalog is None):
-        detbrick.sextract(conf.DETECTION_NICKNAME, sub_background=True, use_mask=False, incl_apphot=True)
+        detbrick.sextract(conf.DETECTION_NICKNAME, sub_background=conf.SUBTRACT_BACKGROUND, use_mask=False, incl_apphot=True)
         if conf.VERBOSE: print(f'Detection brick #{brick_id} sextracted {detbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
     #except:
     #    if conf.VERBOSE: print(f'Detection brick #{brick_id} sextraction FAILED. ({time.time() - tstart:3.3f}s)')
     #    return
     elif (segmap is not None) & (catalog is not None):
+        catalog[conf.X_COLNAME].colname = 'x'
+        catalog[conf.Y_COLNAME].colname = 'y'
         detbrick.catalog = catalog
         detbrick.segmap = segmap
+        if conv.VERBOSE: print(f'Overriding SExtraction with external catalog.')
     else:
         raise ValueError('No valid segmap and catalog provided to override SExtraction!')
 

@@ -104,7 +104,8 @@ class Blob(Subimage):
 
         timages = np.zeros(self.n_bands, dtype=object)
 
-        self.subtract_background(flat=conf.USE_FLAT)
+        if conf.SUBTRACT_BACKGROUND:
+            self.subtract_background(flat=conf.USE_FLAT)
 
         # TODO: try to simplify this. particularly the zip...
         for i, (image, weight, mask, psf, band) in enumerate(zip(self.images, self.weights, self.masks, self.psfmodels, self.bands)):
@@ -137,7 +138,10 @@ class Blob(Subimage):
             freeze_position = (self.mids != 1).any()
             # print(f'DEBUG: {self.mids}')
             # print(f'DEBUG: Freeze position? {freeze_position}')
-            if freeze_position & (conf.FREEZE_POSITION):
+            if conf.FORCE_POSITION:
+                position = PixPos(src['x'], src['y'])
+                freeze_position = True
+            elif freeze_position & (conf.FREEZE_POSITION):
                 position = self.tr_catalogs[i,0,0].getPosition()
             else:
                 position = PixPos(src['x'], src['y'])
