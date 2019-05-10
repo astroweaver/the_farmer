@@ -50,11 +50,10 @@ class SimpleGalaxy(ExpGalaxy):
     with a fixed shape of a 0.45 arcsec effective radius and spherical
     shape.  It is used to detect marginally-resolved galaxies.
     '''
-    shape = EllipseE(0.45, 0., 0.)
+    #shape = EllipseE(0.45, 0., 0.)
 
     def __init__(self, *args):
         super(SimpleGalaxy, self).__init__(*args)
-        self.shape = SimpleGalaxy.shape
 
     def __str__(self):
         return (self.name + ' at ' + str(self.pos)
@@ -252,7 +251,7 @@ def plot_detblob(blob, fig=None, ax=None, level=0, sublevel=0, final_opt=False, 
 
 
         #fig.subplots_adjust(wspace=0, hspace=0)
-        outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{conf.DETECTION_NICKNAME}.pdf')
+        outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{conf.MODELING_NICKNAME}.pdf')
         fig.savefig(outpath)
         plt.close()
         if conf.VERBOSE2: print(f'Saving figure: {outpath}')
