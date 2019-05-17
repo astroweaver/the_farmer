@@ -116,7 +116,7 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, single_band=None, insert=Fal
             for brick_id in np.arange(1, modmosaic.n_bricks()+1):
                 modmosaic._make_brick(brick_id, modeling=True, overwrite=True)
     
-    elif image_type==conf.DETECTION_NICKNAME:
+    elif image_type==conf.MULTIBAND_NICKNAME:
 
         # Bands
         if single_band is not None:
@@ -148,7 +148,7 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, single_band=None, insert=Fal
                     bandmosaic._make_brick(brick_id, detection=False, overwrite=overwrite)
 
     else:
-        if conf.VERBOSE: print(f'FATAL ERROR -- {img_type} is an unrecognized nickname (see {conf.DETECTION_NICKNAME}, {conf.MODELING_NICKNAME}, {conf.MULTIBAND_NICKNAME})')
+        if conf.VERBOSE: print(f'FATAL ERROR -- {image_type} is an unrecognized nickname (see {conf.DETECTION_NICKNAME}, {conf.MODELING_NICKNAME}, {conf.MULTIBAND_NICKNAME})')
 
     return
 
