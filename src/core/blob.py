@@ -155,7 +155,7 @@ class Blob(Subimage):
                 self.model_catalog[i] = PointSource(position, flux)
                 self.model_catalog[i].name = 'PointSource' # HACK to get around Dustin's HACK.
             elif mid == 2:
-                shape = EllipseESoft(0.45 / conf.PIXEL_SCALE, 0., 0.)
+                # shape = EllipseESoft(0.45 / conf.PIXEL_SCALE, 0., 0.)
                 self.model_catalog[i] = SimpleGalaxy(position, flux, shape)
                 print('SIMPLEGAL SHAPE: ', self.model_catalog[i].shape)
             elif mid == 3:
