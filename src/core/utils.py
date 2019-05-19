@@ -65,7 +65,7 @@ class SimpleGalaxy(ExpGalaxy):
 
     @staticmethod
     def getNamedParams():
-        return dict(pos=0, brightness=1)
+        return dict(pos=0, brightness=1, shape=2)
 
     def getName(self):
         return 'SimpleGalaxy'
