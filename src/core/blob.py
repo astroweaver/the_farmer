@@ -157,6 +157,7 @@ class Blob(Subimage):
             elif mid == 2:
                 shape = EllipseESoft(0.45 / conf.PIXEL_SCALE, 0., 0.)
                 self.model_catalog[i] = SimpleGalaxy(position, flux, shape )
+                print('SIMPLEGAL SHAPE: ', self.model_catalog[i].shape)
             elif mid == 3:
                 self.model_catalog[i] = ExpGalaxy(position, flux, shape)
             elif mid == 4:

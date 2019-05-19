@@ -50,7 +50,7 @@ class SimpleGalaxy(ExpGalaxy):
     with a fixed shape of a 0.45 arcsec effective radius and spherical
     shape.  It is used to detect marginally-resolved galaxies.
     '''
-    #shape = EllipseE(0.45, 0., 0.)
+    shape = EllipseE(0.45, 0., 0.)
 
     def __init__(self, *args):
         super(SimpleGalaxy, self).__init__(*args)
