@@ -427,13 +427,13 @@ class Blob(Subimage):
 
         self.n_converge = 0
         for i in range(conf.TRACTOR_MAXSTEPS):
-            # if True:
-            try:
+            if True:
+            # try:
                 dlnp, X, alpha, var = tr.optimize(variance=True)
                 if conf.VERBOSE2: print(dlnp)
-            except:
-                if conf.VERBOSE: print(f'WARNING - Optimization failed on step {i} for blob #{self.blob_id}')
-                return False
+            # except:
+            #     if conf.VERBOSE: print(f'WARNING - Optimization failed on step {i} for blob #{self.blob_id}')
+            #     return False
 
             if dlnp < conf.TRACTOR_CONTHRESH:
                 break
