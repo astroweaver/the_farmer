@@ -119,6 +119,7 @@ class Brick(Subimage):
             self.catalog.add_column(Column(filler, name=f'FLUX_{colname}'))
             self.catalog.add_column(Column(filler, name=f'FLUXERR_{colname}'))
             self.catalog.add_column(Column(filler, name=f'CHISQ_{colname}'))
+            self.catalog.add_column(Column(filler, name=f'BIC_{colname}'))
         if not band_only:
             for colname in ('X_MODEL', 'Y_MODEL', 'XERR_MODEL', 'YERR_MODEL', 'RA', 'DEC'):
                 self.catalog.add_column(Column(filler, name=colname))
