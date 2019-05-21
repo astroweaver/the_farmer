@@ -113,6 +113,7 @@ class Mosaic(Subimage):
             except:
                 raise ValueError('SExtractor failed!')
 
+            if conf.VERBOSE: print(f'LDAC crop parameters: {xlims}, {ylims}')
             hdul_ldac = fits.open(psf_cat, ignore_missing_end=True, mode='update')
             tab_ldac = hdul_ldac['LDAC_OBJECTS'].data
 
