@@ -120,7 +120,7 @@ class Mosaic(Subimage):
             hdul_ldac = fits.open(psf_cat, ignore_missing_end=True, mode='update')
             tab_ldac = hdul_ldac['LDAC_OBJECTS'].data
 
-            n_obj = np.sum(tab_ldac)
+            n_obj = len(tab_ldac)
             if conf.VERBOSE: print()
             if conf.VERBOSE: print(f'{n_obj} sources found.')
 
