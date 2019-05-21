@@ -333,8 +333,13 @@ class Blob(Subimage):
     def decide_winners(self, use_bic=True):
 
         if use_bic:
+            print()
+            print('Using BIC to select best-fit model')
             self.decide_winners_bic()
         else:
+            print()
+            print('Using chisq to select best-fit model')
+            raise RuntimeError('BUGGY - NOT WORKING NOW.')
             self.decide_winners_chisq()
 
     def decide_winners_bic(self):
