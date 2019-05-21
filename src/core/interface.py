@@ -65,7 +65,7 @@ def make_psf(multiband_only=False, single_band=None, override=False):
 
     for i, band in enumerate(sbands):
 
-        idx_band = self.BANDS == band
+        idx_band = conf.BANDS == band
         multi_xlims = conf.MULTIBAND_REFF_LIMITS[idx_band]
         multi_ylims = conf.MULTIBAND_VAL_LIMITS[idx_band]
 
