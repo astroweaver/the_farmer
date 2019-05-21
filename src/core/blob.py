@@ -225,8 +225,11 @@ class Blob(Subimage):
                     if self._solved[i]:
                         continue
                     totalchisq = np.sum((self.tr.getChiImage(0)[self.segmap == src['source_id']])**2)
+                    m_param = self.model_catalog[i].numberOfParams()
+                    n_data = np.sum(self.segmap == src['source_id'])
+                    self.bic[i, self._level, self._sublevel] = totalchisq + np.log(N) * M
                     if conf.USE_REDUCEDCHISQ:
-                        totalchisq /= (np.sum(self.segmap == src['source_id']) - self.model_catalog[i].numberOfParams())
+                        totalchisq /= (N - M)
                     # PENALTIES TBD
                     # residual = self.images[0] - self.tr.getModelImage(0)
                     # if np.median(residual[self.masks[0]]) < 0:
@@ -285,9 +288,19 @@ class Blob(Subimage):
         self.solution_chisq = np.zeros((self.n_sources, self.n_bands))
         for i, src in enumerate(self.bcatalog):
             for j, band in enumerate(self.bands):
-                totalchisq = np.sum((self.tr.getChiImage(j)[self.segmap == src['source_id']])**2)
+                totalchisq = np.sum((self.tr.getChiImage(0)[self.segmap == src['source_id']])**2)
+                m_param = self.model_catalog[i].numberOfParams()
+                n_data = np.sum(self.segmap == src['source_id'])
+                self.bic[i, j] = totalchisq + np.log(N) * M
                 if conf.USE_REDUCEDCHISQ:
-                    totalchisq /= (np.sum(self.segmap == src['source_id']) - self.model_catalog[i].numberOfParams())
+                    totalchisq /= (N - M)
+                # PENALTIES TBD
+                # residual = self.images[0] - self.tr.getModelImage(0)
+                # if np.median(residual[self.masks[0]]) < 0:
+                #     if conf.VERBOSE2: print(f'Applying heavy penalty on source #{i+1} ({self.model_catalog[i].name})!')
+                #     totalchisq = 1E30
+                if conf.VERBOSE2: print(f'Source #{src["source_id"]} with {self.model_catalog[i].name} has chisq={totalchisq:3.3f}')
+
                 self.solution_chisq[i, j] = totalchisq
 
             if conf.VERBOSE2: print(f'Source #{src["source_id"]}: {self.solution_catalog[i].name} model at {self.solution_catalog[i].pos}')
@@ -437,7 +450,7 @@ class Blob(Subimage):
 
             if dlnp < conf.TRACTOR_CONTHRESH:
                 break
-                self.nconverge = i
+                self.n_converge = i
 
         if var is None:
             if conf.VERBOSE: print(f'WARNING - VAR is NONE for blob #{self.blob_id}')
@@ -699,6 +712,7 @@ class Blob(Subimage):
             # Model Parameters
             self.bcatalog[row]['SOLMODEL'] = src.name
             self.bcatalog[row]['VALID_SOURCE'] = True
+            self.bcatalog[row]['N_CONVERGE'] = self.n_converge
 
             if src.name in ('SimpleGalaxy', 'ExpGalaxy', 'DevGalaxy'):
                 self.bcatalog[row]['REFF'] = src.shape.re
