@@ -117,21 +117,21 @@ class Mosaic(Subimage):
             hdul_ldac = fits.open(psf_cat, ignore_missing_end=True, mode='update')
             tab_ldac = hdul_ldac['LDAC_OBJECTS'].data
 
-            if len(self.bands) > 1:
-                idx = np.where(self.bands == conf.BANDS)[0]
-            else:
-                idx = 0
-
             mask_ldac = (tab_ldac['MAG_AUTO'] > ylims[0]) &\
                     (tab_ldac['MAG_AUTO'] < ylims[1]) &\
                     (tab_ldac['FLUX_RADIUS'] > xlims[0]) &\
                     (tab_ldac['FLUX_RADIUS'] < xlims[1])
 
+            n_obj = np.sum(mask_ldac)
+            if n_obj == 0:
+                raise ValueError('No sources selected.')
+
+            if conf.VERBOSE: print(f'Found {n_obj} objects to determine PSF')
+
             if conf.PLOT:
                 if conf.VERBOSE: print('Plotting LDAC for pointsource bounding box')
                 plot_ldac(tab_ldac, self.bands, xlims=xlims, ylims=ylims, box=True)
 
-            idx_exclude = np.arange(1, len(tab_ldac) + 1)[~mask_ldac]
 
             hdul_ldac['LDAC_OBJECTS'].data = tab_ldac[mask_ldac]
             hdul_ldac.flush()

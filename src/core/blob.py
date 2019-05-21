@@ -303,7 +303,7 @@ class Blob(Subimage):
                 # if np.median(residual[self.masks[0]]) < 0:
                 #     if conf.VERBOSE2: print(f'Applying heavy penalty on source #{i+1} ({self.model_catalog[i].name})!')
                 #     totalchisq = 1E30
-                if conf.VERBOSE2: print(f'Source #{src["source_id"]} with {self.model_catalog[i].name} has chisq={totalchisq:3.3f} | bic={self.solution_bic[i, j]:3.3f}')
+                if conf.VERBOSE2: print(f'Source #{src["source_id"]} ({band}) with {self.model_catalog[i].name} has chisq={totalchisq:3.3f} | bic={self.solution_bic[i, j]:3.3f}')
 
                 self.solution_chisq[i, j] = totalchisq
 
@@ -315,7 +315,6 @@ class Blob(Subimage):
                     if conf.VERBOSE2: print(f'               {self.solution_catalog[i].shapeDev}')
                 else:
                     if conf.VERBOSE2: print(f'               {self.solution_catalog[i].shape}')
-            if conf.VERBOSE2: print(f'Source #{src["source_id"]} with {self.solution_catalog[i].name} has chisq={totalchisq:3.3f}')
 
         if conf.PLOT:
             plot_detblob(self, fig, ax, level=self._level, sublevel=self._sublevel, final_opt=True)
