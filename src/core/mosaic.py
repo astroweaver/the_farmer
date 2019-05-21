@@ -88,7 +88,7 @@ class Mosaic(Subimage):
         
         super().__init__()
 
-    def _make_psf(self, xlims, ylims, override=False):
+    def _make_psf(self, xlims, ylims, override=False, psfex_only=False):
 
         # Set filenames
         psf_dir = conf.PSF_DIR
@@ -102,20 +102,27 @@ class Mosaic(Subimage):
 
         # run SEXTRACTOR in LDAC mode
         if (not os.path.exists(psf_cat)) | override:
-            try:
-                #os.system('sextractor {} -c config/config_psfex.sex -PARAMETERS_NAME config/param_psfex.sex -CATALOG_NAME {} -CATALOG_TYPE FITS_LDAC -WEIGHT_TYPE MAP_WEIGHT -WEIGHT_IMAGE {} -MAG_ZEROPOINT {}'.format(path_im, path_outcat, path_wt, zpt))
-                # print(f'sex {self.path_image} -c config/config_psfex.sex -PARAMETERS_NAME config/param_psfex.sex -CATALOG_NAME {psf_cat} -CATALOG_TYPE FITS_LDAC -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME {path_segmap} -MAG_ZEROPOINT {self.mag_zeropoints}')
-                os.system(f'sex {self.path_image} -c config/config_psfex.sex -PARAMETERS_NAME config/param_psfex.sex -CATALOG_NAME {psf_cat} -CATALOG_TYPE FITS_LDAC -MAG_ZEROPOINT {self.mag_zeropoints}')
-                # #print('RUNNING SEXTRACTOR WITHOUT SEGMAP')
-                # #os.system(f'sex {self.path_image} -c config/config_psfex.sex -PARAMETERS_NAME config/param_psfex.sex -CATALOG_NAME {psf_cat} -CATALOG_TYPE FITS_LDAC -MAG_ZEROPOINT {self.mag_zeropoints}')
-                # sys.exit()
-                if conf.VERBOSE: print('SExtractor succeded!')
-            except:
-                raise ValueError('SExtractor failed!')
+            
+            if not psfex_only:
+                try:
+                    #os.system('sextractor {} -c config/config_psfex.sex -PARAMETERS_NAME config/param_psfex.sex -CATALOG_NAME {} -CATALOG_TYPE FITS_LDAC -WEIGHT_TYPE MAP_WEIGHT -WEIGHT_IMAGE {} -MAG_ZEROPOINT {}'.format(path_im, path_outcat, path_wt, zpt))
+                    # print(f'sex {self.path_image} -c config/config_psfex.sex -PARAMETERS_NAME config/param_psfex.sex -CATALOG_NAME {psf_cat} -CATALOG_TYPE FITS_LDAC -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME {path_segmap} -MAG_ZEROPOINT {self.mag_zeropoints}')
+                    os.system(f'sex {self.path_image} -c config/config_psfex.sex -PARAMETERS_NAME config/param_psfex.sex -CATALOG_NAME {psf_cat} -CATALOG_TYPE FITS_LDAC -MAG_ZEROPOINT {self.mag_zeropoints}')
+                    # #print('RUNNING SEXTRACTOR WITHOUT SEGMAP')
+                    # #os.system(f'sex {self.path_image} -c config/config_psfex.sex -PARAMETERS_NAME config/param_psfex.sex -CATALOG_NAME {psf_cat} -CATALOG_TYPE FITS_LDAC -MAG_ZEROPOINT {self.mag_zeropoints}')
+                    # sys.exit()
+                    if conf.VERBOSE: print('SExtractor succeded!')
+                except:
+                    raise ValueError('SExtractor failed!')
 
             if conf.VERBOSE: print(f'LDAC crop parameters: {xlims}, {ylims}')
+
             hdul_ldac = fits.open(psf_cat, ignore_missing_end=True, mode='update')
             tab_ldac = hdul_ldac['LDAC_OBJECTS'].data
+
+            n_obj = np.sum(tab_ldac)
+            if conf.VERBOSE: print()
+            if conf.VERBOSE: print(f'{n_obj} sources found.')
 
             mask_ldac = (tab_ldac['MAG_AUTO'] > ylims[0]) &\
                     (tab_ldac['MAG_AUTO'] < ylims[1]) &\

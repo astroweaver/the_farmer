@@ -47,14 +47,14 @@ import config as conf
 plt.ioff()
 
 
-def make_psf(multiband_only=False, single_band=None, override=False):
+def make_psf(multiband_only=False, single_band=None, override=False, psfex_only=False):
 
     if not multiband_only:
         # Detection
         if conf.VERBOSE: print(f'Making PSF for {conf.MODELING_NICKNAME}')
         detmosaic = Mosaic(conf.MODELING_NICKNAME, detection=True, mag_zeropoint=conf.MODELING_ZPT)
         if conf.VERBOSE: print(f'Mosaic loaded for {conf.MODELING_NICKNAME}')
-        detmosaic._make_psf(xlims=conf.DET_REFF_LIMITS, ylims=conf.DET_VAL_LIMITS, override=override)
+        detmosaic._make_psf(xlims=conf.DET_REFF_LIMITS, ylims=conf.DET_VAL_LIMITS, override=override, psfex_only=psfex_only)
         if conf.VERBOSE: print(f'PSF made successfully for {conf.MODELING_NICKNAME}')
 
     # Bands
@@ -72,7 +72,7 @@ def make_psf(multiband_only=False, single_band=None, override=False):
         if conf.VERBOSE: print(f'Making PSF for {conf.MULTIBAND_NICKNAME} band {band}')
         bandmosaic = Mosaic(band, mag_zeropoint=np.array(conf.MULTIBAND_ZPT)[idx_band])
         if conf.VERBOSE: print(f'Mosaic loaded for {conf.MULTIBAND_NICKNAME}')
-        bandmosaic._make_psf(xlims=multi_xlims, ylims=multi_ylims, override=override)
+        bandmosaic._make_psf(xlims=multi_xlims, ylims=multi_ylims, override=override, psfex_only=psfex_only)
         if conf.VERBOSE: print(f'PSF made successfully for {conf.MULTIBAND_NICKNAME}')
 
 
