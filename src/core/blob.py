@@ -86,6 +86,7 @@ class Blob(Subimage):
         self.model_catalog = np.zeros(self.n_sources, dtype=object)
         self.solution_catalog = np.zeros(self.n_sources, dtype=object)
         self.solved_chisq = np.zeros(self.n_sources)
+        self.solved_bic = np.zeros(self.n_sources)
         self.solution_chisq = np.zeros(self.n_sources)
         self.tr_catalogs = np.zeros((self.n_sources, 3, 2), dtype=object)
         self.chisq = np.zeros((self.n_sources, 3, 2))
