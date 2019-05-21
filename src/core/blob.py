@@ -86,8 +86,10 @@ class Blob(Subimage):
         self.model_catalog = np.zeros(self.n_sources, dtype=object)
         self.solution_catalog = np.zeros(self.n_sources, dtype=object)
         self.solved_chisq = np.zeros(self.n_sources)
+        self.solution_chisq = np.zeros(self.n_sources)
         self.tr_catalogs = np.zeros((self.n_sources, 3, 2), dtype=object)
         self.chisq = np.zeros((self.n_sources, 3, 2))
+        self.bic = np.zeros((self.n_sources, 3, 2))
         # self.position_variance = np.zeros((self.n_sources, 2))
         # self.parameter_variance = np.zeros((self.n_sources, 3))
         # self.forced_variance = np.zeros((self.n_sources, self.n_bands))
@@ -227,9 +229,9 @@ class Blob(Subimage):
                     totalchisq = np.sum((self.tr.getChiImage(0)[self.segmap == src['source_id']])**2)
                     m_param = self.model_catalog[i].numberOfParams()
                     n_data = np.sum(self.segmap == src['source_id'])
-                    self.bic[i, self._level, self._sublevel] = totalchisq + np.log(N) * M
+                    self.bic[i, self._level, self._sublevel] = totalchisq + np.log(n_data) * m_param
                     if conf.USE_REDUCEDCHISQ:
-                        totalchisq /= (N - M)
+                        totalchisq /= (n_data - m_param)
                     # PENALTIES TBD
                     # residual = self.images[0] - self.tr.getModelImage(0)
                     # if np.median(residual[self.masks[0]]) < 0:
@@ -286,14 +288,15 @@ class Blob(Subimage):
 
         if conf.VERBOSE2: print(f'Resulting model parameters for blob #{self.blob_id}')
         self.solution_chisq = np.zeros((self.n_sources, self.n_bands))
+        self.solution_bic = np.zeros((self.n_sources, self.n_bands))
         for i, src in enumerate(self.bcatalog):
             for j, band in enumerate(self.bands):
-                totalchisq = np.sum((self.tr.getChiImage(0)[self.segmap == src['source_id']])**2)
+                totalchisq = np.sum((self.tr.getChiImage(j)[self.segmap == src['source_id']])**2)
                 m_param = self.model_catalog[i].numberOfParams()
                 n_data = np.sum(self.segmap == src['source_id'])
-                self.bic[i, j] = totalchisq + np.log(N) * M
+                self.solution_bic[i, j] = totalchisq + np.log(n_data) * m_param
                 if conf.USE_REDUCEDCHISQ:
-                    totalchisq /= (N - M)
+                    totalchisq /= (n_data - m_param)
                 # PENALTIES TBD
                 # residual = self.images[0] - self.tr.getModelImage(0)
                 # if np.median(residual[self.masks[0]]) < 0:
@@ -327,10 +330,112 @@ class Blob(Subimage):
 
         return self.status
 
-    def decide_winners(self):
+    def decide_winners(self, use_bic=True):
+
+        if use_bic:
+            self.decide_winners_bic()
+        else:
+            self.decide_winners_chisq()
+
+    def decide_winners_bic(self):
+
+        # holders - or else it's pure insanity.
+        bic= self.bic[~self._solved]
+        solution_catalog = self.solution_catalog[~self._solved]
+        solved_bic = self.solved_bic[~self._solved]
+        tr_catalogs = self.tr_catalogs[~self._solved]
+        mids = self.mids[~self._solved]
+
+        if self._level == 0:
+            # Which have chi2(PS) < chi2(SG)?
+            chmask = (abs(bic[:, 0, 0] - bic[:, 0, 1]) < conf.PS_SG_THRESH)
+            if chmask.any():
+                solution_catalog[chmask] = tr_catalogs[chmask, 0, 0].copy()
+                solved_bic[chmask] = bic[chmask, 0, 0]
+                mids[chmask] = 1
+
+            # So chi2(SG) is min, try more models
+            mids[~chmask] = 3
+
+        if self._level == 1:
+            # For which are they nearly equally good?
+            movemask = (abs(bic[:, 1, 0] - bic[:, 1, 1]) < conf.EXP_DEV_THRESH)
+
+            # Has Exp beaten SG?
+            expmask = (bic[:, 1, 0] < bic[:, 0, 1])
+
+            # Has Dev beaten SG?
+            devmask = (bic[:, 1, 1] < bic[:, 0, 1])
+
+            # Which better than SG but nearly equally good?
+            nextmask = expmask & devmask & movemask
+
+            # For which was SG better
+            premask = ~expmask & ~devmask
+
+            # If Exp beats Dev by a lot
+            nexpmask = expmask & ~movemask & (bic[:, 1, 0]  <  bic[:, 1, 1])
+
+             # If Dev beats Exp by a lot
+            ndevmask = devmask & ~movemask & (bic[:, 1, 1] < bic[:, 1, 0])
+
+            if nextmask.any():
+                mids[nextmask] = 5
+
+            if premask.any():
+                solution_catalog[premask] = tr_catalogs[premask, 0, 1].copy()
+                solved_bic[premask] = bic[premask, 0, 1]
+                mids[premask] = 2
+
+            if nexpmask.any():
+
+                solution_catalog[nexpmask] = tr_catalogs[nexpmask, 1, 0].copy()
+                solved_bic[nexpmask] = bic[nexpmask, 1, 0]
+                mids[nexpmask] = 3
+
+            if ndevmask.any():
+
+                solution_catalog[ndevmask] = tr_catalogs[ndevmask, 1, 1].copy()
+                solved_bic[ndevmask] = bic[ndevmask, 1, 1]
+                mids[ndevmask] = 4
+
+        if self._level == 2:
+            # For which did Comp beat EXP and DEV?
+            compmask = (bic[:, 2, 0] < bic[:, 1, 0]) &\
+                       (bic[:, 2, 0] < bic[:, 1, 1])
+
+            if compmask.any():
+                solution_catalog[compmask] = tr_catalogs[compmask, 2, 0].copy()
+                solved_bic[compmask] = bic[compmask, 2, 0]
+                mids[compmask] = 5
+
+            # where better as EXP or DEV
+            if (~compmask).any():
+                ch_exp = (bic[:, 1, 0] < bic[:, 1, 1]) & ~compmask
+
+                if ch_exp.any():
+                    solution_catalog[ch_exp] = tr_catalogs[ch_exp, 1, 0].copy()
+                    solved_bic[ch_exp] = bic[ch_exp, 1, 0]
+                    mids[ch_exp] = 3
+
+                ch_dev = (bic[:, 1, 1] < bic[:, 1, 0]) & ~compmask
+
+                if ch_dev.any():
+                    solution_catalog[ch_dev] = tr_catalogs[ch_dev, 1, 1].copy()
+                    solved_bic[ch_dev] = bic[ch_dev, 1, 1]
+                    mids[ch_dev] = 4
+
+        # hand back
+        self.bic[~self._solved] = bic
+        self.solution_catalog[~self._solved] = solution_catalog
+        self.solved_bic[~self._solved] = solved_bic
+        self.mids[~self._solved] = mids
+
+    def decide_winners_chisq(self):
+
         # take the model_catalog and chisq and figure out what's what
         # Only look at unsolved models!
-
+        
         if conf.USE_REDUCEDCHISQ:
             chisq_exp = 1.0
         else:
@@ -645,6 +750,7 @@ class Blob(Subimage):
         # Chisq
         self.forced_variance = self.variance
         self.solution_chisq = np.zeros((self.n_sources, self.n_bands))
+        self.solution_bic = np.zeros((self.n_sources, self.n_bands))
         self.solution_catalog = self.tr.getCatalog()
         self.solution_tractor = Tractor(self.timages, self.solution_catalog)
         self.solution_model_images = np.array([self.tr.getModelImage(i) for i in np.arange(self.n_bands)])
@@ -661,11 +767,21 @@ class Blob(Subimage):
                     if conf.VERBOSE2: print(f'               {self.solution_catalog[i].shape}')
             for j, band in enumerate(self.bands):
                 totalchisq = np.sum((self.tr.getChiImage(j)[self.segmap == src['source_id']])**2)
+                m_param = self.model_catalog[i].numberOfParams()
+                n_data = np.sum(self.segmap == src['source_id'])
+                self.solution_bic[i, j] = totalchisq + np.log(n_data) * m_param
                 if conf.USE_REDUCEDCHISQ:
-                    totalchisq /= (np.sum(self.segmap == src['source_id']) - self.model_catalog[i].numberOfParams())
+                    totalchisq /= (n_data - m_param)
                 self.solution_chisq[i, j] = totalchisq
+                # PENALTIES TBD
+                # residual = self.images[0] - self.tr.getModelImage(0)
+                # if np.median(residual[self.masks[0]]) < 0:
+                #     if conf.VERBOSE2: print(f'Applying heavy penalty on source #{i+1} ({self.model_catalog[i].name})!')
+                #     totalchisq = 1E30
+                if conf.VERBOSE2: print(f'Source #{src["source_id"]} with {self.model_catalog[i].name} has chisq={totalchisq:3.3f}')
                 if conf.VERBOSE2: print(f'               Fluxes: {self.bands[j]}={self.solution_catalog[i].getBrightness().getFlux(self.bands[j]):3.3f}') 
                 if conf.VERBOSE2: print(f'               Chisq:  {self.bands[j]}={totalchisq:3.3f}')
+                if conf.VERBOSE2: print(f'               BIC:  {self.bands[j]}={solution_bic[i, j]:3.3f}')
 
 
         # self.rows = np.zeros(len(self.solution_catalog))
@@ -697,6 +813,7 @@ class Blob(Subimage):
             self.bcatalog[row]['FLUX_'+band] = src.getBrightness().getFlux(band)
             self.bcatalog[row]['FLUXERR_'+band] = np.sqrt(flux_var[row].brightness.getParams()[i])
             self.bcatalog[row]['CHISQ_'+band] = self.solution_chisq[row, i]
+            self.bcatalog[row]['BIC_'+band] = self.solution_bic[row, i]
 
         if not multiband_only:
             # Position information
