@@ -65,14 +65,14 @@ def make_psf(multiband_only=False, single_band=None, override=False):
 
     for i, band in enumerate(sbands):
 
-        idx_band = np.argwhere(np.array(conf.BANDS) == band)
-        multi_xlims = conf.MULTIBAND_REFF_LIMITS[idx_band]
-        multi_ylims = conf.MULTIBAND_VAL_LIMITS[idx_band]
+        idx_band = np.array(conf.BANDS) == band
+        multi_xlims = np.array(conf.MULTIBAND_REFF_LIMITS)[idx_band]
+        multi_ylims = np.array(conf.MULTIBAND_VAL_LIMITS)[idx_band]
 
         print('DEBUG: ', conf.BANDS, band, idx_band, multi_xlims, multi_ylims)
 
         if conf.VERBOSE: print(f'Making PSF for {conf.MULTIBAND_NICKNAME} band {band}')
-        bandmosaic = Mosaic(band, mag_zeropoint=conf.MULTIBAND_ZPT[idx_band])
+        bandmosaic = Mosaic(band, mag_zeropoint=np.array(conf.MULTIBAND_ZPT)[idx_band])
         if conf.VERBOSE: print(f'Mosaic loaded for {conf.MULTIBAND_NICKNAME}')
         bandmosaic._make_psf(xlims=multi_xlims, ylims=multi_ylims, override=override)
         if conf.VERBOSE: print(f'PSF made successfully for {conf.MULTIBAND_NICKNAME}')
