@@ -415,15 +415,17 @@ class Blob(Subimage):
                 mids[compmask] = 5
 
             # where better as EXP or DEV
-            if (~compmask).any():
-                ch_exp = (bic[:, 1, 0] < bic[:, 1, 1]) & ~compmask
+            compmask_or = (bic[:, 2, 0] > bic[:, 1, 0]) |\
+                          (bic[:, 2, 0] > bic[:, 1, 1])
+            if compmask_or.any():
+                ch_exp = (bic[:, 1, 0] <= bic[:, 1, 1]) & compmask_or  # using '=' to break any ties, give to exp...
 
                 if ch_exp.any():
                     solution_catalog[ch_exp] = tr_catalogs[ch_exp, 1, 0].copy()
                     solved_bic[ch_exp] = bic[ch_exp, 1, 0]
                     mids[ch_exp] = 3
 
-                ch_dev = (bic[:, 1, 1] < bic[:, 1, 0]) & ~compmask
+                ch_dev = (bic[:, 1, 1] < bic[:, 1, 0]) & compmask_or
 
                 if ch_dev.any():
                     solution_catalog[ch_dev] = tr_catalogs[ch_dev, 1, 1].copy()
