@@ -124,6 +124,10 @@ class Mosaic(Subimage):
             if conf.VERBOSE: print()
             if conf.VERBOSE: print(f'{n_obj} sources found.')
 
+            if conf.PLOT:
+                if conf.VERBOSE: print('Plotting LDAC without pointsource bounding box')
+                plot_ldac(tab_ldac, self.bands, box=False)
+
             mask_ldac = (tab_ldac['MAG_AUTO'] > ylims[0]) &\
                     (tab_ldac['MAG_AUTO'] < ylims[1]) &\
                     (tab_ldac['FLUX_RADIUS'] > xlims[0]) &\
@@ -136,7 +140,7 @@ class Mosaic(Subimage):
             if conf.VERBOSE: print(f'Found {n_obj} objects to determine PSF')
 
             if conf.PLOT:
-                if conf.VERBOSE: print('Plotting LDAC for pointsource bounding box')
+                if conf.VERBOSE: print('Plotting LDAC with pointsource bounding box')
                 plot_ldac(tab_ldac, self.bands, xlims=xlims, ylims=ylims, box=True)
 
 
