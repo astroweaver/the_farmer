@@ -52,7 +52,7 @@ def make_psf(multiband_only=False, single_band=None, override=False, psfex_only=
     if not multiband_only:
         # Detection
         if conf.VERBOSE: print(f'Making PSF for {conf.MODELING_NICKNAME}')
-        detmosaic = Mosaic(conf.MODELING_NICKNAME, detection=True, mag_zeropoint=conf.MODELING_ZPT)
+        detmosaic = Mosaic(conf.MODELING_NICKNAME, modeling=True, mag_zeropoint=conf.MODELING_ZPT)
         if conf.VERBOSE: print(f'Mosaic loaded for {conf.MODELING_NICKNAME}')
         detmosaic._make_psf(xlims=conf.DET_REFF_LIMITS, ylims=conf.DET_VAL_LIMITS, override=override, psfex_only=psfex_only)
         if conf.VERBOSE: print(f'PSF made successfully for {conf.MODELING_NICKNAME}')
