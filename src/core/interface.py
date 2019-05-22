@@ -68,9 +68,10 @@ def make_psf(multiband_only=False, single_band=None, override=False, psfex_only=
         idx_band = np.array(conf.BANDS) == band
         multi_xlims = np.array(conf.MULTIBAND_REFF_LIMITS)[idx_band][0]
         multi_ylims = np.array(conf.MULTIBAND_VAL_LIMITS)[idx_band][0]
+        mag_zpt = np.array(conf.MULTIBAND_ZPT)[idx_band][0]
 
         if conf.VERBOSE: print(f'Making PSF for {conf.MULTIBAND_NICKNAME} band {band}')
-        bandmosaic = Mosaic(band, mag_zeropoint=np.array(conf.MULTIBAND_ZPT)[idx_band])
+        bandmosaic = Mosaic(band, mag_zeropoint = mag_zpt)
         if conf.VERBOSE: print(f'Mosaic loaded for {conf.MULTIBAND_NICKNAME}')
         bandmosaic._make_psf(xlims=multi_xlims, ylims=multi_ylims, override=override, psfex_only=psfex_only)
         if conf.VERBOSE: print(f'PSF made successfully for {conf.MULTIBAND_NICKNAME}')
