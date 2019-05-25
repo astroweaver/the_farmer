@@ -748,7 +748,7 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, detection=False)
         if os.path.exists(path_psffile):
             psfmodels[i] = PsfExModel(fn=path_psffile)
         else:
-            if conf.VERBOSE: print(f'PSF model not found for {band}!')
+            if conf.VERBOSE: print(f'PSF model not found for {band}! ({path_psffile})')
             psfmodels[i] = -99
 
     if detection:
