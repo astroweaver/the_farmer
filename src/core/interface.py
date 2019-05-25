@@ -742,14 +742,15 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, detection=False)
     else:
         raise ValueError(f'Brick file not found for {path_brickfile}')
 
-    psfmodels = np.zeros((len(sbands)))
+    psfmodels = np.zeros((len(sbands)), dtype=object)
     for i, band in enumerate(sbands):
+        if band == conf.DETECTION_NICKNAME:
+            continue
         path_psffile = os.path.join(conf.PSF_DIR, f'{band}.psf')
         if os.path.exists(path_psffile):
             psfmodels[i] = PsfExModel(fn=path_psffile)
         else:
-            if conf.VERBOSE: print(f'PSF model not found for {band}! ({path_psffile})')
-            psfmodels[i] = -99
+            raise ValueError(f'PSF model not found for {band}! ({path_psffile})')
 
     if detection:
         images, weights, masks = images[0], weights[0], masks[0]
