@@ -27,7 +27,7 @@ sys.path.insert(0, os.path.join(os.getcwd(), 'config'))
 from tractor import NCircularGaussianPSF, PixelizedPSF, Image, Tractor, FluxesPhotoCal, NullWCS, ConstantSky, EllipseESoft, Fluxes, PixPos
 from tractor.galaxy import ExpGalaxy, DevGalaxy, FixedCompositeGalaxy, SoftenedFracDev, GalaxyShape
 from tractor.pointsource import PointSource
-from tractor.psfex import PsfExModel
+from tractor.psfex import PixelizedPsfEx
 
 from astropy.io import fits
 from astropy.table import Table, Column, vstack, join
@@ -748,7 +748,7 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, detection=False)
             continue
         path_psffile = os.path.join(conf.PSF_DIR, f'{band}.psf')
         if os.path.exists(path_psffile):
-            psfmodels[i] = PsfExModel(fn=path_psffile)
+            psfmodels[i] = PixelizedPsfEx(fn=path_psffile)
         else:
             raise ValueError(f'PSF model not found for {band}! ({path_psffile})')
 
