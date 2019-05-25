@@ -65,6 +65,8 @@ class Blob(Subimage):
         w = xhi - xlo
         h = yhi - ylo
 
+        self.blob_center = (xlo + w/2., ylo + h/2.)
+
         # Make cutout
         blob_comps = brick._get_subimage(xlo, ylo, w, h, buffer=conf.BLOB_BUFFER)
         # FIXME: too many return values
@@ -116,7 +118,7 @@ class Blob(Subimage):
             tweight[mask] = 0
 
             try:
-                psfmodel = PixelizedPSF(psf)
+                psfmodel = psf.constantPsfAt(self.blob_center) # init at blob center
             except:
                 psfmodel = NCircularGaussianPSF([conf.PSF_SIGMA,], [1,])
                 if conf.VERBOSE: print('WARNING - Adopting FAKE PSF model!')
@@ -788,7 +790,7 @@ class Blob(Subimage):
                 if conf.VERBOSE2: print(f'Source #{src["source_id"]} with {self.model_catalog[i].name} has chisq={totalchisq:3.3f}')
                 if conf.VERBOSE2: print(f'               Fluxes: {self.bands[j]}={self.solution_catalog[i].getBrightness().getFlux(self.bands[j]):3.3f}') 
                 if conf.VERBOSE2: print(f'               Chisq:  {self.bands[j]}={totalchisq:3.3f}')
-                if conf.VERBOSE2: print(f'               BIC:  {self.bands[j]}={solution_bic[i, j]:3.3f}')
+                if conf.VERBOSE2: print(f'               BIC:  {self.bands[j]}={self.solution_bic[i, j]:3.3f}')
 
 
         # self.rows = np.zeros(len(self.solution_catalog))
