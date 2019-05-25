@@ -118,10 +118,13 @@ class Blob(Subimage):
             tweight[mask] = 0
 
             try:
-                psfmodel = psf.constantPsfAt(self.blob_center) # init at blob center
+                if band in conf.CONSTANT_PSF:
+                    psfmodel = psf
+                else:
+                    psfmodel = psf.constantPsfAt(self.blob_center) # init at blob center
             except:
                 psfmodel = NCircularGaussianPSF([conf.PSF_SIGMA,], [1,])
-                if conf.VERBOSE: print('WARNING - Adopting FAKE PSF model!')
+                raise ValueError('WARNING - Adopting FAKE PSF model!')
 
 
             timages[i] = Image(data=image,
