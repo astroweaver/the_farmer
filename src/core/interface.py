@@ -291,10 +291,10 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
         if conf.DO_APPHOT:
             for img_type in ('image', 'model', 'residual'):
                 for band in detblob.bands:
-                    #try:
-                    detblob.aperture_phot(band, img_type, sub_background=conf.SUBTRACT_BACKGROUND)
-                    #except:
-                    #    if conf.VERBOSE: print(f'Aperture photmetry FAILED for {band} {img_type}. Likely a bad blob.')
+                    try:
+                        detblob.aperture_phot(band, img_type, sub_background=conf.SUBTRACT_BACKGROUND)
+                    except:
+                        if conf.VERBOSE: print(f'Aperture photmetry FAILED for {band} {img_type}. Likely a bad blob.')
         if conf.DO_SEXPHOT:
             try:
                 [detblob.sextract_phot(band) for band in detblob.bands]

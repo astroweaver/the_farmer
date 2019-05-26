@@ -320,7 +320,7 @@ def plot_fblob(blob, band, fig=None, ax=None, final_opt=False):
         ax[2,1].imshow(blob.solution_model_images[idx], **img_opt)
         ax[2,2].imshow(blob.solution_model_images[idx] + noise, **img_opt)
         ax[2,3].imshow(residual, cmap='RdGy', vmin=-5*rms, vmax=5*rms)
-        ax[2,4].imshow(blob.tr.getChiImage(0), cmap='RdGy', vmin = -5, vmax = 5)
+        ax[2,4].imshow(blob.tr.getChiImage(idx), cmap='RdGy', vmin = -5, vmax = 5)
 
         ax[2,1].set_ylabel('Solution')
 
