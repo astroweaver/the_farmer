@@ -162,14 +162,13 @@ class Blob(Subimage):
             flux = Fluxes(**dict(zip(self.bands, 1*np.ones(self.n_bands))))
 
             #shape = GalaxyShape(src['a'], src['b'] / src['a'], src['theta'])
-            shape = EllipseESoft.fromRAbPhi(src['a'], src['a'] / src['b'], np.rad2deg(src['theta']))
+            shape = EllipseESoft.fromRAbPhi(src['a'], src['b'] / src['a'], -0.5*src['theta'])
             #shape = EllipseESoft.fromRAbPhi(1, 1, 0)
 
             if mid == 1:
                 self.model_catalog[i] = PointSource(position, flux)
                 self.model_catalog[i].name = 'PointSource' # HACK to get around Dustin's HACK.
             elif mid == 2:
-                # shape = EllipseESoft(0.45 / conf.PIXEL_SCALE, 0., 0.)
                 self.model_catalog[i] = SimpleGalaxy(position, flux)
             elif mid == 3:
                 self.model_catalog[i] = ExpGalaxy(position, flux, shape)
