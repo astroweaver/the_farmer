@@ -635,7 +635,7 @@ class Blob(Subimage):
             var = 1. / tweight # TODO: WRITE TO UTILS
 
         if sub_background:
-            image -= background.back()
+            image -= self.background_images[idx]
 
         cat = self.solution_catalog
         xxyy = np.vstack([src.getPosition() for src in cat]).T
