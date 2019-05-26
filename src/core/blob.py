@@ -581,7 +581,10 @@ class Blob(Subimage):
             if True:
             # try:
                 dlnp, X, alpha, var = tr.optimize(shared_params=False, variance=True)
-                print(i, tr.getCatalog()[0].shape)
+                try:
+                    print(i, tr.getCatalog()[0].shape)
+                except:
+                    pass
                 if conf.VERBOSE2: print(dlnp)
             # except:
             #     if conf.VERBOSE: print(f'WARNING - Optimization failed on step {i} for blob #{self.blob_id}')
