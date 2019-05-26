@@ -107,24 +107,31 @@ class Blob(Subimage):
     def stage_images(self):
         """TODO: docstring"""
 
+        if conf.VERBOSE2: 
+            print()
+            print('blob.stage_images :: Staging images...')
+
         timages = np.zeros(self.n_bands, dtype=object)
 
         if conf.SUBTRACT_BACKGROUND:
             self.subtract_background(flat=conf.USE_FLAT)
+            if conf.VERBOSE2: print(f'blob.stage_images :: Subtracted background (flat={conf.USE_FLAT})')
 
         # TODO: try to simplify this. particularly the zip...
         for i, (image, weight, mask, psf, band) in enumerate(zip(self.images, self.weights, self.masks, self.psfmodels, self.bands)):
+            if conf.VERBOSE2: print(f'blob.stage_images :: Staging image for {band}')
             tweight = weight.copy()
             tweight[mask] = 0
 
             if band in conf.CONSTANT_PSF:
                 psfmodel = psf
+                if conf.VERBOSE2: print(f'blob.stage_images :: Adopting constant PSF.')
             else:
                 psfmodel = psf.constantPsfAt(self.blob_center) # init at blob center
+                if conf.VERBOSE2: print(f'blob.stage_images :: Adopting varying PSF constant at ({self.blob_center})')
             # except:
             #     # psfmodel = NCircularGaussianPSF([conf.PSF_SIGMA,], [1,])
             #     raise ValueError(f'WARNING - No PSF model found for {band}!')
-
 
             timages[i] = Image(data=image,
                             invvar=tweight,
@@ -138,7 +145,7 @@ class Blob(Subimage):
     def stage_models(self):
         # Trackers
         if conf.VERBOSE2: print()
-        if conf.VERBOSE2: print(f'Loading models for blob #{self.blob_id}')
+        if conf.VERBOSE2: print(f'blob.stage_models :: Loading models for blob #{self.blob_id}')
 
         for i, (mid, src) in enumerate(zip(self.mids, self.bcatalog)):
 
@@ -164,7 +171,6 @@ class Blob(Subimage):
             elif mid == 2:
                 # shape = EllipseESoft(0.45 / conf.PIXEL_SCALE, 0., 0.)
                 self.model_catalog[i] = SimpleGalaxy(position, flux)
-                print('SIMPLEGAL SHAPE: ', self.model_catalog[i].shape)
             elif mid == 3:
                 self.model_catalog[i] = ExpGalaxy(position, flux, shape)
             elif mid == 4:
@@ -187,7 +193,9 @@ class Blob(Subimage):
 
         # TODO: The meaning of the following line is not clear
         idx_models = ((1, 2), (3, 4), (5,))
-        if conf.VERBOSE2: print(f'Attempting to model {self.n_sources} sources.')
+        if conf.VERBOSE2: 
+            print()
+            print(f'blob.tractor_phot :: Attempting to model {self.n_sources} sources.')
 
         self._solved = self.solution_catalog != 0
 
@@ -243,6 +251,14 @@ class Blob(Subimage):
                     #     if conf.VERBOSE2: print(f'Applying heavy penalty on source #{i+1} ({self.model_catalog[i].name})!')
                     #     totalchisq = 1E30
                     if conf.VERBOSE2: print(f'Source #{src["source_id"]} with {self.model_catalog[i].name} has chisq={totalchisq:3.3f} | bic={self.bic[i, self._level, self._sublevel]:3.3f}')
+                    if conf.VERBOSE2: print(f'               Fluxes: {self.bands[0]}={self.model_catalog[i].getBrightness().getFlux(self.bands[0]):3.3f}') 
+                    if self.model_catalog[i].name not in ('PointSource', 'SimpleGalaxy'):
+                        if self.model_catalog[i].name == 'FixedCompositeGalaxy':
+                            if conf.VERBOSE2: print(f'               {self.model_catalog[i].shapeExp}')
+                            if conf.VERBOSE2: print(f'               {self.model_catalog[i].shapeDev}')
+                        else:
+                            if conf.VERBOSE2: print(f'               {self.model_catalog[i].shape}')
+                    
                     self.chisq[i, self._level, self._sublevel] = totalchisq
 
                 # Move unsolved to next sublevel
@@ -259,7 +275,9 @@ class Blob(Subimage):
         # print('Starting final optimization')
         # Final optimization
         self.model_catalog = self.solution_catalog.copy()
-        if conf.VERBOSE2: print(f'Starting final optimization for blob #{self.blob_id}')
+        if conf.VERBOSE2: 
+            print()
+            print(f'Starting final optimization for blob #{self.blob_id}')
         for i, (mid, src) in enumerate(zip(self.mids, self.bcatalog)):
             if conf.VERBOSE2: print(f'Source #{src["source_id"]}: {self.model_catalog[i].name} model at {self.model_catalog[i].pos}')
             if conf.VERBOSE2: print(f'               Fluxes: {self.bands[0]}={self.model_catalog[i].getBrightness().getFlux(self.bands[0]):3.3f}') 
@@ -291,7 +309,9 @@ class Blob(Subimage):
         self.parameter_variance = self.variance
         # print(f'PARAMETER VAR: {self.parameter_variance}')
 
-        if conf.VERBOSE2: print(f'Resulting model parameters for blob #{self.blob_id}')
+        if conf.VERBOSE2: 
+            print()
+            print(f'Resulting model parameters for blob #{self.blob_id}')
         self.solution_chisq = np.zeros((self.n_sources, self.n_bands))
         self.solution_bic = np.zeros((self.n_sources, self.n_bands))
         for i, src in enumerate(self.bcatalog):
@@ -552,7 +572,9 @@ class Blob(Subimage):
         tr.freezeParams('images')        
 
         start = time()
-        if conf.VERBOSE2: print(f'Starting optimization ({conf.TRACTOR_MAXSTEPS}, {conf.TRACTOR_CONTHRESH})')
+        if conf.VERBOSE2: 
+            print()
+            print(f'blob.optimize_tractor :: Starting optimization ({conf.TRACTOR_MAXSTEPS}, {conf.TRACTOR_CONTHRESH})')
 
         self.n_converge = 0
         for i in range(conf.TRACTOR_MAXSTEPS):
