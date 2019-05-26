@@ -19,5 +19,4 @@ bricknum = int(sys.argv[1])
 interface.make_models(bricknum)
 
 # force it
-for band in conf.BANDS:
-    interface.force_models(bricknum, band=band)
+interface.force_models(bricknum)
