@@ -822,4 +822,6 @@ def models_from_catalog(catalog, band, rmvector):
                     if conf.VERBOSE2: print(f'               {expshape}')
                     if conf.VERBOSE2: print(f'               {devshape}')
 
+
+        print('OUTPUT ADOPTED CAT:', model_catalog[good_sources])
         return model_catalog[good_sources]
