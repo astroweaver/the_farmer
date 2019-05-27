@@ -788,6 +788,8 @@ def models_from_catalog(catalog, band, rmvector):
             # Check if valid source
             if not src['VALID_SOURCE']:
                 good_sources[i] = False
+                if conf.VERBOSE2: print(f'Source #{src["source_id"]}: {src["SOLMODEL"]} model at {position} is INVALID.')
+                continue
 
             #shape = GalaxyShape(src['REFF'], 1./src['AB'], src['theta'])
             if src['SOLMODEL'] not in ('PointSource', 'SimpleGalaxy'):
