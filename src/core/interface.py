@@ -338,7 +338,7 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
                 # print(catalog['X_MODEL'])
                 # print(catalog['Y_MODEL'])
 
-                fblob.model_catalog = models_from_catalog(catalog, fblob.bands, fblob.mosaic_origin)
+                fblob.model_catalog, good_sources = models_from_catalog(catalog, fblob.bands, fblob.mosaic_origin)
                 if (catalog['X_MODEL'] > fblob.images[0].shape[1]).any():
                     print('FAILED - BAD MODEL POSITION')
                     catalog['X_MODEL'] += fblob.subvector[1] + fblob.mosaic_origin[1] - conf.BRICK_BUFFER + 1
@@ -348,7 +348,7 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
 
                 fblob.position_variance = None
                 fblob.parameter_variance = None
-                fblob.bcatalog = catalog
+                fblob.bcatalog = catalog[good_sources]
                 fblob.n_sources = len(catalog)
 
         # Forced phot
@@ -822,6 +822,4 @@ def models_from_catalog(catalog, band, rmvector):
                     if conf.VERBOSE2: print(f'               {expshape}')
                     if conf.VERBOSE2: print(f'               {devshape}')
 
-
-        print('OUTPUT ADOPTED CAT:', model_catalog[good_sources])
-        return model_catalog[good_sources]
+        return model_catalog[good_sources], good_sources
