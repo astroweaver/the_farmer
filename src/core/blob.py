@@ -871,7 +871,7 @@ class Blob(Subimage):
             if src.name in ('SimpleGalaxy', 'ExpGalaxy', 'DevGalaxy'):
                 self.bcatalog[row]['REFF'] = src.shape.re
                 self.bcatalog[row]['REFF_ERR'] = np.sqrt(self.parameter_variance[row].shape.getParams()[0])
-                self.bcatalog[row]['AB'] = (src.shape.e + 1) / (1 - src.shape.e)
+                self.bcatalog[row]['AB'] = np.sqrt(src.shape.e + 1)
                 self.bcatalog[row]['AB_ERR'] = np.sqrt(self.parameter_variance[row].shape.getParams()[1])
                 self.bcatalog[row]['THETA'] = np.rad2deg(src.shape.theta)
                 self.bcatalog[row]['THETA_ERR'] = np.sqrt(self.parameter_variance[row].shape.getParams()[2])
@@ -880,13 +880,13 @@ class Blob(Subimage):
                 self.bcatalog[row]['FRACDEV'] = src.fracDev.getValue()
                 self.bcatalog[row]['EXP_REFF'] = src.shapeExp.re
                 self.bcatalog[row]['EXP_REFF_ERR'] = np.sqrt(self.parameter_variance[row].shapeExp.getParams()[0])
-                self.bcatalog[row]['EXP_AB'] = (src.shapeExp.e + 1) / (1 - src.shapeExp.e)
+                self.bcatalog[row]['EXP_AB'] = np.sqrt(src.shapeExp.e + 1)
                 self.bcatalog[row]['EXP_AB_ERR'] = np.sqrt(self.parameter_variance[row].shapeExp.getParams()[1])
                 self.bcatalog[row]['EXP_THETA'] = np.rad2deg(src.shapeExp.theta)
                 self.bcatalog[row]['EXP_THETA_ERR'] = np.sqrt(self.parameter_variance[row].shapeExp.getParams()[2])
                 self.bcatalog[row]['DEV_REFF'] = src.shapeDev.re
                 self.bcatalog[row]['DEV_REFF_ERR'] = np.sqrt(self.parameter_variance[row].shapeDev.getParams()[0])
-                self.bcatalog[row]['DEV_AB'] = (src.shapeDev.e + 1) / (1 - src.shapeDev.e)
+                self.bcatalog[row]['DEV_AB'] = np.sqrt(src.shapeDev.e + 1)
                 self.bcatalog[row]['DEV_AB_ERR'] = np.sqrt(self.parameter_variance[row].shapeDev.getParams()[1])
                 self.bcatalog[row]['DEV_THETA'] = np.rad2deg(src.shapeDev.theta)
                 self.bcatalog[row]['DEV_THETA_ERR'] = np.sqrt(self.parameter_variance[row].shapeDev.getParams()[2])
