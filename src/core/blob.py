@@ -755,9 +755,9 @@ class Blob(Subimage):
         if conf.VERBOSE2: print()
         if conf.VERBOSE2: print('Reviewing sources to be modelled.')
         for i, model in enumerate(self.model_catalog):
-            if model == -99:
-                if conf.VERBOSE: print(f"FAILED -- Source #{self.bcatalog[i]['source_id']} does not have a valid model!")
-                return False
+            # if model == -99:
+            #     if conf.VERBOSE: print(f"FAILED -- Source #{self.bcatalog[i]['source_id']} does not have a valid model!")
+            #     return False
 
             self.model_catalog[i].brightness = Fluxes(**dict(zip(self.bands, model.brightness[0] * np.ones(self.n_bands))))
             self.model_catalog[i].freezeAllBut('brightness')
