@@ -778,15 +778,16 @@ def models_from_catalog(catalog, band, rmvector):
         if conf.VERBOSE2: print()
         if conf.VERBOSE2: print('Adopting sources from existing catalog.')
         model_catalog = -99 * np.ones(len(catalog), dtype=object)
+        good_sources = np.ones(len(catalog), dtype=bool)
 
         for i, src in enumerate(catalog):
 
             position = PixPos(src['X_MODEL'], src['Y_MODEL'])
             flux = Fluxes(**dict(zip(band, src['FLUX_'+conf.MODELING_NICKNAME] * np.ones(len(band)))))
 
-            # # QUICK FIX
-            # gamma = src['AB'].copy()
-            # src['AB'] = (gamma**2) / (2 - (gamma**2))
+            # Check if valid source
+            if not src['VALID_SOURCE']:
+                good_sources[i] = False
 
             #shape = GalaxyShape(src['REFF'], 1./src['AB'], src['theta'])
             if src['SOLMODEL'] not in ('PointSource', 'SimpleGalaxy'):
@@ -818,4 +819,4 @@ def models_from_catalog(catalog, band, rmvector):
                     if conf.VERBOSE2: print(f'               {expshape}')
                     if conf.VERBOSE2: print(f'               {devshape}')
 
-        return model_catalog
+        return model_catalog[good_sources]
