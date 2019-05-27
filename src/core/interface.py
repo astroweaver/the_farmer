@@ -357,7 +357,7 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
         if conf.VERBOSE2: print(f'{fblob.bands} images staged. ({time.time() - astart:3.3f})s')
 
         astart = time.time() 
-        print(fblob.solution_catalog)
+        print(fblob.model_catalog)
         status = fblob.forced_phot()
 
         catalog['X_MODEL'] += fblob.subvector[1] + fblob.mosaic_origin[1] - conf.BRICK_BUFFER + 1
