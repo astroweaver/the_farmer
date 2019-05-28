@@ -823,7 +823,6 @@ class Blob(Subimage):
 
         # self.rows = np.zeros(len(self.solution_catalog))
         for idx, src in enumerate(self.solution_catalog):
-            sid = self.bcatalog['source_id'][idx]
             self.get_catalog(idx, src, multiband_only=True)
 
 
@@ -834,6 +833,11 @@ class Blob(Subimage):
         return status
 
     def get_catalog(self, row, src, multiband_only=False):
+
+        if conv.VERBOSE:
+            sid = self.bcatalog['source_id'][row]
+            print()
+            print(f'blob.get_catalog :: Writing output entires for #{sid}')
 
         # Add band fluxes, flux errors
         for i, band in enumerate(self.bands):
@@ -851,6 +855,15 @@ class Blob(Subimage):
             self.bcatalog[row]['FLUXERR_'+band] = np.sqrt(flux_var[row].brightness.getParams()[i])
             self.bcatalog[row]['CHISQ_'+band] = self.solution_chisq[row, i]
             self.bcatalog[row]['BIC_'+band] = self.solution_bic[row, i]
+
+            if conf.VERBOSE2:
+                print()
+                mag, magerr = self.bcatalog[row]['MAG_'+band], self.bcatalog[row]['MAGERR_'+band]
+                flux, fluxerr = self.bcatalog[row]['FLUX_'+band], self.bcatalog[row]['FLUXERR_'+band]
+                chisq, bic = self.bcatalog[row]['CHISQ_'+band], self.bcatalog[row]['BIC_'+band]
+                print(f'     MAG_{band} = {mag:3.3f} +/- {magerr:3.3f}')
+                print(f'     FLUX_{band} = {flux:3.3f} +/- {fluxerr:3.3f}')
+                print(f'     CHISQ_{band} = {chisq:3.3f} | BIC_{band} = {bic:3.3f}')
 
         if not multiband_only:
             # Position information
