@@ -834,7 +834,7 @@ class Blob(Subimage):
 
     def get_catalog(self, row, src, multiband_only=False):
 
-        if conv.VERBOSE:
+        if conf.VERBOSE:
             sid = self.bcatalog['source_id'][row]
             print()
             print(f'blob.get_catalog :: Writing output entires for #{sid}')
