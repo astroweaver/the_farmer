@@ -360,8 +360,8 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
         print(fblob.model_catalog)
         status = fblob.forced_phot()
 
-        catalog['X_MODEL'] += fblob.subvector[1] + fblob.mosaic_origin[1] - conf.BRICK_BUFFER + 1
-        catalog['Y_MODEL'] += fblob.subvector[0] + fblob.mosaic_origin[0] - conf.BRICK_BUFFER + 1
+        # catalog['X_MODEL'] += fblob.subvector[1] + fblob.mosaic_origin[1] - conf.BRICK_BUFFER + 1
+        # catalog['Y_MODEL'] += fblob.subvector[0] + fblob.mosaic_origin[0] - conf.BRICK_BUFFER + 1
 
         if not status:
             return fblob.bcatalog.copy()
