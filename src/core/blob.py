@@ -869,6 +869,8 @@ class Blob(Subimage):
             # Position information
             self.bcatalog[row]['X_MODEL'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
             self.bcatalog[row]['Y_MODEL'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
+            if conf.VERBOSE2:
+                print(f"     XY_MODEL = {self.bcatalog[row]['X_MODEL']}, {self.bcatalog[row]['Y_MODEL']}")
             self.bcatalog[row]['XERR_MODEL'] = np.sqrt(self.position_variance[row].pos.getParams()[0])
             self.bcatalog[row]['YERR_MODEL'] = np.sqrt(self.position_variance[row].pos.getParams()[1])
             if self.wcs is not None:
