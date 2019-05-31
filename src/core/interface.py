@@ -89,8 +89,6 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, single_band=None, insert=Fal
         # Detection
         if conf.VERBOSE: print('Making mosaic for detection')
         detmosaic = Mosaic(conf.DETECTION_NICKNAME, detection=True)
-        if not skip_psf: 
-            detmosaic._make_psf()
 
         if conf.NTHREADS > 0:
             pass
@@ -108,6 +106,12 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, single_band=None, insert=Fal
         # Modeling
         if conf.VERBOSE: print('Making mosaic for modeling')
         modmosaic = Mosaic(conf.MODELING_NICKNAME, modeling=True)
+        if not skip_psf: 
+
+            mod_xlims = np.array(conf.MOD_REFF_LIMITS)
+            mod_ylims = np.array(conf.MOD_VAL_LIMITS)
+                
+            modmosaic._make_psf(xlims=mod_xlims, ylims=mod_ylims)
 
         if conf.NTHREADS > 0:
             pass
@@ -140,7 +144,12 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, single_band=None, insert=Fal
             if conf.VERBOSE: print(f'Making mosaic for band {band}')
             bandmosaic = Mosaic(band)
             if not skip_psf: 
-                bandmosaic._make_psf()
+
+                idx_band = np.array(conf.BANDS) == band
+                multi_xlims = np.array(conf.MOD_REFF_LIMITS)[idx_band][0]
+                multi_ylims = np.array(conf.MOD_VAL_LIMITS)[idx_band][0]
+                    
+                bandmosaic._make_psf(xlims=multi_xlims, ylims=multi_ylims)
 
             if conf.NTHREADS > 0:
                 if conf.VERBOSE: print(f'Making bricks for band {band} (in parallel)')

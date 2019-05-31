@@ -127,6 +127,7 @@ class Mosaic(Subimage):
             if conf.PLOT:
                 if conf.VERBOSE: print('Plotting LDAC without pointsource bounding box')
                 plot_ldac(tab_ldac, self.bands, box=False)
+                
 
             mask_ldac = (tab_ldac['MAG_AUTO'] > ylims[0]) &\
                     (tab_ldac['MAG_AUTO'] < ylims[1]) &\
