@@ -570,26 +570,25 @@ class Blob(Subimage):
 
         tr.freezeParams('images')        
 
-        start = time()
+        
         if conf.VERBOSE2: 
             print()
             print(f'blob.optimize_tractor :: Starting optimization ({conf.TRACTOR_MAXSTEPS}, {conf.TRACTOR_CONTHRESH})')
 
         self.n_converge = 0
+        dlnp_init = 'NaN'
+        tstart = time()
         for i in range(conf.TRACTOR_MAXSTEPS):
-            if True:
-            # try:
+            try:
                 dlnp, X, alpha, var = tr.optimize(shared_params=False, variance=True)
-                try:
-                    print(i, tr.getCatalog()[0].shape)
-                except:
-                    pass
-                if conf.VERBOSE2: print(dlnp)
-            # except:
-            #     if conf.VERBOSE: print(f'WARNING - Optimization failed on step {i} for blob #{self.blob_id}')
-            #     return False
+                if i == 0:
+                    dlnp_init = dlnp
+            except:
+                if conf.VERBOSE: print(f'WARNING - Optimization failed on step {i} for blob #{self.blob_id}')
+                return False
 
             if dlnp < conf.TRACTOR_CONTHRESH:
+                if conf.VERBOSE: print(f'blob.optimize_tractor :: Converged in {i} steps ({dlnp_init:2.2f} --> {dlnp:2.2f}) ({time() - tstart:3.3f}s)')
                 self.n_converge = i
                 break
                 
@@ -856,6 +855,10 @@ class Blob(Subimage):
             self.bcatalog[row]['CHISQ_'+band] = self.solution_chisq[row, i]
             self.bcatalog[row]['BIC_'+band] = self.solution_bic[row, i]
 
+            # Just do the positions again - more straightforward to do it here than in interface.py
+            self.bcatalog[row]['X_MODEL'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
+            self.bcatalog[row]['Y_MODEL'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
+
             if conf.VERBOSE2:
                 print()
                 mag, magerr = self.bcatalog[row]['MAG_'+band], self.bcatalog[row]['MAGERR_'+band]
@@ -867,9 +870,17 @@ class Blob(Subimage):
 
         if not multiband_only:
             # Position information
+            self.bcatalog[row]['x'] = self.bcatalog[row]['x'] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
+            self.bcatalog[row]['y'] = self.bcatalog[row]['y'] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
             self.bcatalog[row]['X_MODEL'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
             self.bcatalog[row]['Y_MODEL'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
             if conf.VERBOSE2:
+                print()
+                print(f"     xy = {self.bcatalog[row]['x']}, {self.bcatalog[row]['y']}")
+                print(f"     src.pos = {src.pos[0]}, {src.pos[1]}")
+                print(f"     subvector = {self.subvector[1]}, {self.subvector[0]}")
+                print(f"     mosaic_origin = {self.mosaic_origin[1]}, {self.mosaic_origin[0]}")
+                print(f"     brick_buffer = {conf.BRICK_BUFFER}")
                 print(f"     XY_MODEL = {self.bcatalog[row]['X_MODEL']}, {self.bcatalog[row]['Y_MODEL']}")
             self.bcatalog[row]['XERR_MODEL'] = np.sqrt(self.position_variance[row].pos.getParams()[0])
             self.bcatalog[row]['YERR_MODEL'] = np.sqrt(self.position_variance[row].pos.getParams()[1])

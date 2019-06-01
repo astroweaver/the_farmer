@@ -117,6 +117,7 @@ class Subimage():
                 background = sep.Background(img, bw = conf.SUBTRACT_BW, bh = conf.SUBTRACT_BH)
                 self.backgrounds[i] = background.globalback, background.globalrms
                 self.background_images[i] = background.back()
+
         else:
             self.backgrounds = None
             self.background_images = None

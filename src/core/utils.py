@@ -76,6 +76,15 @@ class SimpleGalaxy(ExpGalaxy):
             return True
         return super(SimpleGalaxy, self).isParamFrozen(pname)   
 
+def plot_background(brick, idx, band=''):
+    fig, ax = plt.subplots(figsize=(20,20))
+    ax.imshow(brick.background_images[idx], cmap='Greys')
+    out_path = os.path.join(conf.PLOT_DIR, f'B{brick.brick_id}_{band}_background.pdf')
+    ax.axis('off')
+    ax.margins(0,0)
+    fig.savefig(out_path, dpi = 300, overwrite=True, pad_inches=0.0)
+    plt.close()
+    if conf.VERBOSE2: print(f'Saving figure: {out_path}')
 
 def plot_blob(myblob, myfblob):
 
@@ -338,17 +347,24 @@ def plot_fblob(blob, band, fig=None, ax=None, final_opt=False):
         ax[2,5].axvline(0, c='grey', ls='dotted')
         ax[2,5].set_ylim(bottom=0)
 
+        # Show chisq or rchisq?
+        dof = ''
+        if conf.USE_REDUCEDCHISQ:
+            dof = '/N'
+
         # Solution params
         for i, src in enumerate(blob.solution_catalog):
             ax[1,0].text(0.1, 0.8 - 0.4*i, f'#{blob.bcatalog[i]["source_id"]} Model:{src.name}', color=colors[i], transform=ax[1,0].transAxes)
             ax[1,0].text(0.1, 0.8 - 0.4*i - 0.1, f'       Flux: {src.brightness[idx]:3.3f}', color=colors[i], transform=ax[1,0].transAxes)
-            ax[1,0].text(0.1, 0.8 - 0.4*i - 0.2, f'       Chi2/N: {blob.solution_chisq[i,0]:3.3f}', color=colors[i], transform=ax[1,0].transAxes)
+            ax[1,0].text(0.1, 0.8 - 0.4*i - 0.2, f'       Chi2{dof}: {blob.solution_chisq[i,0]:3.3f}', color=colors[i], transform=ax[1,0].transAxes)
 
         #fig.subplots_adjust(wspace=0, hspace=0)
         outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{blob.bands[idx]}.pdf')
         fig.savefig(outpath)
         plt.close()
-        if conf.VERBOSE2: print(f'Saving figure: {outpath}')
+        if conf.VERBOSE2: 
+            print()
+            print(f'Saving figure: {outpath}')
 
     else:
         # Init

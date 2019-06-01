@@ -42,7 +42,7 @@ import weakref
 
 from .brick import Brick
 from .mosaic import Mosaic
-from .utils import plot_blob, SimpleGalaxy, plot_blobmap
+from .utils import plot_background, plot_blob, SimpleGalaxy, plot_blobmap
 
 import config as conf
 plt.ioff()
@@ -266,12 +266,12 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
     if conf.VERBOSE: print(f'Starting on Blob #{blob_id}')
     tstart = time.time()
 
-    detblob = None
+    modblob = None
     fblob = None
     if detection is None:
-        detblob, fblob = weakref.proxy(blobs[0]), weakref.proxy(blobs[1])
+        modblob, fblob = weakref.proxy(blobs[0]), weakref.proxy(blobs[1])
     elif detection:
-        detblob = weakref.proxy(blobs)
+        modblob = weakref.proxy(blobs)
     else:
         fblob = weakref.proxy(blobs)
 
@@ -280,18 +280,18 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
 
     # Make blob with detection image 
 
-    if detblob is not None:
+    if modblob is not None:
 
         # Run models
         astart = time.time()
-        detblob.stage_images()
+        modblob.stage_images()
         if conf.VERBOSE2: print(f'Images staged. ({time.time() - astart:3.3f})s')
 
         astart = time.time()
-        status = detblob.tractor_phot()
+        status = modblob.tractor_phot()
 
         if not status:
-            return detblob.bcatalog.copy()
+            return modblob.bcatalog.copy()
 
         if conf.VERBOSE2: print(f'Morphology determined. ({time.time() - astart:3.3f})s')
 
@@ -299,31 +299,31 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
         # Run follow-up phot
         if conf.DO_APPHOT:
             for img_type in ('image', 'model', 'residual'):
-                for band in detblob.bands:
+                for band in modblob.bands:
                     try:
-                        detblob.aperture_phot(band, img_type, sub_background=conf.SUBTRACT_BACKGROUND)
+                        modblob.aperture_phot(band, img_type, sub_background=conf.SUBTRACT_BACKGROUND)
                     except:
                         if conf.VERBOSE: print(f'Aperture photmetry FAILED for {band} {img_type}. Likely a bad blob.')
         if conf.DO_SEXPHOT:
             try:
-                [detblob.sextract_phot(band) for band in detblob.bands]
+                [modblob.sextract_phot(band) for band in modblob.bands]
             except:
                 if conf.VERBOSE: print(f'Residual Sextractor photmetry FAILED. Likely a bad blob.)')    
 
         duration = time.time() - tstart
-        if conf.VERBOSE: print(f'Solution for Blob #{detblob.blob_id} (N={detblob.n_sources}) arrived at in {duration:3.3f}s ({duration/detblob.n_sources:2.2f}s per src)')
+        if conf.VERBOSE: print(f'Solution for Blob #{modblob.blob_id} (N={modblob.n_sources}) arrived at in {duration:3.3f}s ({duration/modblob.n_sources:2.2f}s per src)')
     
-        catout = detblob.bcatalog.copy()
-        del detblob
+        catout = modblob.bcatalog.copy()
+        del modblob
 
     if fblob is not None:
         # make new blob with band information
         astart = time.time() 
 
-        if detblob is not None:
-            fblob.model_catalog = detblob.solution_catalog.copy()
-            fblob.position_variance = detblob.position_variance.copy()
-            fblob.parameter_variance = detblob.parameter_variance.copy()
+        if modblob is not None:
+            fblob.model_catalog = modblob.solution_catalog.copy()
+            fblob.position_variance = modblob.position_variance.copy()
+            fblob.parameter_variance = modblob.parameter_variance.copy()
             if conf.VERBOSE2: print(f'Solution parameters transferred. ({time.time() - astart:3.3f})s')
 
         else:
@@ -366,7 +366,6 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
         if conf.VERBOSE2: print(f'{fblob.bands} images staged. ({time.time() - astart:3.3f})s')
 
         astart = time.time() 
-        print(fblob.model_catalog)
         status = fblob.forced_phot()
 
         # catalog['X_MODEL'] += fblob.subvector[1] + fblob.mosaic_origin[1] - conf.BRICK_BUFFER + 1
@@ -432,6 +431,9 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
     modbrick = stage_brickfiles(brick_id, nickname=conf.MODELING_NICKNAME, detection=True)
     if conf.VERBOSE: print(f'Modeling brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
 
+    if conf.PLOT:
+        plot_background(modbrick, 0, band=conf.MODELING_NICKNAME)
+
     modbrick.catalog = detbrick.catalog
     modbrick.segmap = detbrick.segmap
     modbrick.n_sources = detbrick.n_sources
@@ -481,8 +483,6 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
             outcatalog[np.where(outcatalog['source_id'] == row['source_id'])[0]] = row
 
         # write out cat
-        outcatalog['x'] = outcatalog['x'] + mosaic_origin[1] - conf.BRICK_BUFFER + 1.
-        outcatalog['y'] = outcatalog['y'] + mosaic_origin[0] - conf.BRICK_BUFFER + 1.
         outcatalog.write(os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat'), format='fits', overwrite=conf.OVERWRITE)
 
     else:
@@ -538,8 +538,8 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
             outcatalog[np.where(outcatalog['source_id'] == row['source_id'])[0]] = row
 
         # write out cat
-        outcatalog['x'] = outcatalog['x'] + mosaic_origin[1] - conf.BRICK_BUFFER + 1.
-        outcatalog['y'] = outcatalog['y'] + mosaic_origin[0] - conf.BRICK_BUFFER + 1.
+        # outcatalog['x'] += outcatalog['x'] + mosaic_origin[1] - conf.BRICK_BUFFER + 1.
+        # outcatalog['y'] += outcatalog['y'] + mosaic_origin[0] - conf.BRICK_BUFFER + 1.
         outcatalog.write(os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat'), format='fits', overwrite=conf.OVERWRITE)
 
         return
@@ -561,6 +561,11 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
     else:
         fband = [band,]
     if conf.VERBOSE: print(f'{fband} brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
+
+    if conf.PLOT:
+        for plt_band in fband:
+            idx = np.argwhere(np.array(conf.BANDS)==plt_band)[0][0]
+            plot_background(fbrick, idx, band=plt_band)
 
     if conf.VERBOSE: print(f'Forcing models on {fband}')
 
@@ -686,8 +691,8 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
                 for row in output_cat:
                     mastercat[np.where(mastercat['source_id'] == row['source_id'])[0]] = row
                 # coordinate correction
-                fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
-                fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
+                # fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
+                # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
                 # save
                 mastercat.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat'), format='fits', overwrite=conf.OVERWRITE)
                 if conf.VERBOSE: print(f'Saving results for brick #{fbrick.brick_id} to existing catalog file.')
@@ -711,8 +716,8 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
                     mode_ext = conf.MULTIBAND_NICKNAME
 
             # write out cat
-            fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
-            fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
+            # fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
+            # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
             fbrick.catalog.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{mode_ext}.cat'), format='fits', overwrite=conf.OVERWRITE)
             if conf.VERBOSE: print(f'Saving results for brick #{fbrick.brick_id} to new {fbrick.bands} catalog file.')
 
