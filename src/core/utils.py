@@ -291,8 +291,8 @@ def plot_detblob(blob, fig=None, ax=None, level=0, sublevel=0, final_opt=False, 
                 minx = resmin
             if resmax > maxx:
                 maxx = resmax
-            if not init:
-                ax[nrow,4].text(0.01, 0.9 - 0.1*i, r'$\chi^{2}$'+f'={blob.chisq[i, level, sublevel]:2.2f}',
+            if not init:s
+                ax[nrow,4].text(0.02, 0.9 - 0.1*i, r'$\chi^{2}$'+f'={blob.chisq[i, level, sublevel]:2.2f} | BIC={blob.bic[i, level, sublevel]:2.2f}',
                          color=colors[i], transform=ax[nrow,4].transAxes)
         ax[nrow,5].set_xlim(minx, maxx)
         ax[nrow,5].axvline(0, c='grey', ls='dotted')
