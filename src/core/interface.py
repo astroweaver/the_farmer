@@ -42,7 +42,7 @@ import weakref
 
 from .brick import Brick
 from .mosaic import Mosaic
-from .utils import plot_background, plot_blob, SimpleGalaxy, plot_blobmap
+from .utils import plot_background, plot_blob, SimpleGalaxy, plot_blobmap, plot_brick
 
 import config as conf
 plt.ioff()
@@ -432,6 +432,7 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
     if conf.VERBOSE: print(f'Modeling brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
 
     if conf.PLOT:
+        plot_brick(modbrick, 0, band=conf.MODELING_NICKNAME)
         plot_background(modbrick, 0, band=conf.MODELING_NICKNAME)
 
     modbrick.catalog = detbrick.catalog
@@ -565,7 +566,9 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
     if conf.PLOT:
         for plt_band in fband:
             idx = np.argwhere(np.array(conf.BANDS)==plt_band)[0][0]
+            plot_brick(fbrick, idx, band=plt_band)
             plot_background(fbrick, idx, band=plt_band)
+            
 
     if conf.VERBOSE: print(f'Forcing models on {fband}')
 

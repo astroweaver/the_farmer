@@ -840,10 +840,13 @@ class Blob(Subimage):
 
         # Add band fluxes, flux errors
         for i, band in enumerate(self.bands):
+            valid_source = True # until decided False
             band = band.replace(' ', '_')
             if band == conf.MODELING_NICKNAME:
                 zpt = conf.MODELING_ZPT
                 flux_var = self.parameter_variance
+                if self.bcatalog[row]['MAGERR_'+band]:
+                    valid_source = False
             else:
                 zpt = conf.MULTIBAND_ZPT[self._band2idx(band)]
                 flux_var = self.forced_variance
@@ -885,13 +888,13 @@ class Blob(Subimage):
             self.bcatalog[row]['XERR_MODEL'] = np.sqrt(self.position_variance[row].pos.getParams()[0])
             self.bcatalog[row]['YERR_MODEL'] = np.sqrt(self.position_variance[row].pos.getParams()[1])
             if self.wcs is not None:
-                skyc = self.brick_wcs.all_pix2world(self.bcatalog[row]['X_MODEL'], self.bcatalog[row]['Y_MODEL'], 0)
+                skyc = self.brick_wcs.all_pix2world(self.bcatalog[row]['X_MODEL'] - self.mosaic_origin[1], self.bcatalog[row]['Y_MODEL'] - self.mosaic_origin[0], 0)
                 self.bcatalog[row]['RA'] = skyc[0]
                 self.bcatalog[row]['DEC'] = skyc[1]
 
             # Model Parameters
             self.bcatalog[row]['SOLMODEL'] = src.name
-            self.bcatalog[row]['VALID_SOURCE'] = True
+            self.bcatalog[row]['VALID_SOURCE'] = valid_source
             self.bcatalog[row]['N_CONVERGE'] = self.n_converge
 
             if src.name in ('SimpleGalaxy', 'ExpGalaxy', 'DevGalaxy'):
