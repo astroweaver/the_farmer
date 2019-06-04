@@ -93,7 +93,7 @@ def plot_brick(brick, idx, band=''):
     norm = LogNorm(np.max([backlevel + noisesigma, 1E-5]), brick.images[idx].max(), clip='True')
     ax.imshow(brick.images, cmap='Greys', origin='lower', norm=norm)
     out_path = os.path.join(conf.PLOT_DIR, f'B{brick.brick_id}_{band}_brick.pdf')
-    ax.axis('off')e
+    ax.axis('off')
     ax.margins(0,0)
     fig.savefig(out_path, dpi = 300, overwrite=True, pad_inches=0.0)
     plt.close()
