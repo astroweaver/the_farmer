@@ -563,7 +563,10 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
 
     if conf.PLOT:
         for plt_band in fband:
-            idx = np.argwhere(np.array(conf.BANDS)==plt_band)[0][0]
+            if len(fband) == 1:
+                idx = 0
+            else:
+                idx = np.argwhere(np.array(conf.BANDS)==plt_band)[0][0]
             plot_brick(fbrick, idx, band=plt_band)
             plot_background(fbrick, idx, band=plt_band)
             
