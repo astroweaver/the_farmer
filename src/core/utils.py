@@ -87,7 +87,6 @@ def plot_background(brick, idx, band=''):
     if conf.VERBOSE2: print(f'Saving figure: {out_path}')
 
 def plot_brick(brick, idx, band=''):
-    print(f' brick.images shape: {np.shape(brick.images)}')
     fig, ax = plt.subplots(figsize=(20,20))
     backlevel, noisesigma = brick.backgrounds[idx]
     vmin, vmax = np.max([backlevel + noisesigma, 1E-5]), brick.images[idx].max()
