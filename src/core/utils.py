@@ -78,7 +78,7 @@ class SimpleGalaxy(ExpGalaxy):
 
 def plot_background(brick, idx, band=''):
     fig, ax = plt.subplots(figsize=(20,20))
-    ax.imshow(brick.background_images[idx], cmap='Greys')
+    ax.imshow(brick.background_images[idx], cmap='Greys', norm=LogNorm())
     out_path = os.path.join(conf.PLOT_DIR, f'B{brick.brick_id}_{band}_background.pdf')
     ax.axis('off')
     ax.margins(0,0)
