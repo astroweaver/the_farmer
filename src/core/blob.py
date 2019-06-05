@@ -81,10 +81,11 @@ class Blob(Subimage):
         
         blob_sourcemask = np.in1d(brick.catalog['source_id'], blob_sources)
         self.bcatalog = brick.catalog[blob_sourcemask].copy() # working copy
-        print(self.bcatalog)
+        print(self.bcatalog['x', 'y'])
         self.bcatalog['x'] -= self.subvector[1]
         self.bcatalog['y'] -= self.subvector[0]
-        print(self.bcatalog)
+        print(self.bcatalog['x', 'y'])
+        print(self.subvector)
         self.n_sources = len(self.bcatalog)
 
         self.mids = np.ones(self.n_sources, dtype=int)
