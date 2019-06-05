@@ -92,6 +92,7 @@ def plot_brick(brick, idx, band=''):
     backlevel, noisesigma = brick.backgrounds[idx]
     vmin, vmax = np.max([backlevel + noisesigma, 1E-5]), brick.images[idx].max()
     if vmin > vmax:
+        print(f'WARNING - {band} brick not plotted!')
         return
     norm = LogNorm(vmin, vmax, clip='True')
     ax.imshow(brick.images[idx], cmap='Greys', origin='lower', norm=norm)
