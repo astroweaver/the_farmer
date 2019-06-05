@@ -87,6 +87,7 @@ def plot_background(brick, idx, band=''):
     if conf.VERBOSE2: print(f'Saving figure: {out_path}')
 
 def plot_brick(brick, idx, band=''):
+    print(f' brick.images shape: {np.shape(brick.images)}')
     fig, ax = plt.subplots(figsize=(20,20))
     backlevel, noisesigma = brick.backgrounds[idx]
     vmin, vmax = backlevel, backlevel + 5 * noisesigma
@@ -297,6 +298,8 @@ def plot_detblob(blob, fig=None, ax=None, level=0, sublevel=0, final_opt=False, 
         bins = np.linspace(np.nanmin(residual), np.nanmax(residual), 30)
         minx, maxx = 0, 0
         for i, src in enumerate(blob.bcatalog):
+            print(np.shape(residual))
+            print(np.shape(blob.segmap))
             res_seg = residual[blob.segmap==src['source_id']].flatten()
             ax[nrow,5].hist(res_seg, histtype='step', color=colors[i], density=True)
             resmin, resmax = np.nanmin(res_seg), np.nanmax(res_seg)
