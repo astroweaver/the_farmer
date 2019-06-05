@@ -90,8 +90,9 @@ def plot_brick(brick, idx, band=''):
     print(f' brick.images shape: {np.shape(brick.images)}')
     fig, ax = plt.subplots(figsize=(20,20))
     backlevel, noisesigma = brick.backgrounds[idx]
-    vmin, vmax = backlevel, backlevel + 5 * noisesigma
-    norm = LogNorm(np.max([backlevel + noisesigma, 1E-5]), brick.images[idx].max(), clip='True')
+    vmin, vmax = np.max([backlevel + noisesigma, 1E-5]), brick.images[idx].max()
+    print(vmin, vmax, brick.images[idx].min(), brick.images[idx].max())
+    norm = LogNorm(vmin, vmax, clip='True')
     ax.imshow(brick.images[idx], cmap='Greys', origin='lower', norm=norm)
     out_path = os.path.join(conf.PLOT_DIR, f'B{brick.brick_id}_{band}_brick.pdf')
     ax.axis('off')
