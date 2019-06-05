@@ -92,6 +92,7 @@ class Mosaic(Subimage):
 
         # Set filenames
         psf_dir = conf.PSF_DIR
+        unclean_cat = os.path.join(conf.PSF_DIR, f'{self.bands}_clean.ldac')
         psf_cat = os.path.join(conf.PSF_DIR, f'{self.bands}_clean.ldac')
         path_savexml = conf.PSF_DIR
         path_savechkimg = ','.join([os.path.join(conf.PSF_DIR, ext) for ext in ('chi', 'proto', 'samp', 'resi', 'snap')])
@@ -107,7 +108,7 @@ class Mosaic(Subimage):
                 try:
                     #os.system('sextractor {} -c config/config_psfex.sex -PARAMETERS_NAME config/param_psfex.sex -CATALOG_NAME {} -CATALOG_TYPE FITS_LDAC -WEIGHT_TYPE MAP_WEIGHT -WEIGHT_IMAGE {} -MAG_ZEROPOINT {}'.format(path_im, path_outcat, path_wt, zpt))
                     # print(f'sex {self.path_image} -c config/config_psfex.sex -PARAMETERS_NAME config/param_psfex.sex -CATALOG_NAME {psf_cat} -CATALOG_TYPE FITS_LDAC -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME {path_segmap} -MAG_ZEROPOINT {self.mag_zeropoints}')
-                    os.system(f'sex {self.path_image} -c config/config_psfex.sex -PARAMETERS_NAME config/param_psfex.sex -CATALOG_NAME {psf_cat} -CATALOG_TYPE FITS_LDAC -MAG_ZEROPOINT {self.mag_zeropoints}')
+                    os.system(f'sex {self.path_image} -c config/config_psfex.sex -PARAMETERS_NAME config/param_psfex.sex -CATALOG_NAME {unclean_cat} -CATALOG_TYPE FITS_LDAC -MAG_ZEROPOINT {self.mag_zeropoints}')
                     # #print('RUNNING SEXTRACTOR WITHOUT SEGMAP')
                     # #os.system(f'sex {self.path_image} -c config/config_psfex.sex -PARAMETERS_NAME config/param_psfex.sex -CATALOG_NAME {psf_cat} -CATALOG_TYPE FITS_LDAC -MAG_ZEROPOINT {self.mag_zeropoints}')
                     # sys.exit()
@@ -117,7 +118,7 @@ class Mosaic(Subimage):
 
             if conf.VERBOSE: print(f'LDAC crop parameters: {xlims}, {ylims}')
 
-            hdul_ldac = fits.open(psf_cat, ignore_missing_end=True, mode='update')
+            hdul_ldac = fits.open(unclean_cat, ignore_missing_end=True, mode='update')
             tab_ldac = hdul_ldac['LDAC_OBJECTS'].data
 
             n_obj = len(tab_ldac)
@@ -146,7 +147,7 @@ class Mosaic(Subimage):
 
 
             hdul_ldac['LDAC_OBJECTS'].data = tab_ldac[mask_ldac]
-            hdul_ldac.flush()
+            hdul_ldac.writeto(psf_cat)
 
             # RUN PSF
             os.system(f'psfex {psf_cat} -c config/config.psfex -BASIS_TYPE PIXEL -PSF_SIZE 101,101 -PSF_DIR {psf_dir} -WRITE_XML Y -XML_NAME {path_savexml} -CHECKIMAGE_NAME {path_savechkimg} -CHECKPLOT_NAME {path_savechkplt}')
