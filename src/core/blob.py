@@ -128,8 +128,7 @@ class Blob(Subimage):
             tweight[mask] = 0
 
             if band in conf.CONSTANT_PSF:
-                psfmodel = psf
-                psfmodel = NCircularGaussianPSF([5,], [1,])
+                psfmodel = psf.constantPsfAt(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.)
                 if conf.VERBOSE2: print(f'blob.stage_images :: Adopting constant PSF.')
             else:
                 psf.psfex.sampling = 1.0
