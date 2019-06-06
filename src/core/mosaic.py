@@ -92,7 +92,7 @@ class Mosaic(Subimage):
 
         # Set filenames
         psf_dir = conf.PSF_DIR
-        unclean_cat = os.path.join(conf.PSF_DIR, f'{self.bands}_clean.ldac')
+        unclean_cat = os.path.join(conf.PSF_DIR, f'{self.bands}.ldac')
         psf_cat = os.path.join(conf.PSF_DIR, f'{self.bands}_clean.ldac')
         path_savexml = conf.PSF_DIR
         path_savechkimg = ','.join([os.path.join(conf.PSF_DIR, ext) for ext in ('chi', 'proto', 'samp', 'resi', 'snap')])
