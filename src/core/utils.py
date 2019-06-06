@@ -300,16 +300,18 @@ def plot_detblob(blob, fig=None, ax=None, level=0, sublevel=0, final_opt=False, 
         bins = np.linspace(np.nanmin(residual), np.nanmax(residual), 30)
         minx, maxx = 0, 0
         for i, src in enumerate(blob.bcatalog):
-            print(np.shape(residual))
-            print(np.shape(blob.segmap))
-            plt.figure()
-            plt.imshow(blob.segmap, cmap='Greys', norm=LogNorm())
-            plt.savefig(os.path.join(conf.PLOT_DIR,'debug_segmap.pdf'))
-            plt.figure()
-            plt.imshow(residual, cmap='Greys', norm=LogNorm())
-            plt.savefig(os.path.join(conf.PLOT_DIR,'debug_residual.pdf'))
-            print('made debug plots!')
-            print()
+            
+            if np.shape(residual) != np.shape(blob.segmap):
+                print(np.shape(residual))
+                print(np.shape(blob.segmap))
+                plt.figure()
+                plt.imshow(blob.segmap, cmap='Greys', norm=LogNorm())
+                plt.savefig(os.path.join(conf.PLOT_DIR,'debug_segmap.pdf'))
+                plt.figure()
+                plt.imshow(residual, cmap='Greys', norm=LogNorm())
+                plt.savefig(os.path.join(conf.PLOT_DIR,'debug_residual.pdf'))
+                print('made debug plots!')
+                print()
             res_seg = residual[blob.segmap==src['source_id']].flatten()
             ax[nrow,5].hist(res_seg, histtype='step', color=colors[i], density=True)
             resmin, resmax = np.nanmin(res_seg), np.nanmax(res_seg)
