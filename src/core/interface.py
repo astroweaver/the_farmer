@@ -441,9 +441,9 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
     tstart = time.time()
     modbrick.cleanup()
     modbrick.add_columns() # doing on detbrick gets column names wrong
-    if conf.VERBOSE: print(f'Detection brick #{brick_id} gained {modbrick.n_blobs} blobs with {modbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
+    if conf.VERBOSE: print(f'Modeling brick #{brick_id} gained {modbrick.n_blobs} blobs with {modbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
 
-    if conf.PLOT:
+    if conf.PLOT2:
         plot_blobmap(modbrick)
 
     # Save segmap and blobmaps
