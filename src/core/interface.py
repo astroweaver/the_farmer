@@ -575,13 +575,17 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
         for i, vb_band in enumerate(fband):
             print()
             print(f'Brick #{brick_id} -- Image statistics')
+            shape, minmax, mean, var = stats.describe(fbrick.images[i])[:4]
+            print(f'    Limits: {minmax[0]:3.3f} - {minmax[1]:3.3f}')
+            print(f'    Mean: {mean:3.3f}+/-{np.sqrt(var):3.3f}')
             print()
-            print(stats.describe(fbrick.images[i]))
             print(f'Brick #{brick_id} -- Weight statistics')
-            print(stats.describe(fbrick.weights[i]))
+            shape, minmax, mean, var = stats.describe(fbrick.weights[i])[:4]
+            print(f'    Limits: {minmax[0]:3.3f} - {minmax[1]:3.3f}')
+            print(f'    Mean: {mean:3.3f}+/-{np.sqrt(var):3.3f}')
             print()
             print(f'Brick #{brick_id} -- Background statistics')
-            print(f'Global: {fbrick.backgrounds[i, 0]:3.3f}, RMS: {brick.backgrounds[i, 1]:3.3f}')
+            print(f'Global: {fbrick.backgrounds[i, 0]:3.3f}, RMS: {fbrick.backgrounds[i, 1]:3.3f}')
             
 
     if conf.VERBOSE: print(f'Forcing models on {fband}')
