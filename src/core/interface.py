@@ -39,6 +39,7 @@ from functools import partial
 import matplotlib.pyplot as plt
 # import psutil
 import weakref
+from scipy.stats import describes
 
 from .brick import Brick
 from .mosaic import Mosaic
@@ -569,6 +570,18 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
                 idx = np.argwhere(np.array(conf.BANDS)==plt_band)[0][0]
             plot_brick(fbrick, idx, band=plt_band)
             plot_background(fbrick, idx, band=plt_band)
+
+    if conf.VERBOSE:
+        for i, vb_band in enumerate(fband):
+            print()
+            print(f'Brick #{brick_id} -- Image statistics')
+            print()
+            print(stats.describe(fbrick.images[i]))
+            print(f'Brick #{brick_id} -- Weight statistics')
+            print(stats.describe(fbrick.weights[i]))
+            print()
+            print(f'Brick #{brick_id} -- Background statistics')
+            print(f'Global: {fbrick.backgrounds[i, 0]:3.3f}, RMS: {brick.backgrounds[i, 1]:3.3f}')
             
 
     if conf.VERBOSE: print(f'Forcing models on {fband}')
@@ -767,7 +780,7 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, detection=False)
             continue
         path_psffile = os.path.join(conf.PSF_DIR, f'{band}.psf')
         if os.path.exists(path_psffile):
-            psfmodels[i] = PsfExModel(fn=path_psffile)
+            psfmodels[i] = PixelizedPsfEx(fn=path_psffile)
         else:
             raise ValueError(f'PSF model not found for {band}! ({path_psffile})')
 

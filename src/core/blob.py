@@ -81,11 +81,11 @@ class Blob(Subimage):
         
         blob_sourcemask = np.in1d(brick.catalog['source_id'], blob_sources)
         self.bcatalog = brick.catalog[blob_sourcemask].copy() # working copy
-        print(self.bcatalog['x', 'y'])
+        # print(self.bcatalog['x', 'y'])
         self.bcatalog['x'] -= self.subvector[1]
         self.bcatalog['y'] -= self.subvector[0]
-        print(self.bcatalog['x', 'y'])
-        print(self.subvector)
+        # print(self.bcatalog['x', 'y'])
+        # print(self.subvector)
         self.n_sources = len(self.bcatalog)
 
         self.mids = np.ones(self.n_sources, dtype=int)
@@ -131,7 +131,7 @@ class Blob(Subimage):
                 psfmodel = psf
                 if conf.VERBOSE2: print(f'blob.stage_images :: Adopting constant PSF.')
             else:
-                psfmodel = psf.at(self.blob_center[1], self.blob_center[0], nativeScale=False) # init at blob center, may need to swap!
+                psfmodel = psf.constantPsfAt(self.blob_center[1], self.blob_center[0]) # init at blob center, may need to swap!
                 if conf.VERBOSE2: print(f'blob.stage_images :: Adopting varying PSF constant at ({self.blob_center})')
             # except:
             #     # psfmodel = NCircularGaussianPSF([conf.PSF_SIGMA,], [1,])
