@@ -39,7 +39,7 @@ from functools import partial
 import matplotlib.pyplot as plt
 # import psutil
 import weakref
-from scipy.stats import describes
+from scipy import stats
 
 from .brick import Brick
 from .mosaic import Mosaic

@@ -134,11 +134,6 @@ class Blob(Subimage):
                 fig.savefig(os.path.join(conf.PLOT_DIR, f'{band}_psf.pdf'))
                 if conf.VERBOSE2: print(f'blob.stage_images :: Adopting constant PSF.')
             else:
-<<<<<<< HEAD
-=======
-                psf.psfex.sampling = 1.0
-                print('WARNING - SET SAMPLING TO ONE!!!')
->>>>>>> 2e776ea116a41856585d5c99205344fb5924aedc
                 psfmodel = psf.constantPsfAt(self.blob_center[1], self.blob_center[0]) # init at blob center, may need to swap!
                 if conf.VERBOSE2: print(f'blob.stage_images :: Adopting varying PSF constant at ({self.blob_center})')
             # except:
