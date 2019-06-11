@@ -430,7 +430,7 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
     modbrick = stage_brickfiles(brick_id, nickname=conf.MODELING_NICKNAME, detection=True)
     if conf.VERBOSE: print(f'Modeling brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
 
-    if conf.PLOT:
+    if conf.PLOT2:
         plot_brick(modbrick, 0, band=conf.MODELING_NICKNAME)
         plot_background(modbrick, 0, band=conf.MODELING_NICKNAME)
 
@@ -442,9 +442,9 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
     tstart = time.time()
     modbrick.cleanup()
     modbrick.add_columns() # doing on detbrick gets column names wrong
-    if conf.VERBOSE: print(f'Detection brick #{brick_id} gained {modbrick.n_blobs} blobs with {modbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
+    if conf.VERBOSE: print(f'Modeling brick #{brick_id} gained {modbrick.n_blobs} blobs with {modbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
 
-    if conf.PLOT:
+    if conf.PLOT2:
         plot_blobmap(modbrick)
 
     # Save segmap and blobmaps
@@ -562,7 +562,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
         fband = [band,]
     if conf.VERBOSE: print(f'{fband} brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
 
-    if conf.PLOT:
+    if conf.PLOT2:
         for plt_band in fband:
             if len(fband) == 1:
                 idx = 0
