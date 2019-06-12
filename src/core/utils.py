@@ -340,7 +340,7 @@ def plot_detblob(blob, fig=None, ax=None, level=0, sublevel=0, final_opt=False, 
 
 def plot_fblob(blob, band, fig=None, ax=None, final_opt=False):
 
-    idx = blob._band2idx(band)
+    idx = blob.bands == band
     
     back = blob.backgrounds[idx]
     mean, rms = back[0], back[1]
