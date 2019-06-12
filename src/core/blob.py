@@ -857,6 +857,7 @@ class Blob(Subimage):
                     valid_source = False
             else:
                 zpt = conf.MULTIBAND_ZPT[self._band2idx(band)]
+                print(zpt, conf.MULTIBAND_ZPT, self._band2idx(band), band)
                 flux_var = self.forced_variance
 
             print(band, zpt)
