@@ -641,7 +641,7 @@ class Blob(Subimage):
             raise TypeError("image_type must be 'image', 'model' or 'residual'")
             return
 
-        idx = self._band2idx(band)
+        idx = np.argwhere(self.bands == band)[0][0]
 
         if image_type == 'image':
             image = self.images[idx]
