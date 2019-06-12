@@ -279,7 +279,7 @@ class Subimage():
         if band in self.bands:
             print(self.bands)
             print(conf.BANDS, band)
-            return np.arange(len(conf.BANDS))[conf.BANDS == band][0]
+            return np.arange(len(conf.BANDS))[np.array(conf.BANDS) == band][0]
         else:
             raise ValueError(f"{band} is not a valid band.")
 
