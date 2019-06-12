@@ -135,8 +135,10 @@ class Blob(Subimage):
                     fig.savefig(os.path.join(conf.PLOT_DIR, f'{band}_psf.pdf'))
                 if conf.VERBOSE2: print(f'blob.stage_images :: Adopting constant PSF.')
             else:
-                psfmodel = psf.constantPsfAt(self.blob_center[1], self.blob_center[0]) # init at blob center, may need to swap!
-                if conf.VERBOSE2: print(f'blob.stage_images :: Adopting varying PSF constant at ({self.blob_center})')
+                blob_centerx = self.blob_center[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
+                blob_centery = self.blob_center[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
+                psfmodel = psf.constantPsfAt(blob_centerx, blob_centery) # init at blob center, may need to swap!
+                if conf.VERBOSE2: print(f'blob.stage_images :: Adopting varying PSF constant at ({blob_centerx}, {blob_centery})')
             # except:
             #     # psfmodel = NCircularGaussianPSF([conf.PSF_SIGMA,], [1,])
             #     raise ValueError(f'WARNING - No PSF model found for {band}!')
@@ -642,7 +644,6 @@ class Blob(Subimage):
             return
 
         idx = np.argwhere(self.bands == band)[0][0]
-        print(idx, self.bands, band)
 
         if image_type == 'image':
             image = self.images[idx]
