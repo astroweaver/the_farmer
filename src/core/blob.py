@@ -642,6 +642,7 @@ class Blob(Subimage):
             return
 
         idx = np.argwhere(self.bands == band)[0][0]
+        print(idx, self.bands, band)
 
         if image_type == 'image':
             image = self.images[idx]
