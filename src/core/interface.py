@@ -457,7 +457,7 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
 
     tstart = time.time()
     if (source_id is not None) | (blob_id is not None):
-        conf.PLOT = True
+        # conf.PLOT = True
         outcatalog = modbrick.catalog.copy()
         mosaic_origin = modbrick.mosaic_origin
         brick_id = modbrick.brick_id
@@ -592,7 +592,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
 
     tstart = time.time()
     if (source_id is not None) | (blob_id is not None):
-        conf.PLOT = True
+        # conf.PLOT = True
         if source_id is not None:
             blob_id = np.unique(fbrick.blobmap[fbrick.segmap == source_id])
             assert(len(blob_id) == 1)
