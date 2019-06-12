@@ -342,6 +342,7 @@ def plot_fblob(blob, band, fig=None, ax=None, final_opt=False):
 
     idx = np.argwhere(blob.bands == band)[0]
     back = blob.backgrounds[idx]
+    print(np.shape(back), np.shape(blob.backgrounds), idx)
     mean, rms = back[0], back[1]
     noise = np.random.normal(mean, rms, size=blob.dims)
     tr = blob.solution_tractor
