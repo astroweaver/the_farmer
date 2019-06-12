@@ -347,7 +347,7 @@ def plot_fblob(blob, band, fig=None, ax=None, final_opt=False):
     noise = np.random.normal(mean, rms, size=blob.dims)
     tr = blob.solution_tractor
     
-    norm = LogNorm(np.max([mean + rms, 1E-5]), 0.1*blob.images.max(), clip='True')
+    norm = LogNorm(np.max([mean + rms, 1E-5]), 0.90*blob.images.max(), clip='True')
     img_opt = dict(cmap='Greys', norm=norm)
 
     if final_opt:
