@@ -129,9 +129,10 @@ class Blob(Subimage):
 
             if band in conf.CONSTANT_PSF:
                 psfmodel = psf.constantPsfAt(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.)
-                fig, ax = plt.subplots()
-                ax.imshow(psf.getImage(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.))
-                fig.savefig(os.path.join(conf.PLOT_DIR, f'{band}_psf.pdf'))
+                if conf.PLOT:
+                    fig, ax = plt.subplots()
+                    ax.imshow(psf.getImage(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.))
+                    fig.savefig(os.path.join(conf.PLOT_DIR, f'{band}_psf.pdf'))
                 if conf.VERBOSE2: print(f'blob.stage_images :: Adopting constant PSF.')
             else:
                 psfmodel = psf.constantPsfAt(self.blob_center[1], self.blob_center[0]) # init at blob center, may need to swap!
