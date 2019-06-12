@@ -340,8 +340,7 @@ def plot_detblob(blob, fig=None, ax=None, level=0, sublevel=0, final_opt=False, 
 
 def plot_fblob(blob, band, fig=None, ax=None, final_opt=False):
 
-    idx = blob.bands == band
-    print(np.shape(blob.backgrounds))
+    idx = np.argwhere(blob.bands == band)[0]
     back = blob.backgrounds[idx]
     mean, rms = back[0], back[1]
     noise = np.random.normal(mean, rms, size=blob.dims)
