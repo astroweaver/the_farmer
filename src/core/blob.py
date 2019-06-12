@@ -128,7 +128,8 @@ class Blob(Subimage):
             tweight[mask] = 0
 
             if band in conf.CONSTANT_PSF:
-                psfmodel = psf.constantPsfAt(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.)
+                #psfmodel = psf.constantPsfAt(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.)
+                psfmodel = psf.constantPsfAt(0, 0)
                 if conf.PLOT:
                     fig, ax = plt.subplots()
                     ax.imshow(psf.getImage(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.))
