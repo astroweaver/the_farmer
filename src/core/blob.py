@@ -858,6 +858,8 @@ class Blob(Subimage):
                 zpt = conf.MULTIBAND_ZPT[self._band2idx(band)]
                 flux_var = self.forced_variance
 
+            print(band, zpt)
+
             self.bcatalog[row]['MAG_'+band] = -2.5 * np.log10(src.getBrightness().getFlux(band)) + zpt
             self.bcatalog[row]['MAGERR_'+band] = 1.09 * np.sqrt(flux_var[row].brightness.getParams()[i]) / src.getBrightness().getFlux(band)
             self.bcatalog[row]['FLUX_'+band] = src.getBrightness().getFlux(band)
