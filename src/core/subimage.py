@@ -285,7 +285,11 @@ class Subimage():
     def sextract(self, band, sub_background=False, force_segmap=None, use_mask=False, incl_apphot=False):
         # perform sextractor on single band only (may expand for matched source phot)
         # Generate segmap and segmask
-        idx = self._band2idx(band)
+        
+        if (band == conf.DETECTION_NICKNAME) | (band == conf.MODELING_NICKNAME):
+            idx = 0
+        else:
+            idx = self._band2idx(band)
         image = self.images[idx].copy()
         wgts = self.weights[idx].copy()
         wgts[wgts==0] = -1
