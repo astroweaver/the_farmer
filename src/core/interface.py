@@ -412,13 +412,13 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
 
     # Sextract sources
     tstart = time.time()
-    #try:
     if (segmap is None) & (catalog is None):
-        detbrick.sextract(conf.DETECTION_NICKNAME, sub_background=conf.SUBTRACT_BACKGROUND, use_mask=False, incl_apphot=True)
-        if conf.VERBOSE: print(f'Detection brick #{brick_id} sextracted {detbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
-    #except:
-    #    if conf.VERBOSE: print(f'Detection brick #{brick_id} sextraction FAILED. ({time.time() - tstart:3.3f}s)')
-    #    return
+        try:
+            detbrick.sextract(conf.DETECTION_NICKNAME, sub_background=conf.SUBTRACT_BACKGROUND, use_mask=False, incl_apphot=True)
+            if conf.VERBOSE: print(f'Detection brick #{brick_id} sextracted {detbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
+        except:
+            if conf.VERBOSE: print(f'Detection brick #{brick_id} sextraction FAILED. ({time.time() - tstart:3.3f}s)')
+            return
     elif (segmap is not None) & (catalog is not None):
         catalog[conf.X_COLNAME].colname = 'x'
         catalog[conf.Y_COLNAME].colname = 'y'
