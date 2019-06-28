@@ -417,7 +417,7 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
             detbrick.sextract(conf.DETECTION_NICKNAME, sub_background=conf.SUBTRACT_BACKGROUND, use_mask=False, incl_apphot=True)
             if conf.VERBOSE: print(f'Detection brick #{brick_id} sextracted {detbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
         except:
-            if conf.VERBOSE: print(f'Detection brick #{brick_id} sextraction FAILED. ({time.time() - tstart:3.3f}s)')
+            raise RuntimeError(f'Detection brick #{brick_id} sextraction FAILED. ({time.time() - tstart:3.3f}s)')
             return
     elif (segmap is not None) & (catalog is not None):
         catalog[conf.X_COLNAME].colname = 'x'
@@ -427,6 +427,7 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
         if conv.VERBOSE: print(f'Overriding SExtraction with external catalog.')
     else:
         raise ValueError('No valid segmap and catalog provided to override SExtraction!')
+        return
 
     # Create modbrick
     tstart = time.time()
@@ -487,6 +488,8 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
 
         # write out cat
         outcatalog.write(os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat'), format='fits', overwrite=conf.OVERWRITE)
+
+        return
 
     else:
 
