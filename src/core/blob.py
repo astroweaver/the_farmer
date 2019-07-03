@@ -144,7 +144,7 @@ class Blob(Subimage):
             #     raise ValueError(f'WARNING - No PSF model found for {band}!')
 
             timages[i] = Image(data=image,
-                            invvar=10.*tweight,
+                            invvar=16**2.*tweight,
                             psf=psfmodel,
                             wcs=NullWCS(),
                             photocal=FluxesPhotoCal(band),
