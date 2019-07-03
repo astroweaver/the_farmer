@@ -74,7 +74,6 @@ class Subimage():
         else:
             raise TypeError('WCS is not an astropy WCS object.')
 
-
     ### DATA VALIDATION - IMAGES
     @property
     def images(self):

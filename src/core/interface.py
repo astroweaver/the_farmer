@@ -350,8 +350,8 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
                 # print(catalog['Y_MODEL'])
 
                 fblob.model_catalog, good_sources = models_from_catalog(catalog, fblob.bands, fblob.mosaic_origin)
-                if (catalog['X_MODEL'] > fblob.images[0].shape[1]).any():
-                    print('FAILED - BAD MODEL POSITION')
+                if (good_sources == False).all():
+                    print('FAILED - All sources are invalid!')
                     catalog['X_MODEL'] += fblob.subvector[1] + fblob.mosaic_origin[1] - conf.BRICK_BUFFER + 1
                     catalog['Y_MODEL'] += fblob.subvector[0] + fblob.mosaic_origin[0] - conf.BRICK_BUFFER + 1
                     return fblob.bcatalog.copy()

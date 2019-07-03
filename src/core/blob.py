@@ -144,7 +144,7 @@ class Blob(Subimage):
             #     raise ValueError(f'WARNING - No PSF model found for {band}!')
 
             timages[i] = Image(data=image,
-                            invvar=tweight,
+                            invvar=10.*tweight,
                             psf=psfmodel,
                             wcs=NullWCS(),
                             photocal=FluxesPhotoCal(band),
@@ -871,6 +871,11 @@ class Blob(Subimage):
             # Just do the positions again - more straightforward to do it here than in interface.py
             self.bcatalog[row]['X_MODEL'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
             self.bcatalog[row]['Y_MODEL'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
+
+            # Is the source located outwidth the mosaic?
+            if (self.bcatalog[row]['X_MODEL'] < 0) | (self.bcatalog[row]['X_MODEL'] > conf.MOSAIC_WIDTH) | (self.bcatalog[row]['Y_MODEL'] < 0) | (self.bcatalog[row]['Y_MODEL'] > conf.MOSAIC_HEIGHT):
+                print('WARNING -- Source is located outwith mosaic limits!')
+                valid_source = False
 
             if conf.VERBOSE2:
                 print()
