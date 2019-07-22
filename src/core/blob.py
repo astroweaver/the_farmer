@@ -903,7 +903,7 @@ class Blob(Subimage):
             self.bcatalog[row]['XERR_MODEL'] = np.sqrt(self.position_variance[row].pos.getParams()[0])
             self.bcatalog[row]['YERR_MODEL'] = np.sqrt(self.position_variance[row].pos.getParams()[1])
             if self.wcs is not None:
-                skyc = self.brick_wcs.all_pix2world(self.bcatalog[row]['X_MODEL'] - self.mosaic_origin[1], self.bcatalog[row]['Y_MODEL'] - self.mosaic_origin[0], 0)
+                skyc = self.brick_wcs.all_pix2world(self.bcatalog[row]['Y_MODEL'] - self.mosaic_origin[1], self.bcatalog[row]['X_MODEL'] - self.mosaic_origin[0], 0)
                 self.bcatalog[row]['RA'] = skyc[0]
                 self.bcatalog[row]['DEC'] = skyc[1]
 
