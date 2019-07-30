@@ -57,7 +57,7 @@ try:
     # Check first
     mask = np.ones_like(conf.BANDS, dtype=bool)
     for i, band in enumerate(conf.BANDS):
-        if conf.VERBOSE: print(f'     {i} :: {band}')
+        if conf.VERBOSE: print(f'     {i+1} :: {band}')
         if band not in translate.keys():
             if conf.VERBOSE: print(f'    ERROR: Cound not find {band} in translate file!')
             mask[i] = False
