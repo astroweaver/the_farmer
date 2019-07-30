@@ -49,6 +49,25 @@ import config as conf
 plt.ioff()
 
 
+# Find translate file and do things.
+try:
+    from translate import translate
+    # I have nicknames, I need raw names
+    conf.RAWBANDS = conf.BANDS
+    for i, band in enumerate(conf.RAWBANDS):
+        if len(band) > 50:  
+            conf.RAWBANDS[i] = translate[band]
+
+except:
+    if conf.VERBOSE: print('Could not import translate file!')
+    # I have raw names, I need shortened raw names (i.e. nicknames)
+    # Who the fuck does this?
+    conf.RAWBANDS = conf.BANDS
+    for i, band in enumerate(conf.RAWBANDS):
+        if len(band) > 50:  
+            conf.BANDS[i] = band[:50]
+
+
 def make_psf(multiband_only=False, single_band=None, override=False, psfex_only=False):
 
     if not multiband_only:
