@@ -65,17 +65,21 @@ try:
     conf.BANDS = list(np.array(conf.BANDS)[mask])
     conf.RAWBANDS = conf.BANDS
     for i, band in enumerate(conf.RAWBANDS):
-        if len(band) > 50:  
-            conf.RAWBANDS[i] = translate[band]
+        conf.RAWBANDS[i] = translate[band]
 
 except:
     if conf.VERBOSE: print('Could not import translate file!')
+    if conf.VERBOSE: print('Band names must be < 50 characters (FITS standard) -- checking...')
     # I have raw names, I need shortened raw names (i.e. nicknames)
     # Who the fuck does this?
     conf.RAWBANDS = conf.BANDS
+    count_short = 0
     for i, band in enumerate(conf.RAWBANDS):
         if len(band) > 50:  
             conf.BANDS[i] = band[:50]
+            if conf.VERBOSE: print(f'     {i+1} :: {band} --> {conf.BANDS[i]}')
+            count_short += 1
+    if conf.VERBOSE: print(f'Done checking. Shortened {count_short} band names.')
 
 
 def make_psf(multiband_only=False, single_band=None, override=False, psfex_only=False):
