@@ -53,6 +53,14 @@ plt.ioff()
 try:
     from translate import translate
     # I have nicknames, I need raw names
+    # Check first
+    mask = np.ones_like(conf.BANDS, dtype=bool)
+    for i, band in enumerate(conf.BANDS):
+        if band not in translate.keys():
+            if VERBOSE: print(f'ERROR: Cound not find {band} in translate file!')
+            mask[i] = False
+            
+    conf.BANDS = conf.BANDS[mask]
     conf.RAWBANDS = conf.BANDS
     for i, band in enumerate(conf.RAWBANDS):
         if len(band) > 50:  
