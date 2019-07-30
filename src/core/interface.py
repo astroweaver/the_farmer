@@ -178,11 +178,8 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, single_band=None, insert=Fal
             if not skip_psf: 
 
                 idx_band = np.array(conf.BANDS) == band
-                print(idx_band)
-                print(np.array(conf.MULTI_REFF_LIMITS).shape)
-                print(np.array(conf.MULTI_REFF_LIMITS))
-                multi_xlims = np.array(conf.MULTI_REFF_LIMITS)[idx_band][0]
-                multi_ylims = np.array(conf.MULTI_VAL_LIMITS)[idx_band][0]
+                multi_xlims = np.array(conf.MULTIBAND_REFF_LIMITS)[idx_band][0]
+                multi_ylims = np.array(conf.MULTIBAND_VAL_LIMITS)[idx_band][0]
                     
                 bandmosaic._make_psf(xlims=multi_xlims, ylims=multi_ylims)
 
