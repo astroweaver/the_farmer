@@ -62,7 +62,7 @@ try:
             if conf.VERBOSE: print(f'    ERROR: Cound not find {band} in translate file!')
             mask[i] = False
 
-    conf.BANDS = conf.BANDS[mask]
+    conf.BANDS = list(np.array(conf.BANDS)[mask])
     conf.RAWBANDS = conf.BANDS
     for i, band in enumerate(conf.RAWBANDS):
         if len(band) > 50:  
