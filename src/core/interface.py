@@ -63,7 +63,7 @@ try:
             mask[i] = False
 
     conf.BANDS = list(np.array(conf.BANDS)[mask])
-    conf.RAWBANDS = conf.BANDS
+    conf.RAWBANDS = conf.BANDS.copy()
     for i, band in enumerate(conf.RAWBANDS):
         conf.RAWBANDS[i] = translate[band]
 
@@ -72,7 +72,7 @@ except:
     if conf.VERBOSE: print('Band names must be < 50 characters (FITS standard) -- checking...')
     # I have raw names, I need shortened raw names (i.e. nicknames)
     # Who the fuck does this?
-    conf.RAWBANDS = conf.BANDS
+    conf.RAWBANDS = conf.BANDS.copy()
     count_short = 0
     for i, band in enumerate(conf.RAWBANDS):
         if len(band) > 50:  
