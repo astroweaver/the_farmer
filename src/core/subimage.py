@@ -324,6 +324,9 @@ class Subimage():
         else:
             mask = None
 
+        # Set extraction pixel limit buffer
+        sep.set_extract_pixstack(conf.PIXSTACK_SIZE)
+
         if sub_background:
             background = sep.Background(self.images[idx], bw = conf.DETECT_BW, bh = conf.DETECT_BH)
             image -= background.back()
