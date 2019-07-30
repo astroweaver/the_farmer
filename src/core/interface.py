@@ -52,14 +52,16 @@ plt.ioff()
 # Find translate file and do things.
 try:
     from translate import translate
+    if VERBOSE: print(f'Imported translate file with {len(translate.keys())} entries.')
     # I have nicknames, I need raw names
     # Check first
     mask = np.ones_like(conf.BANDS, dtype=bool)
     for i, band in enumerate(conf.BANDS):
+        if VERBOSE: print(f'     {i} :: {band}')
         if band not in translate.keys():
-            if VERBOSE: print(f'ERROR: Cound not find {band} in translate file!')
+            if VERBOSE: print(f'    ERROR: Cound not find {band} in translate file!')
             mask[i] = False
-            
+
     conf.BANDS = conf.BANDS[mask]
     conf.RAWBANDS = conf.BANDS
     for i, band in enumerate(conf.RAWBANDS):
