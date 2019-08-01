@@ -189,7 +189,7 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, single_band=None, insert=Fal
             if conf.NTHREADS > 0:
                 if conf.VERBOSE: print(f'Making bricks for band {band} (in parallel)')
                 pool = mp.ProcessingPool(processes=conf.NTHREADS)
-                pool.map(partial(bandmosaic._make_brick, detection=False, overwrite=overwrite), np.arange(0, detmosaic.n_bricks()))
+                pool.map(partial(bandmosaic._make_brick, detection=False, overwrite=overwrite), np.arange(0, bandmosaic.n_bricks()))
 
             else:
                 if conf.VERBOSE: print(f'Making bricks for band {band} (in serial)')
