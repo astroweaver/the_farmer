@@ -471,6 +471,22 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
         plot_brick(modbrick, 0, band=conf.MODELING_NICKNAME)
         plot_background(modbrick, 0, band=conf.MODELING_NICKNAME)
 
+    if conf.VERBOSE:
+        print()
+        print(f'Brick #{brick_id} -- Image statistics')
+        shape, minmax, mean, var = stats.describe(modbrick.images[0], axis=None)[:4]
+        print(f'    Limits: {minmax[0]:3.3f} - {minmax[1]:3.3f}')
+        print(f'    Mean: {mean:3.3f}+/-{np.sqrt(var):3.3f}')
+        print()
+        print(f'Brick #{brick_id} -- Weight statistics')
+        shape, minmax, mean, var = stats.describe(modbrick.weights[0], axis=None)[:4]
+        print(f'    Limits: {minmax[0]:3.3f} - {minmax[1]:3.3f}')
+        print(f'    Mean: {mean:3.3f}+/-{np.sqrt(var):3.3f}')
+        print()
+        print(f'Brick #{brick_id} -- Background statistics')
+        print(f'    Global: {modbrick.backgrounds[0, 0]:3.3f}')
+        print(f'    RMS: {modbrick.backgrounds[0, 1]:3.3f}')
+
     modbrick.catalog = detbrick.catalog
     modbrick.segmap = detbrick.segmap
     modbrick.n_sources = detbrick.n_sources
@@ -624,7 +640,8 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
             print(f'    Mean: {mean:3.3f}+/-{np.sqrt(var):3.3f}')
             print()
             print(f'Brick #{brick_id} -- Background statistics')
-            print(f'Global: {fbrick.backgrounds[i, 0]:3.3f}, RMS: {fbrick.backgrounds[i, 1]:3.3f}')
+            print(f'    Global: {fbrick.backgrounds[i, 0]:3.3f}')
+            print(f'    RMS: {fbrick.backgrounds[i, 1]:3.3f}')
             
 
     if conf.VERBOSE: print(f'Forcing models on {fband}')
