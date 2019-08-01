@@ -885,7 +885,7 @@ class Blob(Subimage):
                 print(f'     MAG_{band} = {mag:3.3f} +/- {magerr:3.3f}')
                 print(f'     FLUX_{band} = {flux:3.3f} +/- {fluxerr:3.3f}')
                 print(f'     CHISQ_{band} = {chisq:3.3f} | BIC_{band} = {bic:3.3f}')
-                print(f'     ZPT_{band} = {zpt:3.3f')
+                print(f'     ZPT_{band} = {zpt:3.3f}')
 
         if not multiband_only:
             # Position information
