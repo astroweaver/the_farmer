@@ -828,9 +828,9 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, detection=False)
 
             # Stuff data into arrays
             for i, tband in enumerate(sbands):
-                images[i] = hdul_brick[f"{tband}_{conf.IMAGE_EXT.upper()}"].data
-                weights[i] = hdul_brick[f"{tband}_{conf.WEIGHT_EXT.upper()}"].data
-                masks[i] = hdul_brick[f"{tband}_{conf.MASK_EXT.upper()}"].data
+                images[i] = hdul_brick[f"{tband}_IMAGE"].data
+                weights[i] = hdul_brick[f"{tband}_WEIGHT"].data
+                masks[i] = hdul_brick[f"{tband}_MASK"].data
     else:
         raise ValueError(f'Brick file not found for {path_brickfile}')
 

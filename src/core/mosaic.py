@@ -189,9 +189,9 @@ class Mosaic(Subimage):
         # Make hdus
         head_image = self.master_head.copy()
         head_image.update(subwcs.to_header())
-        hdu_image = fits.ImageHDU(subimage, head_image, f'{sbands}_{conf.IMAGE_EXT}')
-        hdu_weight = fits.ImageHDU(subweight, head_image, f'{sbands}_{conf.WEIGHT_EXT}')
-        hdu_mask = fits.ImageHDU(submask.astype(int), head_image, f'{sbands}_{conf.MASK_EXT}')
+        hdu_image = fits.ImageHDU(subimage, head_image, f'{sbands}_IMAGE')
+        hdu_weight = fits.ImageHDU(subweight, head_image, f'{sbands}_WEIGHT')
+        hdu_mask = fits.ImageHDU(submask.astype(int), head_image, f'{sbands}_MASK')
         
         # if overwrite, make it
         if overwrite:
