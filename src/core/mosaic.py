@@ -63,7 +63,7 @@ class Mosaic(Subimage):
                 self.wcs = WCS(self.master_head)
         else:
             raise ValueError(f'No image found at {self.path_image}')
-        if conf.VERBOSE: print(f'Added image in {time()-tstart:3.3f}s.')
+        if conf.VERBOSE: print(f'Added image in {time()-tstart:3.3f}s. ({self.path_image})')
 
         tstart = time()
         if os.path.exists(self.path_weight):
@@ -72,7 +72,7 @@ class Mosaic(Subimage):
         else:
             #raise ValueError(f'No weight found at {self.path_weight}')
             self.weights = None
-        if conf.VERBOSE: print(f'Added weight in {time()-tstart:3.3f}s.')
+        if conf.VERBOSE: print(f'Added weight in {time()-tstart:3.3f}s. ({self.path_weight})')
 
 
         tstart = time()
@@ -81,7 +81,7 @@ class Mosaic(Subimage):
                 self.masks = hdu_mask['PRIMARY'].data
         else:
             self.masks = None    
-        if conf.VERBOSE: print(f'Added mask in {time()-tstart:3.3f}s.')
+        if conf.VERBOSE: print(f'Added mask in {time()-tstart:3.3f}s. ({self.path_mask})')
 
         self.psfmodels = psfmodel
         self.bands = band
