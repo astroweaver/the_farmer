@@ -57,7 +57,6 @@ try:
     # Check first
     mask = np.ones_like(conf.BANDS, dtype=bool)
     for i, band in enumerate(conf.BANDS):
-        if conf.VERBOSE: print(f'     {i+1} :: {band}')
         if band not in translate.keys():
             if conf.VERBOSE: print(f'    ERROR: Cound not find {band} in translate file!')
             mask[i] = False
@@ -66,6 +65,7 @@ try:
     conf.RAWBANDS = conf.BANDS.copy()
     for i, band in enumerate(conf.RAWBANDS):
         conf.RAWBANDS[i] = translate[band]
+        if conf.VERBOSE: print(f'     {i+1} :: {conf.RAWBANDS[i]} --> {conf.BANDS[i]}')
 
 except:
     if conf.VERBOSE: print('Could not import translate file!')
