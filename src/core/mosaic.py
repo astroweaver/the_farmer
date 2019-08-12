@@ -63,27 +63,32 @@ class Mosaic(Subimage):
                 self.images = hdu_image['PRIMARY'].data
                 self.master_head = hdu_image['PRIMARY'].header
                 self.wcs = WCS(self.master_head)
+            path = self.path_image
         else:
             raise ValueError(f'No image found at {self.path_image}')
-        if conf.VERBOSE: print(f'Added image in {time()-tstart:3.3f}s. ({self.path_image})')
+        if conf.VERBOSE: print(f'Added image in {time()-tstart:3.3f}s. ({path})')
 
         tstart = time()
         if os.path.exists(self.path_weight):
             with fits.open(self.path_weight) as hdu_weight:
                 self.weights = hdu_weight['PRIMARY'].data
+            path = self.path_weight
         else:
             #raise ValueError(f'No weight found at {self.path_weight}')
             self.weights = None
-        if conf.VERBOSE: print(f'Added weight in {time()-tstart:3.3f}s. ({self.path_weight})')
+            path = 'None found. Assuming equal weights.'
+        if conf.VERBOSE: print(f'Added weight in {time()-tstart:3.3f}s. ({path})')
 
 
         tstart = time()
         if os.path.exists(self.path_mask):
             with fits.open(self.path_mask) as hdu_mask:
                 self.masks = hdu_mask['PRIMARY'].data
+            path = self.path_mask
         else:
             self.masks = None    
-        if conf.VERBOSE: print(f'Added mask in {time()-tstart:3.3f}s. ({self.path_mask})')
+            path = 'None found. Assuming no masking.'
+        if conf.VERBOSE: print(f'Added mask in {time()-tstart:3.3f}s. ({path})')
 
         self.psfmodels = psfmodel
         self.bands = band

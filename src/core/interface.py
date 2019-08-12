@@ -81,9 +81,6 @@ except:
             count_short += 1
     if conf.VERBOSE: print(f'Done checking. Shortened {count_short} band names.')
 
-print(conf.BANDS)
-print(conf.RAWBANDS)
-
 
 def make_psf(multiband_only=False, single_band=None, override=False, psfex_only=False):
 
