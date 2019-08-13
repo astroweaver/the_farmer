@@ -82,14 +82,14 @@ except:
     if conf.VERBOSE: print(f'Done checking. Shortened {count_short} band names.')
 
 
-def make_psf(multiband_only=False, single_band=None, override=False, psfex_only=False):
+def make_psf(multiband_only=False, single_band=None, override=False, sextractor_only=False, psfex_only=False):
 
     if not multiband_only:
         # Detection
         if conf.VERBOSE: print(f'Making PSF for {conf.MODELING_NICKNAME}')
         detmosaic = Mosaic(conf.MODELING_NICKNAME, modeling=True, mag_zeropoint=conf.MODELING_ZPT)
         if conf.VERBOSE: print(f'Mosaic loaded for {conf.MODELING_NICKNAME}')
-        detmosaic._make_psf(xlims=conf.DET_REFF_LIMITS, ylims=conf.DET_VAL_LIMITS, override=override, psfex_only=psfex_only)
+        detmosaic._make_psf(xlims=conf.DET_REFF_LIMITS, ylims=conf.DET_VAL_LIMITS, override=override, sextractor_only=sextractor_only, psfex_only=psfex_only)
         if conf.VERBOSE: print(f'PSF made successfully for {conf.MODELING_NICKNAME}')
 
     # Bands
@@ -108,7 +108,7 @@ def make_psf(multiband_only=False, single_band=None, override=False, psfex_only=
         if conf.VERBOSE: print(f'Making PSF for {conf.MULTIBAND_NICKNAME} band {band}')
         bandmosaic = Mosaic(band, mag_zeropoint = mag_zpt)
         if conf.VERBOSE: print(f'Mosaic loaded for {conf.MULTIBAND_NICKNAME}')
-        bandmosaic._make_psf(xlims=multi_xlims, ylims=multi_ylims, override=override, psfex_only=psfex_only)
+        bandmosaic._make_psf(xlims=multi_xlims, ylims=multi_ylims, override=override, sextractor_only=sextractor_only, psfex_only=psfex_only)
         if conf.VERBOSE: print(f'PSF made successfully for {conf.MULTIBAND_NICKNAME}')
 
 
