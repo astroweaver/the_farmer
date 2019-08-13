@@ -96,7 +96,7 @@ class Mosaic(Subimage):
         
         super().__init__()
 
-    def _make_psf(self, xlims, ylims, override=False, psfex_only=False):
+    def _make_psf(self, xlims, ylims, override=False, sextractor_only=False, psfex_only=False):
 
         # Set filenames
         psf_dir = conf.PSF_DIR
@@ -158,7 +158,8 @@ class Mosaic(Subimage):
             hdul_ldac.writeto(psf_cat, overwrite=override)
 
             # RUN PSF
-            os.system(f'psfex {psf_cat} -c config/config.psfex -BASIS_TYPE PIXEL -PSF_SIZE 101,101 -PSF_DIR {psf_dir} -WRITE_XML Y -XML_NAME {path_savexml} -CHECKIMAGE_NAME {path_savechkimg} -CHECKPLOT_NAME {path_savechkplt}')
+            if not sextractor_only:
+                os.system(f'psfex {psf_cat} -c config/config.psfex -BASIS_TYPE PIXEL -PSF_SIZE 101,101 -PSF_DIR {psf_dir} -WRITE_XML Y -XML_NAME {path_savexml} -CHECKIMAGE_NAME {path_savechkimg} -CHECKPLOT_NAME {path_savechkplt}')
         
         else:
             if conf.VERBOSE: print('No PSF attempted. PSF already exists and override is off')
