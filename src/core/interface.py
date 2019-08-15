@@ -609,12 +609,10 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
         if conf.VERBOSE: print('WARNING - Multithreading not supported while forcing models!')
 
     # for fband in band:
-    fbrick = stage_brickfiles(brick_id, nickname=conf.MULTIBAND_NICKNAME, band=band, detection=False)
+    
+    fband = list(band)
 
-    if band is None:
-        fband = conf.BANDS.copy()
-    else:
-        fband = list(band)
+    fbrick = stage_brickfiles(brick_id, nickname=conf.MULTIBAND_NICKNAME, band=fband, detection=False)
 
     if conf.VERBOSE: print(f'{fband} brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
 
