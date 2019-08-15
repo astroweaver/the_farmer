@@ -105,11 +105,14 @@ def make_psf(multiband_only=False, single_band=None, override=False, sextractor_
         multi_ylims = np.array(conf.MULTIBAND_VAL_LIMITS)[idx_band][0]
         mag_zpt = np.array(conf.MULTIBAND_ZPT)[idx_band][0]
 
-        if conf.VERBOSE: print(f'Making PSF for {conf.MULTIBAND_NICKNAME} band {band}')
+        if conf.VERBOSE: print(f'Making PSF for {band}')
         bandmosaic = Mosaic(band, mag_zeropoint = mag_zpt)
-        if conf.VERBOSE: print(f'Mosaic loaded for {conf.MULTIBAND_NICKNAME}')
+        if conf.VERBOSE: print(f'Mosaic loaded for {band}')
         bandmosaic._make_psf(xlims=multi_xlims, ylims=multi_ylims, override=override, sextractor_only=sextractor_only, psfex_only=psfex_only)
-        if conf.VERBOSE: print(f'PSF made successfully for {conf.MULTIBAND_NICKNAME}')
+        if not sextractor_only:
+            if conf.VERBOSE: print(f'PSF made successfully for {band}')
+        else:
+            if conf.VERBOSE: print(f'SExtraction complete for {band}')
 
 
     return
@@ -611,7 +614,8 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
     if band is None:
         fband = conf.BANDS.copy()
     else:
-        fband = [band,]
+        fband = list(band)
+
     if conf.VERBOSE: print(f'{fband} brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
 
     if conf.PLOT2:
