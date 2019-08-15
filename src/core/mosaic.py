@@ -160,7 +160,13 @@ class Mosaic(Subimage):
             # RUN PSF
             if not sextractor_only:
                 os.system(f'psfex {psf_cat} -c config/config.psfex -BASIS_TYPE PIXEL -PSF_SIZE 101,101 -PSF_DIR {psf_dir} -WRITE_XML Y -XML_NAME {path_savexml} -CHECKIMAGE_NAME {path_savechkimg} -CHECKPLOT_NAME {path_savechkplt}')
-        
+                try:
+                    oldpath = os.path.join(psf_dir, band+"_clean.psf")
+                    newpath = os.path.join(psf_dir, band+".psf")
+                    if conf.VERBOSE: print(f'Moving {oldpath} to {newpath}')
+                    os.system(f'mv {oldpath} {newpath}')
+                except:
+                    if conf.VERBOSE: print(f'WARNING -- Could not move {oldpath} to {newpath} ')
         else:
             if conf.VERBOSE: print('No PSF attempted. PSF already exists and override is off')
         
