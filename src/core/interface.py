@@ -509,6 +509,8 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
     hdul.close()
 
     tstart = time.time()
+    
+    # Run a specific source or blob
     if (source_id is not None) | (blob_id is not None):
         # conf.PLOT = True
         outcatalog = modbrick.catalog.copy()
@@ -539,7 +541,8 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
         outcatalog.write(os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat'), format='fits', overwrite=conf.OVERWRITE)
 
         return
-
+    
+    # Else, production mode -- all objects in brick are to be run.
     else:
 
         if conf.NBLOBS > 0:
@@ -597,6 +600,12 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
         # outcatalog['y'] += outcatalog['y'] + mosaic_origin[0] - conf.BRICK_BUFFER + 1.
         outcatalog.write(os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat'), format='fits', overwrite=conf.OVERWRITE)
 
+        # If user wants model and/or residual images made:
+        if conf.MAKE_MODEL_IMAGE:
+            modbrick.make_model_image(outcatalog)
+        if conf.MAKE_RESIDUAL_IMAGE:
+            modbrick.make_residual_image()
+
         return
     
 
@@ -618,7 +627,8 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
         elif type(band) == str:
             fband = [band,]
         else:
-            print('ERROR -- Input band is not a list, array, or string!')
+            sys.exit('ERROR -- Input band is not a list, array, or string!')
+            
 
     fbrick = stage_brickfiles(brick_id, nickname=conf.MULTIBAND_NICKNAME, band=fband, detection=False)
 
@@ -780,6 +790,9 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
                 # save
                 mastercat.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat'), format='fits', overwrite=conf.OVERWRITE)
                 if conf.VERBOSE: print(f'Saving results for brick #{fbrick.brick_id} to existing catalog file.')
+
+                outcatalog = mastercat
+
         else:
                 
             for colname in output_cat.colnames:
@@ -804,6 +817,14 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
             # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
             fbrick.catalog.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{mode_ext}.cat'), format='fits', overwrite=conf.OVERWRITE)
             if conf.VERBOSE: print(f'Saving results for brick #{fbrick.brick_id} to new {fbrick.bands} catalog file.')
+
+            outcatalog = fbrick.catalog
+
+        # If user wants model and/or residual images made:
+        if conf.MAKE_MODEL_IMAGE:
+            modbrick.make_model_image(outcatalog)
+        if conf.MAKE_RESIDUAL_IMAGE:
+            modbrick.make_residual_image()
 
     return
 
