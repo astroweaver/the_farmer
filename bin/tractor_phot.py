@@ -4,7 +4,7 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.getcwd(), 'src'))
 sys.path.insert(0, os.path.join(os.getcwd(), 'config'))
-from core import interface
+from src.core import interface
 import config as conf
 
 # if len(sys.argv) == 2:
@@ -19,5 +19,7 @@ bricknum = int(sys.argv[1])
 interface.make_models(bricknum)
 
 # force it
-for band in conf.BANDS:
-    interface.force_models(brick_id=bricknum, band=band, insert=True)
+# for band in conf.BANDS:
+#     interface.force_models(brick_id=bricknum, band=band, insert=True)
+
+interface.force_models(brick_id=bricknum, band=None, insert=True)
