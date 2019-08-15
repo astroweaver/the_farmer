@@ -610,7 +610,15 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
 
     # for fband in band:
     
-    fband = list(band)
+    if band is None:
+        fband = conf.BANDS
+    else:
+        if (type(band) == list) | (type(band) == np.array):
+            fband = band
+        elif type(band) == str:
+            fband = [band,]
+        else:
+            print('ERROR -- Input band is not a list, array, or string!')
 
     fbrick = stage_brickfiles(brick_id, nickname=conf.MULTIBAND_NICKNAME, band=fband, detection=False)
 
@@ -811,7 +819,10 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, detection=False)
     elif band is None:
         sbands = conf.BANDS
     else:
-        sbands = [band,]
+        if type(band) == list:
+            sbands = band
+        else:
+            sbands = [band,]
 
     if os.path.exists(path_brickfile):
         # Stage things
