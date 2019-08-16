@@ -885,10 +885,10 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, detection=False)
         newbrick.catalog = catalog
         newbrick.n_sources = len(catalog)
         newbrick.n_blobs = catalog['blob_id'].max()
-        try:
-            newbrick.add_columns(band_only=True)
-        except:
-            if conf.VERBOSE: print('WARNING - could not add new columns. Overwrting old ones!')
+        #try:
+        newbrick.add_columns(band_only=True)
+        #except:
+        #    if conf.VERBOSE: print('WARNING - could not add new columns. Overwrting old ones!')
         hdul_seg = fits.open(os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits'))
         newbrick.segmap = hdul_seg['SEGMAP'].data
         newbrick.blobmap = hdul_seg['BLOBMAP'].data 
