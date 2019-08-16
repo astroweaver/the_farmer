@@ -473,17 +473,17 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
 
     if conf.VERBOSE:
         print()
-        print(f'Brick #{brick_id} -- Image statistics')
+        print(f'Brick #{brick_id} -- Image statistics for {conf.MODELING_NICKNAME}')
         shape, minmax, mean, var = stats.describe(modbrick.images[0], axis=None)[:4]
         print(f'    Limits: {minmax[0]:3.3f} - {minmax[1]:3.3f}')
         print(f'    Mean: {mean:3.3f}+/-{np.sqrt(var):3.3f}')
         print()
-        print(f'Brick #{brick_id} -- Weight statistics')
+        print(f'Brick #{brick_id} -- Weight statistics for {conf.MODELING_NICKNAME}')
         shape, minmax, mean, var = stats.describe(modbrick.weights[0], axis=None)[:4]
         print(f'    Limits: {minmax[0]:3.3f} - {minmax[1]:3.3f}')
         print(f'    Mean: {mean:3.3f}+/-{np.sqrt(var):3.3f}')
         print()
-        print(f'Brick #{brick_id} -- Background statistics')
+        print(f'Brick #{brick_id} -- Background statistics for {conf.MODELING_NICKNAME}')
         print(f'    Global: {modbrick.backgrounds[0, 0]:3.3f}')
         print(f'    RMS: {modbrick.backgrounds[0, 1]:3.3f}')
 
@@ -646,17 +646,17 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
     if conf.VERBOSE:
         for i, vb_band in enumerate(fband):
             print()
-            print(f'Brick #{brick_id} -- Image statistics')
+            print(f'Brick #{brick_id} -- Image statistics for {vb_band}')
             shape, minmax, mean, var = stats.describe(fbrick.images[i], axis=None)[:4]
             print(f'    Limits: {minmax[0]:3.3f} - {minmax[1]:3.3f}')
             print(f'    Mean: {mean:3.3f}+/-{np.sqrt(var):3.3f}')
             print()
-            print(f'Brick #{brick_id} -- Weight statistics')
+            print(f'Brick #{brick_id} -- Weight statistics for {vb_band}')
             shape, minmax, mean, var = stats.describe(fbrick.weights[i], axis=None)[:4]
             print(f'    Limits: {minmax[0]:3.3f} - {minmax[1]:3.3f}')
             print(f'    Mean: {mean:3.3f}+/-{np.sqrt(var):3.3f}')
             print()
-            print(f'Brick #{brick_id} -- Background statistics')
+            print(f'Brick #{brick_id} -- Background statistics for {vb_band}')
             print(f'    Global: {fbrick.backgrounds[i, 0]:3.3f}')
             print(f'    RMS: {fbrick.backgrounds[i, 1]:3.3f}')
             
