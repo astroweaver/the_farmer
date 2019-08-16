@@ -624,7 +624,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
     else:
         if (type(band) == list) | (type(band) == np.array):
             fband = band
-        elif type(band) == str:
+        elif (type(band) == str) | (type(band) == np.str_):
             fband = [band,]
         else:
             sys.exit('ERROR -- Input band is not a list, array, or string!')
