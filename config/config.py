@@ -1,0 +1,74 @@
+##### CONFIGURATION FILE #####
+
+# FILE LOCATIONS
+IMAGE_DIR = '/Volumes/WD4/Current/tractor_pipeline/data/external'
+CATALOG_DIR = '/Volumes/WD4/Current/tractor_pipeline/data/catalogs'
+INTERIM_DIR = '/Volumes/WD4/Current/tractor_pipeline/data/interim'
+BRICK_DIR = '/Volumes/WD4/Current/tractor_pipeline/data/bricks'
+
+DETECTION_NICKNAME = 'DETECTION'
+DETECTION_FILENAME = 'mosaic_hsc_i.EXT.fits' # fill with 'EXT'
+MULTIBAND_NICKNAME = 'MULTIBAND'
+MULTIBAND_FILENAME = 'mosaic_BAND.EXT.fits' # fill with 'BAND' and 'EXT'
+BANDS = ['hsc_i', 'hsc_z']
+
+IMAGE_EXT = 'img'
+WEIGHT_EXT = 'wht'
+MASK_EXT = 'mask'
+
+VERBOSE = True
+VERBOSE2 = True
+NTHREADS = 0
+NBLOBS = 10
+PLOT = True
+PLOT_DIR = '/Volumes/WD4/Current/tractor_pipeline/data/figures'
+
+# SOURCE DETECTION WITH SEXTRACTOR
+BW = 3
+BH = 3
+THRESH = 1.5 # <sigma>
+MINAREA = 5 
+FILTER_KERNEL = "gauss_3.0_5x5.conv"
+FILTER_TYPE = 'matched'
+DEBLEND_NTHRESH = 32
+DEBLEND_CONT = 0.00001
+
+# PSF MAKER
+PSF_DIR = '/Volumes/WD4/Current/tractor_pipeline/data/psfmodels/vihang'
+DET_REFF_LIMITS = (4.1, 5.1)
+DET_VAL_LIMITS = (18.5, 20.5) 
+
+# IMAGE PARAMETERS
+PIXEL_SCALE = 0.15  # This is optional...yes?
+
+# APERTURE PHOTOMETRY
+DO_APPHOT = False
+APER_PHOT = [1., 2., 3., 4., 5.]
+
+# BUFFERS AND SEGMENT DILATION
+BRICK_WIDTH = 2000
+BRICK_HEIGHT = 2000
+BRICK_BUFFER = 100
+BLOB_BUFFER = 10
+DILATION_RADIUS = 4
+
+MOSAIC_WIDTH = 50000
+MOSAIC_HEIGHT = 50000
+
+# TRACTOR OPTIMIZATION
+TRACTOR_MAXSTEPS = 100
+TRACTOR_CONTHRESH = 1E-1
+USE_REDUCEDCHISQ = True
+EXP_DEV_THRESH = 1
+FREEZE_POSITION = False
+
+# RESIDUAL SOURCE DETECTION WITH SEXTRACTOR
+DO_SEXPHOT = False
+RES_THRESH = 5 # <sigma>
+RES_MINAREA = 5
+RES_DEBLEND_NTHRESH = 10
+RES_DEBLEND_CONT = 0.0001
+
+# BAD BLOB REJECTION
+SPARSE_THRESH = 0.85
+SPARSE_SIZE = 1000

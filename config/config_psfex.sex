@@ -1,0 +1,90 @@
+# Default configuration file for SExtractor 2.19.5
+
+#-------------------------------- Catalog ------------------------------------
+
+CATALOG_NAME     temp.cat       # name of the output catalog
+CATALOG_TYPE     FITS_LDAC      # NONE,ASCII,ASCII_HEAD, ASCII_SKYCAT,
+                                # ASCII_VOTABLE, FITS_1.0 or FITS_LDAC
+PARAMETERS_NAME  config/param_psfex.sex # name of the file containing catalog contents
+
+#------------------------------- Extraction ----------------------------------
+
+DETECT_TYPE      CCD            # CCD (linear) or PHOTO (with gamma correction)
+DETECT_MINAREA   5              # min. # of pixels above threshold
+DETECT_MAXAREA   100000         # max. # of pixels above threshold (0=unlimited)
+THRESH_TYPE      RELATIVE       # threshold type: RELATIVE (in sigmas)
+                                # or ABSOLUTE (in ADUs)
+DETECT_THRESH    20             # <sigmas> or <threshold>,<ZP> in mag.arcsec-2
+ANALYSIS_THRESH  20             # <sigmas> or <threshold>,<ZP> in mag.arcsec-2
+
+FILTER           N              # apply filter for detection (Y or N)?
+FILTER_NAME      config/default.conv
+                                # name of the file containing the filter
+
+DEBLEND_NTHRESH  32             # Number of deblending sub-thresholds
+DEBLEND_MINCONT  0.00001        # Minimum contrast parameter for deblending
+
+CLEAN            Y              # Clean spurious detections? (Y or N)?
+CLEAN_PARAM      1.0            # Cleaning efficiency
+
+MASK_TYPE        CORRECT        # type of detection MASKing: can be one of
+                                # NONE, BLANK or CORRECT
+
+#-------------------------------- WEIGHTing ----------------------------------
+
+WEIGHT_TYPE      NONE
+                                # type of WEIGHTing: NONE, BACKGROUND,
+                                # MAP_RMS, MAP_VAR or MAP_WEIGHT
+RESCALE_WEIGHTS  N              # Rescale input weights/variances (Y/N)?
+WEIGHT_IMAGE     weight.fits    # weight-map filename
+WEIGHT_GAIN      N              # modulate gain (E/ADU) with weights? (Y/N)
+
+#------------------------------ Photometry -----------------------------------
+
+PHOT_APERTURES   20             # MAG_APER aperture diameter(s) in pixels
+PHOT_AUTOPARAMS  2.5, 3.5       # MAG_AUTO parameters: <Kron_fact>,<min_radius>
+PHOT_PETROPARAMS 2.0, 3.5       # MAG_PETRO parameters: <Petrosian_fact>,
+                                # <min_radius>
+PHOT_AUTOAPERS   0.0,0.0        # <estimation>,<measurement> minimum apertures
+                                # for MAG_AUTO and MAG_PETRO
+PHOT_FLUXFRAC    0.5            # flux fraction[s] used for FLUX_RADIUS
+
+SATUR_LEVEL      50000          # level (in ADUs) at which arises saturation
+SATUR_KEY        DUMMY          # keyword for saturation level (in ADUs)
+
+MAG_ZEROPOINT    0.0            # magnitude zero-point
+MAG_GAMMA        1.0            # gamma of emulsion (for photographic scans)
+GAIN             0.0            # detector gain in e-/ADU
+GAIN_KEY         DUMMY          # keyword for detector gain in e-/ADU
+PIXEL_SCALE      0              # size of pixel in arcsec (0=use FITS WCS info)
+
+#------------------------------ Background -----------------------------------
+
+BACK_TYPE        MANUAL         # AUTO or MANUAL
+BACK_VALUE       0.0            # Default background value in MANUAL mode
+BACK_SIZE        128            # Background mesh: <size> or <width>,<height>
+BACK_FILTERSIZE  3              # Background filter: <size> or <width>,<height>
+
+BACKPHOTO_TYPE   LOCAL          # can be GLOBAL or LOCAL
+BACKPHOTO_THICK  30             # thickness of the background LOCAL annulus
+BACK_FILTTHRESH  0.0            # Threshold above which the background-
+                                # map filter operates
+
+#------------------------------ Check Image ----------------------------------
+
+CHECKIMAGE_TYPE  NONE           # can be NONE, BACKGROUND, BACKGROUND_RMS,
+                                # MINIBACKGROUND, MINIBACK_RMS, -BACKGROUND,
+                                # FILTERED, OBJECTS, -OBJECTS, SEGMENTATION,
+                                # or APERTURES
+CHECKIMAGE_NAME  check.fits     # Filename for the check-image
+
+#--------------------- Memory (change with caution!) -------------------------
+
+MEMORY_OBJSTACK  1000000           # number of objects in stack
+MEMORY_PIXSTACK  1000000         # number of pixels in stack
+MEMORY_BUFSIZE   20000            # number of lines in buffer
+
+#----------------------------- Miscellaneous ---------------------------------
+
+VERBOSE_TYPE     NORMAL         # can be QUIET, NORMAL or FULL
+NTHREADS         10
