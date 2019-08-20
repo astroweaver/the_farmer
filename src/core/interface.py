@@ -873,9 +873,9 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, detection=False)
         if os.path.exists(path_psffile) & (not conf.FORCE_GAUSSIAN_PSF):
             psfmodels[i] = PixelizedPsfEx(fn=path_psffile)
         else:
-            psfmodels[i] = None
             if conf.USE_GAUSSIAN_PSF:
-                raise ValueError(f'PSF model not found for {band} -- using {conf.PSF_SIGMA / conf.PIXEL_SCALE}" gaussian! ({path_psffile})')
+                psfmodels[i] = None
+                print(f'PSF model not found for {band} -- using {conf.PSF_SIGMA}" gaussian! ({path_psffile})')
             else:
                 raise ValueError(f'PSF model not found for {band}! ({path_psffile})')
 
