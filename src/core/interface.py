@@ -726,7 +726,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
             # fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
             # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
             fbrick.catalog.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{mode_ext}.cat'), format='fits', overwrite=conf.OVERWRITE)
-            if conf.VERBOSE: print(f'Saving results for brick #{fbrick.brick_id} to new {fbrick.bands} catalog file.')
+            if conf.VERBOSE: print(f'Saving results for brick #{fbrick.brick_id} to new {mode_ext} catalog file.')
 
 
     else:
@@ -816,7 +816,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
             # fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
             # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
             fbrick.catalog.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{mode_ext}.cat'), format='fits', overwrite=conf.OVERWRITE)
-            if conf.VERBOSE: print(f'Saving results for brick #{fbrick.brick_id} to new {fbrick.bands} catalog file.')
+            if conf.VERBOSE: print(f'Saving results for brick #{fbrick.brick_id} to new {mode_ext} catalog file.')
 
             outcatalog = fbrick.catalog
 
@@ -870,10 +870,14 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, detection=False)
         if band == conf.DETECTION_NICKNAME:
             continue
         path_psffile = os.path.join(conf.PSF_DIR, f'{band}.psf')
-        if os.path.exists(path_psffile):
+        if os.path.exists(path_psffile) & (not conf.FORCE_GAUSSIAN_PSF):
             psfmodels[i] = PixelizedPsfEx(fn=path_psffile)
         else:
-            raise ValueError(f'PSF model not found for {band}! ({path_psffile})')
+            psfmodels[i] = None
+            if conf.USE_GAUSSIAN_PSF:
+                raise ValueError(f'PSF model not found for {band} -- using {conf.PSF_SIGMA / conf.PIXEL_SCALE}" gaussian! ({path_psffile})')
+            else:
+                raise ValueError(f'PSF model not found for {band}! ({path_psffile})')
 
     if detection:
         images, weights, masks = images[0], weights[0], masks[0]
@@ -885,10 +889,10 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, detection=False)
         newbrick.catalog = catalog
         newbrick.n_sources = len(catalog)
         newbrick.n_blobs = catalog['blob_id'].max()
-        #try:
-        newbrick.add_columns(band_only=True)
-        #except:
-        #    if conf.VERBOSE: print('WARNING - could not add new columns. Overwrting old ones!')
+        try:
+            newbrick.add_columns(band_only=True)
+        except:
+            if conf.VERBOSE: print('WARNING - could not add new columns. Overwrting old ones!')
         hdul_seg = fits.open(os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits'))
         newbrick.segmap = hdul_seg['SEGMAP'].data
         newbrick.blobmap = hdul_seg['BLOBMAP'].data 

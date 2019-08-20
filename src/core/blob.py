@@ -127,21 +127,24 @@ class Blob(Subimage):
             tweight = weight.copy()
             tweight[mask] = 0
 
-            if band in conf.CONSTANT_PSF:
+            if band in conf.CONSTANT_PSF & (psf is not None):
                 psfmodel = psf.constantPsfAt(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.)
                 if conf.PLOT:
                     fig, ax = plt.subplots()
                     ax.imshow(psf.getImage(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.))
                     fig.savefig(os.path.join(conf.PLOT_DIR, f'{band}_psf.pdf'))
                 if conf.VERBOSE2: print(f'blob.stage_images :: Adopting constant PSF.')
-            else:
+            elif (psf is not None):
                 blob_centerx = self.blob_center[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
                 blob_centery = self.blob_center[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
                 psfmodel = psf.constantPsfAt(blob_centerx, blob_centery) # init at blob center, may need to swap!
                 if conf.VERBOSE2: print(f'blob.stage_images :: Adopting varying PSF constant at ({blob_centerx}, {blob_centery})')
-            # except:
-            #     # psfmodel = NCircularGaussianPSF([conf.PSF_SIGMA,], [1,])
-            #     raise ValueError(f'WARNING - No PSF model found for {band}!')
+            elif (psf is None):
+                if conf.USE_GUASSIAN_PSF:
+                    psfmodel = NCircularGaussianPSF([conf.PSF_SIGMA / conf.PIXEL_SCALE], [1,])
+                    if conf.VERBOSE2: print(f'blob.stage_images :: Adopting {conf.PSF_SIGMA}" Gaussian PSF constant at ({blob_centerx}, {blob_centery})')
+                else:
+                    raise ValueError(f'WARNING - No PSF model found for {band}!')
 
             timages[i] = Image(data=image,
                             invvar=tweight,
