@@ -140,7 +140,7 @@ class Blob(Subimage):
                 psfmodel = psf.constantPsfAt(blob_centerx, blob_centery) # init at blob center, may need to swap!
                 if conf.VERBOSE2: print(f'blob.stage_images :: Adopting varying PSF constant at ({blob_centerx}, {blob_centery})')
             elif (psf is None):
-                if conf.USE_GUASSIAN_PSF:
+                if conf.USE_GAUSSIAN_PSF:
                     psfmodel = NCircularGaussianPSF([conf.PSF_SIGMA / conf.PIXEL_SCALE], [1,])
                     if conf.VERBOSE2: print(f'blob.stage_images :: Adopting {conf.PSF_SIGMA}" Gaussian PSF constant at ({blob_centerx}, {blob_centery})')
                 else:
