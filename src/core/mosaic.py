@@ -161,8 +161,9 @@ class Mosaic(Subimage):
             if not sextractor_only:
                 psfvar_nsnap = 1
                 if self.bands not in conf.CONSTANT_PSF:
-                    if conf.VERBOSE: print(f'Creating spatially-varying PSF with PSFNSNAP = {psfvar_nsnap}')
                     psfvar_nsnap = conf.PSFVAR_NSNAP
+                    if conf.VERBOSE: print(f'Creating spatially-varying PSF with PSFNSNAP = {psfvar_nsnap}')
+
                 os.system(f'psfex {psf_cat} -c config/config.psfex -BASIS_TYPE PIXEL -PSF_DIR {psf_dir} -PSFVAR_NSNAP {psfvar_nsnap} -WRITE_XML Y -XML_NAME {path_savexml} -CHECKIMAGE_NAME {path_savechkimg} -CHECKPLOT_NAME {path_savechkplt}')
                 try:
                     oldpath = os.path.join(psf_dir, self.bands+"_clean.psf")

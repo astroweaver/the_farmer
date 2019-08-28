@@ -1003,6 +1003,11 @@ class Blob(Subimage):
                 self.bcatalog[row]['THETA'] = np.rad2deg(src.shape.theta)
                 self.bcatalog[row]['THETA_ERR'] = np.sqrt(self.parameter_variance[row].shape.getParams()[2])
 
+                if conf.VERBOSE2:
+                    print(f"    REFF =  {self.bcatalog[row]['REFF']:3.3f} +/- {self.bcatalog[row]['REFF_ERR']:3.3f}")
+                    print(f"    AB =    {self.bcatalog[row]['AB']:3.3f} +/- {self.bcatalog[row]['AB_ERR']:3.3f}")
+                    print(f"    THETA = {self.bcatalog[row]['THETA']:3.3f} +/- {self.bcatalog[row]['THETA_ERR']:3.3f}")
+
             elif src.name == 'FixedCompositeGalaxy':
                 self.bcatalog[row]['FRACDEV'] = src.fracDev.getValue()
                 self.bcatalog[row]['EXP_REFF'] = src.shapeExp.re
@@ -1020,3 +1025,11 @@ class Blob(Subimage):
                 # self.bcatalog[row]['reff_err'] = np.sqrt(self.parameter_variance[row][0])
                 # self.bcatalog[row]['ab_err'] = np.sqrt(self.parameter_variance[row][1])
                 # self.bcatalog[row]['phi_err'] = np.sqrt(self.parameter_variance[row][2])
+
+                if conf.VERBOSE2:
+                    print(f"    EXP_REFF =  {self.bcatalog[row]['EXP_REFF']:3.3f} +/- {self.bcatalog[row]['EXP_REFF_ERR']:3.3f}")
+                    print(f"    EXP_AB =    {self.bcatalog[row]['EXP_AB']:3.3f} +/- {self.bcatalog[row]['EXP_AB_ERR']:3.3f}")
+                    print(f"    EXP_THETA = {self.bcatalog[row]['EXP_THETA']:3.3f} +/- {self.bcatalog[row]['EXP_THETA_ERR']:3.3f}")
+                    print(f"    DEV_REFF =  {self.bcatalog[row]['DEV_REFF']:3.3f} +/- {self.bcatalog[row]['DEV_REFF_ERR']:3.3f}")
+                    print(f"    DEV_AB =    {self.bcatalog[row]['DEV_AB']:3.3f} +/- {self.bcatalog[row]['DEV_AB_ERR']:3.3f}")
+                    print(f"    DEV_THETA = {self.bcatalog[row]['DEV_THETA']:3.3f} +/- {self.bcatalog[row]['DEV_THETA_ERR']:3.3f}")
