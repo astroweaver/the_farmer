@@ -33,7 +33,7 @@ import sep
 from matplotlib.colors import LogNorm
 
 from .subimage import Subimage
-from .utils import SimpleGalaxy, plot_detblob, plot_fblob
+from .utils import SimpleGalaxy, plot_detblob, plot_fblob, plot_psf
 import config as conf
 
 
@@ -125,19 +125,20 @@ class Blob(Subimage):
         for i, (image, weight, mask, psf, band) in enumerate(zip(self.images, self.weights, self.masks, self.psfmodels, self.bands)):
             if conf.VERBOSE2: print(f'blob.stage_images :: Staging image for {band}')
             tweight = weight.copy()
-            tweight[mask] = 0
+            if conf.APPLY_SEGMASK:
+                tweight[mask] = 0
 
             if (band in conf.CONSTANT_PSF) & (psf is not None):
                 psfmodel = psf.constantPsfAt(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.)
-                if conf.PLOT:
-                    fig, ax = plt.subplots()
-                    ax.imshow(psf.getImage(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.))
-                    fig.savefig(os.path.join(conf.PLOT_DIR, f'{band}_psf.pdf'))
+                if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):  # edge case :: force is off but use is on..
+                    psfmodel.img /= psfmodel.img.sum() # HACK -- force normalization to 1
                 if conf.VERBOSE2: print(f'blob.stage_images :: Adopting constant PSF.')
             elif (psf is not None):
                 blob_centerx = self.blob_center[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
                 blob_centery = self.blob_center[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
                 psfmodel = psf.constantPsfAt(blob_centerx, blob_centery) # init at blob center, may need to swap!
+                if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
+                    psfmodel.img /= psfmodel.img.sum() # HACK -- force normalization to 1
                 if conf.VERBOSE2: print(f'blob.stage_images :: Adopting varying PSF constant at ({blob_centerx}, {blob_centery}).')
             elif (psf is None):
                 if conf.USE_GAUSSIAN_PSF:
@@ -146,12 +147,16 @@ class Blob(Subimage):
                 else:
                     raise ValueError(f'WARNING - No PSF model found for {band}!')
 
+            if conf.PLOT & (psf is not None):
+                psfimg = psfmodel.getImage(0, 0)
+                plot_psf(psfimg, band, show_gaussian=True)
+                    
             timages[i] = Image(data=image,
                             invvar=tweight,
                             psf=psfmodel,
                             wcs=NullWCS(),
                             photocal=FluxesPhotoCal(band),
-                            sky=ConstantSky(0.))
+                            sky=ConstantSky(0))
 
         self.timages = timages
 
@@ -591,6 +596,7 @@ class Blob(Subimage):
         self.n_converge = 0
         dlnp_init = 'NaN'
         tstart = time()
+        
         for i in range(conf.TRACTOR_MAXSTEPS):
             try:
                 dlnp, X, alpha, var = tr.optimize(shared_params=False, variance=True)
@@ -604,7 +610,7 @@ class Blob(Subimage):
                 if conf.VERBOSE: print(f'blob.optimize_tractor :: Converged in {i} steps ({dlnp_init:2.2f} --> {dlnp:2.2f}) ({time() - tstart:3.3f}s)')
                 self.n_converge = i
                 break
-                
+            
 
         if var is None:
             if conf.VERBOSE: print(f'WARNING - VAR is NONE for blob #{self.blob_id}')
@@ -641,21 +647,31 @@ class Blob(Subimage):
 
     def aperture_phot(self, band, image_type=None, sub_background=False):
         # Allow user to enter image (i.e. image, residual, model...)
+        if conf.VERBOSE: 
+            print()
+            print(f'blob.aperture_phot :: Performing aperture photometry on {band} {image_type}...')
 
-        if image_type not in ('image', 'model', 'residual'):
-            raise TypeError("image_type must be 'image', 'model' or 'residual'")
+        if image_type not in ('image', 'model', 'isomodel', 'residual'):
+            raise TypeError("image_type must be 'image', 'model', 'isomodel', or 'residual'")
             return
 
         idx = np.argwhere(self.bands == band)[0][0]
+        use_iso = False
 
         if image_type == 'image':
-            image = self.images[idx]
+            image = self.images[idx] 
 
         elif image_type == 'model':
             image = self.solution_tractor.getModelImage(idx)
+        
+        elif image_type == 'isomodel':
+            use_iso = True
 
         elif image_type == 'residual':
-            image = self.images[idx] - self.solution_tractor.getModelImage(idx)
+            image = (self.images[idx] - self.solution_tractor.getModelImage(idx))
+        
+        if conf.APER_APPLY_SEGMASK & (not use_iso):
+            image *= self.masks[self.band2idx(band)]
 
         background = self.backgrounds[idx]
 
@@ -672,7 +688,7 @@ class Blob(Subimage):
             tweight[self.masks[idx]] = 0  # Well this isn't going to go well.
             var = 1. / tweight # TODO: WRITE TO UTILS
 
-        if sub_background:
+        if sub_background & (not use_iso):
             image -= self.background_images[idx]
 
         cat = self.solution_catalog
@@ -680,12 +696,12 @@ class Blob(Subimage):
         apxy = xxyy - 1.
 
         apertures_arcsec = np.array(conf.APER_PHOT)
-        apertures = apertures_arcsec / self.pixel_scale
+        apertures = apertures_arcsec / self.pixel_scale / 2. # diameter in arcsec -> radius in pixels
 
         apflux = np.zeros((len(cat), len(apertures)), np.float32)
         apflux_err = np.zeros((len(cat), len(apertures)), np.float32)
 
-        H,W = image.shape
+        H,W = self.images[0].shape
         Iap = np.flatnonzero((apxy[0,:] >= 0)   * (apxy[1,:] >= 0) *
                             (apxy[0,:] <= W-1) * (apxy[1,:] <= H-1))
 
@@ -695,13 +711,57 @@ class Blob(Subimage):
             imgerr = np.sqrt(var)
 
         for i, rad in enumerate(apertures):
-            aper = photutils.CircularAperture(apxy[:,Iap], rad)
-            p = photutils.aperture_photometry(image, aper, error=imgerr)
-            apflux[:, i] = p.field('aperture_sum')
-            if var is None:
-                apflux_err[:, i] = -99 * np.ones_like(apflux[:, i])
-            else:
-                apflux_err[:, i] = p.field('aperture_sum_err')
+            if not use_iso: # Run with all models in image
+                aper = photutils.CircularAperture(apxy[:,Iap], rad)
+                if conf.VERBOSE: print(f'blob.aperture_phot :: Measuring {apertures_arcsec[i]:2.2f}" aperture flux on {len(cat)} sources.')
+                p = photutils.aperture_photometry(image, aper, error=imgerr)
+                # aper.plot()
+                apflux[:, i] = p.field('aperture_sum')
+                if var is None:
+                    apflux_err[:, i] = -99 * np.ones_like(apflux[:, i])
+                else:
+                    apflux_err[:, i] = p.field('aperture_sum_err')
+            for j, src in enumerate(cat):
+                if use_iso: # Run with only one model in image
+                    aper = photutils.CircularAperture(apxy[:,j], rad)
+                    image = self.solution_tractor.getModelImage(idx, srcs=[src,])
+                    if conf.APER_APPLY_SEGMASK:
+                        image *= self.masks[self.band2idx(band)]
+                    if sub_background:
+                        image -= self.background_images[idx]
+                    if conf.VERBOSE: print(f'blob.aperture_phot :: Measuring {apertures_arcsec[i]:2.2f}" aperture flux on 1 source of {len(cat)}.')
+                    p = photutils.aperture_photometry(image, aper, error=imgerr)
+                    # aper.plot()
+                    apflux[j, i] = p.field('aperture_sum')
+                    if var is None:
+                        apflux_err[j, i] = -99 * np.ones_like(apflux[j, i])
+                    else:
+                        apflux_err[j, i] = p.field('aperture_sum_err')
+
+                if conf.VERBOSE: 
+                    apmag = - 2.5 * np.log10( apflux[j,i] ) + conf.MULTIBAND_ZPT[self._band2idx(band)]
+                    apmag_err = 1.09 * apflux_err[j, i] / apflux[j, i]
+                    print(f'        Flux({j}, {band}, {apertures_arcsec[i]:2.2f}") = {apflux[j,i]:3.3f}/-{apflux_err[j,i]:3.3f}')
+                    print(f'        Mag({j}, {band}, {apertures_arcsec[i]:2.2f}") = {apmag:3.3f}/-{apmag_err:3.3f}')
+
+        # if image_type == 'image':
+            
+        #     plt.figure()
+        #     col = 'royalblue'
+        # if image_type == 'model':
+        #     col = 'orange'
+        # if image_type == 'residual':
+        #     col = 'brown'
+        
+        # plt.ion()
+        # area = np.pi * apertures_arcsec**2
+        # plt.plot(apertures_arcsec, apflux[0]/area, color=col, label=image_type)
+        # plt.axhline(0, color='k', ls='dotted')
+        # plt.axhline(self.backgrounds[0][0])
+        # #plt.axhline(self.bcatalog['FLUX_'+band], color='red')
+        # plt.legend()
+        # plt.savefig(os.path.join(conf.PLOT_DIR, f'{band}_{self.blob_id}_NORM_{conf.NORMALIZE_PSF}_GAUSS_{conf.FORCE_GAUSSIAN_PSF}_SEGMASK_{conf.APPLY_SEGMASK}_SURFBRI.pdf'))
+
 
         band = band.replace(' ', '_')
         if f'FLUX_APER_{band}_{image_type}' not in self.bcatalog.colnames:
@@ -792,6 +852,7 @@ class Blob(Subimage):
 
         # Optimize
         status = self.optimize_tractor()
+        if conf.VERBOSE: print()
 
         if not status:
             return status
@@ -810,10 +871,21 @@ class Blob(Subimage):
             if conf.VERBOSE2: print(f'Source #{src["source_id"]}: {self.solution_catalog[i].name} model at {self.solution_catalog[i].pos}')
             if self.solution_catalog[i].name not in ('PointSource', 'SimpleGalaxy'):
                 if self.solution_catalog[i].name == 'FixedCompositeGalaxy':
-                    if conf.VERBOSE2: print(f'               {self.solution_catalog[i].shapeExp}')
-                    if conf.VERBOSE2: print(f'               {self.solution_catalog[i].shapeDev}')
+                    if conf.VERBOSE2: 
+                        shapeExp, shapeExp_err = self.solution_catalog[i].shapeExp, self.forced_variance[i].shapeExp.getParams('shapeExp')
+                        shapeDev, shapeDev_err = self.solution_catalog[i].shapeDev, self.forced_variance[i].shapeDev.getParams('shapeDev')
+                        print(f'    ShapeExp -- Log(Reff): {shapeExp.re:3.3f} +/- {shapeExp_err.re:3.3f}')
+                        print(f'    ShapeExp -- ee1:       {shapeExp.ee1:3.3f} +/- {shapeExp_err.ee1:3.3f}')
+                        print(f'    ShapeExp -- ee2:       {shapeExp.ee2:3.3f} +/- {shapeExp_err.ee2:3.3f}')
+                        print(f'    ShapeDev -- Log(Reff): {shapeDev.re:3.3f} +/- {shapeDev_err.re:3.3f}')
+                        print(f'    ShapeDev -- ee1:       {shapeDev.ee1:3.3f} +/- {shapeDev_err.ee1:3.3f}')
+                        print(f'    ShapeDev -- ee2:       {shapeDev.ee2:3.3f} +/- {shapeDev_err.ee2:3.3f}')
                 else:
-                    if conf.VERBOSE2: print(f'               {self.solution_catalog[i].shape}')
+                    if conf.VERBOSE2:
+                        shape, shape_err = self.solution_catalog[i].shape, self.forced_variance[i].shape
+                        print(f'    Shape -- Log(Reff): {shape.re:3.3f} +/- {shape_err.re:3.3f}')
+                        print(f'    Shape -- ee1:       {shape.ee1:3.3f} +/- {shape_err.ee1:3.3f}')
+                        print(f'    Shape -- ee2:       {shape.ee2:3.3f} +/- {shape_err.ee2:3.3f}')
             for j, band in enumerate(self.bands):
                 totalchisq = np.sum((self.tr.getChiImage(j)[self.segmap == src['source_id']])**2)
                 m_param = self.model_catalog[i].numberOfParams()
@@ -827,10 +899,14 @@ class Blob(Subimage):
                 # if np.median(residual[self.masks[0]]) < 0:
                 #     if conf.VERBOSE2: print(f'Applying heavy penalty on source #{i+1} ({self.model_catalog[i].name})!')
                 #     totalchisq = 1E30
-                if conf.VERBOSE2: print(f'Source #{src["source_id"]} with {self.model_catalog[i].name} has chisq={totalchisq:3.3f}')
-                if conf.VERBOSE2: print(f'               Fluxes: {self.bands[j]}={self.solution_catalog[i].getBrightness().getFlux(self.bands[j]):3.3f}') 
-                if conf.VERBOSE2: print(f'               Chisq:  {self.bands[j]}={totalchisq:3.3f}')
-                if conf.VERBOSE2: print(f'               BIC:  {self.bands[j]}={self.solution_bic[i, j]:3.3f}')
+                if conf.VERBOSE2: 
+                    flux = self.solution_catalog[i].getBrightness().getFlux(self.bands[j])
+                    fluxerr = np.sqrt(self.forced_variance[i].brightness.getParams()[j])
+                    print()
+                    print(f'Source #{src["source_id"]} in {self.bands[j]}')
+                    print(f'    Flux({self.bands[j]}):  {flux:3.3f} +/- {fluxerr:3.3f}') 
+                    print(f'    Chisq({self.bands[j]}): {totalchisq:3.3f}')
+                    print(f'    BIC({self.bands[j]}):   {self.solution_bic[i, j]:3.3f}')
 
 
         # self.rows = np.zeros(len(self.solution_catalog))
@@ -881,14 +957,15 @@ class Blob(Subimage):
                 valid_source = False
 
             if conf.VERBOSE2:
-                print()
                 mag, magerr = self.bcatalog[row]['MAG_'+band], self.bcatalog[row]['MAGERR_'+band]
                 flux, fluxerr = self.bcatalog[row]['FLUX_'+band], self.bcatalog[row]['FLUXERR_'+band]
                 chisq, bic = self.bcatalog[row]['CHISQ_'+band], self.bcatalog[row]['BIC_'+band]
-                print(f'     MAG_{band} = {mag:3.3f} +/- {magerr:3.3f}')
-                print(f'     FLUX_{band} = {flux:3.3f} +/- {fluxerr:3.3f}')
-                print(f'     CHISQ_{band} = {chisq:3.3f} | BIC_{band} = {bic:3.3f}')
-                print(f'     ZPT_{band} = {zpt:3.3f}')
+                print(f'    MAG({band}):   {mag:3.3f} +/- {magerr:3.3f}')
+                print(f'    FLUX({band}):  {flux:3.3f} +/- {fluxerr:3.3f}')
+                print(f'    CHISQ({band}): {chisq:3.3f}')
+                print(f'    BIC({band}):   {bic:3.3f}')
+                print(f'    ZPT({band}):   {zpt:3.3f}')
+                print()
 
         if not multiband_only:
             # Position information
@@ -897,13 +974,13 @@ class Blob(Subimage):
             self.bcatalog[row]['X_MODEL'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
             self.bcatalog[row]['Y_MODEL'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
             if conf.VERBOSE2:
-                print()
                 print(f"     xy = {self.bcatalog[row]['x']}, {self.bcatalog[row]['y']}")
                 print(f"     src.pos = {src.pos[0]}, {src.pos[1]}")
                 print(f"     subvector = {self.subvector[1]}, {self.subvector[0]}")
                 print(f"     mosaic_origin = {self.mosaic_origin[1]}, {self.mosaic_origin[0]}")
                 print(f"     brick_buffer = {conf.BRICK_BUFFER}")
                 print(f"     XY_MODEL = {self.bcatalog[row]['X_MODEL']}, {self.bcatalog[row]['Y_MODEL']}")
+                print()
             self.bcatalog[row]['XERR_MODEL'] = np.sqrt(self.position_variance[row].pos.getParams()[0])
             self.bcatalog[row]['YERR_MODEL'] = np.sqrt(self.position_variance[row].pos.getParams()[1])
             if self.wcs is not None:

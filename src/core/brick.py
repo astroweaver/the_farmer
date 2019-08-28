@@ -124,6 +124,7 @@ class Brick(Subimage):
         filler = np.zeros(len(self.catalog))
         for colname in self.bands:
             colname = colname.replace(' ', '_')
+            print(f'ADDING COLUMNS FOR {colname}')
             self.catalog.add_column(Column(filler, name=f'MAG_{colname}'))
             self.catalog.add_column(Column(filler, name=f'MAGERR_{colname}'))
             self.catalog.add_column(Column(filler, name=f'FLUX_{colname}'))

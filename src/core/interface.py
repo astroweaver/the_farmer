@@ -28,6 +28,7 @@ from tractor import NCircularGaussianPSF, PixelizedPSF, Image, Tractor, FluxesPh
 from tractor.galaxy import ExpGalaxy, DevGalaxy, FixedCompositeGalaxy, SoftenedFracDev, GalaxyShape
 from tractor.pointsource import PointSource
 from tractor.psfex import PixelizedPsfEx, PsfExModel
+from tractor.psf import HybridPixelizedPSF
 
 from astropy.io import fits
 from astropy.table import Table, Column, vstack, join
@@ -312,7 +313,6 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
 
     conf.PLOT = plotting
 
-
     # Make blob with detection image 
 
     if modblob is not None:
@@ -395,6 +395,7 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
                 fblob.bcatalog = catalog[good_sources]
                 fblob.n_sources = len(catalog)
 
+
         # Forced phot
         astart = time.time() 
         fblob.stage_images()
@@ -414,7 +415,7 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
 
         # Run follow-up phot
         if conf.DO_APPHOT:
-            for img_type in ('image', 'model', 'residual'):
+            for img_type in ('image', 'model', 'isomodel', 'residual',):
                 for band in fblob.bands:
                     try:
                         fblob.aperture_phot(band, img_type, sub_background=conf.SUBTRACT_BACKGROUND)
@@ -538,9 +539,12 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
             outcatalog[np.where(outcatalog['source_id'] == row['source_id'])[0]] = row
 
         # write out cat
-        outcatalog.write(os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat'), format='fits', overwrite=conf.OVERWRITE)
+        outpath = os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat')
+        outcatalog.write(outpath, format='fits', overwrite=conf.OVERWRITE)
+        if conf.VERBOSE: print(f'interface.make_models :: Wrote out catalog to {outpath}')
 
-        return
+        plt.pause(100)
+        return None
     
     # Else, production mode -- all objects in brick are to be run.
     else:
@@ -674,7 +678,6 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
         output_rows = runblob(blob_id, fblob, detection=False, catalog=fbrick.catalog, plotting=conf.PLOT)
 
         output_cat = vstack(output_rows)
-
     
         if insert & conf.OVERWRITE & (conf.NBLOBS==0):
             # open old cat
@@ -907,6 +910,8 @@ def models_from_catalog(catalog, band, rmvector):
         model_catalog = -99 * np.ones(len(catalog), dtype=object)
         good_sources = np.ones(len(catalog), dtype=bool)
 
+        
+
         for i, src in enumerate(catalog):
 
             position = PixPos(src['X_MODEL'], src['Y_MODEL'])
@@ -947,5 +952,10 @@ def models_from_catalog(catalog, band, rmvector):
                 else:
                     if conf.VERBOSE2: print(f'               {expshape}')
                     if conf.VERBOSE2: print(f'               {devshape}')
+
+
+        if (conf.FORCED_PHOT_MAX_NBLOB > 0) & (np.sum(good_sources) > conf.FORCED_PHOT_MAX_NBLOB):
+            print(f'interface.force_models :: WARNING -- Number of good sources in blob ({np.sum(good_sources)}) exceeded limit of {conf.FORCED_PHOT_MAX_NBLOB}.')
+            good_sources = np.zeros_like(good_sources, dtype=bool)
 
         return model_catalog[good_sources], good_sources
