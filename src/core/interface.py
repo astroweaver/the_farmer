@@ -90,7 +90,7 @@ def make_psf(multiband_only=False, single_band=None, override=False, sextractor_
         if conf.VERBOSE: print(f'Making PSF for {conf.MODELING_NICKNAME}')
         detmosaic = Mosaic(conf.MODELING_NICKNAME, modeling=True, mag_zeropoint=conf.MODELING_ZPT)
         if conf.VERBOSE: print(f'Mosaic loaded for {conf.MODELING_NICKNAME}')
-        detmosaic._make_psf(xlims=conf.DET_REFF_LIMITS, ylims=conf.DET_VAL_LIMITS, override=override, sextractor_only=sextractor_only, psfex_only=psfex_only)
+        detmosaic._make_psf(xlims=conf.MOD_REFF_LIMITS, ylims=conf.MOD_VAL_LIMITS, override=override, sextractor_only=sextractor_only, psfex_only=psfex_only)
         if conf.VERBOSE: print(f'PSF made successfully for {conf.MODELING_NICKNAME}')
 
     # Bands
