@@ -492,3 +492,36 @@ def plot_ldac(tab_ldac, band, xlims=None, ylims=None, box=False):
     ax.set(xlabel='Flux Radius (px)', xlim=(1, 10),
             ylabel='Mag Auto (AB)', ylim=(26, 16))
     fig.savefig(os.path.join(conf.PLOT_DIR, f'{band}_box_{box}_ldac.pdf'), overwrite=True)
+
+def plot_psf(psfmodel, band, show_gaussian=False):
+
+    fig, ax = plt.subplots(ncols=2, figsize=(20,10))
+    norm = LogNorm(1e-5, 0.1*np.nanmax(psfmodel), clip='True')
+    img_opt = dict(cmap='Blues', norm=norm)
+    ax[0].imshow(psfmodel, **img_opt, extent=0.15 *np.array([-np.shape(psfmodel)[0]/2,  np.shape(psfmodel)[0]/2, -np.shape(psfmodel)[0]/2,  np.shape(psfmodel)[0]/2,]))
+    ax[0].set(xlim=(-15,15), ylim=(-15, 15))
+    ax[0].axvline(0, color='w', ls='dotted')
+    ax[0].axhline(0, color='w', ls='dotted')
+
+    xax = np.arange(-np.shape(psfmodel)[0]/2 + 0.5,  np.shape(psfmodel)[0]/2+0.5)
+    [ax[1].plot(xax * 0.15, psfmodel[x], c='royalblue', alpha=0.5) for x in np.arange(0, np.shape(psfmodel)[1])]
+    ax[1].axvline(0, ls='dotted', c='k')
+    ax[1].set(xlim=(-15, 15), yscale='log', ylim=(1E-5, 1E-1), xlabel='arcsec')
+
+    if show_gaussian:
+        from scipy.optimize import curve_fit
+        def gaus(x,a,x0,sigma):
+            return a*np.exp(-(x-x0)**2/(2*sigma**2))
+
+        mean = 0
+        sigma = 1
+
+        ax[1].plot(xax * 0.15,psfmodel[int(np.shape(psfmodel)[1]/2)], 'r')
+        popt,pcov = curve_fit(gaus,xax * 0.15,psfmodel[int(np.shape(psfmodel)[1]/2)],p0=[1,mean,sigma])
+
+        ax[1].plot(xax*0.15,gaus(xax*0.15,*popt),'green')
+
+    figname = os.path.join(conf.PLOT_DIR, f'{band}_psf.pdf')
+    if conf.VERBOSE2: print(f'Saving figure: {figname}')                
+    fig.savefig(figname)
+    plt.close(fig)
