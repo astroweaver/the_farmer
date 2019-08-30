@@ -22,6 +22,7 @@ import sys
 import numpy as np
 
 from astropy.table import Column
+from astropy.io import fits
 from scipy.ndimage import label, binary_dilation, binary_fill_holes
 
 from tractor import NCircularGaussianPSF, PixelizedPSF, Image, Tractor, FluxesPhotoCal, NullWCS, ConstantSky, EllipseESoft, Fluxes, PixPos
@@ -80,9 +81,9 @@ class Brick(Subimage):
         y0 = int(((brick_id - 1) * conf.BRICK_HEIGHT) / conf.MOSAIC_HEIGHT) * conf.BRICK_HEIGHT
         self.mosaic_origin = np.array([x0, y0])
 
-        self.model_image = None
-        self.residual_image = None
-        self.auxhdu_path = os.path.join(conf.INTERIM_DIR, 'B{brick_id}_AUXILLARY_MAPS.fits')
+        self.model_images = None
+        self.residual_images = None
+        self.auxhdu_path = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_AUXILLARY_MAPS.fits')
 
     @property
     def buffer(self):
@@ -190,7 +191,7 @@ class Brick(Subimage):
 
         for i, (psf, band) in enumerate(zip(self.psfmodels, self.bands)):
 
-            if band in conf.CONSTANT_PSF:
+            if True: #band in conf.CONSTANT_PSF:
                 psfmodel = psf.constantPsfAt(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.)
                 if conf.PLOT:
                     fig, ax = plt.subplots()
@@ -211,30 +212,36 @@ class Brick(Subimage):
                 psfmodel = psf.constantPsfAt(blob_centerx, blob_centery) # init at blob center, may need to swap!
                 if conf.VERBOSE2: print(f'blob.stage_images :: Adopting varying PSF constant at ({blob_centerx}, {blob_centery})')
 
+            if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
+                psfmodel.img /= psfmodel.img.sum()
+
             timages[i] = Image(data=np.zeros_like(self.images[0]),
-                            invvar=np.zeros_like(self.images[0]),
+                            invvar=np.ones_like(self.images[0]),
                             psf=psfmodel,
                             wcs=NullWCS(),
                             photocal=FluxesPhotoCal(band),
-                            sky=ConstantSky(0.))
+                            sky=ConstantSky(0.),
+                            name=band)
 
         self.timages = timages
 
         # Make models
         self.model_catalog = np.zeros(len(catalog), dtype=object)
+        self.model_mask = np.ones(len(catalog), dtype=bool)
         for i, src in enumerate(catalog):
 
-            if src['INVALID_SOURCE']:
+            if not src['VALID_SOURCE']:
+                self.model_mask[i] = False
                 continue
 
             # self.bcatalog[row]['X_MODEL'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
             # self.bcatalog[row]['Y_MODEL'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
 
-            bx_model = src['X_MODEL'] - self.subvector[1] + conf.BRICK_BUFFER - 1
-            by_model = src['Y_MODEL'] - self.subvector[0] + conf.BRICK_BUFFER - 1
+            bx_model = src['X_MODEL'] - self.mosaic_origin[1] + conf.BRICK_BUFFER - 1
+            by_model = src['Y_MODEL'] - self.mosaic_origin[0] + conf.BRICK_BUFFER - 1
 
             position = PixPos(bx_model, by_model)
-            flux = Fluxes(**dict(zip(self.bands, np.ones(self.n_bands))))
+            flux = Fluxes(**dict(zip(self.bands, [src[f'FLUX_{band}'] for band in self.bands])))
 
             if src['SOLMODEL'] == "PointSource":
                 self.model_catalog[i] = PointSource(position, flux)
@@ -258,49 +265,91 @@ class Brick(Subimage):
             if conf.VERBOSE2: print(f'Source #{src["source_id"]}: {self.model_catalog[i].name} model at {position}')
             if conf.VERBOSE2: print(f'               {flux}') 
 
+        # Clean
+        self.model_catalog = self.model_catalog[self.model_mask]
+
         # Tractorize
         tr = Tractor(self.timages, self.model_catalog)
+        self.tr = tr
 
-        self.model_images = tr.getImages()
+        if conf.VERBOSE: print(f'brick.make_model_image :: Computing model image...')
+        self.model_images = [tr.getModelImage(k) for k in np.arange(self.n_bands)]
         if include_chi:
-            self.chisq_images = tr.getChiImages()
+            if conf.VERBOSE: print(f'brick.make_model_image :: Computing chi image...')
+            self.chisq_images = [tr.getChiImage(k) for k in np.arange(self.n_bands)]
 
         if save:
-            # Save to file
-            
-            for i, band in enumerate(self.bands):
-                hdu_img = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL')
-                hdul.append(hdu_img)
-                if include_chi:
-                    hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI')
-                    hdul.append(hdu_chi)
+            if os.path.exists(self.auxhdu_path):
+                if conf.VERBOSE: print(f'brick.make_model_image :: Saving image(s) to existing file, {self.auxhdu_path}')
+                # Save to file
+                hdul = fits.open(self.auxhdu_path, mode='update')
+                for i, band in enumerate(self.bands):
+                    hdu_img = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL')
+                    hdul.append(hdu_img)
+                    if include_chi:
+                        hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI')
+                        hdul.append(hdu_chi)
 
-            hdul.writeto(self.auxhdu_path)
+                hdul.flush()
+
+            else:
+                if conf.VERBOSE: print(f'brick.make_model_image :: Saving image(s) to new file, {self.auxhdu_path}')
+                # Save to file
+                hdul = fits.HDUList()
+                for i, band in enumerate(self.bands):
+                    hdu_img = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL')
+                    hdul.append(hdu_img)
+                    if include_chi:
+                        hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI')
+                        hdul.append(hdu_chi)
+
+                hdul.writeto(self.auxhdu_path, overwrite=True)
 
 
-    def make_residual_image(self, catalog=None, include_chi=True):
+    def make_residual_image(self, catalog=None, include_chi=True, save=True):
         # Make model image or load it in
-        if self.model_image is None:
+        if conf.VERBOSE: print(f'brick.make_residual_image :: Making residual image')
+
+        if self.model_images is None:
             if catalog is None:
-                sys.exit('ERROR - I need a catalog to make the model image first!')
-            self.make_residual_image(catalog, include_chi=include_chi, save=False)
+                raise RuntimeError('ERROR - I need a catalog to make the model image first!')
+            self.make_model_image(catalog, include_chi=include_chi, save=False)
         
         # Subtract
         self.residual_images = self.images - self.model_images
 
         # Save to file
-        hdul = fits.HDUList()
-        for i, band in enumerate(self.bands):
-            hdu_img = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL')
-            hdul.append(hdu_img)
-            if include_chi:
-                hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI')
-                hdul.append(hdu_chi)
-            hdu_residual = fits.ImageHDU(data=self.residual_images[i], name=f'{band}_RESIDUAL')
-            hdul.append(hdu_residual)
+        if save:
 
-        # Save
-        hdul.writeto(self.auxhdu_path, overwrite=True)
+            if os.path.exists(self.auxhdu_path):
+                if conf.VERBOSE: print(f'brick.make_residual_image :: Saving image(s) to existing file, {self.auxhdu_path}')
+                hdul = fits.open(self.auxhdu_path, mode='update')
+                for i, band in enumerate(self.bands):
+                    hdu_img = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL')
+                    hdul.append(hdu_img)
+                    if include_chi:
+                        hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI')
+                        hdul.append(hdu_chi)
+                    hdu_residual = fits.ImageHDU(data=self.residual_images[i], name=f'{band}_RESIDUAL')
+                    hdul.append(hdu_residual)
+
+                # Save
+                hdul.flush()
+
+            else:
+                if conf.VERBOSE: print(f'brick.make_residual_image :: Saving image(s) to new file, s{self.auxhdu_path}')
+                hdul = fits.HDUList()
+                for i, band in enumerate(self.bands):
+                    hdu_img = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL')
+                    hdul.append(hdu_img)
+                    if include_chi:
+                        hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI')
+                        hdul.append(hdu_chi)
+                    hdu_residual = fits.ImageHDU(data=self.residual_images[i], name=f'{band}_RESIDUAL')
+                    hdul.append(hdu_residual)
+
+                # Save
+                hdul.writeto(self.auxhdu_path, overwrite=True)
 
 
 

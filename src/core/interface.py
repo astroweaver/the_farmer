@@ -38,7 +38,6 @@ import pathos.multiprocessing as mp
 import pathos.parallel as pp
 from functools import partial
 import matplotlib.pyplot as plt
-# import psutil
 import weakref
 from scipy import stats
 
@@ -49,30 +48,53 @@ from .utils import plot_background, plot_blob, SimpleGalaxy, plot_blobmap, plot_
 import config as conf
 plt.ioff()
 
+# The logo
+if conf.VERBOSE:
+    print('====================================================================')
+    print(' ________    _       _______     ____    ____  ________  _______    ')    
+    print('|_   __  |  / \     |_   __ \   |_   \  /   _||_   __  ||_   __ \   ') 
+    print('  | |_ \_| / _ \      | |__) |    |   \/   |    | |_ \_|  | |__) |  ') 
+    print('  |  _|   / ___ \     |  __ /     | |\  /| |    |  _| _   |  __ /   ') 
+    print(' _| |_  _/ /   \ \_  _| |  \ \_  _| |_\/_| |_  _| |__/ | _| |  \ \_ ')
+    print('|_____||____| |____||____| |___||_____||_____||________||____| |___|')
+    print('                                                                    ')
+    print('--------------------------------------------------------------------')
+    print('  M O D E L   P H O T O M E T R Y   W I T H   T H E   T R A C T O R ')
+    print('--------------------------------------------------------------------')
+    print('                                                                    ')
+    print('    (C) 2019 -- J. Weaver (DAWN, University of Copenhagen)          ')
+    print('====================================================================')
+    print()
 
-# Find translate file and do things.
+
+# When a user invokes the interface, first check the translation file
+# Optionally, tell the user.
+# Try to import the translate file from it's usual spot first.
 try:
     from translate import translate
-    if conf.VERBOSE: print(f'Imported translate file with {len(translate.keys())} entries.')
-    # I have nicknames, I need raw names
-    # Check first
+    if conf.VERBOSE: print(f'interface.translation :: Imported translate file with {len(translate.keys())} entries.')
+    if len(conf.BANDS) != len(translate.keys()):
+        if conf.VERBOSE: print(f'interface.translation :: WARNING - Configuration file only includes {len(conf.BANDS)} entries!')
+    # I have nicknames in the config, I need the raw names for file I/O
     mask = np.ones_like(conf.BANDS, dtype=bool)
     for i, band in enumerate(conf.BANDS):
         if band not in translate.keys():
-            if conf.VERBOSE: print(f'    ERROR: Cound not find {band} in translate file!')
+            if conf.VERBOSE: print(f'interface.translation :: WARNING - Cound not find {band} in translate file!')
             mask[i] = False
 
+    # Re-assign bands and rawbands in config object
+    if conf.VERBOSE: print(f'interface.translation :: Assigning nicknames to raw image names:')
     conf.BANDS = list(np.array(conf.BANDS)[mask])
     conf.RAWBANDS = conf.BANDS.copy()
     for i, band in enumerate(conf.RAWBANDS):
         conf.RAWBANDS[i] = translate[band]
         if conf.VERBOSE: print(f'     {i+1} :: {conf.RAWBANDS[i]} --> {conf.BANDS[i]}')
 
+# The translation file could not be found, so make a scene.
 except:
-    if conf.VERBOSE: print('Could not import translate file!')
-    if conf.VERBOSE: print('Band names must be < 50 characters (FITS standard) -- checking...')
+    if conf.VERBOSE: print('interface.translation :: WARNING - Could not import translate file! Will use config instead.')
+    if conf.VERBOSE: print('interface.translation :: Image names must be < 50 characters (FITS standard) - checking...')
     # I have raw names, I need shortened raw names (i.e. nicknames)
-    # Who the fuck does this?
     conf.RAWBANDS = conf.BANDS.copy()
     count_short = 0
     for i, band in enumerate(conf.RAWBANDS):
@@ -80,64 +102,81 @@ except:
             conf.BANDS[i] = band[:50]
             if conf.VERBOSE: print(f'     {i+1} :: {band} --> {conf.BANDS[i]}')
             count_short += 1
-    if conf.VERBOSE: print(f'Done checking. Shortened {count_short} band names.')
+    if conf.VERBOSE: print(f'interface.translation :: Done checking. Shortened {count_short} image names.')
 
 
-def make_psf(multiband_only=False, single_band=None, override=False, sextractor_only=False, psfex_only=False):
+def make_psf(image_type=conf.MULTIBAND_NICKNAME, band=None, override=False, sextractor_only=False, psfex_only=False):
 
-    if not multiband_only:
-        # Detection
-        if conf.VERBOSE: print(f'Making PSF for {conf.MODELING_NICKNAME}')
+    # If the user asked to make a PSF for the detection image, tell them we don't do that
+    if image_type is conf.DETECTION_NICKNAME:
+        raise ValueError('interface.make_psf :: ERROR - Farmer does not use a PSF to perform detection!')
+
+    # Else if the user asks for a PSF to be made for the modeling band
+    elif image_type is conf.MODELING_NICKNAME:
+        # Make the Mosaic
+        if conf.VERBOSE: print(f'interface.make_psf :: Making PSF for {conf.MODELING_NICKNAME}')
         detmosaic = Mosaic(conf.MODELING_NICKNAME, modeling=True, mag_zeropoint=conf.MODELING_ZPT)
-        if conf.VERBOSE: print(f'Mosaic loaded for {conf.MODELING_NICKNAME}')
+        # Make the PSF
+        if conf.VERBOSE: print(f'interface.make_psf :: Mosaic loaded for {conf.MODELING_NICKNAME}')
         detmosaic._make_psf(xlims=conf.MOD_REFF_LIMITS, ylims=conf.MOD_VAL_LIMITS, override=override, sextractor_only=sextractor_only, psfex_only=psfex_only)
-        if conf.VERBOSE: print(f'PSF made successfully for {conf.MODELING_NICKNAME}')
+        if conf.VERBOSE: print(f'interface.make_psf :: PSF made successfully for {conf.MODELING_NICKNAME}')
 
-    # Bands
-    if single_band is not None:
-        sbands = [single_band,]
-    else:
-        sbands = conf.BANDS
+    # Else if the user asks for a PSF in one of the bands
+    elif image_type is conf.MULTIBAND_NICKNAME:
+        
+        # Sanity check
+        if band not in conf.BANDS:
+            raise ValueError(f'interface.make_psf :: ERROR - {band} is not a valid band nickname!')
 
-    for i, band in enumerate(sbands):
-
-        idx_band = np.array(conf.BANDS) == band
-        multi_xlims = np.array(conf.MULTIBAND_REFF_LIMITS)[idx_band][0]
-        multi_ylims = np.array(conf.MULTIBAND_VAL_LIMITS)[idx_band][0]
-        mag_zpt = np.array(conf.MULTIBAND_ZPT)[idx_band][0]
-
-        if conf.VERBOSE: print(f'Making PSF for {band}')
-        bandmosaic = Mosaic(band, mag_zeropoint = mag_zpt)
-        if conf.VERBOSE: print(f'Mosaic loaded for {band}')
-        bandmosaic._make_psf(xlims=multi_xlims, ylims=multi_ylims, override=override, sextractor_only=sextractor_only, psfex_only=psfex_only)
-        if not sextractor_only:
-            if conf.VERBOSE: print(f'PSF made successfully for {band}')
+        # Use all bands or just one?
+        if band is not None:
+            sbands = [band,]
         else:
-            if conf.VERBOSE: print(f'SExtraction complete for {band}')
+            sbands = conf.BANDS
 
+        # Loop over bands
+        for i, band in enumerate(sbands):
 
+            # Figure out PS selection box position and zeropoint
+            idx_band = np.array(conf.BANDS) == band
+            multi_xlims = np.array(conf.MULTIBAND_REFF_LIMITS)[idx_band][0]
+            multi_ylims = np.array(conf.MULTIBAND_VAL_LIMITS)[idx_band][0]
+            mag_zpt = np.array(conf.MULTIBAND_ZPT)[idx_band][0]
+
+            # Make the Mosaic
+            if conf.VERBOSE: print(f'interface.make_psf :: Making PSF for {band}')
+            bandmosaic = Mosaic(band, mag_zeropoint = mag_zpt)
+            # Make the PSF
+            if conf.VERBOSE: print(f'interface.make_psf :: Mosaic loaded for {band}')
+            bandmosaic._make_psf(xlims=multi_xlims, ylims=multi_ylims, override=override, sextractor_only=sextractor_only, psfex_only=psfex_only)
+            if not sextractor_only:
+                if conf.VERBOSE: print(f'interface.make_psf :: PSF made successfully for {band}')
+            else:
+                if conf.VERBOSE: print(f'interface.make_psf :: SExtraction complete for {band}')
+    
     return
 
 
-def make_bricks(image_type=conf.MULTIBAND_NICKNAME, single_band=None, insert=False, skip_psf=False):
+def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, insert=False, skip_psf=False):
 
+    # Make bricks for the detection image
     if image_type==conf.DETECTION_NICKNAME:
         # Detection
-        if conf.VERBOSE: print('Making mosaic for detection')
+        if conf.VERBOSE: print('interface.make_bricks :: Making mosaic for detection')
         detmosaic = Mosaic(conf.DETECTION_NICKNAME, detection=True)
 
         if conf.NTHREADS > 0:
-            pass
+            print('interface.make_bricks :: WARNING - Parallelization of brick making is currently disabled')
             # BUGGY DUE TO MEM ALLOC
             # if conf.VERBOSE: print('Making bricks for detection (in parallel)')
             # pool = mp.ProcessingPool(processes=conf.NTHREADS)
             # pool.map(partial(detmosaic._make_brick, detection=True, overwrite=True), np.arange(0, detmosaic.n_bricks()))
 
-        else:
-            if conf.VERBOSE: print('Making bricks for detection (in serial)')
-            for brick_id in np.arange(1, detmosaic.n_bricks()+1):
-                detmosaic._make_brick(brick_id, detection=True, overwrite=True)
+        if conf.VERBOSE: print('interface.make_bricks :: Making bricks for detection (in serial)')
+        for brick_id in np.arange(1, detmosaic.n_bricks()+1):
+            detmosaic._make_brick(brick_id, detection=True, overwrite=True)
 
+    # Make bricks for the modeling image
     elif image_type==conf.MODELING_NICKNAME:
         # Modeling
         if conf.VERBOSE: print('Making mosaic for modeling')
@@ -161,11 +200,12 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, single_band=None, insert=Fal
             for brick_id in np.arange(1, modmosaic.n_bricks()+1):
                 modmosaic._make_brick(brick_id, modeling=True, overwrite=True)
     
+    # Make bricks for one or more multiband images
     elif image_type==conf.MULTIBAND_NICKNAME:
 
         # Bands
-        if single_band is not None:
-            sbands = [single_band,]
+        if band is not None:
+            sbands = [band,]
         else:
             sbands = conf.BANDS
 
@@ -201,100 +241,6 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, single_band=None, insert=Fal
         if conf.VERBOSE: print(f'FATAL ERROR -- {image_type} is an unrecognized nickname (see {conf.DETECTION_NICKNAME}, {conf.MODELING_NICKNAME}, {conf.MULTIBAND_NICKNAME})')
 
     return
-
-"""
-def tractor(brick_id, detection=True, multiband=True, source_id=None, blob_id=None): # need to add overwrite args!
-
-    # Send out list of bricks to each node to call this function!
-
-    # Create detection brick
-    tstart = time.time()
-    detbrick = stage_brickfiles(brick_id, nickname=conf.DETECTION_NICKNAME, detection=True)
-
-    if conf.VERBOSE: print(f'Detection brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
-
-    # Sextract sources
-    tstart = time.time()
-    #try:
-    detbrick.sextract(conf.DETECTION_NICKNAME, sub_background=True)
-    if conf.VERBOSE: print(f'Detection brick #{brick_id} sextracted {detbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
-    #except:
-    #    if conf.VERBOSE: print(f'Detection brick #{brick_id} sextraction FAILED. ({time.time() - tstart:3.3f}s)')
-    #    return
-
-    # Cleanup
-    tstart = time.time()
-    detbrick.cleanup()
-    if conf.VERBOSE: print(f'Detection brick #{brick_id} gained {detbrick.n_blobs} blobs with {detbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
-
-    # Create and update multiband brick
-    tstart = time.time()
-    fbrick = stage_brickfiles(brick_id, nickname=conf.MULTIBAND_NICKNAME, detection=False)
-    fbrick.blobmap = detbrick.blobmap
-    fbrick.segmap = detbrick.segmap
-    fbrick.catalog = detbrick.catalog.copy()
-    fbrick.add_columns()
-    if conf.VERBOSE: print(f'Multiband brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
-
-    tstart = time.time()
-    if (source_id is not None) | (blob_id is not None):
-        conf.PLOT = True
-        if source_id is not None:
-            blob_id = np.unique(fbrick.blobmap[fbrick.segmap == source_id])
-            assert(len(blob_id) == 1)
-            blob_id = blob_id[0]
-        detblob, fblob = detbrick.make_blob(blob_id), fbrick.make_blob(blob_id)
-        runblob(blob_id, detblob, fblob, plotting=conf.PLOT)
-
-    else:
-
-        if conf.NBLOBS > 0:
-            run_n_blobs = conf.NBLOBS
-        else:
-            run_n_blobs = detbrick.n_blobs
-        
-        itstart = time.time()
-        detblobs = [detbrick.make_blob(i) for i in np.arange(1, run_n_blobs+1)]
-        fblobs = [fbrick.make_blob(i) for i in np.arange(1, run_n_blobs+1)]
-        if conf.VERBOSE: print(f'Blobs created in {time.time() - itstart:3.3f}s')
-
-        if conf.NTHREADS > 0:
-            pool = mp.ProcessingPool(processes=conf.NTHREADS)
-            #rows = pool.map(partial(runblob, detbrick=detbrick, fbrick=fbrick), np.arange(1, detbrick.n_blobs))
-            
-            #rows = pool.map(runblob, zip(detblobs, fblobs))
-            
-            output_rows = pool.map(runblob, np.arange(1, run_n_blobs+1), detblobs, fblobs)
-            # while not results.ready():
-            #     time.sleep(10)
-            #     if not conf.VERBOSE2: print(".", end=' ')
-            # pool.close()
-            # pool.join()
-            # pool.terminate()
-            # output_rows = results.get()
-        else:
-            output_rows = [runblob(kblob_id, detblobs[kblob_id-1], fblobs[kblob_id-1], plotting=conf.PLOT) for kblob_id in np.arange(1, run_n_blobs+1)]
-    
-        if conf.VERBOSE: print(f'Completed {run_n_blobs} blobs in {time.time() - tstart:3.3f}s')
-
-        output_rows = [x for x in output_rows if x is not None]
-
-        output_cat = vstack(output_rows)
-                
-        for colname in output_cat.colnames:
-           if colname not in fbrick.catalog.colnames:
-               fbrick.catalog.add_column(Column(np.zeros(len(output_cat[colname]), dtype=output_cat[colname].dtype), name=colname))
-        #fbrick.catalog = join(fbrick.catalog, output_cat, join_type='left', )
-        for row in output_cat:
-            fbrick.catalog[np.where(fbrick.catalog['source_id'] == row['source_id'])[0]] = row
-
-        # write out cat
-        fbrick.catalog['x'] = detbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
-        fbrick.catalog['y'] = detbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
-        fbrick.catalog.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat'), format='fits')
-
-        return
-"""
         
 def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
 
@@ -372,15 +318,8 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
                 fblob.n_sources = len(fblob.bcatalog)
                 catalog = catalog[blobmask]
 
-                # print(catalog)
-                # print(fblob.images[0].shape)
-                # print(fblob.subvector)
-                # print(fblob.mosaic_origin)
-                # print(catalog['X_MODEL'], catalog['Y_MODEL'])
                 catalog['X_MODEL'] -= fblob.subvector[1] + fblob.mosaic_origin[1] - conf.BRICK_BUFFER + 1
                 catalog['Y_MODEL'] -= fblob.subvector[0] + fblob.mosaic_origin[0] - conf.BRICK_BUFFER + 1
-                # print(catalog['X_MODEL'])
-                # print(catalog['Y_MODEL'])
 
                 fblob.model_catalog, good_sources = models_from_catalog(catalog, fblob.bands, fblob.mosaic_origin)
                 if (good_sources == False).all():
@@ -388,7 +327,6 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
                     catalog['X_MODEL'] += fblob.subvector[1] + fblob.mosaic_origin[1] - conf.BRICK_BUFFER + 1
                     catalog['Y_MODEL'] += fblob.subvector[0] + fblob.mosaic_origin[0] - conf.BRICK_BUFFER + 1
                     return fblob.bcatalog.copy()
-                    # raise ValueError('BAD MODEL POSITION - FIX')
 
                 fblob.position_variance = None
                 fblob.parameter_variance = None
@@ -403,9 +341,6 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
 
         astart = time.time() 
         status = fblob.forced_phot()
-
-        # catalog['X_MODEL'] += fblob.subvector[1] + fblob.mosaic_origin[1] - conf.BRICK_BUFFER + 1
-        # catalog['Y_MODEL'] += fblob.subvector[0] + fblob.mosaic_origin[0] - conf.BRICK_BUFFER + 1
 
         if not status:
             return fblob.bcatalog.copy()
