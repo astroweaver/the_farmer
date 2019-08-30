@@ -116,9 +116,11 @@ def make_psf(image_type=conf.MULTIBAND_NICKNAME, band=None, override=False, sext
         # Make the Mosaic
         if conf.VERBOSE: print(f'interface.make_psf :: Making PSF for {conf.MODELING_NICKNAME}')
         detmosaic = Mosaic(conf.MODELING_NICKNAME, modeling=True, mag_zeropoint=conf.MODELING_ZPT)
+
         # Make the PSF
         if conf.VERBOSE: print(f'interface.make_psf :: Mosaic loaded for {conf.MODELING_NICKNAME}')
         detmosaic._make_psf(xlims=conf.MOD_REFF_LIMITS, ylims=conf.MOD_VAL_LIMITS, override=override, sextractor_only=sextractor_only, psfex_only=psfex_only)
+
         if conf.VERBOSE: print(f'interface.make_psf :: PSF made successfully for {conf.MODELING_NICKNAME}')
 
     # Else if the user asks for a PSF in one of the bands
@@ -146,9 +148,11 @@ def make_psf(image_type=conf.MULTIBAND_NICKNAME, band=None, override=False, sext
             # Make the Mosaic
             if conf.VERBOSE: print(f'interface.make_psf :: Making PSF for {band}')
             bandmosaic = Mosaic(band, mag_zeropoint = mag_zpt)
+
             # Make the PSF
             if conf.VERBOSE: print(f'interface.make_psf :: Mosaic loaded for {band}')
             bandmosaic._make_psf(xlims=multi_xlims, ylims=multi_ylims, override=override, sextractor_only=sextractor_only, psfex_only=psfex_only)
+
             if not sextractor_only:
                 if conf.VERBOSE: print(f'interface.make_psf :: PSF made successfully for {band}')
             else:
@@ -179,8 +183,10 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, insert=False, ski
     # Make bricks for the modeling image
     elif image_type==conf.MODELING_NICKNAME:
         # Modeling
-        if conf.VERBOSE: print('Making mosaic for modeling')
+        if conf.VERBOSE: print('interface.make_bricks :: Making mosaic for modeling')
         modmosaic = Mosaic(conf.MODELING_NICKNAME, modeling=True)
+
+        # The user wants PSFs on the fly
         if not skip_psf: 
 
             mod_xlims = np.array(conf.MOD_REFF_LIMITS)
@@ -188,64 +194,74 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, insert=False, ski
                 
             modmosaic._make_psf(xlims=mod_xlims, ylims=mod_ylims)
 
+        # Make bricks in parallel
         if conf.NTHREADS > 0:
-            pass
+            print('interface.make_bricks :: WARNING - Parallelization of brick making is currently disabled')
             # BUGGY DUE TO MEM ALLOC
             # if conf.VERBOSE: print('Making bricks for detection (in parallel)')
             # pool = mp.ProcessingPool(processes=conf.NTHREADS)
             # pool.map(partial(modmosaic._make_brick, detection=True, overwrite=True), np.arange(0, modmosaic.n_bricks()))
 
+        # Make bricks in serial
         else:
-            if conf.VERBOSE: print('Making bricks for modeling (in serial)')
+            if conf.VERBOSE: print('interface.make_bricks :: Making bricks for modeling (in serial)')
             for brick_id in np.arange(1, modmosaic.n_bricks()+1):
                 modmosaic._make_brick(brick_id, modeling=True, overwrite=True)
     
     # Make bricks for one or more multiband images
     elif image_type==conf.MULTIBAND_NICKNAME:
 
-        # Bands
+        # One variable list
         if band is not None:
             sbands = [band,]
         else:
             sbands = conf.BANDS
 
-        for i, band in enumerate(sbands):
+        # In serial, loop over images
+        for i, sband in enumerate(sbands):
 
+            # Assume we can overwrite files unless insertion is explicit
+            # First image w/o insertion will make new file anyways
             overwrite = True
-            if insert:
-                overwrite=False
-            if i > 0:
+            if insert | (i > 0):
                 overwrite = False
 
-            if conf.VERBOSE: print(f'Making mosaic for band {band}')
-            bandmosaic = Mosaic(band)
+            # Build the mosaic
+            if conf.VERBOSE: print(f'interface.make_bricks :: Making mosaic for image {sband}')
+            bandmosaic = Mosaic(sband)
+
+            # The user wants PSFs made on the fly
             if not skip_psf: 
 
-                idx_band = np.array(conf.BANDS) == band
+                idx_band = np.array(conf.BANDS) == sband
                 multi_xlims = np.array(conf.MULTIBAND_REFF_LIMITS)[idx_band][0]
                 multi_ylims = np.array(conf.MULTIBAND_VAL_LIMITS)[idx_band][0]
                     
                 bandmosaic._make_psf(xlims=multi_xlims, ylims=multi_ylims)
 
+            # Make bricks in parallel
             if conf.NTHREADS > 0:
-                if conf.VERBOSE: print(f'Making bricks for band {band} (in parallel)')
+                if conf.VERBOSE: print(f'interface.make_bricks :: Making bricks for band {sband} (in parallel)')
                 pool = mp.ProcessingPool(processes=conf.NTHREADS)
                 pool.map(partial(bandmosaic._make_brick, detection=False, overwrite=overwrite), np.arange(0, bandmosaic.n_bricks()))
 
+            # Make bricks in serial
             else:
-                if conf.VERBOSE: print(f'Making bricks for band {band} (in serial)')
+                if conf.VERBOSE: print(f'interface.make_bricks :: Making bricks for band {sband} (in serial)')
                 for brick_id in np.arange(1, bandmosaic.n_bricks()+1):
                     bandmosaic._make_brick(brick_id, detection=False, overwrite=overwrite)
 
+    # image type is invalid
     else:
-        if conf.VERBOSE: print(f'FATAL ERROR -- {image_type} is an unrecognized nickname (see {conf.DETECTION_NICKNAME}, {conf.MODELING_NICKNAME}, {conf.MULTIBAND_NICKNAME})')
+        raise RuntimeError(f'interface.make_bricks :: ERROR {image_type} is an unrecognized nickname (see {conf.DETECTION_NICKNAME}, {conf.MODELING_NICKNAME}, {conf.MULTIBAND_NICKNAME})')
 
     return
+
         
 def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
 
     if conf.VERBOSE: print()
-    if conf.VERBOSE: print(f'Starting on Blob #{blob_id}')
+    if conf.VERBOSE: print(f'interface.runblob :: Starting on Blob #{blob_id}')
     tstart = time.time()
 
     modblob = None
@@ -266,7 +282,7 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
         # Run models
         astart = time.time()
         modblob.stage_images()
-        if conf.VERBOSE2: print(f'Images staged. ({time.time() - astart:3.3f})s')
+        if conf.VERBOSE2: print(f'interface.runblob :: Images staged. ({time.time() - astart:3.3f})s')
 
         astart = time.time()
         status = modblob.tractor_phot()
@@ -274,7 +290,7 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
         if not status:
             return modblob.bcatalog.copy()
 
-        if conf.VERBOSE2: print(f'Morphology determined. ({time.time() - astart:3.3f})s')
+        if conf.VERBOSE2: print(f'interface.runblob :: Morphology determined. ({time.time() - astart:3.3f})s')
 
 
         # Run follow-up phot
@@ -284,15 +300,15 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
                     try:
                         modblob.aperture_phot(band, img_type, sub_background=conf.SUBTRACT_BACKGROUND)
                     except:
-                        if conf.VERBOSE: print(f'Aperture photmetry FAILED for {band} {img_type}. Likely a bad blob.')
+                        if conf.VERBOSE: print(f'interface.runblob :: WARNING - Aperture photmetry FAILED for {band} {img_type}')
         if conf.DO_SEXPHOT:
             try:
                 [modblob.sextract_phot(band) for band in modblob.bands]
             except:
-                if conf.VERBOSE: print(f'Residual Sextractor photmetry FAILED. Likely a bad blob.)')    
+                if conf.VERBOSE: print(f'interface.runblob :: WARNING - Source extraction on the residual blob FAILED for {band} {img_type}')    
 
         duration = time.time() - tstart
-        if conf.VERBOSE: print(f'Solution for Blob #{modblob.blob_id} (N={modblob.n_sources}) arrived at in {duration:3.3f}s ({duration/modblob.n_sources:2.2f}s per src)')
+        if conf.VERBOSE: print(f'interface.runblob :: Solution for Blob #{modblob.blob_id} (N={modblob.n_sources}) arrived at in {duration:3.3f}s ({duration/modblob.n_sources:2.2f}s per src)')
     
         catout = modblob.bcatalog.copy()
         del modblob
@@ -305,11 +321,11 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
             fblob.model_catalog = modblob.solution_catalog.copy()
             fblob.position_variance = modblob.position_variance.copy()
             fblob.parameter_variance = modblob.parameter_variance.copy()
-            if conf.VERBOSE2: print(f'Solution parameters transferred. ({time.time() - astart:3.3f})s')
+            if conf.VERBOSE2: print(f'interface.runblob :: Solution parameters transferred. ({time.time() - astart:3.3f})s')
 
         else:
             if catalog is None:
-                raise ValueError('Input catalog not supplied!')
+                raise ValueError('interface.runblob :: ERROR - Input catalog not supplied!')
             else:
                 blobmask = np.ones(len(catalog))
                 if blob_id is not None:
@@ -323,7 +339,7 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
 
                 fblob.model_catalog, good_sources = models_from_catalog(catalog, fblob.bands, fblob.mosaic_origin)
                 if (good_sources == False).all():
-                    print('FAILED - All sources are invalid!')
+                    if conf.VERBOSE: print('interface.runblob :: WARNING - All sources are invalid!')
                     catalog['X_MODEL'] += fblob.subvector[1] + fblob.mosaic_origin[1] - conf.BRICK_BUFFER + 1
                     catalog['Y_MODEL'] += fblob.subvector[0] + fblob.mosaic_origin[0] - conf.BRICK_BUFFER + 1
                     return fblob.bcatalog.copy()
@@ -337,7 +353,7 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
         # Forced phot
         astart = time.time() 
         fblob.stage_images()
-        if conf.VERBOSE2: print(f'{fblob.bands} images staged. ({time.time() - astart:3.3f})s')
+        if conf.VERBOSE2: print(f'interface.runblob :: {fblob.bands} images staged. ({time.time() - astart:3.3f})s')
 
         astart = time.time() 
         status = fblob.forced_phot()
@@ -345,7 +361,7 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
         if not status:
             return fblob.bcatalog.copy()
 
-        if conf.VERBOSE2: print(f'Force photometry complete. ({time.time() - astart:3.3f})s')
+        if conf.VERBOSE2: print(f'interface.runblob :: Force photometry complete. ({time.time() - astart:3.3f})s')
 
 
         # Run follow-up phot
@@ -355,15 +371,15 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
                     try:
                         fblob.aperture_phot(band, img_type, sub_background=conf.SUBTRACT_BACKGROUND)
                     except:
-                        if conf.VERBOSE: print(f'Aperture photmetry FAILED for {band} {img_type}. Likely a bad blob.')
+                        if conf.VERBOSE: print(f'interface.runblob :: Aperture photmetry FAILED for {band} {img_type}. Likely a bad blob.')
         if conf.DO_SEXPHOT:
             try:
                 [fblob.sextract_phot(band) for band in fblob.bands]
             except:
-                if conf.VERBOSE: print(f'Residual Sextractor photmetry FAILED. Likely a bad blob.)')
+                if conf.VERBOSE: print(f'interface.runblob :: Residual Sextractor photmetry FAILED. Likely a bad blob.)')
 
         duration = time.time() - tstart
-        if conf.VERBOSE: print(f'Solution for blob {fblob.blob_id} (N={fblob.n_sources}) arrived at in {duration:3.3f}s ({duration/fblob.n_sources:2.2f}s per src)')
+        if conf.VERBOSE: print(f'interface.runblob :: Solution for blob {fblob.blob_id} (N={fblob.n_sources}) arrived at in {duration:3.3f}s ({duration/fblob.n_sources:2.2f}s per src)')
 
 
         catout = fblob.bcatalog.copy()
