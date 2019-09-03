@@ -83,6 +83,7 @@ class Brick(Subimage):
 
         self.model_images = None
         self.residual_images = None
+        self.nopsf_images = None
         self.auxhdu_path = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_AUXILLARY_MAPS.fits')
 
     @property
@@ -180,7 +181,7 @@ class Brick(Subimage):
 
         return blob
 
-    def make_model_image(self, catalog, include_chi=True, save=True):
+    def make_model_image(self, catalog, include_chi=True, include_nopsf=False, save=True):
 
         # Make Images
         if conf.VERBOSE2: 
@@ -205,6 +206,11 @@ class Brick(Subimage):
                 ylo, yhi = np.min(idy), np.max(idy) + 1
                 w = xhi - xlo
                 h = yhi - ylo
+
+                left = x0 - buffer
+                bottom = y0 - buffer
+
+                subvector = (left, bottom)
 
                 blob_center = (xlo + w/2., ylo + h/2.)
                 blob_centerx = blob_center[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
@@ -278,6 +284,15 @@ class Brick(Subimage):
             if conf.VERBOSE: print(f'brick.make_model_image :: Computing chi image...')
             self.chisq_images = [tr.getChiImage(k) for k in np.arange(self.n_bands)]
 
+        # If no psf:
+        if include_nopsf:
+            print('INCLUSION OF NO PSF IS CURRENTLY DISABLED.')
+            include_nopsf = False
+            tr_nopsf = tr.copy()
+            [tr_nopsf.images[k].setPsf(None) for k in np.arange(self.n_bands)]
+            if conf.VERBOSE: print(f'brick.make_model_image :: Computing model image without PSF...')
+            self.nopsf_images = [tr_nopsf.getModelImage(k) for k in np.arange(self.n_bands)]
+
         if save:
             if os.path.exists(self.auxhdu_path):
                 if conf.VERBOSE: print(f'brick.make_model_image :: Saving image(s) to existing file, {self.auxhdu_path}')
@@ -289,6 +304,9 @@ class Brick(Subimage):
                     if include_chi:
                         hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI')
                         hdul.append(hdu_chi)
+                    if include_nopsf:
+                        hdu_nopsf = fits.ImageHDU(data=self.nopsf_images[i], name=f'{band}_NOPSF')
+                        hdul.append(hdu_nopsf)
 
                 hdul.flush()
 
@@ -302,18 +320,25 @@ class Brick(Subimage):
                     if include_chi:
                         hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI')
                         hdul.append(hdu_chi)
+                    if include_nopsf:
+                        hdu_nopsf = fits.ImageHDU(data=self.nopsf_images[i], name=f'{band}_NOPSF')
+                        hdul.append(hdu_nopsf)
 
                 hdul.writeto(self.auxhdu_path, overwrite=True)
 
 
-    def make_residual_image(self, catalog=None, include_chi=True, save=True):
+    def make_residual_image(self, catalog=None, include_chi=True, include_nopsf=False, save=True):
         # Make model image or load it in
         if conf.VERBOSE: print(f'brick.make_residual_image :: Making residual image')
+
+        if include_nopsf:
+            print('INCLUSION OF NO PSF IS CURRENTLY DISABLED.')
+            include_nopsf = False
 
         if self.model_images is None:
             if catalog is None:
                 raise RuntimeError('ERROR - I need a catalog to make the model image first!')
-            self.make_model_image(catalog, include_chi=include_chi, save=False)
+            self.make_model_image(catalog, include_chi=include_chi, include_nopsf=include_nopsf, save=False)
         
         # Subtract
         self.residual_images = self.images - self.model_images
@@ -330,6 +355,10 @@ class Brick(Subimage):
                     if include_chi:
                         hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI')
                         hdul.append(hdu_chi)
+                    if include_nopsf:
+                        hdu_nopsf = fits.ImageHDU(data=self.nopsf_images[i], name=f'{band}_NOPSF')
+                        hdul.append(hdu_nopsf)
+
                     hdu_residual = fits.ImageHDU(data=self.residual_images[i], name=f'{band}_RESIDUAL')
                     hdul.append(hdu_residual)
 
@@ -345,6 +374,10 @@ class Brick(Subimage):
                     if include_chi:
                         hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI')
                         hdul.append(hdu_chi)
+                    if include_nopsf:
+                        hdu_nopsf = fits.ImageHDU(data=self.nopsf_images[i], name=f'{band}_NOPSF')
+                        hdul.append(hdu_nopsf)
+
                     hdu_residual = fits.ImageHDU(data=self.residual_images[i], name=f'{band}_RESIDUAL')
                     hdul.append(hdu_residual)
 

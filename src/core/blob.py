@@ -705,6 +705,8 @@ class Blob(Subimage):
         Iap = np.flatnonzero((apxy[0,:] >= 0)   * (apxy[1,:] >= 0) *
                             (apxy[0,:] <= W-1) * (apxy[1,:] <= H-1))
 
+        zpt = conf.MULTIBAND_ZPT[self._band2idx(band)]
+
         if var is None:
             imgerr = None
         else:
@@ -732,11 +734,11 @@ class Blob(Subimage):
                     if conf.VERBOSE: print(f'blob.aperture_phot :: Measuring {apertures_arcsec[i]:2.2f}" aperture flux on 1 source of {len(cat)}.')
                     p = photutils.aperture_photometry(image, aper, error=imgerr)
                     # aper.plot()
-                    apflux[j, i] = p.field('aperture_sum')
+                    apflux[j, i] = p.field('aperture_sum') * 10**(-0.4 * (23.9 - zpt))
                     if var is None:
                         apflux_err[j, i] = -99 * np.ones_like(apflux[j, i])
                     else:
-                        apflux_err[j, i] = p.field('aperture_sum_err')
+                        apflux_err[j, i] = p.field('aperture_sum_err') * 10**(-0.4 * (23.9 - zpt))
 
                 if conf.VERBOSE: 
                     apmag = - 2.5 * np.log10( apflux[j,i] ) + conf.MULTIBAND_ZPT[self._band2idx(band)]
@@ -942,8 +944,8 @@ class Blob(Subimage):
 
             self.bcatalog[row]['MAG_'+band] = -2.5 * np.log10(src.getBrightness().getFlux(band)) + zpt
             self.bcatalog[row]['MAGERR_'+band] = 1.09 * np.sqrt(flux_var[row].brightness.getParams()[i]) / src.getBrightness().getFlux(band)
-            self.bcatalog[row]['FLUX_'+band] = src.getBrightness().getFlux(band)
-            self.bcatalog[row]['FLUXERR_'+band] = np.sqrt(flux_var[row].brightness.getParams()[i])
+            self.bcatalog[row]['FLUX_'+band] = src.getBrightness().getFlux(band) * 10**(-0.4 * (23.9 - zpt))  # Force fluxes to be in uJy!
+            self.bcatalog[row]['FLUXERR_'+band] = np.sqrt(flux_var[row].brightness.getParams()[i]) * 10**(-0.4 * (23.9 - zpt))
             self.bcatalog[row]['CHISQ_'+band] = self.solution_chisq[row, i]
             self.bcatalog[row]['BIC_'+band] = self.solution_bic[row, i]
 
