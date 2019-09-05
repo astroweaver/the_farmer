@@ -158,6 +158,10 @@ class Blob(Subimage):
                             photocal=FluxesPhotoCal(band),
                             sky=ConstantSky(0))
 
+            med_minval = np.median(psfmodel.img)
+            timages[i].modelMinval = med_minval # cut off before you hit the PSF background!
+            if conf.VERBOSE2: print(f'blob.stage_images :: Setting minimum model background to Med(PSF) = {med_minval}')
+
         self.timages = timages
 
     def stage_models(self):
