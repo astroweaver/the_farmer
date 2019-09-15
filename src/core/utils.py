@@ -490,7 +490,7 @@ def plot_ldac(tab_ldac, band, xlims=None, ylims=None, box=False):
         ax.add_patch(rect)
     fig.subplots_adjust(bottom = 0.15)
     ax.set(xlabel='Flux Radius (px)', xlim=(1, 10),
-            ylabel='Mag Auto (AB)', ylim=(26, 16))
+            ylabel='Mag Auto (AB)', ylim=(26, 14))
     fig.savefig(os.path.join(conf.PLOT_DIR, f'{band}_box_{box}_ldac.pdf'), overwrite=True)
 
 def plot_psf(psfmodel, band, show_gaussian=False):
