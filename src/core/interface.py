@@ -388,7 +388,7 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
     return catout
 
 
-def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=None):
+def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=None, use_mask=True):
     # Create detection brick
     tstart = time.time()
     detbrick = stage_brickfiles(brick_id, nickname=conf.DETECTION_NICKNAME, detection=True)
@@ -399,7 +399,7 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
     tstart = time.time()
     if (segmap is None) & (catalog is None):
         try:
-            detbrick.sextract(conf.DETECTION_NICKNAME, sub_background=conf.SUBTRACT_BACKGROUND, use_mask=False, incl_apphot=True)
+            detbrick.sextract(conf.DETECTION_NICKNAME, sub_background=conf.SUBTRACT_BACKGROUND, use_mask=use_mask, incl_apphot=True)
             if conf.VERBOSE: print(f'Detection brick #{brick_id} sextracted {detbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
         except:
             raise RuntimeError(f'Detection brick #{brick_id} sextraction FAILED. ({time.time() - tstart:3.3f}s)')

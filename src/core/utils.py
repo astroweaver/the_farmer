@@ -481,16 +481,23 @@ def plot_blobmap(brick):
     plt.close()
     if conf.VERBOSE2: print(f'Saving figure: {out_path}')
 
-def plot_ldac(tab_ldac, band, xlims=None, ylims=None, box=False):
+def plot_ldac(tab_ldac, band, xlims=None, ylims=None, box=False, nsel=None):
     fig, ax = plt.subplots()
-    ax.scatter(tab_ldac['FLUX_RADIUS'], tab_ldac['MAG_AUTO'], c='k', s=0.5)
+    xbin = np.arange(xlims[0], xlims[1], 0.1)
+    ybin = np.arange(ylims[0], ylims[1], 0.1)
+    ax.hist2d(tab_ldac['FLUX_RADIUS'], tab_ldac['MAG_AUTO'], bins=(xbin, ybin), cmap='Greys', norm=LogNorm())
     if box:
         rect = Rectangle((xlims[0], ylims[0]), xlims[1] - xlims[0], ylims[1] - ylims[0], fill=True, alpha=0.3,
                                 edgecolor='r', facecolor='r', zorder=3, linewidth=1)
         ax.add_patch(rect)
+
     fig.subplots_adjust(bottom = 0.15)
     ax.set(xlabel='Flux Radius (px)', xlim=(0, 15),
             ylabel='Mag Auto (AB)', ylim=(26, 12))
+    ax.grid()
+
+    if nsel is not None:
+        ax.text(x=0.05, y=0.95, s=f'N = {nsel}', transform=ax.transAxes)
     fig.savefig(os.path.join(conf.PLOT_DIR, f'{band}_box_{box}_ldac.pdf'), overwrite=True)
 
 def plot_psf(psfmodel, band, show_gaussian=False):
