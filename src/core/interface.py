@@ -115,7 +115,7 @@ def make_psf(image_type=conf.MULTIBAND_NICKNAME, band=None, override=False, sext
     elif image_type is conf.MODELING_NICKNAME:
         # Make the Mosaic
         if conf.VERBOSE: print(f'interface.make_psf :: Making PSF for {conf.MODELING_NICKNAME}')
-        modmosaic = Mosaic(conf.MODELING_NICKNAME, modeling=True, mag_zeropoint=conf.MODELING_ZPT, skip_build=True)
+        modmosaic = Mosaic(conf.MODELING_NICKNAME, modeling=True, mag_zeropoint=conf.MODELING_ZPT)
 
         # Make the PSF
         if conf.VERBOSE: print(f'interface.make_psf :: Mosaic loaded for {conf.MODELING_NICKNAME}')
@@ -147,7 +147,7 @@ def make_psf(image_type=conf.MULTIBAND_NICKNAME, band=None, override=False, sext
 
             # Make the Mosaic
             if conf.VERBOSE: print(f'interface.make_psf :: Making PSF for {band}')
-            bandmosaic = Mosaic(band, mag_zeropoint = mag_zpt, skip_build=True)
+            bandmosaic = Mosaic(band, mag_zeropoint = mag_zpt)
 
             # Make the PSF
             if conf.VERBOSE: print(f'interface.make_psf :: Mosaic loaded for {band}')
