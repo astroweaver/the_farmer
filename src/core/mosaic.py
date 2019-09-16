@@ -37,58 +37,60 @@ from .utils import plot_ldac
 
 class Mosaic(Subimage):
     
-    def __init__(self, band, detection=False, modeling=False, psfmodel=None, wcs=None, header=None, mag_zeropoint=None,
+    def __init__(self, band, detection=False, modeling=False, psfmodel=None, wcs=None, header=None, mag_zeropoint=None, skip_build=False,
                 ):
-
-        if conf.VERBOSE: print('Building mosaic...')
-
-        if detection:
-            self.path_image = os.path.join(conf.IMAGE_DIR, conf.DETECTION_FILENAME.replace('EXT', conf.IMAGE_EXT))
-            self.path_weight = os.path.join(conf.IMAGE_DIR, conf.DETECTION_FILENAME.replace('EXT', conf.WEIGHT_EXT))
-            self.path_mask = os.path.join(conf.IMAGE_DIR, conf.DETECTION_FILENAME.replace('EXT', conf.MASK_EXT))
-        elif modeling:
-            self.path_image = os.path.join(conf.IMAGE_DIR, conf.MODELING_FILENAME.replace('EXT', conf.IMAGE_EXT))
-            self.path_weight = os.path.join(conf.IMAGE_DIR, conf.MODELING_FILENAME.replace('EXT', conf.WEIGHT_EXT))
-            self.path_mask = os.path.join(conf.IMAGE_DIR, conf.MODELING_FILENAME.replace('EXT', conf.MASK_EXT))
+        if skip_build:
+            if conf.VERBOSE: print('WARNING :: Skipping mosaic build!')
         else:
-            raw_band = np.array(conf.RAWBANDS)[np.array(conf.BANDS) == band][0] # this should be OK -- bands and rawbands are matched!
-            self.path_image = os.path.join(conf.IMAGE_DIR, conf.MULTIBAND_FILENAME.replace('EXT', conf.IMAGE_EXT).replace('BAND', raw_band))
-            self.path_weight = os.path.join(conf.IMAGE_DIR, conf.MULTIBAND_FILENAME.replace('EXT', conf.WEIGHT_EXT).replace('BAND', raw_band))
-            self.path_mask = os.path.join(conf.IMAGE_DIR, conf.MULTIBAND_FILENAME.replace('EXT', conf.MASK_EXT).replace('BAND', raw_band))
+            if conf.VERBOSE: print('Building mosaic...')
 
-        # open the files
-        tstart = time()
-        if os.path.exists(self.path_image):
-            with fits.open(self.path_image, memmap=True) as hdu_image:
-                self.images = hdu_image['PRIMARY'].data
-                self.master_head = hdu_image['PRIMARY'].header
-                self.wcs = WCS(self.master_head)
-            path = self.path_image
-        else:
-            raise ValueError(f'No image found at {self.path_image}')
-        if conf.VERBOSE: print(f'Added image in {time()-tstart:3.3f}s. ({path})')
+            if detection:
+                self.path_image = os.path.join(conf.IMAGE_DIR, conf.DETECTION_FILENAME.replace('EXT', conf.IMAGE_EXT))
+                self.path_weight = os.path.join(conf.IMAGE_DIR, conf.DETECTION_FILENAME.replace('EXT', conf.WEIGHT_EXT))
+                self.path_mask = os.path.join(conf.IMAGE_DIR, conf.DETECTION_FILENAME.replace('EXT', conf.MASK_EXT))
+            elif modeling:
+                self.path_image = os.path.join(conf.IMAGE_DIR, conf.MODELING_FILENAME.replace('EXT', conf.IMAGE_EXT))
+                self.path_weight = os.path.join(conf.IMAGE_DIR, conf.MODELING_FILENAME.replace('EXT', conf.WEIGHT_EXT))
+                self.path_mask = os.path.join(conf.IMAGE_DIR, conf.MODELING_FILENAME.replace('EXT', conf.MASK_EXT))
+            else:
+                raw_band = np.array(conf.RAWBANDS)[np.array(conf.BANDS) == band][0] # this should be OK -- bands and rawbands are matched!
+                self.path_image = os.path.join(conf.IMAGE_DIR, conf.MULTIBAND_FILENAME.replace('EXT', conf.IMAGE_EXT).replace('BAND', raw_band))
+                self.path_weight = os.path.join(conf.IMAGE_DIR, conf.MULTIBAND_FILENAME.replace('EXT', conf.WEIGHT_EXT).replace('BAND', raw_band))
+                self.path_mask = os.path.join(conf.IMAGE_DIR, conf.MULTIBAND_FILENAME.replace('EXT', conf.MASK_EXT).replace('BAND', raw_band))
 
-        tstart = time()
-        if os.path.exists(self.path_weight):
-            with fits.open(self.path_weight) as hdu_weight:
-                self.weights = hdu_weight['PRIMARY'].data
-            path = self.path_weight
-        else:
-            #raise ValueError(f'No weight found at {self.path_weight}')
-            self.weights = None
-            path = 'None found. Assuming equal weights.'
-        if conf.VERBOSE: print(f'Added weight in {time()-tstart:3.3f}s. ({path})')
+            # open the files
+            tstart = time()
+            if os.path.exists(self.path_image):
+                with fits.open(self.path_image, memmap=True) as hdu_image:
+                    self.images = hdu_image['PRIMARY'].data
+                    self.master_head = hdu_image['PRIMARY'].header
+                    self.wcs = WCS(self.master_head)
+                path = self.path_image
+            else:
+                raise ValueError(f'No image found at {self.path_image}')
+            if conf.VERBOSE: print(f'Added image in {time()-tstart:3.3f}s. ({path})')
+
+            tstart = time()
+            if os.path.exists(self.path_weight):
+                with fits.open(self.path_weight) as hdu_weight:
+                    self.weights = hdu_weight['PRIMARY'].data
+                path = self.path_weight
+            else:
+                #raise ValueError(f'No weight found at {self.path_weight}')
+                self.weights = None
+                path = 'None found. Assuming equal weights.'
+            if conf.VERBOSE: print(f'Added weight in {time()-tstart:3.3f}s. ({path})')
 
 
-        tstart = time()
-        if os.path.exists(self.path_mask):
-            with fits.open(self.path_mask) as hdu_mask:
-                self.masks = hdu_mask['PRIMARY'].data
-            path = self.path_mask
-        else:
-            self.masks = None    
-            path = 'None found. Assuming no masking.'
-        if conf.VERBOSE: print(f'Added mask in {time()-tstart:3.3f}s. ({path})')
+            tstart = time()
+            if os.path.exists(self.path_mask):
+                with fits.open(self.path_mask) as hdu_mask:
+                    self.masks = hdu_mask['PRIMARY'].data
+                path = self.path_mask
+            else:
+                self.masks = None    
+                path = 'None found. Assuming no masking.'
+            if conf.VERBOSE: print(f'Added mask in {time()-tstart:3.3f}s. ({path})')
 
         self.psfmodels = psfmodel
         self.bands = band
