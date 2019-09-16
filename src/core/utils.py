@@ -506,7 +506,7 @@ def plot_psf(psfmodel, band, show_gaussian=False):
     xax = np.arange(-np.shape(psfmodel)[0]/2 + 0.5,  np.shape(psfmodel)[0]/2+0.5)
     [ax[1].plot(xax * 0.15, psfmodel[x], c='royalblue', alpha=0.5) for x in np.arange(0, np.shape(psfmodel)[1])]
     ax[1].axvline(0, ls='dotted', c='k')
-    ax[1].set(xlim=(-15, 15), yscale='log', ylim=(1E-5, 1E-1), xlabel='arcsec')
+    ax[1].set(xlim=(-15, 15), yscale='log', ylim=(1E-6, 1E-1), xlabel='arcsec')
 
     if show_gaussian:
         from scipy.optimize import curve_fit
