@@ -483,8 +483,8 @@ def plot_blobmap(brick):
 
 def plot_ldac(tab_ldac, band, xlims=None, ylims=None, box=False, nsel=None):
     fig, ax = plt.subplots()
-    xbin = np.arange(xlims[0], xlims[1], 0.1)
-    ybin = np.arange(ylims[0], ylims[1], 0.1)
+    xbin = np.arange(0, 15, 0.1)
+    ybin = np.arange(26, 12, 0.1)
     ax.hist2d(tab_ldac['FLUX_RADIUS'], tab_ldac['MAG_AUTO'], bins=(xbin, ybin), cmap='Greys', norm=LogNorm())
     if box:
         rect = Rectangle((xlims[0], ylims[0]), xlims[1] - xlims[0], ylims[1] - ylims[0], fill=True, alpha=0.3,
