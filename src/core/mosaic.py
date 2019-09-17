@@ -153,7 +153,7 @@ class Mosaic(Subimage):
 
             if conf.PLOT:
                 if conf.VERBOSE: print('Plotting LDAC with pointsource bounding box')
-                plot_ldac(tab_ldac, self.bands, xlims=xlims, ylims=ylims, box=True, nsel=mask_ldac)
+                plot_ldac(tab_ldac, self.bands, xlims=xlims, ylims=ylims, box=True, nsel=np.sum(mask_ldac))
 
 
             hdul_ldac['LDAC_OBJECTS'].data = tab_ldac[mask_ldac]
