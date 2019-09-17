@@ -556,10 +556,11 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
         outcatalog.write(os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat'), format='fits', overwrite=conf.OVERWRITE)
 
         # If user wants model and/or residual images made:
+        cleancatalog = outcatalog[outcatalog['VALID_SOURCE']]
         if conf.MAKE_MODEL_IMAGE:
-            modbrick.make_model_image(outcatalog)
+            modbrick.make_model_image(catalog=cleancatalog)
         if conf.MAKE_RESIDUAL_IMAGE:
-            modbrick.make_residual_image()
+            modbrick.make_residual_image(catalog=cleancatalog)
 
         return
     

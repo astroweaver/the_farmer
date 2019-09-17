@@ -999,7 +999,7 @@ class Blob(Subimage):
                 self.bcatalog[row]['REFF'] = src.shape.re
                 self.bcatalog[row]['REFF_ERR'] = np.sqrt(self.parameter_variance[row].shape.getParams()[0])
                 self.bcatalog[row]['AB'] = (src.shape.e + 1) / (1 - src.shape.e)
-                if src.shape.e >= 1:
+                if (src.shape.e >= 1) | (src.shape.e <= -1):
                     self.bcatalog[row]['VALID_SOURCE'] = False
                 self.bcatalog[row]['AB_ERR'] = np.sqrt(self.parameter_variance[row].shape.getParams()[1])
                 self.bcatalog[row]['THETA'] = np.rad2deg(src.shape.theta)
@@ -1027,6 +1027,12 @@ class Blob(Subimage):
                 # self.bcatalog[row]['reff_err'] = np.sqrt(self.parameter_variance[row][0])
                 # self.bcatalog[row]['ab_err'] = np.sqrt(self.parameter_variance[row][1])
                 # self.bcatalog[row]['phi_err'] = np.sqrt(self.parameter_variance[row][2])
+
+                if (src.shapeExp.e >= 1) | (src.shapeExp.e <= -1):
+                    self.bcatalog[row]['VALID_SOURCE'] = False
+
+                if (src.shapeDev.e >= 1) | (src.shapeDev.e <= -1):
+                    self.bcatalog[row]['VALID_SOURCE'] = False
 
                 if conf.VERBOSE2:
                     print(f"    EXP_REFF =  {self.bcatalog[row]['EXP_REFF']:3.3f} +/- {self.bcatalog[row]['EXP_REFF_ERR']:3.3f}")
