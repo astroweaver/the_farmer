@@ -944,6 +944,8 @@ class Blob(Subimage):
 
             self.bcatalog[row]['MAG_'+band] = -2.5 * np.log10(src.getBrightness().getFlux(band)) + zpt
             self.bcatalog[row]['MAGERR_'+band] = 1.09 * np.sqrt(flux_var[row].brightness.getParams()[i]) / src.getBrightness().getFlux(band)
+            self.bcatalog[row]['RAWFLUX_'+band] = src.getBrightness().getFlux(band)  # Force fluxes to be in uJy!
+            self.bcatalog[row]['RAWFLUXERR_'+band] = np.sqrt(flux_var[row].brightness.getParams()[i])
             self.bcatalog[row]['FLUX_'+band] = src.getBrightness().getFlux(band) * 10**(-0.4 * (zpt - 23.9))  # Force fluxes to be in uJy!
             self.bcatalog[row]['FLUXERR_'+band] = np.sqrt(flux_var[row].brightness.getParams()[i]) * 10**(-0.4 * (zpt - 23.9))
             self.bcatalog[row]['CHISQ_'+band] = self.solution_chisq[row, i]

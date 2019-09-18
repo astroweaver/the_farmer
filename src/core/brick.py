@@ -129,6 +129,8 @@ class Brick(Subimage):
             print(f'ADDING COLUMNS FOR {colname}')
             self.catalog.add_column(Column(filler, name=f'MAG_{colname}'))
             self.catalog.add_column(Column(filler, name=f'MAGERR_{colname}'))
+            self.catalog.add_column(Column(filler, name=f'RAWFLUX_{colname}'))
+            self.catalog.add_column(Column(filler, name=f'RAWFLUXERR_{colname}'))
             self.catalog.add_column(Column(filler, name=f'FLUX_{colname}'))
             self.catalog.add_column(Column(filler, name=f'FLUXERR_{colname}'))
             self.catalog.add_column(Column(filler, name=f'CHISQ_{colname}'))
@@ -248,7 +250,7 @@ class Brick(Subimage):
             by_model = src['Y_MODEL'] - self.mosaic_origin[0] + conf.BRICK_BUFFER - 1
 
             position = PixPos(bx_model, by_model)
-            flux = Fluxes(**dict(zip(self.bands, [src[f'FLUX_{band}'] for band in self.bands])))
+            flux = Fluxes(**dict(zip(self.bands, [src[f'RAWFLUX_{band}'] for band in self.bands]))) # IMAGES ARE IN NATIVE ZPT, USE RAWFLUXES!
 
             if src['SOLMODEL'] == "PointSource":
                 self.model_catalog[i] = PointSource(position, flux)
