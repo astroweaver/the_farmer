@@ -139,6 +139,7 @@ class Brick(Subimage):
             self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype='S20'), name='SOLMODEL'))
             self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=bool), name='VALID_SOURCE'))
             self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=int), name='N_CONVERGE'))
+            self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=int), name='N_BLOB'))
             for colname in ('REFF', 'REFF_ERR', 'AB', 'AB_ERR', 'THETA', 'THETA_ERR',
                         'FRACDEV', 'EXP_REFF', 'EXP_REFF_ERR', 'EXP_AB', 'EXP_AB_ERR', 'EXP_THETA', 'EXP_THETA_ERR', 
                         'DEV_REFF', 'DEV_REFF_ERR', 'DEV_AB', 'DEV_AB_ERR', 'DEV_THETA', 'DEV_THETA_ERR' ):

@@ -953,9 +953,10 @@ class Blob(Subimage):
             self.bcatalog[row]['X_MODEL'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
             self.bcatalog[row]['Y_MODEL'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
 
-            # Is the source located outwidth the mosaic?
-            if (self.bcatalog[row]['X_MODEL'] < 0) | (self.bcatalog[row]['X_MODEL'] > conf.MOSAIC_WIDTH) | (self.bcatalog[row]['Y_MODEL'] < 0) | (self.bcatalog[row]['Y_MODEL'] > conf.MOSAIC_HEIGHT):
-                print('WARNING -- Source is located outwith mosaic limits!')
+            # Is the source located outwidth the blob?
+            xmax, ymax = np.shape(self.images[0])
+            if (src.pos[0] < 0) | (self.pos[0] > xmax) | (src.pos[1] < 0) | (self.pos[1] > ymax):
+                print('WARNING -- Source is located outwith blob limits!')
                 valid_source = False
 
             if conf.VERBOSE2:
@@ -994,6 +995,7 @@ class Blob(Subimage):
             self.bcatalog[row]['SOLMODEL'] = src.name
             self.bcatalog[row]['VALID_SOURCE'] = valid_source
             self.bcatalog[row]['N_CONVERGE'] = self.n_converge
+            self.bcatalog[row]['N_BLOB'] = self.n_sources
 
             if src.name in ('SimpleGalaxy', 'ExpGalaxy', 'DevGalaxy'):
                 self.bcatalog[row]['REFF'] = src.shape.re
