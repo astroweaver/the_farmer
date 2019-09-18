@@ -955,7 +955,7 @@ class Blob(Subimage):
 
             # Is the source located outwidth the blob?
             xmax, ymax = np.shape(self.images[0])
-            if (src.pos[0] < 0) | (self.pos[0] > xmax) | (src.pos[1] < 0) | (self.pos[1] > ymax):
+            if (src.pos[0] < 0) | (src.pos[0] > xmax) | (src.pos[1] < 0) | (src.pos[1] > ymax):
                 print('WARNING -- Source is located outwith blob limits!')
                 valid_source = False
 
