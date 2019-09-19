@@ -422,6 +422,7 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
     if conf.PLOT2:
         plot_brick(modbrick, 0, band=conf.MODELING_NICKNAME)
         plot_background(modbrick, 0, band=conf.MODELING_NICKNAME)
+        plot_mask(modbrick, 0, band=conf.MODELING_NICKNAME)
 
     if conf.VERBOSE:
         print()
@@ -598,6 +599,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
                 idx = np.argwhere(np.array(conf.BANDS)==plt_band)[0][0]
             plot_brick(fbrick, idx, band=plt_band)
             plot_background(fbrick, idx, band=plt_band)
+            plot_mask(fbrick, idx, band=plt_band)
 
     if conf.VERBOSE:
         for i, vb_band in enumerate(fband):

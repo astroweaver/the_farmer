@@ -89,6 +89,17 @@ def plot_background(brick, idx, band=''):
     plt.close()
     if conf.VERBOSE2: print(f'Saving figure: {out_path}')
 
+def plot_mask(brick, idx, band=''):
+    fig, ax = plt.subplots(figsize=(20,20))
+    
+    img = ax.imshow(brick.masks[idx])
+    out_path = os.path.join(conf.PLOT_DIR, f'B{brick.brick_id}_{band}_mask.pdf')
+    ax.axis('off')
+    ax.margins(0,0)
+    fig.savefig(out_path, dpi = 300, overwrite=True, pad_inches=0.0)
+    plt.close()
+    if conf.VERBOSE2: print(f'Saving figure: {out_path}')
+
 def plot_brick(brick, idx, band=''):
     fig, ax = plt.subplots(figsize=(20,20))
     backlevel, noisesigma = brick.backgrounds[idx]
