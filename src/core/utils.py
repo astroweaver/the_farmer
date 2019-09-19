@@ -16,7 +16,7 @@ from tractor.galaxy import ExpGalaxy
 from tractor import EllipseE
 from tractor.galaxy import ExpGalaxy
 import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm
+from matplotlib.colors import LogNorm, SymLogNorm
 from matplotlib.patches import Ellipse
 from matplotlib.patches import Rectangle
 from skimage.segmentation import find_boundaries
@@ -78,7 +78,9 @@ class SimpleGalaxy(ExpGalaxy):
 
 def plot_background(brick, idx, band=''):
     fig, ax = plt.subplots(figsize=(20,20))
-    ax.imshow(brick.background_images[idx], cmap='Greys', norm=LogNorm())
+    vmin, vmax = brick.background_images[idx].min(), brick.background_images[idx].max()
+    img = ax.imshow(brick.background_images[idx], cmap='RdGy', norm=SymLogNorm(vmin, vmax))
+    plt.colorbar(img, ax=ax)
     out_path = os.path.join(conf.PLOT_DIR, f'B{brick.brick_id}_{band}_background.pdf')
     ax.axis('off')
     ax.margins(0,0)
@@ -89,12 +91,14 @@ def plot_background(brick, idx, band=''):
 def plot_brick(brick, idx, band=''):
     fig, ax = plt.subplots(figsize=(20,20))
     backlevel, noisesigma = brick.backgrounds[idx]
-    vmin, vmax = np.max([backlevel + noisesigma, 1E-5]), brick.images[idx].max()
+    # vmin, vmax = np.max([backlevel + noisesigma, 1E-5]), brick.images[idx].max()
+    vmin, vmax = brick.images[idx].min(), brick.images[idx].max()
     if vmin > vmax:
         print(f'WARNING - {band} brick not plotted!')
         return
-    norm = LogNorm(vmin, vmax, clip='True')
-    ax.imshow(brick.images[idx], cmap='Greys', origin='lower', norm=norm)
+    norm = SymLogNorm(vmin, vmax)
+    img = ax.imshow(brick.images[idx], cmap='RdGy', origin='lower', norm=norm)
+    plt.colorbar(img, ax=ax)
     out_path = os.path.join(conf.PLOT_DIR, f'B{brick.brick_id}_{band}_brick.pdf')
     ax.axis('off')
     ax.margins(0,0)
