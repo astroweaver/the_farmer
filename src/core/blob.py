@@ -285,7 +285,6 @@ class Blob(Subimage):
 
                 if conf.PLOT:
                     plot_detblob(self, fig, ax, level=self._level, sublevel=self._sublevel)
-                    plot_modprofile(self, level=self._level, sublevel=self._sublevel)
 
             # decide
             self.decide_winners()
@@ -361,6 +360,8 @@ class Blob(Subimage):
 
         if conf.PLOT:
             plot_detblob(self, fig, ax, level=self._level, sublevel=self._sublevel, final_opt=True)
+            plot_modprofile(self, level=self._level, sublevel=self._sublevel)
+
             plt.close()
 
         # self.rows = np.zeros(len(self.solution_catalog))
