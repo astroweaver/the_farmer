@@ -33,7 +33,7 @@ import sep
 from matplotlib.colors import LogNorm
 
 from .subimage import Subimage
-from .utils import SimpleGalaxy, plot_detblob, plot_fblob, plot_psf, plot_modprofile
+from .utils import SimpleGalaxy, plot_detblob, plot_fblob, plot_psf, plot_modprofile, plot_mask
 import config as conf
 
 
