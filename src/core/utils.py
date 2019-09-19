@@ -229,17 +229,17 @@ def plot_modprofile(blob, level, sublevel):
     residual = blob.images[0] - blob.solution_model_images[0]
     ax[1,2].imshow(residual, cmap='RdGy', vmin=-5*rms, vmax=5*rms)
 
-    xax = np.arange(-np.shape(blob.images[0])[0]/2 + 0.5,  np.shape(blob.images[0])[0]/2+0.5)
+    xax = np.arange(-np.shape(blob.images[0])[1]/2 + 0.5,  np.shape(blob.images[0])[1]/2+0.5)
     [ax[0,0].plot(xax * 0.15, blob.images[0][x], c='royalblue', alpha=0.5) for x in np.arange(0, np.shape(blob.images[0])[1])]
     ax[0,0].axvline(0, ls='dotted', c='k')
     ax[0,0].set(yscale='log', xlabel='arcsec')
 
-    xax = np.arange(-np.shape(blob.solution_model_images[0])[0]/2 + 0.5,  np.shape(blob.solution_model_images[0])[0]/2+0.5)
+    xax = np.arange(-np.shape(blob.solution_model_images[0])[1]/2 + 0.5,  np.shape(blob.solution_model_images[0])[1]/2+0.5)
     [ax[0,1].plot(xax * 0.15, blob.solution_model_images[0][x], c='royalblue', alpha=0.5) for x in np.arange(0, np.shape(blob.solution_model_images[0])[1])]
     ax[0,1].axvline(0, ls='dotted', c='k')
     ax[0,1].set(yscale='log', xlabel='arcsec')
 
-    xax = np.arange(-np.shape(residual)[0]/2 + 0.5,  np.shape(residual)[0]/2+0.5)
+    xax = np.arange(-np.shape(residual)[1]/2 + 0.5,  np.shape(residual)[1]/2+0.5)
     [ax[0,2].plot(xax * 0.15, residual[x], c='royalblue', alpha=0.5) for x in np.arange(0, np.shape(residual)[1])]
     ax[0,2].axvline(0, ls='dotted', c='k')
     ax[0,2].set(yscale='log', xlabel='arcsec')
