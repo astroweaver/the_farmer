@@ -506,7 +506,7 @@ def plot_blobmap(brick):
     imgs_marked = find_boundaries(brick.blobmap, mode='thick').astype(int)
     imgs_marked[imgs_marked==0] = -99
     backlevel, noisesigma = brick.backgrounds[0]
-    vmin, vmax = backlevel, backlevel + 5 * noisesigma
+    vmin, vmax = np.max([backlevel + noisesigma, 1E-5]), brick.images[0].max()
     norm = LogNorm(np.max([backlevel + noisesigma, 1E-5]), imgs_marked.max(), clip='True')
     ax.imshow(brick.images[0], cmap='Greys', origin='lower', norm=norm)
     mycmap = plt.cm.magma
