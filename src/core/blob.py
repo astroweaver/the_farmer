@@ -33,7 +33,7 @@ import sep
 from matplotlib.colors import LogNorm
 
 from .subimage import Subimage
-from .utils import SimpleGalaxy, plot_detblob, plot_fblob, plot_psf
+from .utils import SimpleGalaxy, plot_detblob, plot_fblob, plot_psf, plot_modprofile
 import config as conf
 
 
@@ -149,6 +149,7 @@ class Blob(Subimage):
 
             if conf.PLOT & (psf is not None):
                 psfimg = psfmodel.getImage(0, 0)
+                self.psfimg = psfimg
                 plot_psf(psfimg, band, show_gaussian=True)
                     
             timages[i] = Image(data=image,
@@ -284,6 +285,7 @@ class Blob(Subimage):
 
                 if conf.PLOT:
                     plot_detblob(self, fig, ax, level=self._level, sublevel=self._sublevel)
+                    plot_modprofile(self, level=self._level, sublevel=self._sublevel)
 
             # decide
             self.decide_winners()
