@@ -79,7 +79,7 @@ class SimpleGalaxy(ExpGalaxy):
 def plot_background(brick, idx, band=''):
     fig, ax = plt.subplots(figsize=(20,20))
     vmin, vmax = brick.background_images[idx].min(), brick.background_images[idx].max()
-    img = ax.imshow(brick.background_images[idx], cmap='RdGy', norm=SymLogNorm())
+    img = ax.imshow(brick.background_images[idx], cmap='RdGy', norm=SymLogNorm(linthresh=0.03))
     plt.colorbar(img, ax=ax)
     out_path = os.path.join(conf.PLOT_DIR, f'B{brick.brick_id}_{band}_background.pdf')
     ax.axis('off')
@@ -96,7 +96,7 @@ def plot_brick(brick, idx, band=''):
     if vmin > vmax:
         print(f'WARNING - {band} brick not plotted!')
         return
-    norm = SymLogNorm()
+    norm = SymLogNorm(linthresh=0.03)
     img = ax.imshow(brick.images[idx], cmap='RdGy', origin='lower', norm=norm)
     plt.colorbar(img, ax=ax)
     out_path = os.path.join(conf.PLOT_DIR, f'B{brick.brick_id}_{band}_brick.pdf')
