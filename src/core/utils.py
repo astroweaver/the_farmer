@@ -91,12 +91,13 @@ def plot_background(brick, idx, band=''):
 def plot_brick(brick, idx, band=''):
     fig, ax = plt.subplots(figsize=(20,20))
     backlevel, noisesigma = brick.backgrounds[idx]
-    # vmin, vmax = np.max([backlevel + noisesigma, 1E-5]), brick.images[idx].max()
+    vmin, vmax = np.max([backlevel + noisesigma, 1E-5]), brick.images[idx].max()
     vmin, vmax = brick.images[idx].min(), brick.images[idx].max()
     if vmin > vmax:
         print(f'WARNING - {band} brick not plotted!')
         return
-    print(vmin, vmax)
+    vmin = backlevel - 5*noisesigma
+    vmax = backlevel + 5 * noisesigma
     norm = SymLogNorm(vmin, vmax)
     img = ax.imshow(brick.images[idx], cmap='RdGy', origin='lower', norm=norm)
     plt.colorbar(img, ax=ax)
