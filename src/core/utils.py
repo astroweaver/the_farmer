@@ -96,6 +96,7 @@ def plot_brick(brick, idx, band=''):
     if vmin > vmax:
         print(f'WARNING - {band} brick not plotted!')
         return
+    print(vmin, vmax)
     norm = SymLogNorm(vmin, vmax)
     img = ax.imshow(brick.images[idx], cmap='RdGy', origin='lower', norm=norm)
     plt.colorbar(img, ax=ax)
