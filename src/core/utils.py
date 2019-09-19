@@ -223,7 +223,7 @@ def plot_modprofile(blob, level, sublevel):
     norm = LogNorm(np.max([mean + rms, 1E-5]), blob.images.max(), clip='True')
     img_opt = dict(cmap='Greys', norm=norm)
 
-    fig, ax = plt.subplots(ncols = 4, nrows = 4)
+    fig, ax = plt.subplots(ncols = 4, nrows = 2, figsize=(20,10))
     ax[1,0].imshow(blob.images[0], **img_opt)
     ax[1,1].imshow(blob.solution_model_images[0],  **img_opt)
     residual = blob.images[0] - blob.solution_model_images[0]
