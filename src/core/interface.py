@@ -43,7 +43,7 @@ from scipy import stats
 
 from .brick import Brick
 from .mosaic import Mosaic
-from .utils import plot_background, plot_blob, SimpleGalaxy, plot_blobmap, plot_brick
+from .utils import plot_background, plot_blob, SimpleGalaxy, plot_blobmap, plot_brick, plot_mask
 
 import config as conf
 plt.ioff()
