@@ -297,10 +297,10 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
         if conf.DO_APPHOT:
             for img_type in ('image', 'model', 'residual'):
                 for band in modblob.bands:
-                    try:
-                        modblob.aperture_phot(band, img_type, sub_background=conf.SUBTRACT_BACKGROUND)
-                    except:
-                        if conf.VERBOSE: print(f'interface.runblob :: WARNING - Aperture photmetry FAILED for {band} {img_type}')
+                    # try:
+                    modblob.aperture_phot(band, img_type, sub_background=conf.SUBTRACT_BACKGROUND)
+                    #except:
+                    #    if conf.VERBOSE: print(f'interface.runblob :: WARNING - Aperture photmetry FAILED for {band} {img_type}')
         if conf.DO_SEXPHOT:
             try:
                 [modblob.sextract_phot(band) for band in modblob.bands]
