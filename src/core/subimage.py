@@ -302,7 +302,7 @@ class Subimage():
         if force_segmap is not None:
             var[force_segmap] = 0
 
-        if (self.weights == 1).all():
+        if (self.weights == 1).all() | (conf.USE_DETECTION_WEIGHT == False) :
             # No weight supplied by user
             var = None
             thresh = conf.THRESH * background[1]
