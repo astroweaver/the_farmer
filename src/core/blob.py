@@ -778,7 +778,8 @@ class Blob(Subimage):
         # plt.legend()
         # plt.savefig(os.path.join(conf.PLOT_DIR, f'{band}_{self.blob_id}_NORM_{conf.NORMALIZE_PSF}_GAUSS_{conf.FORCE_GAUSSIAN_PSF}_SEGMASK_{conf.APPLY_SEGMASK}_SURFBRI.pdf'))
 
-
+        if band is None:
+            band = 'MODELING'
         band = band.replace(' ', '_')
         if f'FLUX_APER_{band}_{image_type}' not in self.bcatalog.colnames:
             self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, shape=len(apertures), name=f'FLUX_APER_{band}_{image_type}'))
@@ -819,6 +820,8 @@ class Blob(Subimage):
         kwargs = dict(var=var, minarea=conf.RES_MINAREA, segmentation_map=True, deblend_nthresh=conf.RES_DEBLEND_NTHRESH, deblend_cont=conf.RES_DEBLEND_CONT)
         catalog, segmap = sep.extract(residual, thresh, **kwargs)
 
+        if band is None:
+            band = 'MODELING'
         if f'{band}_n_residual_sources' not in self.bcatalog.colnames:
                 self.bcatalog.add_column(Column(np.zeros(len(self.bcatalog), dtype=bool), name=f'{band}_n_residual_sources'))
 
