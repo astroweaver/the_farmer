@@ -224,7 +224,7 @@ def plot_blob(myblob, myfblob):
     fig.subplots_adjust(wspace=0.01, hspace=0, right=0.8)
     fig.savefig(os.path.join(conf.PLOT_DIR, f'{myblob.brick_id}_{myblob.blob_id}.pdf'))
 
-def plot_modprofile(blob, level, sublevel):
+def plot_modprofile(blob):
 
     psfmodel = blob.psfimg
 
@@ -267,7 +267,10 @@ def plot_modprofile(blob, level, sublevel):
     ax[0,3].axvline(0, ls='dotted', c='k')
     ax[0,3].set(xlim=(-15, 15), yscale='log', ylim=(1E-6, 1E-1), xlabel='arcsec')
 
-    outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{conf.MODELING_NICKNAME}_debugprofile_level{level}_sublevel{sublevel}.pdf')
+    for i in np.arange(4):
+        ax[0, i].set(xlim=(-15, 15), ylim=(mean, blob.images[0].max()))
+        # ax[1, i].set(xlim=(-15, 15), ylim=(-15, 15))
+    outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{conf.MODELING_NICKNAME}_debugprofile.pdf')
     if conf.VERBOSE2:
         print()
         print(f'Saving figure: {outpath}') 

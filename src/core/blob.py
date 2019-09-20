@@ -362,7 +362,7 @@ class Blob(Subimage):
 
         if conf.PLOT:
             plot_detblob(self, fig, ax, level=self._level, sublevel=self._sublevel, final_opt=True)
-            plot_modprofile(self, level=self._level, sublevel=self._sublevel)
+            plot_modprofile(self)
 
             plt.close()
 
