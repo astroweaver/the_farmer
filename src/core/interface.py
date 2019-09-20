@@ -300,12 +300,12 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
                 try:
                     modblob.aperture_phot(image_type=img_type, sub_background=conf.SUBTRACT_BACKGROUND)
                 except:
-                    if conf.VERBOSE: print(f'interface.runblob :: WARNING - Aperture photmetry FAILED for {band} {img_type}')
+                    if conf.VERBOSE: print(f'interface.runblob :: WARNING - Aperture photmetry FAILED for {conf.MODELING_NICKNAME} {img_type}')
         if conf.DO_SEXPHOT:
             try:
                 modblob.sextract_phot()
             except:
-                if conf.VERBOSE: print(f'interface.runblob :: WARNING - Source extraction on the residual blob FAILED for {band} {img_type}')    
+                if conf.VERBOSE: print(f'interface.runblob :: WARNING - Source extraction on the residual blob FAILED for {conf.MODELING_NICKNAME} {img_type}')    
 
         duration = time.time() - tstart
         if conf.VERBOSE: print(f'interface.runblob :: Solution for Blob #{modblob.blob_id} (N={modblob.n_sources}) arrived at in {duration:3.3f}s ({duration/modblob.n_sources:2.2f}s per src)')
