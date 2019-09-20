@@ -132,7 +132,7 @@ class Blob(Subimage):
                 psfmodel = psf.constantPsfAt(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.)
                 if conf.RMBACK_PSF & (not conf.FORCE_GAUSSIAN_PSF):
                     print(np.mean(psfmodel.img))
-                    psfmodel.img[psfmodel.img < 1.1*np.median(psfmodel.img)] = 0
+                    psfmodel.img[psfmodel.img < 1.5*np.median(psfmodel.img)] = 0
                     print(np.mean(psfmodel.img))
                 if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
                     print(np.mean(psfmodel.img))
