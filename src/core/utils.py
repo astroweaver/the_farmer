@@ -245,17 +245,17 @@ def plot_modprofile(blob):
     ax[1,2].imshow(residual, cmap='RdGy', vmin=-5*rms, vmax=5*rms)
 
     xax = np.arange(-np.shape(blob.images[0])[1]/2,  np.shape(blob.images[0])[1]/2)
-    [ax[0,0].plot(xax * 0.15, blob.images[0][x], c='royalblue', alpha=0.5) for x in np.arange(0, np.shape(blob.images[0])[1])]
+    [ax[0,0].plot(xax * 0.15, blob.images[0][x], c='royalblue', alpha=0.5) for x in np.arange(0, np.shape(blob.images[0])[0])]
     ax[0,0].axvline(0, ls='dotted', c='k')
     ax[0,0].set(yscale='log', xlabel='arcsec')
 
     xax = np.arange(-np.shape(blob.solution_model_images[0])[1]/2,  np.shape(blob.solution_model_images[0])[1]/2)
-    [ax[0,1].plot(xax * 0.15, blob.solution_model_images[0][x], c='royalblue', alpha=0.5) for x in np.arange(0, np.shape(blob.solution_model_images[0])[1])]
+    [ax[0,1].plot(xax * 0.15, blob.solution_model_images[0][x], c='royalblue', alpha=0.5) for x in np.arange(0, np.shape(blob.solution_model_images[0])[0])]
     ax[0,1].axvline(0, ls='dotted', c='k')
     ax[0,1].set(yscale='log', xlabel='arcsec')
 
     xax = np.arange(-np.shape(residual)[1]/2,  np.shape(residual)[1]/2)
-    [ax[0,2].plot(xax * 0.15, residual[x], c='royalblue', alpha=0.5) for x in np.arange(0, np.shape(residual)[1])]
+    [ax[0,2].plot(xax * 0.15, residual[x], c='royalblue', alpha=0.5) for x in np.arange(0, np.shape(residual)[0])]
     ax[0,2].axvline(0, ls='dotted', c='k')
     ax[0,2].set(yscale='log', xlabel='arcsec')
 
@@ -265,7 +265,7 @@ def plot_modprofile(blob):
     ax[1,3].set(xlim=xlim, ylim=xlim)
 
     xax = np.arange(-np.shape(psfmodel)[0]/2,  np.shape(psfmodel)[0]/2)
-    [ax[0,3].plot(xax * 0.15, psfmodel[x], c='royalblue', alpha=0.5) for x in np.arange(0, np.shape(psfmodel)[1])]
+    [ax[0,3].plot(xax * 0.15, psfmodel[x], c='royalblue', alpha=0.5) for x in np.arange(0, np.shape(psfmodel)[0])]
     ax[0,3].axvline(0, ls='dotted', c='k')
     ax[0,3].set(xlim=xlim, yscale='log', ylim=(1E-6, 1E-1), xlabel='arcsec')
 
