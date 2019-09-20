@@ -648,7 +648,7 @@ class Blob(Subimage):
 
         return True
 
-    def aperture_phot(self, band, image_type=None, sub_background=False):
+    def aperture_phot(self, band=None, image_type=None, sub_background=False):
         # Allow user to enter image (i.e. image, residual, model...)
         if conf.VERBOSE: 
             print()
@@ -658,7 +658,10 @@ class Blob(Subimage):
             raise TypeError("image_type must be 'image', 'model', 'isomodel', or 'residual'")
             return
 
-        idx = np.argwhere(self.bands == band)[0][0]
+        if band is None:
+            idx = 0
+        else:
+            idx = np.argwhere(self.bands == band)[0][0]
         use_iso = False
 
         if image_type == 'image':
@@ -779,10 +782,13 @@ class Blob(Subimage):
             self.bcatalog[row][f'FLUX_APER_{band}_{image_type}'] = tuple(apflux[idx])
             self.bcatalog[row][f'FLUX_APER_{band}_{image_type}_err'] = tuple(apflux_err[idx])
 
-    def sextract_phot(self, band, sub_background=False):
+    def sextract_phot(self, band=None, sub_background=False):
         # SHOULD WE STACK THE RESIDUALS? (No?)
         # SHOULD WE DO THIS ON THE MODELING IMAGE TOO? (I suppose we can already...!)
-        idx = self._band2idx(band)
+        if band is None:
+            idx = 0
+        else:
+            idx = self._band2idx(band)
         residual = self.images[idx] - self.solution_tractor.getModelImage(idx)
         tweight = self.weights[idx].copy()
         tweight[self.masks[idx]] = 0 # OK this isn't going to go well.

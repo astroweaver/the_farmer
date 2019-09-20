@@ -296,14 +296,14 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
         # Run follow-up phot
         if conf.DO_APPHOT:
             for img_type in ('image', 'model', 'residual'):
-                for band in modblob.bands:
-                    # try:
-                    modblob.aperture_phot(band, img_type, sub_background=conf.SUBTRACT_BACKGROUND)
-                    #except:
-                    #    if conf.VERBOSE: print(f'interface.runblob :: WARNING - Aperture photmetry FAILED for {band} {img_type}')
+                # for band in modblob.bands:
+                try:
+                    modblob.aperture_phot(image_type=img_type, sub_background=conf.SUBTRACT_BACKGROUND)
+                except:
+                    if conf.VERBOSE: print(f'interface.runblob :: WARNING - Aperture photmetry FAILED for {band} {img_type}')
         if conf.DO_SEXPHOT:
             try:
-                [modblob.sextract_phot(band) for band in modblob.bands]
+                modblob.sextract_phot()
             except:
                 if conf.VERBOSE: print(f'interface.runblob :: WARNING - Source extraction on the residual blob FAILED for {band} {img_type}')    
 
