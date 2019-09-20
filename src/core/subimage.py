@@ -328,7 +328,7 @@ class Subimage():
         else:
             mask = None
 
-        if VERBOSE: print(f'Detection is to be performed with thresh = {thresh}')
+        if conf.VERBOSE: print(f'Detection is to be performed with thresh = {thresh}')
 
         # Set extraction pixel limit buffer
         sep.set_extract_pixstack(conf.PIXSTACK_SIZE)
