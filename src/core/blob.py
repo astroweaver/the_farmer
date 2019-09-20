@@ -132,7 +132,7 @@ class Blob(Subimage):
                 psfmodel = psf.constantPsfAt(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.)
                 if conf.RMBACK_PSF & (not conf.FORCE_GAUSSIAN_PSF):
                     print(np.mean(psfmodel.img))
-                    psfmodel.img[psfmodel.img < 100*np.median(psfmodel.img)] = 0
+                    psfmodel.img[psfmodel.img < np.median(psfmodel.img)] = 0
                     print(np.mean(psfmodel.img))
                 if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
                     print(np.mean(psfmodel.img))
@@ -144,7 +144,7 @@ class Blob(Subimage):
                 blob_centery = self.blob_center[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
                 psfmodel = psf.constantPsfAt(blob_centerx, blob_centery) # init at blob center, may need to swap!
                 if conf.RMBACK_PSF & (not conf.FORCE_GAUSSIAN_PSF):
-                    psfmodel.img[psfmodel.img < 100*np.median(psfmodel.img)] = 0
+                    psfmodel.img[psfmodel.img < np.median(psfmodel.img)] = 0
                 if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
                     psfmodel.img /= psfmodel.img.sum() # HACK -- force normalization to 1
                 if conf.VERBOSE2: print(f'blob.stage_images :: Adopting varying PSF constant at ({blob_centerx}, {blob_centery}).')
