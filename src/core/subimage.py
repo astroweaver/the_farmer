@@ -308,6 +308,9 @@ class Subimage():
             thresh = conf.THRESH * background[1]
             if not sub_background:
                 thresh += background[0]
+
+            if conf.VERBOSE:
+                print(f'Detection is to be performed with weights? {conf.USE_DETECTION_WEIGHT}')
         else:
             thresh = conf.THRESH
 
@@ -324,6 +327,8 @@ class Subimage():
             mask = mask
         else:
             mask = None
+
+        if VERBOSE: print(f'Detection is to be performed with thresh = {thresh}')
 
         # Set extraction pixel limit buffer
         sep.set_extract_pixstack(conf.PIXSTACK_SIZE)
