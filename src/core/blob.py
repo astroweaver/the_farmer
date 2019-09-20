@@ -682,7 +682,7 @@ class Blob(Subimage):
             image = (self.images[idx] - self.solution_tractor.getModelImage(idx))
         
         if conf.APER_APPLY_SEGMASK & (not use_iso):
-            image *= self.masks[self.band2idx(band)]
+            image *= self.masks[idx]
 
         background = self.backgrounds[idx]
 
