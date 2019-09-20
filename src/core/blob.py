@@ -716,7 +716,10 @@ class Blob(Subimage):
         Iap = np.flatnonzero((apxy[0,:] >= 0)   * (apxy[1,:] >= 0) *
                             (apxy[0,:] <= W-1) * (apxy[1,:] <= H-1))
 
-        zpt = conf.MULTIBAND_ZPT[self._band2idx(band)]
+        if band is None:
+            zpt = conf.MODELING_ZPT
+        else:   
+            zpt = conf.MULTIBAND_ZPT[self._band2idx(band)]
 
         if var is None:
             imgerr = None
