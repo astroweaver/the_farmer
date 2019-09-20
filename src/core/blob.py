@@ -755,7 +755,7 @@ class Blob(Subimage):
                         apflux_err[j, i] = p.field('aperture_sum_err') * 10**(-0.4 * (zpt - 23.9))
 
                 if conf.VERBOSE: 
-                    apmag = - 2.5 * np.log10( apflux[j,i] ) + conf.MULTIBAND_ZPT[self._band2idx(band)]
+                    apmag = - 2.5 * np.log10( apflux[j,i] ) + zpt
                     apmag_err = 1.09 * apflux_err[j, i] / apflux[j, i]
                     print(f'        Flux({j}, {band}, {apertures_arcsec[i]:2.2f}") = {apflux[j,i]:3.3f}/-{apflux_err[j,i]:3.3f}')
                     print(f'        Mag({j}, {band}, {apertures_arcsec[i]:2.2f}") = {apmag:3.3f}/-{apmag_err:3.3f}')
