@@ -270,7 +270,7 @@ def plot_modprofile(blob):
     ax[0,3].set(xlim=xlim, yscale='log', ylim=(1E-6, 1E-1), xlabel='arcsec')
 
     for i in np.arange(4):
-        ax[0, i].set(xlim=xlim, ylim=(mean, blob.images[0].max()))
+        ax[0, i].set(xlim=(0.15*xlim[0], 0.15*xlim[1]), ylim=(mean, blob.images[0].max()))
         # ax[1, i].set(xlim=(-15, 15), ylim=(-15, 15))
     outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{conf.MODELING_NICKNAME}_debugprofile.pdf')
     if conf.VERBOSE2:
