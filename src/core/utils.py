@@ -236,7 +236,7 @@ def plot_modprofile(blob):
     norm = LogNorm(np.max([mean + rms, 1E-5]), blob.images.max(), clip='True')
     img_opt = dict(cmap='Greys', norm=norm)
 
-    xlim = np.shape(blob.images[0])[0]
+    xlim = (-np.shape(blob.images[0])[1]/2,  np.shape(blob.images[0])[1]/2)
 
     fig, ax = plt.subplots(ncols = 4, nrows = 2, figsize=(20,10))
     ax[1,0].imshow(blob.images[0], **img_opt)
