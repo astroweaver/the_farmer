@@ -236,6 +236,8 @@ def plot_modprofile(blob):
     norm = LogNorm(np.max([mean + rms, 1E-5]), blob.images.max(), clip='True')
     img_opt = dict(cmap='Greys', norm=norm)
 
+    xlim = np.shape(blob.images[0])[0]
+
     fig, ax = plt.subplots(ncols = 4, nrows = 2, figsize=(20,10))
     ax[1,0].imshow(blob.images[0], **img_opt)
     ax[1,1].imshow(blob.solution_model_images[0],  **img_opt)
@@ -260,15 +262,15 @@ def plot_modprofile(blob):
     norm = LogNorm(1e-5, 0.1*np.nanmax(psfmodel), clip='True')
     img_opt = dict(cmap='Blues', norm=norm)
     ax[1,3].imshow(psfmodel, **img_opt, extent=0.15 *np.array([-np.shape(psfmodel)[0]/2,  np.shape(psfmodel)[0]/2, -np.shape(psfmodel)[0]/2,  np.shape(psfmodel)[0]/2,]))
-    ax[1,3].set(xlim=(-15,15), ylim=(-15, 15))
+    ax[1,3].set(xlim=xlim, ylim=xlim)
 
     xax = np.arange(-np.shape(psfmodel)[0]/2,  np.shape(psfmodel)[0]/2)
     [ax[0,3].plot(xax * 0.15, psfmodel[x], c='royalblue', alpha=0.5) for x in np.arange(0, np.shape(psfmodel)[1])]
     ax[0,3].axvline(0, ls='dotted', c='k')
-    ax[0,3].set(xlim=(-15, 15), yscale='log', ylim=(1E-6, 1E-1), xlabel='arcsec')
+    ax[0,3].set(xlim=xlim, yscale='log', ylim=(1E-6, 1E-1), xlabel='arcsec')
 
     for i in np.arange(4):
-        ax[0, i].set(xlim=(-15, 15), ylim=(mean, blob.images[0].max()))
+        ax[0, i].set(xlim=xlim, ylim=(mean, blob.images[0].max()))
         # ax[1, i].set(xlim=(-15, 15), ylim=(-15, 15))
     outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{conf.MODELING_NICKNAME}_debugprofile.pdf')
     if conf.VERBOSE2:
