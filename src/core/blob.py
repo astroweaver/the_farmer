@@ -613,6 +613,9 @@ class Blob(Subimage):
                 dlnp, X, alpha, var = tr.optimize(shared_params=False, variance=True)
                 if i == 0:
                     dlnp_init = dlnp
+                print(f'{i} DEBUG: Showing catalog')
+                print(tr.getCatalog())
+                print()
             except:
                 if conf.VERBOSE: print(f'WARNING - Optimization failed on step {i} for blob #{self.blob_id}')
                 return False
