@@ -186,7 +186,7 @@ class Blob(Subimage):
                 position = self.tr_catalogs[i,0,0].getPosition()
             else:
                 position = PixPos(src['x'], src['y'])
-            flux = Fluxes(**dict(zip(self.bands, np.ones(self.n_bands))))
+            flux = Fluxes(**dict(zip(self.bands, 100*np.ones(self.n_bands))))
 
             #shape = GalaxyShape(src['a'], src['b'] / src['a'], src['theta'])
             shape = EllipseESoft.fromRAbPhi(src['a'], src['b'] / src['a'], -0.5*src['theta'])
