@@ -605,10 +605,11 @@ class Blob(Subimage):
         if tr is None:
             tr = self.tr
 
-        tr.freezeParams('images')        
-        print(f'0 DEBUG: Showing catalog')
-        print([print(k) for k in tr.getCatalog()])
-        print()
+        tr.freezeParams('images')   
+        if conf.VERBOSE2:     
+            print(f'0 DEBUG: Showing catalog')
+            print([print(k) for k in tr.getCatalog()])
+            print()
         
         if conf.VERBOSE2: 
             print()
@@ -623,9 +624,10 @@ class Blob(Subimage):
                 dlnp, X, alpha, var = tr.optimize(shared_params=False, variance=True)
                 if i == 0:
                     dlnp_init = dlnp
-                print(f'{i+1} DEBUG: Showing catalog')
-                print([print(k) for k in tr.getCatalog()])
-                print()
+                if conf.VERBOSE2:   
+                    print(f'{i+1} DEBUG: Showing catalog')
+                    print([print(k) for k in tr.getCatalog()])
+                    print()
             except:
                 if conf.VERBOSE: print(f'WARNING - Optimization failed on step {i} for blob #{self.blob_id}')
                 return False
