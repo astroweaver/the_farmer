@@ -176,6 +176,14 @@ class Blob(Subimage):
 
         for i, (mid, src) in enumerate(zip(self.mids, self.bcatalog)):
 
+            if conf.VERBOSE2: print(f'Source #{src["source_id"]}')
+            if conf.VERBOSE2: print(f"               x, y: {src['x']:3.3f}, {src['y']:3.3f}")
+            if conf.VERBOSE2: print(f"               flux: {src['flux']:3.3f}")
+            if conf.VERBOSE2: print(f"               cflux: {src['cflux']:3.3f}")
+            if conf.VERBOSE2: print(f"               a, b: {src['a']:3.3f}, {src['b']:3.3f}") 
+            if conf.VERBOSE2: print(f"               theta: {src['theta']:3.3f}")
+            if conf.VERBOSE2: print()
+
             freeze_position = (self.mids != 1).any()
             # print(f'DEBUG: {self.mids}')
             # print(f'DEBUG: Freeze position? {freeze_position}')
