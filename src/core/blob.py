@@ -598,7 +598,9 @@ class Blob(Subimage):
             tr = self.tr
 
         tr.freezeParams('images')        
-
+        print(f'0 DEBUG: Showing catalog')
+        print([print(k) for k in tr.getCatalog()])
+        print()
         
         if conf.VERBOSE2: 
             print()
@@ -613,7 +615,7 @@ class Blob(Subimage):
                 dlnp, X, alpha, var = tr.optimize(shared_params=False, variance=True)
                 if i == 0:
                     dlnp_init = dlnp
-                print(f'{i} DEBUG: Showing catalog')
+                print(f'{i+1} DEBUG: Showing catalog')
                 print([print(k) for k in tr.getCatalog()])
                 print()
             except:
