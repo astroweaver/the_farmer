@@ -195,6 +195,18 @@ class Brick(Subimage):
 
         for i, (psf, band) in enumerate(zip(self.psfmodels, self.bands)):
 
+            if (band in conf.CONSTANT_PSF) & (psf is not None):
+                psfmodel = psf.constantPsfAt(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.)
+                if conf.RMBACK_PSF & (not conf.FORCE_GAUSSIAN_PSF):
+                    print(np.mean(psfmodel.img))
+                    psfmodel.img[psfmodel.img < 1.4*np.median(psfmodel.img)] = 0
+                    print(np.mean(psfmodel.img))
+                if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
+                    print(np.mean(psfmodel.img))
+                    psfmodel.img /= psfmodel.img.sum() # HACK -- force normalization to 1
+                    print(np.mean(psfmodel.img))
+                if conf.VERBOSE2: print(f'blob.stage_images :: Adopting constant PSF.')
+
             if True: #band in conf.CONSTANT_PSF:
                 psfmodel = psf.constantPsfAt(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.)
                 if conf.PLOT:
@@ -258,14 +270,14 @@ class Brick(Subimage):
             elif src['SOLMODEL'] == "SimpleGalaxy":
                 self.model_catalog[i] = SimpleGalaxy(position, flux)
             elif src['SOLMODEL'] == "ExpGalaxy":
-                shape = EllipseESoft.fromRAbPhi(src['REFF'], 1./src['AB'], -0.5*src['THETA'])
+                shape = EllipseESoft.fromRAbPhi(src['REFF'], 1./src['AB'], -src['THETA'])
                 self.model_catalog[i] = ExpGalaxy(position, flux, shape)
             elif src['SOLMODEL'] == "DevGalaxy":
-                shape = EllipseESoft.fromRAbPhi(src['REFF'], 1/src['AB'], -0.5*src['THETA'])
+                shape = EllipseESoft.fromRAbPhi(src['REFF'], 1/src['AB'], -src['THETA'])
                 self.model_catalog[i] = DevGalaxy(position, flux, shape)
             elif src['SOLMODEL'] == "FixedCompositeGalaxy":
-                shape_exp = EllipseESoft.fromRAbPhi(src['REFF'], 1/src['AB'], -0.5*src['THETA'])
-                shape_dev = EllipseESoft.fromRAbPhi(src['REFF'], 1/src['AB'], -0.5*src['THETA'])
+                shape_exp = EllipseESoft.fromRAbPhi(src['REFF'], 1/src['AB'], -src['THETA'])
+                shape_dev = EllipseESoft.fromRAbPhi(src['REFF'], 1/src['AB'], -src['THETA'])
                 self.model_catalog[i] = FixedCompositeGalaxy(
                                                 position, flux,
                                                 SoftenedFracDev(src['FRACDEV']),
