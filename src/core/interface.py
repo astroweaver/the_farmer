@@ -779,9 +779,9 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
 
         # If user wants model and/or residual images made:
         if conf.MAKE_MODEL_IMAGE:
-            modbrick.make_model_image(outcatalog)
+            fbrick.make_model_image(outcatalog)
         if conf.MAKE_RESIDUAL_IMAGE:
-            modbrick.make_residual_image()
+            fbrick.make_residual_image()
 
     return
 

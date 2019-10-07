@@ -766,7 +766,7 @@ class Blob(Subimage):
                         image *= self.masks[self.band2idx(band)]
                     if sub_background:
                         image -= self.background_images[idx]
-                    if conf.VERBOSE: print(f'blob.aperture_phot :: Measuring {apertures_arcsec[i]:2.2f}" aperture flux on 1 source of {len(cat)}.')
+                    if conf.VERBOSE2: print(f'blob.aperture_phot :: Measuring {apertures_arcsec[i]:2.2f}" aperture flux on 1 source of {len(cat)}.')
                     p = photutils.aperture_photometry(image, aper, error=imgerr)
                     # aper.plot()
                     apflux[j, i] = p.field('aperture_sum') * 10**(-0.4 * (zpt - 23.9))
@@ -775,7 +775,7 @@ class Blob(Subimage):
                     else:
                         apflux_err[j, i] = p.field('aperture_sum_err') * 10**(-0.4 * (zpt - 23.9))
 
-                if conf.VERBOSE: 
+                if conf.VERBOSE2: 
                     apmag = - 2.5 * np.log10( apflux[j,i] ) + zpt
                     apmag_err = 1.09 * apflux_err[j, i] / apflux[j, i]
                     print(f'        Flux({j}, {band}, {apertures_arcsec[i]:2.2f}") = {apflux[j,i]:3.3f}/-{apflux_err[j,i]:3.3f}')
