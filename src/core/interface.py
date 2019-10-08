@@ -473,6 +473,9 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
             blob_id = np.unique(modbrick.blobmap[modbrick.segmap == source_id])
             assert(len(blob_id) == 1)
             blob_id = blob_id[0]
+        if blob_id is not None:
+            if blob_id not in outcatalog['blob_id']:
+                raise ValueError(f'ERROR :: Requested blob id {blob_id} is NOT valid!')
         modblob = modbrick.make_blob(blob_id)
         output_rows = runblob(blob_id, modblob, detection=True, plotting=conf.PLOT)
 

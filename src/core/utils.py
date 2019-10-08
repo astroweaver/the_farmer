@@ -81,7 +81,7 @@ def plot_background(brick, idx, band=''):
     vmin, vmax = brick.background_images[idx].min(), brick.background_images[idx].max()
     vmin = -vmax
     img = ax.imshow(brick.background_images[idx], cmap='RdGy', norm=SymLogNorm(linthresh=0.03))
-    plt.colorbar(img, ax=ax)
+    # plt.colorbar(img, ax=ax)
     out_path = os.path.join(conf.PLOT_DIR, f'B{brick.brick_id}_{band}_background.pdf')
     ax.axis('off')
     ax.margins(0,0)
@@ -111,7 +111,7 @@ def plot_brick(brick, idx, band=''):
     vmin = -vmax
     norm = SymLogNorm(linthresh=0.03)
     img = ax.imshow(brick.images[idx], cmap='RdGy', origin='lower', norm=norm)
-    plt.colorbar(img, ax=ax)
+    # plt.colorbar(img, ax=ax)
     out_path = os.path.join(conf.PLOT_DIR, f'B{brick.brick_id}_{band}_brick.pdf')
     ax.axis('off')
     ax.margins(0,0)
