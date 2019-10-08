@@ -421,6 +421,7 @@ class Blob(Subimage):
         if self._level == 1:
             # For which are they nearly equally good?
             movemask = (abs(bic[:, 1, 0] - bic[:, 1, 1]) < conf.EXP_DEV_THRESH)
+            # movemask = np.ones_like(bic[:,1,0], dtype=bool)
 
             # Has Exp beaten SG?
             expmask = (bic[:, 1, 0] < bic[:, 0, 1])
