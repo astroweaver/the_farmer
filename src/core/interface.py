@@ -399,7 +399,7 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
     tstart = time.time()
     if (segmap is None) & (catalog is None):
         try:
-            detbrick.sextract(conf.DETECTION_NICKNAME, sub_background=conf.DETECTION_SUBTRACT_BACKGROUND, use_mask=use_mask, incl_apphot=True)
+            detbrick.sextract(conf.DETECTION_NICKNAME, sub_background=conf.DETECTION_SUBTRACT_BACKGROUND, use_mask=use_mask, incl_apphot=conf.DO_APPHOT)
             if conf.VERBOSE: print(f'Detection brick #{brick_id} sextracted {detbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
         except:
             raise RuntimeError(f'Detection brick #{brick_id} sextraction FAILED. ({time.time() - tstart:3.3f}s)')

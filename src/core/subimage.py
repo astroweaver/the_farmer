@@ -305,9 +305,9 @@ class Subimage():
         if (self.weights == 1).all() | (conf.USE_DETECTION_WEIGHT == False) :
             # No weight supplied by user
             var = None
-            thresh = conf.THRESH * background[1]
-            if not sub_background:
-                thresh += background[0]
+            thresh = conf.THRESH #* background[1]
+            # if not sub_background:
+            #     thresh += background[0]
 
             if conf.VERBOSE:
                 print(f'Detection is to be performed with weights? {conf.USE_DETECTION_WEIGHT}')
