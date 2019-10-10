@@ -522,12 +522,21 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
         #del modbrick
 
         if conf.NTHREADS > 0:
+            # import p_tqdm
 
-            #pool = pp.ParallelPool(processes=conf.NTHREADS)
-            with mp.ProcessPool(processes=conf.NTHREADS) as pool:
-                result = pool.map(partial(runblob, detection=True), np.arange(1, run_n_blobs+1), modblobs)
+            # result = p_tqdm.p_map(partial(runblob, detection=True), np.arange(1, run_n_blobs+1), modblobs, num_cpus=conf.NTHREADS)
+            # if conf.VERBOSE2: print(f'Joining rows...')
+            # output_rows = [res for res in result]
 
-                output_rows = [res for res in result]
+            # pool = pp.ParallelPool(processes=conf.NTHREADS)
+            pool = mp.ProcessPool(processes=conf.NTHREADS)
+            result = pool.uimap(partial(runblob, detection=True, plotting=conf.PLOT), np.arange(1, run_n_blobs+1), modblobs)
+            if conf.VERBOSE: print('Joining pool...')
+            pool.close()
+            pool.join()
+            pool.clear()
+            if conf.VERBOSE: print('Joining results...')
+            output_rows = list(result)
 
             #rows = pool.map(runblob, zip(detblobs, fblobs))
             # output_rows = pool.map(partial(runblob, detection=True), np.arange(1, run_n_blobs+1), detblobs)
@@ -564,7 +573,7 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
         hdr = header_from_dict(conf.__dict__, verbose=conf.VERBOSE)
         hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
         hdu_table = fits.table_to_hdu(outcatalog)
-        hdul = fits.HDUList([hdu_table, hdu_info])
+        hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
         hdul.writeto(os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat'), overwrite=conf.OVERWRITE)
         
         # open again and add
@@ -712,9 +721,9 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
         if conf.NTHREADS > 0:
 
             with mp.ProcessPool(processes=conf.NTHREADS) as pool:
-                result = pool.map(partial(runblob, detection=False, catalog=fbrick.catalog, plotting=conf.PLOT), np.arange(1, run_n_blobs+1), fblobs)
-
-                output_rows = [res for res in result]
+                result = pool.uimap(partial(runblob, detection=False, catalog=fbrick.catalog, plotting=conf.PLOT), np.arange(1, run_n_blobs+1), fblobs)
+                
+                output_rows = list(result)
 
             # pool = mp.ProcessingPool(processes=conf.NTHREADS)
             # #rows = pool.map(partial(runblob, fbrick=fbrick, fbrick=fbrick), np.arange(1, fbrick.n_blobs))
@@ -762,7 +771,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
                 hdr = header_from_dict(conf.__dict__, verbose=conf.VERBOSE)
                 hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
                 hdu_table = fits.table_to_hdu(mastercat)
-                hdul = fits.HDUList([hdu_table, hdu_info])
+                hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
                 hdul.writeto(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat'), overwrite=conf.OVERWRITE)
                 if conf.VERBOSE: print(f'Saving results for brick #{fbrick.brick_id} to existing catalog file.')
 
@@ -793,7 +802,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
             hdr = header_from_dict(conf.__dict__, verbose=conf.VERBOSE)
             hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
             hdu_table = fits.table_to_hdu(fbrick.catalog)
-            hdul = fits.HDUList([hdu_table, hdu_info])
+            hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
             hdul.writeto(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{mode_ext}.cat'), overwrite=conf.OVERWRITE)
             if conf.VERBOSE: print(f'Saving results for brick #{fbrick.brick_id} to new {mode_ext} catalog file.')
 

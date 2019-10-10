@@ -33,7 +33,7 @@ import sep
 from matplotlib.colors import LogNorm
 
 from .subimage import Subimage
-from .utils import SimpleGalaxy, plot_detblob, plot_fblob, plot_psf, plot_modprofile, plot_mask
+from .utils import SimpleGalaxy, plot_detblob, plot_fblob, plot_psf, plot_modprofile, plot_mask, create_circular_mask
 import config as conf
 
 
@@ -131,16 +131,23 @@ class Blob(Subimage):
             if (band in conf.CONSTANT_PSF) & (psf is not None):
                 psfmodel = psf.constantPsfAt(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.)
                 if conf.RMBACK_PSF & (not conf.FORCE_GAUSSIAN_PSF):
-                    psfmodel.img -= 1.4 * np.median(psfmodel.img)
+                    pw, ph = np.shape(psfmodel.img)
+                    cmask = create_circular_mask(pw, ph, radius=conf.PSF_MASKRAD / conf.PIXEL_SCALE)
+                    bcmask = ~cmask.astype(bool)
+                    psfmodel.img -= np.median(psfmodel.img[cmask])
                 if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
                     psfmodel.img /= psfmodel.img.sum() # HACK -- force normalization to 1
                 if conf.VERBOSE2: print(f'blob.stage_images :: Adopting constant PSF.')
+
             elif (psf is not None):
                 blob_centerx = self.blob_center[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
                 blob_centery = self.blob_center[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
                 psfmodel = psf.constantPsfAt(blob_centerx, blob_centery) # init at blob center, may need to swap!
                 if conf.RMBACK_PSF & (not conf.FORCE_GAUSSIAN_PSF):
-                    psfmodel.img -= 1.4 * np.median(psfmodel.img)
+                    pw, ph = np.shape(psfmodel.img)
+                    cmask = create_circular_mask(pw, ph, radius=conf.PSF_MASKRAD / conf.PIXEL_SCALE)
+                    bcmask = ~cmask.astype(bool)
+                    psfmodel.img -= np.median(psfmodel.img[cmask])
                 if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
                     psfmodel.img /= psfmodel.img.sum() # HACK -- force normalization to 1
                 if conf.VERBOSE2: print(f'blob.stage_images :: Adopting varying PSF constant at ({blob_centerx}, {blob_centery}).')
@@ -748,7 +755,7 @@ class Blob(Subimage):
         for i, rad in enumerate(apertures):
             if not use_iso: # Run with all models in image
                 aper = photutils.CircularAperture(apxy[:,Iap], rad)
-                if conf.VERBOSE: print(f'blob.aperture_phot :: Measuring {apertures_arcsec[i]:2.2f}" aperture flux on {len(cat)} sources.')
+                if conf.VERBOSE2: print(f'blob.aperture_phot :: Measuring {apertures_arcsec[i]:2.2f}" aperture flux on {len(cat)} sources.')
                 p = photutils.aperture_photometry(image, aper, error=imgerr)
                 # aper.plot()
                 apflux[:, i] = p.field('aperture_sum') * 10**(-0.4 * (zpt - 23.9))

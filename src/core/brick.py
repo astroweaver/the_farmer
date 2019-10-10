@@ -198,7 +198,9 @@ class Brick(Subimage):
             if (band in conf.CONSTANT_PSF) & (psf is not None):
                 psfmodel = psf.constantPsfAt(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.)
                 if conf.RMBACK_PSF & (not conf.FORCE_GAUSSIAN_PSF):
-                    psfmodel.img -= 1.4*np.median(psfmodel.img)
+                    pw, ph = np.shape(psfmodel.img)
+                    cmask = not bool(create_circular_mask(pw, ph, radius=conf.PSF_MASKRAD / conf.PIXEL_SCALE))
+                    psfmodel.img -= np.median(psfmodel.img[cmask])
                 if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
                     psfmodel.img /= psfmodel.img.sum() # HACK -- force normalization to 1
                 if conf.VERBOSE2: print(f'blob.stage_images :: Adopting constant PSF.')
