@@ -33,8 +33,8 @@ import config as conf
 # ------------------------------------------------------------------------------
 # Parameters
 # ------------------------------------------------------------------------------
-out_dir = conf.CATALOG_DIR
-out_dir = '/Volumes/WD4/Current/tractor_pipeline/data/catalogs/candide/grizy'
+out_dir = sys.argv[1]
+
 cat_prefix = 'B'
 cat_suffix = 'cat'
 
@@ -54,7 +54,7 @@ nsources = 0
 skip_count = 0
 total_count = 0
 first_stack = True
-for fname in walk_through_files(out_dir, cat_prefix, cat_suffix):
+for i, fname in enumerate(walk_through_files(out_dir, cat_prefix, cat_suffix)):
     print('addding {}'.format(fname))
     try:
         cat = Table.read(fname, format='fits')
@@ -62,6 +62,9 @@ for fname in walk_through_files(out_dir, cat_prefix, cat_suffix):
     except:
         print('COULD NOT READ FILE.')
         continue
+    
+    if i == 0:
+        hdu_info = fits.open(fname)['CONFIG']
 
     if (cat['SOLMODEL']=='').all():
         print('BAD SOL MODEL. SKIPPING.')
@@ -123,4 +126,7 @@ for fname in walk_through_files(out_dir, cat_prefix, cat_suffix):
 outfname = 'master_catalog.fits'
 print('Writing {} sources to {}'.format(nsources, outfname))
 print(f'Skipped {skip_count}/{total_count} tiles.')
-tab.write(os.path.join(out_dir, outfname), format='fits', overwrite=True)
+
+hdu_table = fits.table_to_hdu(tab)
+hdul = fits.HDUList([hdu_table, hdu_info])
+hdul.writeto(os.path.join(out_dir, outfname), overwrite=conf.OVERWRITE)
