@@ -592,7 +592,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
     # Create and update multiband brick
     tstart = time.time()
 
-    if (conf.NTHREADS > 0) & ((conf.PLOT == False) | (conf.PLOT2 == False)):
+    if (conf.NBLOBS == 0) & (conf.NTHREADS > 0) & ((conf.PLOT == False) | (conf.PLOT2 == False)):
         conf.PLOT = False
         conf.PLOT2 = False
         if conf.VERBOSE: print('WARNING - Plotting not supported while forcing models in parallel!')

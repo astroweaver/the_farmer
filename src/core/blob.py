@@ -616,7 +616,7 @@ class Blob(Subimage):
             print([print(k) for k in tr.getCatalog()])
             print()
         
-        if conf.VERBOSE2: 
+        if conf.VERBOSE: 
             print()
             print(f'blob.optimize_tractor :: Starting optimization ({conf.TRACTOR_MAXSTEPS}, {conf.TRACTOR_CONTHRESH})')
 
