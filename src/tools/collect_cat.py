@@ -57,7 +57,7 @@ first_stack = True
 for fname in walk_through_files(out_dir, cat_prefix, cat_suffix):
     print('addding {}'.format(fname))
     try:
-        cat = Table.read(fname)
+        cat = Table.read(fname, format='fits')
         total_count += 1
     except:
         print('COULD NOT READ FILE.')

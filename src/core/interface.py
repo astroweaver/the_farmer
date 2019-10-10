@@ -43,7 +43,7 @@ from scipy import stats
 
 from .brick import Brick
 from .mosaic import Mosaic
-from .utils import plot_background, plot_blob, SimpleGalaxy, plot_blobmap, plot_brick, plot_mask
+from .utils import plot_background, plot_blob, SimpleGalaxy, plot_blobmap, plot_brick, plot_mask, header_from_dict
 
 import config as conf
 plt.ioff()
@@ -494,8 +494,12 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
             outcatalog[np.where(outcatalog['source_id'] == row['source_id'])[0]] = row
 
         # write out cat
+        hdr = header_from_dict(conf.__dict__, verbose=conf.VERBOSE)
+        hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
+        hdu_table = fits.table_to_hdu(outcatalog)
+        hdul = fits.HDUList([hdu_table, hdu_info])
         outpath = os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat')
-        outcatalog.write(outpath, format='fits', overwrite=conf.OVERWRITE)
+        hdul.writeto(outpath, output_verify='ignore', overwrite=conf.OVERWRITE)
         if conf.VERBOSE: print(f'interface.make_models :: Wrote out catalog to {outpath}')
 
         plt.pause(100)
@@ -557,7 +561,13 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
         # write out cat
         # outcatalog['x'] += outcatalog['x'] + mosaic_origin[1] - conf.BRICK_BUFFER + 1.
         # outcatalog['y'] += outcatalog['y'] + mosaic_origin[0] - conf.BRICK_BUFFER + 1.
-        outcatalog.write(os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat'), format='fits', overwrite=conf.OVERWRITE)
+        hdr = header_from_dict(conf.__dict__, verbose=conf.VERBOSE)
+        hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
+        hdu_table = fits.table_to_hdu(outcatalog)
+        hdul = fits.HDUList([hdu_table, hdu_info])
+        hdul.writeto(os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat'), overwrite=conf.OVERWRITE)
+        
+        # open again and add
 
         # If user wants model and/or residual images made:
         cleancatalog = outcatalog[outcatalog['VALID_SOURCE']]
@@ -573,16 +583,17 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
     # Create and update multiband brick
     tstart = time.time()
 
-    if conf.NTHREADS > 0:
-        conf.NTHREADS = 0
-        if conf.VERBOSE: print('WARNING - Multithreading not supported while forcing models!')
+    if (conf.NTHREADS > 0) & ((conf.PLOT == False) | (conf.PLOT2 == False)):
+        conf.PLOT = False
+        conf.PLOT2 = False
+        if conf.VERBOSE: print('WARNING - Plotting not supported while forcing models in parallel!')
 
     # for fband in band:
     
     if band is None:
         fband = conf.BANDS
     else:
-        if (type(band) == list) | (type(band) == np.array):
+        if (type(band) == list) | (type(band) == np.ndarray):
             fband = band
         elif (type(band) == str) | (type(band) == np.str_):
             fband = [band,]
@@ -640,7 +651,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
             # open old cat
             path_mastercat = os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat')
             if os.path.exists(path_mastercat):
-                mastercat = Table.read(path_mastercat)
+                mastercat = Table.read(path_mastercat, format='fits')
 
                 # find new columns
                 newcols = np.in1d(output_cat.colnames, mastercat.colnames, invert=True)
@@ -701,7 +712,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
         if conf.NTHREADS > 0:
 
             with mp.ProcessPool(processes=conf.NTHREADS) as pool:
-                result = pool.map(partial(runblob, detection=False), np.arange(1, run_n_blobs+1), fblobs)
+                result = pool.map(partial(runblob, detection=False, catalog=fbrick.catalog, plotting=conf.PLOT), np.arange(1, run_n_blobs+1), fblobs)
 
                 output_rows = [res for res in result]
 
@@ -731,7 +742,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
             # open old cat
             path_mastercat = os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat')
             if os.path.exists(path_mastercat):
-                mastercat = Table.read(path_mastercat)
+                mastercat = Table.read(path_mastercat, format='fits')
 
                 # find new columns
                 newcols = np.in1d(output_cat.colnames, mastercat.colnames, invert=True)
@@ -748,7 +759,11 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
                 # fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
                 # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
                 # save
-                mastercat.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat'), format='fits', overwrite=conf.OVERWRITE)
+                hdr = header_from_dict(conf.__dict__, verbose=conf.VERBOSE)
+                hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
+                hdu_table = fits.table_to_hdu(mastercat)
+                hdul = fits.HDUList([hdu_table, hdu_info])
+                hdul.writeto(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat'), overwrite=conf.OVERWRITE)
                 if conf.VERBOSE: print(f'Saving results for brick #{fbrick.brick_id} to existing catalog file.')
 
                 outcatalog = mastercat
@@ -775,7 +790,11 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
             # write out cat
             # fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
             # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
-            fbrick.catalog.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{mode_ext}.cat'), format='fits', overwrite=conf.OVERWRITE)
+            hdr = header_from_dict(conf.__dict__, verbose=conf.VERBOSE)
+            hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
+            hdu_table = fits.table_to_hdu(fbrick.catalog)
+            hdul = fits.HDUList([hdu_table, hdu_info])
+            hdul.writeto(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{mode_ext}.cat'), overwrite=conf.OVERWRITE)
             if conf.VERBOSE: print(f'Saving results for brick #{fbrick.brick_id} to new {mode_ext} catalog file.')
 
             outcatalog = fbrick.catalog
@@ -845,7 +864,7 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, detection=False)
     newbrick = Brick(images=images, weights=weights, masks=masks, psfmodels=psfmodels, wcs=wcs, bands=np.array(sbands), brick_id=brick_id)
 
     if not detection:
-        catalog = Table.read(os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat'))
+        catalog = Table.read(os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat'), format='fits')
         newbrick.catalog = catalog
         newbrick.n_sources = len(catalog)
         newbrick.n_blobs = catalog['blob_id'].max()

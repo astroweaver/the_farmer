@@ -24,11 +24,42 @@ from skimage.segmentation import find_boundaries
 import config as conf
 import matplotlib.cm as cm
 import random
+from time import time
+from astropy.io import fits
 
 colors = cm.rainbow(np.linspace(0, 1, 1000))
 cidx = np.arange(0, 1000)
 random.shuffle(cidx)
 colors = colors[cidx]
+
+def header_from_dict(params, verbose=0):
+    hdr = fits.Header()
+    if verbose >= 0:
+        total_public_entries = np.sum([ not k.startswith('__') for k in params.keys()])
+        print(f'header_from_dict :: Dictionary has {total_public_entries} entires')
+    tstart = time()
+    for i, attr in enumerate(params.keys()):
+        if not attr.startswith('__'):
+            if verbose >= 1:
+                print(f'header_from_dict ::   {attr}')
+            value = params[attr]
+            if verbose:
+                if type(value) == str:
+                    # store normally
+                    hdr.set(attr[:8], value, attr)
+                if type(value) in (float, int):
+                    # store normally
+                    hdr.set(attr[:8], value, attr)
+                if type(value) in (list, tuple):
+                    # freak out.
+                    for j, val in enumerate(value):
+                        nnum = len(f'{j+1}') + 1
+                        hdr.set(f'{attr[:(8-nnum)]}_{j+1}', str(val), f'{attr}_{j+1}')
+            
+    if verbose >= 0:
+        print(f'header_from_dict :: Completed writing header ({time() - tstart:2.3f}s)')
+    return hdr
+
 
 def create_circular_mask(h, w, center=None, radius=None):
 
@@ -434,6 +465,8 @@ def plot_fblob(blob, band, fig=None, ax=None, final_opt=False):
         bins = np.linspace(np.nanmin(residual), np.nanmax(residual), 30)
         minx, maxx = 0, 0
         for i, src in enumerate(blob.bcatalog):
+            img_seg = blob.images[idx][blob.segmap==src['source_id']].flatten()
+            ax[2,5].hist(img_seg, bins=20, linestyle='dotted', histtype='step', color=colors[i], density=True)
             res_seg = residual[blob.segmap==src['source_id']].flatten()
             ax[2,5].hist(res_seg, bins=20, histtype='step', color=colors[i], density=True)
             resmin, resmax = np.nanmin(res_seg), np.nanmax(res_seg)
@@ -454,7 +487,7 @@ def plot_fblob(blob, band, fig=None, ax=None, final_opt=False):
         for i, src in enumerate(blob.solution_catalog):
             ax[1,0].text(0.1, 0.8 - 0.4*i, f'#{blob.bcatalog[i]["source_id"]} Model:{src.name}', color=colors[i], transform=ax[1,0].transAxes)
             ax[1,0].text(0.1, 0.8 - 0.4*i - 0.1, f'       Flux: {src.brightness[idx]:3.3f}', color=colors[i], transform=ax[1,0].transAxes)
-            ax[1,0].text(0.1, 0.8 - 0.4*i - 0.2, f'       Chi2{dof}: {blob.solution_chisq[i,0]:3.3f}', color=colors[i], transform=ax[1,0].transAxes)
+            ax[1,0].text(0.1, 0.8 - 0.4*i - 0.2, f'       Chi2{dof}: {blob.solution_chisq[i,idx]:3.3f}', color=colors[i], transform=ax[1,0].transAxes)
 
         #fig.subplots_adjust(wspace=0, hspace=0)
         outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{blob.bands[idx]}.pdf')
@@ -484,7 +517,7 @@ def plot_fblob(blob, band, fig=None, ax=None, final_opt=False):
                 e.set_edgecolor(colors[j])
                 ax[0, 0].add_artist(e)
 
-        ax[0,1].text(0.1, 0.9, f'Blob #{blob.blob_id}', transform=ax[0,1].transAxes)
+        ax[0,1].text(0.1, 0.9, f'{band} | Blob #{blob.blob_id}', transform=ax[0,1].transAxes)
         ax[0,1].text(0.1, 0.8, f'{blob.n_sources} source(s)', transform=ax[0,1].transAxes)
 
         [ax[0,j].axis('off') for j in np.arange(1, 6)]

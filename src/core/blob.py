@@ -131,7 +131,7 @@ class Blob(Subimage):
             if (band in conf.CONSTANT_PSF) & (psf is not None):
                 psfmodel = psf.constantPsfAt(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.)
                 if conf.RMBACK_PSF & (not conf.FORCE_GAUSSIAN_PSF):
-                    psfmodel.img[psfmodel.img < 1.4*np.median(psfmodel.img)] = 0
+                    psfmodel.img -= 1.4 * np.median(psfmodel.img)
                 if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
                     psfmodel.img /= psfmodel.img.sum() # HACK -- force normalization to 1
                 if conf.VERBOSE2: print(f'blob.stage_images :: Adopting constant PSF.')
@@ -140,7 +140,7 @@ class Blob(Subimage):
                 blob_centery = self.blob_center[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
                 psfmodel = psf.constantPsfAt(blob_centerx, blob_centery) # init at blob center, may need to swap!
                 if conf.RMBACK_PSF & (not conf.FORCE_GAUSSIAN_PSF):
-                    psfmodel.img[psfmodel.img < np.median(psfmodel.img)] = 0
+                    psfmodel.img -= 1.4 * np.median(psfmodel.img)
                 if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
                     psfmodel.img /= psfmodel.img.sum() # HACK -- force normalization to 1
                 if conf.VERBOSE2: print(f'blob.stage_images :: Adopting varying PSF constant at ({blob_centerx}, {blob_centery}).')
@@ -156,6 +156,7 @@ class Blob(Subimage):
                 self.psfimg = psfimg
                 plot_psf(psfimg, band, show_gaussian=True)
                     
+            if conf.VERBOSE2: print(f'blob.stage_images :: Making image...')
             timages[i] = Image(data=image,
                             invvar=tweight,
                             psf=psfmodel,
@@ -750,11 +751,11 @@ class Blob(Subimage):
                 if conf.VERBOSE: print(f'blob.aperture_phot :: Measuring {apertures_arcsec[i]:2.2f}" aperture flux on {len(cat)} sources.')
                 p = photutils.aperture_photometry(image, aper, error=imgerr)
                 # aper.plot()
-                apflux[:, i] = p.field('aperture_sum')
+                apflux[:, i] = p.field('aperture_sum') * 10**(-0.4 * (zpt - 23.9))
                 if var is None:
                     apflux_err[:, i] = -99 * np.ones_like(apflux[:, i])
                 else:
-                    apflux_err[:, i] = p.field('aperture_sum_err')
+                    apflux_err[:, i] = p.field('aperture_sum_err') * 10**(-0.4 * (zpt - 23.9))
             for j, src in enumerate(cat):
                 if use_iso: # Run with only one model in image
                     aper = photutils.CircularAperture(apxy[:,j], rad)
@@ -990,6 +991,7 @@ class Blob(Subimage):
             self.bcatalog[row]['BIC_'+band] = self.solution_bic[row, i]
 
             # Just do the positions again - more straightforward to do it here than in interface.py
+            # Why do we need this!? Should we not be adding in extra X/Y if the force_position is turned off?
             self.bcatalog[row]['X_MODEL'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
             self.bcatalog[row]['Y_MODEL'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
 
@@ -1002,9 +1004,11 @@ class Blob(Subimage):
             if conf.VERBOSE2:
                 mag, magerr = self.bcatalog[row]['MAG_'+band], self.bcatalog[row]['MAGERR_'+band]
                 flux, fluxerr = self.bcatalog[row]['FLUX_'+band], self.bcatalog[row]['FLUXERR_'+band]
+                rawflux, rawfluxerr = self.bcatalog[row]['RAWFLUX_'+band], self.bcatalog[row]['RAWFLUXERR_'+band]
                 chisq, bic = self.bcatalog[row]['CHISQ_'+band], self.bcatalog[row]['BIC_'+band]
+                print(f'    RAW FLUX({band}):  {rawflux:3.3f} +/- {rawfluxerr:3.3f}')
+                print(f'    FLUX({band}):  {flux:3.3f} +/- {fluxerr:3.3f}')               
                 print(f'    MAG({band}):   {mag:3.3f} +/- {magerr:3.3f}')
-                print(f'    FLUX({band}):  {flux:3.3f} +/- {fluxerr:3.3f}')
                 print(f'    CHISQ({band}): {chisq:3.3f}')
                 print(f'    BIC({band}):   {bic:3.3f}')
                 print(f'    ZPT({band}):   {zpt:3.3f}')
@@ -1012,9 +1016,9 @@ class Blob(Subimage):
 
         if not multiband_only:
             # Position information
-            self.bcatalog[row]['x'] = self.bcatalog[row]['x'] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
+            self.bcatalog[row]['x'] = self.bcatalog[row]['x'] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER - 1
             self.bcatalog[row]['y'] = self.bcatalog[row]['y'] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
-            self.bcatalog[row]['X_MODEL'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
+            self.bcatalog[row]['X_MODEL'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER - 1
             self.bcatalog[row]['Y_MODEL'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
             if conf.VERBOSE2:
                 print(f"     xy = {self.bcatalog[row]['x']}, {self.bcatalog[row]['y']}")
@@ -1027,7 +1031,7 @@ class Blob(Subimage):
             self.bcatalog[row]['XERR_MODEL'] = np.sqrt(self.position_variance[row].pos.getParams()[0])
             self.bcatalog[row]['YERR_MODEL'] = np.sqrt(self.position_variance[row].pos.getParams()[1])
             if self.wcs is not None:
-                skyc = self.brick_wcs.all_pix2world(self.bcatalog[row]['X_MODEL'] - self.mosaic_origin[0] + conf.BRICK_BUFFER - 1, self.bcatalog[row]['Y_MODEL'] - self.mosaic_origin[1] + conf.BRICK_BUFFER - 1, 0)
+                skyc = self.brick_wcs.all_pix2world(self.bcatalog[row]['X_MODEL'] - self.mosaic_origin[0] + conf.BRICK_BUFFER, self.bcatalog[row]['Y_MODEL'] - self.mosaic_origin[1] + conf.BRICK_BUFFER, 0)
                 self.bcatalog[row]['RA'] = skyc[0]
                 self.bcatalog[row]['DEC'] = skyc[1]
 

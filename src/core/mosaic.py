@@ -175,7 +175,7 @@ class Mosaic(Subimage):
                 except:
                     if conf.VERBOSE: print(f'WARNING -- Could not move {oldpath} to {newpath} ')
         else:
-            if conf.VERBOSE: print('No PSF attempted. PSF already exists and override is off')
+            if conf.VERBOSE: print('No PSF attempted. PSF LDAC already exists and override is off')
         
     def _make_brick(self, brick_id, overwrite=False, detection=False, modeling=False,
             brick_width=conf.BRICK_WIDTH, brick_height=conf.BRICK_HEIGHT, brick_buffer=conf.BRICK_BUFFER):

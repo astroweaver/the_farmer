@@ -276,7 +276,7 @@ class Subimage():
         # Convert band to index for arrays
         # TODO: Handle more than one band at a time
         if band in self.bands:
-            idx = np.arange(len(conf.BANDS))[np.array(conf.BANDS) == band][0]
+            idx = conf.BANDS.index(band)
             if conf.VERBOSE2: print(f'subimage._band2idx :: {band} returns idx={idx}')
             return idx
         else:
