@@ -27,8 +27,6 @@ import numpy as np
 from astropy.table import Table, vstack
 from astropy.io import ascii, fits
 
-sys.path.insert(0, os.path.join(os.getcwd(), 'config'))
-import config as conf
 
 # ------------------------------------------------------------------------------
 # Parameters
@@ -37,6 +35,7 @@ out_dir = sys.argv[1]
 
 cat_prefix = 'B'
 cat_suffix = 'cat'
+overwrite = True
 
 def walk_through_files(path, file_prefix = 'B', file_extension='.fits'):
     """
@@ -129,4 +128,4 @@ print(f'Skipped {skip_count}/{total_count} tiles.')
 
 hdu_table = fits.table_to_hdu(tab)
 hdul = fits.HDUList([hdu_table, hdu_info])
-hdul.writeto(os.path.join(out_dir, outfname), overwrite=conf.OVERWRITE)
+hdul.writeto(os.path.join(out_dir, outfname), overwrite=overwrite)
