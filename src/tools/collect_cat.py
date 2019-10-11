@@ -127,5 +127,5 @@ print('Writing {} sources to {}'.format(nsources, outfname))
 print(f'Skipped {skip_count}/{total_count} tiles.')
 
 hdu_table = fits.table_to_hdu(tab)
-hdul = fits.HDUList([hdu_table, hdu_info])
+hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
 hdul.writeto(os.path.join(out_dir, outfname), overwrite=overwrite)
