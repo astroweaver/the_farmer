@@ -199,8 +199,10 @@ class Brick(Subimage):
                 psfmodel = psf.constantPsfAt(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.)
                 if conf.RMBACK_PSF & (not conf.FORCE_GAUSSIAN_PSF):
                     pw, ph = np.shape(psfmodel.img)
-                    cmask = not bool(create_circular_mask(pw, ph, radius=conf.PSF_MASKRAD / conf.PIXEL_SCALE))
-                    psfmodel.img -= np.median(psfmodel.img[cmask])
+                    cmask = create_circular_mask(pw, ph, radius=conf.PSF_MASKRAD / conf.PIXEL_SCALE)
+                    bcmask = ~cmask.astype(bool) & (psfmodel.img > 0)
+                    psfmodel.img -= np.nanmedian(psfmodel.img[bcmask])
+                    psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
                 if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
                     psfmodel.img /= psfmodel.img.sum() # HACK -- force normalization to 1
                 if conf.VERBOSE2: print(f'blob.stage_images :: Adopting constant PSF.')
@@ -313,8 +315,10 @@ class Brick(Subimage):
                 # Save to file
                 hdul = fits.open(self.auxhdu_path, mode='update')
                 for i, band in enumerate(self.bands):
-                    hdu_img = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL')
+                    hdu_img = fits.ImageHDU(data=self.images[i], name=f'{band}_IMAGE')
                     hdul.append(hdu_img)
+                    hdu_mod = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL')
+                    hdul.append(hdu_mod)
                     if include_chi:
                         hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI')
                         hdul.append(hdu_chi)
@@ -329,8 +333,10 @@ class Brick(Subimage):
                 # Save to file
                 hdul = fits.HDUList()
                 for i, band in enumerate(self.bands):
-                    hdu_img = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL')
+                    hdu_img = fits.ImageHDU(data=self.images[i], name=f'{band}_IMAGE')
                     hdul.append(hdu_img)
+                    hdu_mod = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL')
+                    hdul.append(hdu_mod)
                     if include_chi:
                         hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI')
                         hdul.append(hdu_chi)
@@ -364,8 +370,10 @@ class Brick(Subimage):
                 if conf.VERBOSE: print(f'brick.make_residual_image :: Saving image(s) to existing file, {self.auxhdu_path}')
                 hdul = fits.open(self.auxhdu_path, mode='update')
                 for i, band in enumerate(self.bands):
-                    hdu_img = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL')
+                    hdu_img = fits.ImageHDU(data=self.images[i], name=f'{band}_IMAGE')
                     hdul.append(hdu_img)
+                    hdu_mod = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL')
+                    hdul.append(hdu_mod)
                     if include_chi:
                         hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI')
                         hdul.append(hdu_chi)
@@ -383,8 +391,10 @@ class Brick(Subimage):
                 if conf.VERBOSE: print(f'brick.make_residual_image :: Saving image(s) to new file, s{self.auxhdu_path}')
                 hdul = fits.HDUList()
                 for i, band in enumerate(self.bands):
-                    hdu_img = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL')
+                    hdu_img = fits.ImageHDU(data=self.images[i], name=f'{band}_IMAGE')
                     hdul.append(hdu_img)
+                    hdu_mod = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL')
+                    hdul.append(hdu_mod)
                     if include_chi:
                         hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI')
                         hdul.append(hdu_chi)

@@ -295,14 +295,15 @@ def plot_modprofile(blob):
     ax[1,3].imshow(psfmodel, **img_opt, extent=0.15 *np.array([-np.shape(psfmodel)[0]/2,  np.shape(psfmodel)[0]/2, -np.shape(psfmodel)[0]/2,  np.shape(psfmodel)[0]/2,]))
     ax[1,3].set(xlim=xlim, ylim=xlim)
 
-    xax = np.arange(-np.shape(psfmodel)[0]/2,  np.shape(psfmodel)[0]/2)
+    xax = np.arange(-np.shape(psfmodel)[0]/2 + 0.5,  np.shape(psfmodel)[0]/2 + 0.5)
     [ax[0,3].plot(xax * 0.15, psfmodel[x], c='royalblue', alpha=0.5) for x in np.arange(0, np.shape(psfmodel)[0])]
     ax[0,3].axvline(0, ls='dotted', c='k')
     ax[0,3].set(xlim=xlim, yscale='log', ylim=(1E-6, 1E-1), xlabel='arcsec')
 
-    for i in np.arange(4):
-        ax[0, i].set(xlim=(0.15*xlim[0], 0.15*xlim[1]), ylim=(mean, blob.images[0].max()))
+    for i in np.arange(3):
+        ax[0, i].set(xlim=(0.15*xlim[0], 0.15*xlim[1]), ylim=(np.nanmedian(blob.images[0]), blob.images[0].max()))
         # ax[1, i].set(xlim=(-15, 15), ylim=(-15, 15))
+    ax[0, 3].set(xlim=(0.15*xlim[0], 0.15*xlim[1]))
     outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{conf.MODELING_NICKNAME}_debugprofile.pdf')
     if conf.VERBOSE2:
         print()
@@ -606,7 +607,7 @@ def plot_ldac(tab_ldac, band, xlims=None, ylims=None, box=False, nsel=None):
 
 def plot_psf(psfmodel, band, show_gaussian=False):
 
-    fig, ax = plt.subplots(ncols=2, figsize=(20,10))
+    fig, ax = plt.subplots(ncols=3, figsize=(30,10))
     norm = LogNorm(1e-5, 0.1*np.nanmax(psfmodel), clip='True')
     img_opt = dict(cmap='Blues', norm=norm)
     ax[0].imshow(psfmodel, **img_opt, extent=0.15 *np.array([-np.shape(psfmodel)[0]/2,  np.shape(psfmodel)[0]/2, -np.shape(psfmodel)[0]/2,  np.shape(psfmodel)[0]/2,]))
@@ -631,6 +632,15 @@ def plot_psf(psfmodel, band, show_gaussian=False):
         popt,pcov = curve_fit(gaus,xax * 0.15,psfmodel[int(np.shape(psfmodel)[1]/2)],p0=[1,mean,sigma])
 
         ax[1].plot(xax*0.15,gaus(xax*0.15,*popt),'green')
+
+    x = xax
+    y = x.copy()
+    xv, yv = np.meshgrid(x, y)
+    radius = np.sqrt(xv**2 + xv**2)
+    cumcurve = [np.sum(psfmodel[radius<i]) for i in np.arange(0, np.shape(psfmodel)[0]/2)]
+    ax[2].plot(np.arange(0, np.shape(psfmodel)[0]/2) * 0.15, cumcurve)
+
+    fig.suptitle(band)
 
     figname = os.path.join(conf.PLOT_DIR, f'{band}_psf.pdf')
     if conf.VERBOSE2: print(f'Saving figure: {figname}')                

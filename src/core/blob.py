@@ -133,10 +133,12 @@ class Blob(Subimage):
                 if conf.RMBACK_PSF & (not conf.FORCE_GAUSSIAN_PSF):
                     pw, ph = np.shape(psfmodel.img)
                     cmask = create_circular_mask(pw, ph, radius=conf.PSF_MASKRAD / conf.PIXEL_SCALE)
-                    bcmask = ~cmask.astype(bool)
-                    psfmodel.img -= np.median(psfmodel.img[cmask])
+                    bcmask = ~cmask.astype(bool) & (psfmodel.img > 0)
+                    psfmodel.img -= np.nanmedian(psfmodel.img[bcmask])
+                    psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
                 if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
                     psfmodel.img /= psfmodel.img.sum() # HACK -- force normalization to 1
+                    print(np.max(psfmodel.img), np.min(psfmodel.img))
                 if conf.VERBOSE2: print(f'blob.stage_images :: Adopting constant PSF.')
 
             elif (psf is not None):
@@ -146,11 +148,13 @@ class Blob(Subimage):
                 if conf.RMBACK_PSF & (not conf.FORCE_GAUSSIAN_PSF):
                     pw, ph = np.shape(psfmodel.img)
                     cmask = create_circular_mask(pw, ph, radius=conf.PSF_MASKRAD / conf.PIXEL_SCALE)
-                    bcmask = ~cmask.astype(bool)
-                    psfmodel.img -= np.median(psfmodel.img[cmask])
+                    bcmask = ~cmask.astype(bool) & (psfmodel.img > 0)
+                    psfmodel.img -= np.nanmedian(psfmodel.img[bcmask])
+                    psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
                 if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
                     psfmodel.img /= psfmodel.img.sum() # HACK -- force normalization to 1
                 if conf.VERBOSE2: print(f'blob.stage_images :: Adopting varying PSF constant at ({blob_centerx}, {blob_centery}).')
+            
             elif (psf is None):
                 if conf.USE_GAUSSIAN_PSF:
                     psfmodel = NCircularGaussianPSF([conf.PSF_SIGMA / conf.PIXEL_SCALE], [1,])
@@ -159,9 +163,12 @@ class Blob(Subimage):
                     raise ValueError(f'WARNING - No PSF model found for {band}!')
 
             if conf.PLOT & (psf is not None):
-                psfimg = psfmodel.getImage(0, 0)
+                try:
+                    psfimg = psfmodel.img
+                except:
+                    psfimg = psfmodel.getImage(0, 0)
                 self.psfimg = psfimg
-                plot_psf(psfimg, band, show_gaussian=True)
+                plot_psf(psfimg, band, show_gaussian=False)
                     
             if conf.VERBOSE2: print(f'blob.stage_images :: Making image...')
             timages[i] = Image(data=image,
@@ -397,12 +404,12 @@ class Blob(Subimage):
     def decide_winners(self, use_bic=True):
 
         if use_bic:
-            print()
-            print('Using BIC to select best-fit model')
+            if conf.VERBOSE: print()
+            if conf.VERBOSE: print('Using BIC to select best-fit model')
             self.decide_winners_bic()
         else:
-            print()
-            print('Using chisq to select best-fit model')
+            if conf.VERBOSE: print()
+            if conf.VERBOSE: print('Using chisq to select best-fit model')
             raise RuntimeError('BUGGY - NOT WORKING NOW.')
             self.decide_winners_chisq()
 
@@ -638,7 +645,7 @@ class Blob(Subimage):
                 return False
 
             if dlnp < conf.TRACTOR_CONTHRESH:
-                if conf.VERBOSE: print(f'blob.optimize_tractor :: Converged in {i} steps ({dlnp_init:2.2f} --> {dlnp:2.2f}) ({time() - tstart:3.3f}s)')
+                if conf.VERBOSE: print(f'blob.optimize_tractor :: Blob #{self.blob_id} converged in {i} steps ({dlnp_init:2.2f} --> {dlnp:2.2f}) ({time() - tstart:3.3f}s)')
                 self.n_converge = i
                 break
             
@@ -758,11 +765,11 @@ class Blob(Subimage):
                 if conf.VERBOSE2: print(f'blob.aperture_phot :: Measuring {apertures_arcsec[i]:2.2f}" aperture flux on {len(cat)} sources.')
                 p = photutils.aperture_photometry(image, aper, error=imgerr)
                 # aper.plot()
-                apflux[:, i] = p.field('aperture_sum') * 10**(-0.4 * (zpt - 23.9))
+                apflux[Iap, i] = p.field('aperture_sum') * 10**(-0.4 * (zpt - 23.9))
                 if var is None:
-                    apflux_err[:, i] = -99 * np.ones_like(apflux[:, i])
+                    apflux_err[Iap, i] = -99 * np.ones_like(apflux[Iap, i])
                 else:
-                    apflux_err[:, i] = p.field('aperture_sum_err') * 10**(-0.4 * (zpt - 23.9))
+                    apflux_err[Iap, i] = p.field('aperture_sum_err') * 10**(-0.4 * (zpt - 23.9))
             for j, src in enumerate(cat):
                 if use_iso: # Run with only one model in image
                     aper = photutils.CircularAperture(apxy[:,j], rad)
@@ -1023,9 +1030,9 @@ class Blob(Subimage):
 
         if not multiband_only:
             # Position information
-            self.bcatalog[row]['x'] = self.bcatalog[row]['x'] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER - 1
+            self.bcatalog[row]['x'] = self.bcatalog[row]['x'] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
             self.bcatalog[row]['y'] = self.bcatalog[row]['y'] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
-            self.bcatalog[row]['X_MODEL'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER - 1
+            self.bcatalog[row]['X_MODEL'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
             self.bcatalog[row]['Y_MODEL'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
             if conf.VERBOSE2:
                 print(f"     xy = {self.bcatalog[row]['x']}, {self.bcatalog[row]['y']}")

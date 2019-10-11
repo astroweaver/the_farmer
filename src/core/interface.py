@@ -279,6 +279,10 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
 
     if modblob is not None:
 
+        if (conf.MODEL_PHOT_MAX_NBLOB > 0) & (modblob.n_sources > conf.MODEL_PHOT_MAX_NBLOB):
+            if conf.VERBOSE: print('interface.runblob :: Number of sources exceeds set limit. Skipping!')
+            return modblob.bcatalog.copy()
+
         # Run models
         astart = time.time()
         modblob.stage_images()
@@ -316,6 +320,7 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
     if fblob is not None:
         # make new blob with band information
         astart = time.time() 
+
 
         if modblob is not None:
             fblob.model_catalog = modblob.solution_catalog.copy()
@@ -391,6 +396,14 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
 def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=None, use_mask=True):
     # Create detection brick
     tstart = time.time()
+
+    if (source_id is None) & (blob_id is None):
+        if (conf.NBLOBS == 0) & (conf.NTHREADS > 0) & ((conf.PLOT == True) | (conf.PLOT2 == True)):
+            conf.PLOT = False
+            conf.PLOT2 = False
+            if conf.VERBOSE: print('WARNING - Plotting not supported while modeling in parallel!')
+
+
     detbrick = stage_brickfiles(brick_id, nickname=conf.DETECTION_NICKNAME, detection=True)
 
     if conf.VERBOSE: print(f'Detection brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
@@ -502,7 +515,6 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
         hdul.writeto(outpath, output_verify='ignore', overwrite=conf.OVERWRITE)
         if conf.VERBOSE: print(f'interface.make_models :: Wrote out catalog to {outpath}')
 
-        plt.pause(100)
         return None
     
     # Else, production mode -- all objects in brick are to be run.
@@ -531,11 +543,11 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
             # pool = pp.ParallelPool(processes=conf.NTHREADS)
             pool = mp.ProcessPool(processes=conf.NTHREADS)
             result = pool.uimap(partial(runblob, detection=True, plotting=conf.PLOT), np.arange(1, run_n_blobs+1), modblobs)
-            if conf.VERBOSE: print('Joining pool...')
-            pool.close()
-            pool.join()
-            pool.clear()
-            if conf.VERBOSE: print('Joining results...')
+            # if conf.VERBOSE: print('Joining pool...')
+            # # pool.close()
+            # # pool.join()
+            # # pool.clear()
+            # if conf.VERBOSE: print('Joining results...')
             output_rows = list(result)
 
             #rows = pool.map(runblob, zip(detblobs, fblobs))
@@ -580,10 +592,11 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
 
         # If user wants model and/or residual images made:
         cleancatalog = outcatalog[outcatalog['VALID_SOURCE']]
-        if conf.MAKE_MODEL_IMAGE:
-            modbrick.make_model_image(catalog=cleancatalog)
+
         if conf.MAKE_RESIDUAL_IMAGE:
             modbrick.make_residual_image(catalog=cleancatalog)
+        elif conf.MAKE_MODEL_IMAGE:
+            modbrick.make_model_image(catalog=cleancatalog)
 
         return
     
@@ -592,10 +605,11 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
     # Create and update multiband brick
     tstart = time.time()
 
-    if (conf.NBLOBS == 0) & (conf.NTHREADS > 0) & ((conf.PLOT == False) | (conf.PLOT2 == False)):
-        conf.PLOT = False
-        conf.PLOT2 = False
-        if conf.VERBOSE: print('WARNING - Plotting not supported while forcing models in parallel!')
+    if (source_id is None) & (blob_id is None):
+        if (conf.NBLOBS == 0) & (conf.NTHREADS > 0) & ((conf.PLOT == True) | (conf.PLOT2 == True)):
+            conf.PLOT = False
+            conf.PLOT2 = False
+            if conf.VERBOSE: print('WARNING - Plotting not supported while forcing models in parallel!')
 
     # for fband in band:
     
@@ -809,10 +823,11 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
             outcatalog = fbrick.catalog
 
         # If user wants model and/or residual images made:
-        if conf.MAKE_MODEL_IMAGE:
-            fbrick.make_model_image(outcatalog)
         if conf.MAKE_RESIDUAL_IMAGE:
             fbrick.make_residual_image()
+        elif conf.MAKE_MODEL_IMAGE:
+            fbrick.make_model_image(outcatalog)
+        
 
     return
 
@@ -940,7 +955,7 @@ def models_from_catalog(catalog, band, rmvector):
 
 
         if (conf.FORCED_PHOT_MAX_NBLOB > 0) & (np.sum(good_sources) > conf.FORCED_PHOT_MAX_NBLOB):
-            print(f'interface.force_models :: WARNING -- Number of good sources in blob ({np.sum(good_sources)}) exceeded limit of {conf.FORCED_PHOT_MAX_NBLOB}.')
+            if conf.VERBOSE: print(f'interface.force_models :: WARNING -- Number of good sources in blob ({np.sum(good_sources)}) exceeded limit of {conf.FORCED_PHOT_MAX_NBLOB}.')
             good_sources = np.zeros_like(good_sources, dtype=bool)
 
         return model_catalog[good_sources], good_sources
