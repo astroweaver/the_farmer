@@ -71,13 +71,13 @@ for i, fname in enumerate(walk_through_files(out_dir, cat_prefix, cat_suffix)):
         skip_count += 1
         continue
 
-    for band in conf.BANDS:
+    # for band in conf.BANDS:
 
-        cat[f'MAG_{band}'] = cat[f'MAG_{band}'][:, 0]
-        cat[f'MAGERR_{band}'] = cat[f'MAGERR_{band}'][:, 0]
-        cat[f'FLUX_{band}'] = cat[f'FLUX_{band}'][:, 0]
-        cat[f'FLUXERR_{band}'] = cat[f'FLUXERR_{band}'][:, 0]
-        cat[f'CHISQ_{band}'] = cat[f'CHISQ_{band}'][:, 0]
+    #     cat[f'MAG_{band}'] = cat[f'MAG_{band}'][:, 0]
+    #     cat[f'MAGERR_{band}'] = cat[f'MAGERR_{band}'][:, 0]
+    #     cat[f'FLUX_{band}'] = cat[f'FLUX_{band}'][:, 0]
+    #     cat[f'FLUXERR_{band}'] = cat[f'FLUXERR_{band}'][:, 0]
+    #     cat[f'CHISQ_{band}'] = cat[f'CHISQ_{band}'][:, 0]
 
         # print(cat[f'MAG_{band}'])
 
