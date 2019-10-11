@@ -25,7 +25,7 @@ import os
 import sys
 import numpy as np
 from astropy.table import Table, vstack
-from astropy.io import ascii
+from astropy.io import ascii, fits
 
 sys.path.insert(0, os.path.join(os.getcwd(), 'config'))
 import config as conf
