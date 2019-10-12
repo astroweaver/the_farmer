@@ -155,11 +155,7 @@ class Mosaic(Subimage):
                 if conf.VERBOSE: print('Plotting LDAC with pointsource bounding box')
                 plot_ldac(tab_ldac, self.bands, xlims=xlims, ylims=ylims, box=True, nsel=np.sum(mask_ldac))
 
-            if n_obj > 1000:
-                if conf.VERBOSE: print('Over 1000 objects found to determine PSF. Restricting to 1000.')
-                n_obj = 1000
-
-            hdul_ldac['LDAC_OBJECTS'].data = tab_ldac[mask_ldac][:n_obj]
+            hdul_ldac['LDAC_OBJECTS'].data = tab_ldac[mask_ldac]
             hdul_ldac.writeto(psf_cat, overwrite=override)
 
             # RUN PSF
