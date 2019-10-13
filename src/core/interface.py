@@ -822,11 +822,15 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
 
             outcatalog = fbrick.catalog
 
+
         # If user wants model and/or residual images made:
+        # If user wants model and/or residual images made:
+        cleancatalog = outcatalog[outcatalog['VALID_SOURCE']]
+
         if conf.MAKE_RESIDUAL_IMAGE:
-            fbrick.make_residual_image()
+            fbrick.make_residual_image(catalog=cleancatalog)
         elif conf.MAKE_MODEL_IMAGE:
-            fbrick.make_model_image(outcatalog)
+            fbrick.make_model_image(cleancatalog)
         
 
     return
