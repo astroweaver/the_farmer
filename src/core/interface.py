@@ -76,7 +76,6 @@ print('Starting up logging system...')
 # Start the logging
 import logging.config
 logger = logging.getLogger('farmer')
-logger.setLevel(logging.getLevelName(conf.LOGFILE_LOGGING_LEVEL))
 formatter = logging.Formatter('[%(asctime)s] %(name)s :: %(levelname)s - %(message)s', '%H:%M:%S')
 
 # Logging to the console at logging level
@@ -98,7 +97,7 @@ else:
         os.remove(logging_path)
 
     fh = logging.FileHandler(logging_path)
-    fh.setLevel(logging.DEBUG)
+    fh.setLevel(conf.LOGFILE_LOGGING_LEVEL)
     fh.setFormatter(formatter)
     logger.addHandler(fh)
 
