@@ -687,8 +687,6 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
             conf.PLOT = 0
             logger.warning('Plotting not supported while forcing models in parallel!')
 
-    # for fband in band:
-    
     if band is None:
         fband = conf.BANDS
     else:
@@ -702,9 +700,24 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
 
     fbrick = stage_brickfiles(brick_id, nickname=conf.MULTIBAND_NICKNAME, band=fband, modeling=False)
 
+    search_fn = os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat')
+    if os.path.exists(search_fn):
+        fbrick.catalog = Table(fits.open(search_fn)[0].data)
+        fbrick.n_sources = len(fbrick.catalog)
+        fbrick.n_blobs = fbrick.catalog['blob_id'].max()
+    else:
+        raise ValueError(f'No valid catalog was found for {brick_id}')
+    search_fn = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits')
+    if os.path.exists(search_fn):
+        hdul_seg = fits.open(search_fn)
+        fbrick.segmap = hdul_seg['SEGMAP'].data
+        fbrick.blobmap = hdul_seg['BLOBMAP'].data
+    else:
+        raise ValueError(f'No valid segmentation map was found for {brick_id}')
+
     logger.info(f'{fband} brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
 
-    if conf.PLOT > 0:
+    if conf.PLOT > 1:
         for plt_band in fband:
             if len(fband) == 1:
                 idx = 0
