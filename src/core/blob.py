@@ -33,9 +33,11 @@ import sep
 from matplotlib.colors import LogNorm
 
 from .subimage import Subimage
-from .utils import SimpleGalaxy, plot_detblob, plot_fblob, plot_psf, plot_modprofile, plot_mask, create_circular_mask
+from .utils import SimpleGalaxy, create_circular_mask
+from .visualization import plot_detblob, plot_fblob, plot_psf, plot_modprofile, plot_mask
 import config as conf
 
+import logging
 
 class Blob(Subimage):
     """TODO: docstring"""
@@ -43,11 +45,14 @@ class Blob(Subimage):
     def __init__(self, brick, blob_id):
         """TODO: docstring"""
 
+        self.logger = logging.getLogger('farmer.blob')
+
         blobmask = np.array(brick.blobmap == blob_id, bool)
         mask_frac = blobmask.sum() / blobmask.size
         if (mask_frac > conf.SPARSE_THRESH) & (blobmask.size > conf.SPARSE_SIZE):
-            if conf.VERBOSE: print('Blob is rejected as mask is sparse - likely an artefact issue.')
-            blob = None
+            self.logger.warning('Blob is rejected as mask is sparse - likely an artefact issue.')
+            del brick
+            return None
 
         self.brick_wcs = brick.wcs.copy()
         self.mosaic_origin = brick.mosaic_origin
@@ -96,6 +101,7 @@ class Blob(Subimage):
         self.solution_chisq = np.zeros(self.n_sources)
         self.tr_catalogs = np.zeros((self.n_sources, 3, 2), dtype=object)
         self.chisq = np.zeros((self.n_sources, 3, 2))
+        self.rchisq = np.zeros((self.n_sources, 3, 2))
         self.bic = np.zeros((self.n_sources, 3, 2))
         # self.position_variance = np.zeros((self.n_sources, 2))
         # self.parameter_variance = np.zeros((self.n_sources, 3))
@@ -111,19 +117,17 @@ class Blob(Subimage):
     def stage_images(self):
         """TODO: docstring"""
 
-        if conf.VERBOSE2: 
-            print()
-            print('blob.stage_images :: Staging images...')
+        self.logger.debug('blob.stage_images :: Staging images...')
 
         timages = np.zeros(self.n_bands, dtype=object)
 
         if conf.SUBTRACT_BACKGROUND:
             self.subtract_background(flat=conf.USE_FLAT)
-            if conf.VERBOSE2: print(f'blob.stage_images :: Subtracted background (flat={conf.USE_FLAT})')
+            self.logger.debug(f'Subtracted background (flat={conf.USE_FLAT})')
 
         # TODO: try to simplify this. particularly the zip...
         for i, (image, weight, mask, psf, band) in enumerate(zip(self.images, self.weights, self.masks, self.psfmodels, self.bands)):
-            if conf.VERBOSE2: print(f'blob.stage_images :: Staging image for {band}')
+            self.logger.debug(f'Staging image for {band}')
             tweight = weight.copy()
             if conf.APPLY_SEGMASK:
                 tweight[mask] = 0
@@ -134,12 +138,11 @@ class Blob(Subimage):
                     pw, ph = np.shape(psfmodel.img)
                     cmask = create_circular_mask(pw, ph, radius=conf.PSF_MASKRAD / conf.PIXEL_SCALE)
                     bcmask = ~cmask.astype(bool) & (psfmodel.img > 0)
-                    psfmodel.img -= np.nanmedian(psfmodel.img[bcmask])
+                    psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
                     psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
                 if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
                     psfmodel.img /= psfmodel.img.sum() # HACK -- force normalization to 1
-                    print(np.max(psfmodel.img), np.min(psfmodel.img))
-                if conf.VERBOSE2: print(f'blob.stage_images :: Adopting constant PSF.')
+                self.logger.debug('Adopting constant PSF.')
 
             elif (psf is not None):
                 blob_centerx = self.blob_center[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
@@ -153,24 +156,26 @@ class Blob(Subimage):
                     psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
                 if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
                     psfmodel.img /= psfmodel.img.sum() # HACK -- force normalization to 1
-                if conf.VERBOSE2: print(f'blob.stage_images :: Adopting varying PSF constant at ({blob_centerx}, {blob_centery}).')
+                self.logger.debug(f'Adopting varying PSF constant at ({blob_centerx}, {blob_centery}).')
             
             elif (psf is None):
                 if conf.USE_GAUSSIAN_PSF:
                     psfmodel = NCircularGaussianPSF([conf.PSF_SIGMA / conf.PIXEL_SCALE], [1,])
-                    if conf.VERBOSE2: print(f'blob.stage_images :: Adopting {conf.PSF_SIGMA}" Gaussian PSF.')
+                    self.logger.debug('Adopting {conf.PSF_SIGMA}" Gaussian PSF.')
                 else:
                     raise ValueError(f'WARNING - No PSF model found for {band}!')
 
-            if conf.PLOT & (psf is not None):
+            if psf is not None:
                 try:
                     psfimg = psfmodel.img
                 except:
                     psfimg = psfmodel.getImage(0, 0)
                 self.psfimg = psfimg
-                plot_psf(psfimg, band, show_gaussian=False)
+            
+                if (conf.PLOT > 1):
+                    plot_psf(psfimg, band, show_gaussian=False)
                     
-            if conf.VERBOSE2: print(f'blob.stage_images :: Making image...')
+            self.logger.debug('Making image...')
             timages[i] = Image(data=image,
                             invvar=tweight,
                             psf=psfmodel,
@@ -182,18 +187,16 @@ class Blob(Subimage):
 
     def stage_models(self):
         # Trackers
-        if conf.VERBOSE2: print()
-        if conf.VERBOSE2: print(f'blob.stage_models :: Loading models for blob #{self.blob_id}')
+        self.logger.debug(f'Loading models for blob #{self.blob_id}')
 
         for i, (mid, src) in enumerate(zip(self.mids, self.bcatalog)):
 
-            if conf.VERBOSE2: print(f'Source #{src["source_id"]}')
-            if conf.VERBOSE2: print(f"               x, y: {src['x']:3.3f}, {src['y']:3.3f}")
-            if conf.VERBOSE2: print(f"               flux: {src['flux']:3.3f}")
-            if conf.VERBOSE2: print(f"               cflux: {src['cflux']:3.3f}")
-            if conf.VERBOSE2: print(f"               a, b: {src['a']:3.3f}, {src['b']:3.3f}") 
-            if conf.VERBOSE2: print(f"               theta: {src['theta']:3.3f}")
-            if conf.VERBOSE2: print()
+            self.logger.debug(f'Source #{src["source_id"]}')
+            self.logger.debug(f"               x, y: {src['x']:3.3f}, {src['y']:3.3f}")
+            self.logger.debug(f"               flux: {src['flux']:3.3f}")
+            self.logger.debug(f"               cflux: {src['cflux']:3.3f}")
+            self.logger.debug(f"               a, b: {src['a']:3.3f}, {src['b']:3.3f}") 
+            self.logger.debug(f"               theta: {src['theta']:3.3f}")
 
             freeze_position = (self.mids != 1).any()
             # print(f'DEBUG: {self.mids}')
@@ -227,26 +230,24 @@ class Blob(Subimage):
                                                 shape, shape)
             if freeze_position & (conf.FREEZE_POSITION):
                 self.model_catalog[i].freezeParams('pos')
-                if conf.VERBOSE2: print(f'Position parameter frozen at {position}')
+                self.logger.debug(f'Position parameter frozen at {position}')
 
-            if conf.VERBOSE2: print(f'Source #{src["source_id"]}: {self.model_catalog[i].name} model at {position}')
-            if conf.VERBOSE2: print(f'               {flux}') 
+            self.logger.debug(f'Source #{src["source_id"]}: {self.model_catalog[i].name} model at {position}')
+            self.logger.debug(f'               {flux}') 
             if mid not in (1,2):
-                if conf.VERBOSE2: print(f'               {shape}')
+                self.logger.debug(f'               {shape}')
 
     def tractor_phot(self):
 
         # TODO: The meaning of the following line is not clear
         idx_models = ((1, 2), (3, 4), (5,))
-        if conf.VERBOSE2: 
-            print()
-            print(f'blob.tractor_phot :: Attempting to model {self.n_sources} sources.')
+        self.logger.debug(f'Attempting to model {self.n_sources} sources.')
 
         self._solved = self.solution_catalog != 0
 
         self._level = -1
 
-        if conf.PLOT:
+        if conf.PLOT > 0:
             fig, ax = plot_detblob(self)
 
         while not self._solved.all():
@@ -263,11 +264,11 @@ class Blob(Subimage):
                 # store
                 self.tr = Tractor(self.timages, self.model_catalog)
 
-                if conf.PLOT:
+                if conf.PLOT > 0:
                     plot_detblob(self, fig, ax, level=self._level, sublevel=self._sublevel, init=True)
 
                 # optimize
-                if conf.VERBOSE2: print(self.stage)
+                self.logger.debug(self.stage)
                 self.status = self.optimize_tractor()
 
                 if self.status == False:
@@ -287,30 +288,25 @@ class Blob(Subimage):
                     totalchisq = np.sum((self.tr.getChiImage(0)[self.segmap == src['source_id']])**2)
                     m_param = self.model_catalog[i].numberOfParams()
                     n_data = np.sum(self.segmap == src['source_id'])
+                    self.chisq[i, self._level, self._sublevel] = totalchisq
+                    self.rchisq[i, self._level, self._sublevel] = totalchisq / (n_data - m_param)
                     self.bic[i, self._level, self._sublevel] = totalchisq + np.log(n_data) * m_param
-                    if conf.USE_REDUCEDCHISQ:
-                        totalchisq /= (n_data - m_param)
-                    # PENALTIES TBD
-                    # residual = self.images[0] - self.tr.getModelImage(0)
-                    # if np.median(residual[self.masks[0]]) < 0:
-                    #     if conf.VERBOSE2: print(f'Applying heavy penalty on source #{i+1} ({self.model_catalog[i].name})!')
-                    #     totalchisq = 1E30
-                    if conf.VERBOSE2: print(f'Source #{src["source_id"]} with {self.model_catalog[i].name} has chisq={totalchisq:3.3f} | bic={self.bic[i, self._level, self._sublevel]:3.3f}')
-                    if conf.VERBOSE2: print(f'               Fluxes: {self.bands[0]}={self.model_catalog[i].getBrightness().getFlux(self.bands[0]):3.3f}') 
+ 
+                    self.logger.debug(f'Source #{src["source_id"]} with {self.model_catalog[i].name} has chisq={self.bic[i, self._level, self._sublevel]:3.3f} | bic={self.bic[i, self._level, self._sublevel]:3.3f}')
+                    self.logger.debug(f'               Fluxes: {self.bands[0]}={self.model_catalog[i].getBrightness().getFlux(self.bands[0]):3.3f}') 
                     if self.model_catalog[i].name not in ('PointSource', 'SimpleGalaxy'):
                         if self.model_catalog[i].name == 'FixedCompositeGalaxy':
-                            if conf.VERBOSE2: print(f'               {self.model_catalog[i].shapeExp}')
-                            if conf.VERBOSE2: print(f'               {self.model_catalog[i].shapeDev}')
+                            self.logger.debug(f'               {self.model_catalog[i].shapeExp}')
+                            self.logger.debug(f'               {self.model_catalog[i].shapeDev}')
                         else:
-                            if conf.VERBOSE2: print(f'               {self.model_catalog[i].shape}')
+                            self.logger.debug(f'               {self.model_catalog[i].shape}')
                     
-                    self.chisq[i, self._level, self._sublevel] = totalchisq
 
                 # Move unsolved to next sublevel
                 if sublevel == 0:
                     self.mids[~self._solved] += 1
 
-                if conf.PLOT:
+                if conf.PLOT > 1:
                     plot_detblob(self, fig, ax, level=self._level, sublevel=self._sublevel)
 
             # decide
@@ -320,32 +316,29 @@ class Blob(Subimage):
         # print('Starting final optimization')
         # Final optimization
         self.model_catalog = self.solution_catalog.copy()
-        if conf.VERBOSE2: 
-            print()
-            print(f'Starting final optimization for blob #{self.blob_id}')
+        self.logger.debug(f'Starting final optimization for blob #{self.blob_id}')
         for i, (mid, src) in enumerate(zip(self.mids, self.bcatalog)):
-            if conf.VERBOSE2: print(f'Source #{src["source_id"]}: {self.model_catalog[i].name} model at {self.model_catalog[i].pos}')
-            if conf.VERBOSE2: print(f'               Fluxes: {self.bands[0]}={self.model_catalog[i].getBrightness().getFlux(self.bands[0]):3.3f}') 
+            self.logger.debug(f'Source #{src["source_id"]}: {self.model_catalog[i].name} model at {self.model_catalog[i].pos}')
+            self.logger.debug(f'               Fluxes: {self.bands[0]}={self.model_catalog[i].getBrightness().getFlux(self.bands[0]):3.3f}') 
             if self.model_catalog[i].name not in ('PointSource', 'SimpleGalaxy'):
                 if self.model_catalog[i].name == 'FixedCompositeGalaxy':
-                    if conf.VERBOSE2: print(f'               {self.model_catalog[i].shapeExp}')
-                    if conf.VERBOSE2: print(f'               {self.model_catalog[i].shapeDev}')
+                    self.logger.debug(f'               {self.model_catalog[i].shapeExp}')
+                    self.logger.debug(f'               {self.model_catalog[i].shapeDev}')
                 else:
-                    if conf.VERBOSE2: print(f'               {self.model_catalog[i].shape}')
+                    self.logger.debug(f'               {self.model_catalog[i].shape}')
             if conf.FREEZE_POSITION:
                 self.model_catalog[i].freezeParams('pos')
-                if conf.VERBOSE2: print(f'Position parameter frozen at {self.model_catalog[i].pos}')
+                self.logger.debug(f'Position parameter frozen at {self.model_catalog[i].pos}')
         self.tr = Tractor(self.timages, self.model_catalog)
 
-        if conf.VERBOSE2: print()
         self.stage = 'Final Optimization'
         # self._level, self._sublevel = 'FO', 'FO'
-        if conf.VERBOSE2: print(self.stage)
+        self.logger.debug(self.stage)
         self.status = self.optimize_tractor()
         
         if not self.status:
             return False
-        if conf.VERBOSE2: print(f'Optimization converged in {self.n_converge+1} steps.')
+        self.logger.debug(f'Optimization converged in {self.n_converge+1} steps.')
 
         self.solution_catalog = self.tr.getCatalog()
         self.solution_tractor = Tractor(self.timages, self.solution_catalog)
@@ -354,9 +347,7 @@ class Blob(Subimage):
         self.parameter_variance = self.variance
         # print(f'PARAMETER VAR: {self.parameter_variance}')
 
-        if conf.VERBOSE2: 
-            print()
-            print(f'Resulting model parameters for blob #{self.blob_id}')
+        self.logger.debug(f'Resulting model parameters for blob #{self.blob_id}')
         self.solution_chisq = np.zeros((self.n_sources, self.n_bands))
         self.solution_bic = np.zeros((self.n_sources, self.n_bands))
         for i, src in enumerate(self.bcatalog):
@@ -365,31 +356,30 @@ class Blob(Subimage):
                 m_param = self.model_catalog[i].numberOfParams()
                 n_data = np.sum(self.segmap == src['source_id'])
                 self.solution_bic[i, j] = totalchisq + np.log(n_data) * m_param
-                if conf.USE_REDUCEDCHISQ:
-                    totalchisq /= (n_data - m_param)
+                self.solution_chisq[i, j] = totalchisq / (n_data - m_param)
                 # PENALTIES TBD
                 # residual = self.images[0] - self.tr.getModelImage(0)
                 # if np.median(residual[self.masks[0]]) < 0:
                 #     if conf.VERBOSE2: print(f'Applying heavy penalty on source #{i+1} ({self.model_catalog[i].name})!')
                 #     totalchisq = 1E30
-                if conf.VERBOSE2: print(f'Source #{src["source_id"]} ({band}) with {self.model_catalog[i].name} has chisq={totalchisq:3.3f} | bic={self.solution_bic[i, j]:3.3f}')
+                self.logger.debug(f'Source #{src["source_id"]} ({band}) with {self.model_catalog[i].name} has rchisq={self.solution_chisq[i, j]:3.3f} | bic={self.solution_bic[i, j]:3.3f}')
 
-                self.solution_chisq[i, j] = totalchisq
+                
 
-            if conf.VERBOSE2: print(f'Source #{src["source_id"]}: {self.solution_catalog[i].name} model at {self.solution_catalog[i].pos}')
-            if conf.VERBOSE2: print(f'               Fluxes: {self.bands[0]}={self.solution_catalog[i].getBrightness().getFlux(self.bands[0])}') 
+            self.logger.debug(f'Source #{src["source_id"]}: {self.solution_catalog[i].name} model at {self.solution_catalog[i].pos}')
+            self.logger.debug(f'               Fluxes: {self.bands[0]}={self.solution_catalog[i].getBrightness().getFlux(self.bands[0])}') 
             if self.solution_catalog[i].name not in ('PointSource', 'SimpleGalaxy'):
                 if self.solution_catalog[i].name == 'FixedCompositeGalaxy':
-                    if conf.VERBOSE2: print(f'               {self.solution_catalog[i].shapeExp}')
-                    if conf.VERBOSE2: print(f'               {self.solution_catalog[i].shapeDev}')
+                    self.logger.debug(f'               {self.solution_catalog[i].shapeExp}')
+                    self.logger.debug(f'               {self.solution_catalog[i].shapeDev}')
                 else:
-                    if conf.VERBOSE2: print(f'               {self.solution_catalog[i].shape}')
+                    self.logger.debug(f'               {self.solution_catalog[i].shape}')
 
-        if conf.PLOT:
+        if conf.PLOT > 1:
             plot_detblob(self, fig, ax, level=self._level, sublevel=self._sublevel, final_opt=True)
+        
+        if conf.PLOT > 0:
             plot_modprofile(self)
-
-            plt.close()
 
         # self.rows = np.zeros(len(self.solution_catalog))
         for idx, src in enumerate(self.solution_catalog):
@@ -404,27 +394,30 @@ class Blob(Subimage):
     def decide_winners(self, use_bic=True):
 
         if use_bic:
-            if conf.VERBOSE: print()
-            if conf.VERBOSE: print('Using BIC to select best-fit model')
+            self.logger.debug('Using BIC to select best-fit model')
             self.decide_winners_bic()
         else:
-            if conf.VERBOSE: print()
-            if conf.VERBOSE: print('Using chisq to select best-fit model')
+            self.logger.debug('Using chisq to select best-fit model')
             raise RuntimeError('BUGGY - NOT WORKING NOW.')
             self.decide_winners_chisq()
 
     def decide_winners_bic(self):
 
         # holders - or else it's pure insanity.
+        sid = self.bcatalog['source_id'][~self._solved]
         bic= self.bic[~self._solved]
+        rchisq = self.rchisq[~self._solved]
         solution_catalog = self.solution_catalog[~self._solved]
         solved_bic = self.solved_bic[~self._solved]
         tr_catalogs = self.tr_catalogs[~self._solved]
         mids = self.mids[~self._solved]
 
         if self._level == 0:
-            # Which have chi2(PS) < chi2(SG)?
+            # Which have chi2(PS) < chi2(SG) and both are chi2 > 3?
+            for i, blob_id in enumerate(sid):
+                self.logger.debug(f'Source #{blob_id} BIC -- PS({bic[i, 0, 0]:3.3f}) vs. SG({bic[i, 0, 1]:3.3f}) with thresh of {conf.PS_SG_THRESH:3.3f}')
             chmask = (bic[:, 0, 0] - bic[:, 0, 1] < conf.PS_SG_THRESH)
+            chmask[(rchisq[:, 0, 0] > 5) & (rchisq[:, 0, 1] > 5)] = False # For these, keep trying! Essentially a back-door for high a/b sources.
             if chmask.any():
                 solution_catalog[chmask] = tr_catalogs[chmask, 0, 0].copy()
                 solved_bic[chmask] = bic[chmask, 0, 0]
@@ -434,6 +427,8 @@ class Blob(Subimage):
             mids[~chmask] = 3
 
         if self._level == 1:
+            for i, blob_id in enumerate(sid):
+                self.logger.debug(f'Source #{blob_id} BIC -- EXP({bic[i, 1, 0]:3.3f}) vs. DEV({bic[i, 1, 1]:3.3f}) with thresh of {conf.EXP_DEV_THRESH:3.3f}')
             # For which are they nearly equally good?
             movemask = (abs(bic[:, 1, 0] - bic[:, 1, 1]) < conf.EXP_DEV_THRESH)
             # movemask = np.ones_like(bic[:,1,0], dtype=bool)
@@ -448,7 +443,10 @@ class Blob(Subimage):
             nextmask = expmask & devmask & movemask
 
             # For which was SG better
-            premask = ~expmask & ~devmask
+            premask_sg = ~expmask & ~devmask & (bic[:, 0, 1] < bic[:, 0, 0])
+
+            # For which was PS better
+            premask_ps = ~expmask & ~devmask & (bic[:, 0, 0] < bic[:, 0, 1])
 
             # If Exp beats Dev by a lot
             nexpmask = expmask & ~movemask & (bic[:, 1, 0]  <  bic[:, 1, 1])
@@ -459,10 +457,15 @@ class Blob(Subimage):
             if nextmask.any():
                 mids[nextmask] = 5
 
-            if premask.any():
-                solution_catalog[premask] = tr_catalogs[premask, 0, 1].copy()
-                solved_bic[premask] = bic[premask, 0, 1]
-                mids[premask] = 2
+            if premask_ps.any():
+                solution_catalog[premask_ps] = tr_catalogs[premask_ps, 0, 0].copy()
+                solved_bic[premask_ps] = bic[premask_ps, 0, 0]
+                mids[premask_ps] = 1
+
+            if premask_sg.any():
+                solution_catalog[premask_sg] = tr_catalogs[premask_sg, 0, 1].copy()
+                solved_bic[premask_sg] = bic[premask_sg, 0, 1]
+                mids[premask_sg] = 2
 
             if nexpmask.any():
 
@@ -477,6 +480,8 @@ class Blob(Subimage):
                 mids[ndevmask] = 4
 
         if self._level == 2:
+            for i, blob_id in enumerate(sid):
+                self.logger.debug(f'Source #{blob_id} BIC -- COMP({bic[i, 2, 0]:3.3f})')
             # For which did Comp beat EXP and DEV?
             compmask = (bic[:, 2, 0] < bic[:, 1, 0]) &\
                        (bic[:, 2, 0] < bic[:, 1, 1])
@@ -618,14 +623,8 @@ class Blob(Subimage):
             tr = self.tr
 
         tr.freezeParams('images')   
-        if conf.VERBOSE2:     
-            print(f'0 DEBUG: Showing catalog')
-            print([print(k) for k in tr.getCatalog()])
-            print()
         
-        if conf.VERBOSE: 
-            print()
-            print(f'blob.optimize_tractor :: Starting optimization ({conf.TRACTOR_MAXSTEPS}, {conf.TRACTOR_CONTHRESH})')
+        self.logger.debug(f'Starting optimization ({conf.TRACTOR_MAXSTEPS}, {conf.TRACTOR_CONTHRESH})')
 
         self.n_converge = 0
         dlnp_init = 'NaN'
@@ -636,22 +635,18 @@ class Blob(Subimage):
                 dlnp, X, alpha, var = tr.optimize(shared_params=False, variance=True)
                 if i == 0:
                     dlnp_init = dlnp
-                if conf.VERBOSE2:   
-                    print(f'{i+1} DEBUG: Showing catalog')
-                    print([print(k) for k in tr.getCatalog()])
-                    print()
             except:
-                if conf.VERBOSE: print(f'WARNING - Optimization failed on step {i} for blob #{self.blob_id}')
+                self.logger.warning(f'WARNING - Optimization failed on step {i} for blob #{self.blob_id}')
                 return False
 
             if dlnp < conf.TRACTOR_CONTHRESH:
-                if conf.VERBOSE: print(f'blob.optimize_tractor :: Blob #{self.blob_id} converged in {i} steps ({dlnp_init:2.2f} --> {dlnp:2.2f}) ({time() - tstart:3.3f}s)')
+                self.logger.info(f'Blob #{self.blob_id} converged in {i} steps ({dlnp_init:2.2f} --> {dlnp:2.2f}) ({time() - tstart:3.3f}s)')
                 self.n_converge = i
                 break
             
 
         if var is None:
-            if conf.VERBOSE: print(f'WARNING - VAR is NONE for blob #{self.blob_id}')
+            self.logger.warning(f'Variance was not output for blob #{self.blob_id}')
             return False
 
         cat = tr.getCatalog()
@@ -673,7 +668,7 @@ class Blob(Subimage):
         #     self.variance.append(myvar)
 
         if np.shape(self.tr.getChiImage(0)) != np.shape(self.segmap):
-            if conf.VERBOSE: print(f'WARNING - Chimap and segmap are not the same shape for #{self.blob_id}')
+            self.logger.warning('Chimap and segmap are not the same shape for #{self.blob_id}')
             return False
 
         # expvar = np.sum([var_catalog[i].numberOfParams() for i in np.arange(len(var_catalog))])
@@ -685,12 +680,11 @@ class Blob(Subimage):
 
     def aperture_phot(self, band=None, image_type=None, sub_background=False):
         # Allow user to enter image (i.e. image, residual, model...)
-        if conf.VERBOSE: 
-            print()
-            if band is None:
-                print(f'blob.aperture_phot :: Performing aperture photometry on {conf.MODELING_NICKNAME} {image_type}...')
-            else:
-                print(f'blob.aperture_phot :: Performing aperture photometry on {band} {image_type}...')
+
+        if band is None:
+            self.logger.info(f'Performing aperture photometry on {conf.MODELING_NICKNAME} {image_type}...')
+        else:
+            self.logger.info(f'Performing aperture photometry on {band} {image_type}...')
 
         if image_type not in ('image', 'model', 'isomodel', 'residual'):
             raise TypeError("image_type must be 'image', 'model', 'isomodel', or 'residual'")
@@ -762,7 +756,7 @@ class Blob(Subimage):
         for i, rad in enumerate(apertures):
             if not use_iso: # Run with all models in image
                 aper = photutils.CircularAperture(apxy[:,Iap], rad)
-                if conf.VERBOSE2: print(f'blob.aperture_phot :: Measuring {apertures_arcsec[i]:2.2f}" aperture flux on {len(cat)} sources.')
+                self.logger.debug('Measuring {apertures_arcsec[i]:2.2f}" aperture flux on {len(cat)} sources.')
                 p = photutils.aperture_photometry(image, aper, error=imgerr)
                 # aper.plot()
                 apflux[Iap, i] = p.field('aperture_sum') * 10**(-0.4 * (zpt - 23.9))
@@ -778,7 +772,7 @@ class Blob(Subimage):
                         image *= self.masks[self.band2idx(band)]
                     if sub_background:
                         image -= self.background_images[idx]
-                    if conf.VERBOSE2: print(f'blob.aperture_phot :: Measuring {apertures_arcsec[i]:2.2f}" aperture flux on 1 source of {len(cat)}.')
+                    self.logger.debug('Measuring {apertures_arcsec[i]:2.2f}" aperture flux on 1 source of {len(cat)}.')
                     p = photutils.aperture_photometry(image, aper, error=imgerr)
                     # aper.plot()
                     apflux[j, i] = p.field('aperture_sum') * 10**(-0.4 * (zpt - 23.9))
@@ -787,11 +781,10 @@ class Blob(Subimage):
                     else:
                         apflux_err[j, i] = p.field('aperture_sum_err') * 10**(-0.4 * (zpt - 23.9))
 
-                if conf.VERBOSE2: 
-                    apmag = - 2.5 * np.log10( apflux[j,i] ) + zpt
-                    apmag_err = 1.09 * apflux_err[j, i] / apflux[j, i]
-                    print(f'        Flux({j}, {band}, {apertures_arcsec[i]:2.2f}") = {apflux[j,i]:3.3f}/-{apflux_err[j,i]:3.3f}')
-                    print(f'        Mag({j}, {band}, {apertures_arcsec[i]:2.2f}") = {apmag:3.3f}/-{apmag_err:3.3f}')
+                apmag = - 2.5 * np.log10( apflux[j,i] ) + zpt
+                apmag_err = 1.09 * apflux_err[j, i] / apflux[j, i]
+                self.logger.debug(f'        Flux({j}, {band}, {apertures_arcsec[i]:2.2f}") = {apflux[j,i]:3.3f}/-{apflux_err[j,i]:3.3f}')
+                self.logger.debug(f'        Mag({j}, {band}, {apertures_arcsec[i]:2.2f}") = {apmag:3.3f}/-{apmag_err:3.3f}')
 
         # if image_type == 'image':
             
@@ -863,7 +856,7 @@ class Blob(Subimage):
             n_residual_sources = len(catalog)
             self.residual_segmap = segmap
             self.n_residual_sources[idx] = n_residual_sources
-            if conf.VERBOSE2: print(f'SExtractor Found {n_residual_sources} in {band} residual!')
+            self.logger.debug(f'SExtractor Found {n_residual_sources} in {band} residual!')
 
 
             for idx, src in enumerate(self.solution_catalog):
@@ -873,14 +866,13 @@ class Blob(Subimage):
 
             return catalog, segmap
         else:
-            if conf.VERBOSE2: print('No objects found by SExtractor.')
+            self.logger.debug('No objects found by SExtractor.')
 
     def forced_phot(self):
 
         # print('Starting forced photometry')
         # Update the incoming models
-        if conf.VERBOSE2: print()
-        if conf.VERBOSE2: print('Reviewing sources to be modelled.')
+        self.logger.debug('Reviewing sources to be modelled.')
         for i, model in enumerate(self.model_catalog):
             # if model == -99:
             #     if conf.VERBOSE: print(f"FAILED -- Source #{self.bcatalog[i]['source_id']} does not have a valid model!")
@@ -889,25 +881,24 @@ class Blob(Subimage):
             self.model_catalog[i].brightness = Fluxes(**dict(zip(self.bands, model.brightness[0] * np.ones(self.n_bands))))
             self.model_catalog[i].freezeAllBut('brightness')
 
-            if conf.VERBOSE2: print(f"Source #{self.bcatalog[i]['source_id']}: {self.model_catalog[i].name} model at {self.model_catalog[i].pos}")
-            if conf.VERBOSE2: print(f'               {self.model_catalog[i].brightness}')
+            self.logger.debug(f"Source #{self.bcatalog[i]['source_id']}: {self.model_catalog[i].name} model at {self.model_catalog[i].pos}")
+            self.logger.debug(f'               {self.model_catalog[i].brightness}')
             if self.bcatalog[i]['SOLMODEL'] == 'FixedCompositeGalaxy':
-                if conf.VERBOSE2: print(f'               {self.model_catalog[i].shapeExp}')
-                if conf.VERBOSE2: print(f'               {self.model_catalog[i].shapeDev}')
+                self.logger.debug(f'               {self.model_catalog[i].shapeExp}')
+                self.logger.debug(f'               {self.model_catalog[i].shapeDev}')
             elif self.bcatalog[i]['SOLMODEL'] in ('ExpGalaxy', 'DevGalaxy'):
-                if conf.VERBOSE2: print(f'               {self.model_catalog[i].shape}')
+                self.logger.debug(f'               {self.model_catalog[i].shape}')
 
 
         # Stash in Tractor
         self.tr = Tractor(self.timages, self.model_catalog)
         self.stage = 'Forced Photometry'
 
-        if conf.PLOT:
+        if conf.PLOT > 0:
             axlist = [plot_fblob(self, band=band) for band in self.bands]
 
         # Optimize
         status = self.optimize_tractor()
-        if conf.VERBOSE: print()
 
         if not status:
             return status
@@ -921,26 +912,24 @@ class Blob(Subimage):
         self.solution_model_images = np.array([self.tr.getModelImage(i) for i in np.arange(self.n_bands)])
         self.solution_chi_images = np.array([self.tr.getChiImage(i) for i in np.arange(self.n_bands)])
 
-        if conf.VERBOSE2: print(f'Resulting model parameters for blob #{self.blob_id}')
+        self.logger.debug(f'Resulting model parameters for blob #{self.blob_id}')
         for i, src in enumerate(self.bcatalog):
-            if conf.VERBOSE2: print(f'Source #{src["source_id"]}: {self.solution_catalog[i].name} model at {self.solution_catalog[i].pos}')
+            self.logger.debug(f'Source #{src["source_id"]}: {self.solution_catalog[i].name} model at {self.solution_catalog[i].pos}')
             if self.solution_catalog[i].name not in ('PointSource', 'SimpleGalaxy'):
-                if self.solution_catalog[i].name == 'FixedCompositeGalaxy':
-                    if conf.VERBOSE2: 
-                        shapeExp, shapeExp_err = self.solution_catalog[i].shapeExp, self.forced_variance[i].shapeExp.getParams('shapeExp')
-                        shapeDev, shapeDev_err = self.solution_catalog[i].shapeDev, self.forced_variance[i].shapeDev.getParams('shapeDev')
-                        print(f'    ShapeExp -- Log(Reff): {shapeExp.re:3.3f} +/- {shapeExp_err.re:3.3f}')
-                        print(f'    ShapeExp -- ee1:       {shapeExp.ee1:3.3f} +/- {shapeExp_err.ee1:3.3f}')
-                        print(f'    ShapeExp -- ee2:       {shapeExp.ee2:3.3f} +/- {shapeExp_err.ee2:3.3f}')
-                        print(f'    ShapeDev -- Log(Reff): {shapeDev.re:3.3f} +/- {shapeDev_err.re:3.3f}')
-                        print(f'    ShapeDev -- ee1:       {shapeDev.ee1:3.3f} +/- {shapeDev_err.ee1:3.3f}')
-                        print(f'    ShapeDev -- ee2:       {shapeDev.ee2:3.3f} +/- {shapeDev_err.ee2:3.3f}')
+                if self.solution_catalog[i].name == 'FixedCompositeGalaxy': 
+                    shapeExp, shapeExp_err = self.solution_catalog[i].shapeExp, self.forced_variance[i].shapeExp.getParams('shapeExp')
+                    shapeDev, shapeDev_err = self.solution_catalog[i].shapeDev, self.forced_variance[i].shapeDev.getParams('shapeDev')
+                    self.logger.debug(f'    ShapeExp -- Log(Reff): {shapeExp.re:3.3f} +/- {shapeExp_err.re:3.3f}')
+                    self.logger.debug(f'    ShapeExp -- ee1:       {shapeExp.ee1:3.3f} +/- {shapeExp_err.ee1:3.3f}')
+                    self.logger.debug(f'    ShapeExp -- ee2:       {shapeExp.ee2:3.3f} +/- {shapeExp_err.ee2:3.3f}')
+                    self.logger.debug(f'    ShapeDev -- Log(Reff): {shapeDev.re:3.3f} +/- {shapeDev_err.re:3.3f}')
+                    self.logger.debug(f'    ShapeDev -- ee1:       {shapeDev.ee1:3.3f} +/- {shapeDev_err.ee1:3.3f}')
+                    self.logger.debug(f'    ShapeDev -- ee2:       {shapeDev.ee2:3.3f} +/- {shapeDev_err.ee2:3.3f}')
                 else:
-                    if conf.VERBOSE2:
-                        shape, shape_err = self.solution_catalog[i].shape, self.forced_variance[i].shape
-                        print(f'    Shape -- Log(Reff): {shape.re:3.3f} +/- {shape_err.re:3.3f}')
-                        print(f'    Shape -- ee1:       {shape.ee1:3.3f} +/- {shape_err.ee1:3.3f}')
-                        print(f'    Shape -- ee2:       {shape.ee2:3.3f} +/- {shape_err.ee2:3.3f}')
+                    shape, shape_err = self.solution_catalog[i].shape, self.forced_variance[i].shape
+                    self.logger.debug(f'    Shape -- Log(Reff): {shape.re:3.3f} +/- {shape_err.re:3.3f}')
+                    self.logger.debug(f'    Shape -- ee1:       {shape.ee1:3.3f} +/- {shape_err.ee1:3.3f}')
+                    self.logger.debug(f'    Shape -- ee2:       {shape.ee2:3.3f} +/- {shape_err.ee2:3.3f}')
             for j, band in enumerate(self.bands):
                 totalchisq = np.sum((self.tr.getChiImage(j)[self.segmap == src['source_id']])**2)
                 m_param = self.model_catalog[i].numberOfParams()
@@ -952,16 +941,14 @@ class Blob(Subimage):
                 # PENALTIES TBD
                 # residual = self.images[0] - self.tr.getModelImage(0)
                 # if np.median(residual[self.masks[0]]) < 0:
-                #     if conf.VERBOSE2: print(f'Applying heavy penalty on source #{i+1} ({self.model_catalog[i].name})!')
+                #     self.logger.debug(f'Applying heavy penalty on source #{i+1} ({self.model_catalog[i].name})!')
                 #     totalchisq = 1E30
-                if conf.VERBOSE2: 
-                    flux = self.solution_catalog[i].getBrightness().getFlux(self.bands[j])
-                    fluxerr = np.sqrt(self.forced_variance[i].brightness.getParams()[j])
-                    print()
-                    print(f'Source #{src["source_id"]} in {self.bands[j]}')
-                    print(f'    Flux({self.bands[j]}):  {flux:3.3f} +/- {fluxerr:3.3f}') 
-                    print(f'    Chisq({self.bands[j]}): {totalchisq:3.3f}')
-                    print(f'    BIC({self.bands[j]}):   {self.solution_bic[i, j]:3.3f}')
+                flux = self.solution_catalog[i].getBrightness().getFlux(self.bands[j])
+                fluxerr = np.sqrt(self.forced_variance[i].brightness.getParams()[j])
+                self.logger.debug(f'Source #{src["source_id"]} in {self.bands[j]}')
+                self.logger.debug(f'    Flux({self.bands[j]}):  {flux:3.3f} +/- {fluxerr:3.3f}') 
+                self.logger.debug(f'    Chisq({self.bands[j]}): {totalchisq:3.3f}')
+                self.logger.debug(f'    BIC({self.bands[j]}):   {self.solution_bic[i, j]:3.3f}')
 
 
         # self.rows = np.zeros(len(self.solution_catalog))
@@ -969,7 +956,7 @@ class Blob(Subimage):
             self.get_catalog(idx, src, multiband_only=True)
 
 
-        if conf.PLOT:
+        if conf.PLOT > 0:
             [plot_fblob(self, band, axlist[idx][0], axlist[idx][1], final_opt=True) for idx, band in enumerate(self.bands)]
 
 
@@ -977,10 +964,8 @@ class Blob(Subimage):
 
     def get_catalog(self, row, src, multiband_only=False):
 
-        if conf.VERBOSE:
-            sid = self.bcatalog['source_id'][row]
-            print()
-            print(f'blob.get_catalog :: Writing output entires for #{sid}')
+        sid = self.bcatalog['source_id'][row]
+        self.logger.debug(f'blob.get_catalog :: Writing output entires for #{sid}')
 
         # Add band fluxes, flux errors
         for i, band in enumerate(self.bands):
@@ -1011,22 +996,20 @@ class Blob(Subimage):
 
             # Is the source located outwidth the blob?
             xmax, ymax = np.shape(self.images[0])
-            if (src.pos[0] < 0) | (src.pos[0] > xmax) | (src.pos[1] < 0) | (src.pos[1] > ymax):
-                print('WARNING -- Source is located outwith blob limits!')
+            if (src.pos[0] < 0) | (src.pos[0] > ymax) | (src.pos[1] < 0) | (src.pos[1] > xmax):
+                self.logger.warning('Source is located outwith blob limits!')
                 valid_source = False
 
-            if conf.VERBOSE2:
-                mag, magerr = self.bcatalog[row]['MAG_'+band], self.bcatalog[row]['MAGERR_'+band]
-                flux, fluxerr = self.bcatalog[row]['FLUX_'+band], self.bcatalog[row]['FLUXERR_'+band]
-                rawflux, rawfluxerr = self.bcatalog[row]['RAWFLUX_'+band], self.bcatalog[row]['RAWFLUXERR_'+band]
-                chisq, bic = self.bcatalog[row]['CHISQ_'+band], self.bcatalog[row]['BIC_'+band]
-                print(f'    RAW FLUX({band}):  {rawflux:3.3f} +/- {rawfluxerr:3.3f}')
-                print(f'    FLUX({band}):  {flux:3.3f} +/- {fluxerr:3.3f}')               
-                print(f'    MAG({band}):   {mag:3.3f} +/- {magerr:3.3f}')
-                print(f'    CHISQ({band}): {chisq:3.3f}')
-                print(f'    BIC({band}):   {bic:3.3f}')
-                print(f'    ZPT({band}):   {zpt:3.3f}')
-                print()
+            mag, magerr = self.bcatalog[row]['MAG_'+band], self.bcatalog[row]['MAGERR_'+band]
+            flux, fluxerr = self.bcatalog[row]['FLUX_'+band], self.bcatalog[row]['FLUXERR_'+band]
+            rawflux, rawfluxerr = self.bcatalog[row]['RAWFLUX_'+band], self.bcatalog[row]['RAWFLUXERR_'+band]
+            chisq, bic = self.bcatalog[row]['CHISQ_'+band], self.bcatalog[row]['BIC_'+band]
+            self.logger.info(f'    Raw Flux({band}):  {rawflux:3.3f} +/- {rawfluxerr:3.3f}')
+            self.logger.info(f'    Flux({band}):       {flux:3.3f} +/- {fluxerr:3.3f} uJy')               
+            self.logger.info(f'    Mag({band}):        {mag:3.3f} +/- {magerr:3.3f} AB')
+            self.logger.info(f'    Chi2({band}):       {chisq:3.3f}')
+            self.logger.info(f'    BIC({band}):        {bic:3.3f}')
+            self.logger.info(f'    Zpt({band}):        {zpt:3.3f} AB')
 
         if not multiband_only:
             # Position information
@@ -1034,20 +1017,18 @@ class Blob(Subimage):
             self.bcatalog[row]['y'] = self.bcatalog[row]['y'] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
             self.bcatalog[row]['X_MODEL'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
             self.bcatalog[row]['Y_MODEL'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
-            if conf.VERBOSE2:
-                print(f"     xy = {self.bcatalog[row]['x']}, {self.bcatalog[row]['y']}")
-                print(f"     src.pos = {src.pos[0]}, {src.pos[1]}")
-                print(f"     subvector = {self.subvector[1]}, {self.subvector[0]}")
-                print(f"     mosaic_origin = {self.mosaic_origin[1]}, {self.mosaic_origin[0]}")
-                print(f"     brick_buffer = {conf.BRICK_BUFFER}")
-                print(f"     XY_MODEL = {self.bcatalog[row]['X_MODEL']}, {self.bcatalog[row]['Y_MODEL']}")
-                print()
+            self.logger.info(f"   Detection Position: {self.bcatalog[row]['x']:3.3f}, {self.bcatalog[row]['y']:3.3f}")
+            self.logger.info(f"   Model Position:     {self.bcatalog[row]['X_MODEL']:3.3f}, {self.bcatalog[row]['Y_MODEL']:3.3f}")
+            self.logger.debug(f"   Blob Origin:        {self.subvector[1]:3.3f}, {self.subvector[0]:3.3f}")
+            self.logger.debug(f"   Mosaic Origin:      {self.mosaic_origin[1]:3.3f}, {self.mosaic_origin[0]:3.3f}")
+            self.logger.debug(f"   Brick Buffer:       {conf.BRICK_BUFFER:3.3f}")
             self.bcatalog[row]['XERR_MODEL'] = np.sqrt(self.position_variance[row].pos.getParams()[0])
             self.bcatalog[row]['YERR_MODEL'] = np.sqrt(self.position_variance[row].pos.getParams()[1])
             if self.wcs is not None:
                 skyc = self.brick_wcs.all_pix2world(self.bcatalog[row]['X_MODEL'] - self.mosaic_origin[0] + conf.BRICK_BUFFER, self.bcatalog[row]['Y_MODEL'] - self.mosaic_origin[1] + conf.BRICK_BUFFER, 0)
                 self.bcatalog[row]['RA'] = skyc[0]
                 self.bcatalog[row]['DEC'] = skyc[1]
+                self.logger.info(f"    Sky Model RA, Dec:   {skyc[0]:3.3f} deg, {skyc[1]:3.3f} deg")
 
             # Model Parameters
             self.bcatalog[row]['SOLMODEL'] = src.name
@@ -1065,10 +1046,9 @@ class Blob(Subimage):
                 self.bcatalog[row]['THETA'] = np.rad2deg(src.shape.theta)
                 self.bcatalog[row]['THETA_ERR'] = np.sqrt(self.parameter_variance[row].shape.getParams()[2])
 
-                if conf.VERBOSE2:
-                    print(f"    REFF =  {self.bcatalog[row]['REFF']:3.3f} +/- {self.bcatalog[row]['REFF_ERR']:3.3f}")
-                    print(f"    AB =    {self.bcatalog[row]['AB']:3.3f} +/- {self.bcatalog[row]['AB_ERR']:3.3f}")
-                    print(f"    THETA = {self.bcatalog[row]['THETA']:3.3f} +/- {self.bcatalog[row]['THETA_ERR']:3.3f}")
+                self.logger.info(f"    Reff:               {self.bcatalog[row]['REFF']:3.3f} +/- {self.bcatalog[row]['REFF_ERR']:3.3f}")
+                self.logger.info(f"    a/b:                {self.bcatalog[row]['AB']:3.3f} +/- {self.bcatalog[row]['AB_ERR']:3.3f}")
+                self.logger.info(f"    pa:                 {self.bcatalog[row]['THETA']:3.3f} +/- {self.bcatalog[row]['THETA_ERR']:3.3f}")
 
             elif src.name == 'FixedCompositeGalaxy':
                 self.bcatalog[row]['FRACDEV'] = src.fracDev.getValue()
@@ -1094,10 +1074,9 @@ class Blob(Subimage):
                 if (src.shapeDev.e >= 1) | (src.shapeDev.e <= -1):
                     self.bcatalog[row]['VALID_SOURCE'] = False
 
-                if conf.VERBOSE2:
-                    print(f"    EXP_REFF =  {self.bcatalog[row]['EXP_REFF']:3.3f} +/- {self.bcatalog[row]['EXP_REFF_ERR']:3.3f}")
-                    print(f"    EXP_AB =    {self.bcatalog[row]['EXP_AB']:3.3f} +/- {self.bcatalog[row]['EXP_AB_ERR']:3.3f}")
-                    print(f"    EXP_THETA = {self.bcatalog[row]['EXP_THETA']:3.3f} +/- {self.bcatalog[row]['EXP_THETA_ERR']:3.3f}")
-                    print(f"    DEV_REFF =  {self.bcatalog[row]['DEV_REFF']:3.3f} +/- {self.bcatalog[row]['DEV_REFF_ERR']:3.3f}")
-                    print(f"    DEV_AB =    {self.bcatalog[row]['DEV_AB']:3.3f} +/- {self.bcatalog[row]['DEV_AB_ERR']:3.3f}")
-                    print(f"    DEV_THETA = {self.bcatalog[row]['DEV_THETA']:3.3f} +/- {self.bcatalog[row]['DEV_THETA_ERR']:3.3f}")
+                self.logger.info(f"    Reff(Exp):          {self.bcatalog[row]['EXP_REFF']:3.3f} +/- {self.bcatalog[row]['EXP_REFF_ERR']:3.3f}")
+                self.logger.info(f"    a/b (Exp):          {self.bcatalog[row]['EXP_AB']:3.3f} +/- {self.bcatalog[row]['EXP_AB_ERR']:3.3f}")
+                self.logger.info(f"    pa  (Exp):          {self.bcatalog[row]['EXP_THETA']:3.3f} +/- {self.bcatalog[row]['EXP_THETA_ERR']:3.3f}")
+                self.logger.info(f"    Reff(Dev):          {self.bcatalog[row]['DEV_REFF']:3.3f} +/- {self.bcatalog[row]['DEV_REFF_ERR']:3.3f}")
+                self.logger.info(f"    a/b (Dev):          {self.bcatalog[row]['DEV_AB']:3.3f} +/- {self.bcatalog[row]['DEV_AB_ERR']:3.3f}")
+                self.logger.info(f"    pa  (Dev):          {self.bcatalog[row]['DEV_THETA']:3.3f} +/- {self.bcatalog[row]['DEV_THETA_ERR']:3.3f}")

@@ -17,19 +17,21 @@ None
 
 """
 
-
+# General imports
 import os
 import sys
 import time
 from functools import partial
 sys.path.insert(0, os.path.join(os.getcwd(), 'config'))
 
+# Tractor imports
 from tractor import NCircularGaussianPSF, PixelizedPSF, Image, Tractor, FluxesPhotoCal, NullWCS, ConstantSky, EllipseESoft, Fluxes, PixPos
 from tractor.galaxy import ExpGalaxy, DevGalaxy, FixedCompositeGalaxy, SoftenedFracDev, GalaxyShape
 from tractor.pointsource import PointSource
 from tractor.psfex import PixelizedPsfEx, PsfExModel
 from tractor.psf import HybridPixelizedPSF
 
+# Miscellaneous science imports
 from astropy.io import fits
 from astropy.table import Table, Column, vstack, join
 from astropy.wcs import WCS
@@ -41,30 +43,88 @@ import matplotlib.pyplot as plt
 import weakref
 from scipy import stats
 
+# Local imports
 from .brick import Brick
 from .mosaic import Mosaic
-from .utils import plot_background, plot_blob, SimpleGalaxy, plot_blobmap, plot_brick, plot_mask, header_from_dict
+from .utils import header_from_dict, SimpleGalaxy
+from .visualization import plot_background, plot_blob, plot_blobmap, plot_brick, plot_mask
+try:
+    import config as conf
+except:
+    raise RuntimeError('Cannot find configuration file!')
 
-import config as conf
+# Make sure no interactive plotting is going on.
 plt.ioff()
+import warnings
+warnings.filterwarnings("ignore")
+
+print(
+f"""
+******** F A R M E R ********
+(c) J. Weaver (DAWN, Univ. of Copenhagen)
+
+CONSOLE_LOGGING_LEVEL ..... {conf.CONSOLE_LOGGING_LEVEL}			
+LOGFILE_LOGGING_LEVEL ..... {conf.LOGFILE_LOGGING_LEVEL}												
+PLOT ...................... {conf.PLOT}																		
+NTHREADS .................. {conf.NTHREADS}																			
+OVERWRITE ................. {conf.OVERWRITE} 
+"""	
+)
+
+print('Starting up logging system...')
+# If overwrite is on, remove old logger
+logging_path = os.path.join(conf.LOGGING_DIR, 'logfile.log')
+if conf.OVERWRITE & os.path.exists(logging_path):
+    print('WARNING -- Existing logfile will be overwritten.')
+    os.remove(logging_path)
+    
+
+# Start the logging
+import logging.config
+logger = logging.getLogger('farmer')
+logger.setLevel(logging.getLevelName(conf.LOGFILE_LOGGING_LEVEL))
+formatter = logging.Formatter('[%(asctime)s] %(name)s :: %(levelname)s - %(message)s', '%H:%M:%S')
+
+# Logging to the console at logging level
+ch = logging.StreamHandler()
+ch.setLevel(logging.getLevelName(conf.CONSOLE_LOGGING_LEVEL))
+ch.setFormatter(formatter)
+logger.addHandler(ch)
+
+if conf.LOGFILE_LOGGING_LEVEL is None:
+    print('Logging information wills stream only to console.\n')
+    
+else:
+    # create file handler which logs even debug messages
+    print(f'Logging information will stream to console and {logging_path}\n')
+
+    fh = logging.FileHandler(logging_path)
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+
+
 
 # The logo
-if conf.VERBOSE:
-    print('====================================================================')
-    print(' ________    _       _______     ____    ____  ________  _______    ')    
-    print('|_   __  |  / \     |_   __ \   |_   \  /   _||_   __  ||_   __ \   ') 
-    print('  | |_ \_| / _ \      | |__) |    |   \/   |    | |_ \_|  | |__) |  ') 
-    print('  |  _|   / ___ \     |  __ /     | |\  /| |    |  _| _   |  __ /   ') 
-    print(' _| |_  _/ /   \ \_  _| |  \ \_  _| |_\/_| |_  _| |__/ | _| |  \ \_ ')
-    print('|_____||____| |____||____| |___||_____||_____||________||____| |___|')
-    print('                                                                    ')
-    print('--------------------------------------------------------------------')
-    print('  M O D E L   P H O T O M E T R Y   W I T H   T H E   T R A C T O R ')
-    print('--------------------------------------------------------------------')
-    print('                                                                    ')
-    print('    (C) 2019 -- J. Weaver (DAWN, University of Copenhagen)          ')
-    print('====================================================================')
-    print()
+logger.info(
+"""
+====================================================================
+ ________    _       _______     ____    ____  ________  _______        
+|_   __  |  / \     |_   __ \   |_   \  /   _||_   __  ||_   __ \    
+  | |_ \_| / _ \      | |__) |    |   \/   |    | |_ \_|  | |__) |   
+  |  _|   / ___ \     |  __ /     | |\  /| |    |  _| _   |  __ /    
+ _| |_  _/ /   \ \_  _| |  \ \_  _| |_\/_| |_  _| |__/ | _| |  \ \_ 
+|_____||____| |____||____| |___||_____||_____||________||____| |___|
+                                                                    
+--------------------------------------------------------------------
+M O D E L   P H O T O M E T R Y   W I T H   T H E   T R A C T O R   
+--------------------------------------------------------------------
+                                                                    
+    (C) 2019 -- J. Weaver (DAWN, University of Copenhagen)          
+====================================================================
+"""
+)
+
 
 
 # When a user invokes the interface, first check the translation file
@@ -72,63 +132,63 @@ if conf.VERBOSE:
 # Try to import the translate file from it's usual spot first.
 try:
     from translate import translate
-    if conf.VERBOSE: print(f'interface.translation :: Imported translate file with {len(translate.keys())} entries.')
+    logger.info(f'interface.translation :: Imported translate file with {len(translate.keys())} entries.')
     if len(conf.BANDS) != len(translate.keys()):
-        if conf.VERBOSE: print(f'interface.translation :: WARNING - Configuration file only includes {len(conf.BANDS)} entries!')
+        logger.warning(f'Configuration file only includes {len(conf.BANDS)} entries!')
     # I have nicknames in the config, I need the raw names for file I/O
     mask = np.ones_like(conf.BANDS, dtype=bool)
     for i, band in enumerate(conf.BANDS):
         if band not in translate.keys():
-            if conf.VERBOSE: print(f'interface.translation :: WARNING - Cound not find {band} in translate file!')
+            logger.warning(f'Cound not find {band} in translate file!')
             mask[i] = False
 
     # Re-assign bands and rawbands in config object
-    if conf.VERBOSE: print(f'interface.translation :: Assigning nicknames to raw image names:')
+    logger.debug(f'Assigning nicknames to raw image names:')
     conf.BANDS = list(np.array(conf.BANDS)[mask])
     conf.RAWBANDS = conf.BANDS.copy()
     for i, band in enumerate(conf.RAWBANDS):
         conf.RAWBANDS[i] = translate[band]
-        if conf.VERBOSE: print(f'     {i+1} :: {conf.RAWBANDS[i]} --> {conf.BANDS[i]}')
+        logger.debug(f'     {i+1} :: {conf.RAWBANDS[i]} --> {conf.BANDS[i]}')
 
 # The translation file could not be found, so make a scene.
 except:
-    if conf.VERBOSE: print('interface.translation :: WARNING - Could not import translate file! Will use config instead.')
-    if conf.VERBOSE: print('interface.translation :: Image names must be < 50 characters (FITS standard) - checking...')
+    logger.warning('interface.translation :: WARNING - Could not import translate file! Will use config instead.')
+    logger.info('interface.translation :: Image names must be < 50 characters (FITS standard) - checking...')
     # I have raw names, I need shortened raw names (i.e. nicknames)
     conf.RAWBANDS = conf.BANDS.copy()
     count_short = 0
     for i, band in enumerate(conf.RAWBANDS):
         if len(band) > 50:  
             conf.BANDS[i] = band[:50]
-            if conf.VERBOSE: print(f'     {i+1} :: {band} --> {conf.BANDS[i]}')
+            logger.debug(f'     {i+1} :: {band} --> {conf.BANDS[i]}')
             count_short += 1
-    if conf.VERBOSE: print(f'interface.translation :: Done checking. Shortened {count_short} image names.')
+    logger.info(f'interface.translation :: Done checking. Shortened {count_short} image names.')
 
 
-def make_psf(image_type=conf.MULTIBAND_NICKNAME, band=None, override=False, sextractor_only=False, psfex_only=False):
+def make_psf(image_type=conf.MULTIBAND_NICKNAME, band=None, sextractor_only=False, psfex_only=False, override=conf.OVERWRITE):
 
     # If the user asked to make a PSF for the detection image, tell them we don't do that
     if image_type is conf.DETECTION_NICKNAME:
-        raise ValueError('interface.make_psf :: ERROR - Farmer does not use a PSF to perform detection!')
+        raise ValueError('Farmer does not use a PSF to perform detection!')
 
     # Else if the user asks for a PSF to be made for the modeling band
     elif image_type is conf.MODELING_NICKNAME:
         # Make the Mosaic
-        if conf.VERBOSE: print(f'interface.make_psf :: Making PSF for {conf.MODELING_NICKNAME}')
+        logger.info(f'Making PSF for {conf.MODELING_NICKNAME}')
         modmosaic = Mosaic(conf.MODELING_NICKNAME, modeling=True, mag_zeropoint=conf.MODELING_ZPT)
 
         # Make the PSF
-        if conf.VERBOSE: print(f'interface.make_psf :: Mosaic loaded for {conf.MODELING_NICKNAME}')
+        logger.info(f'Mosaic loaded for {conf.MODELING_NICKNAME}')
         modmosaic._make_psf(xlims=conf.MOD_REFF_LIMITS, ylims=conf.MOD_VAL_LIMITS, override=override, sextractor_only=sextractor_only, psfex_only=psfex_only)
 
-        if conf.VERBOSE: print(f'interface.make_psf :: PSF made successfully for {conf.MODELING_NICKNAME}')
+        logger.info(f'PSF made successfully for {conf.MODELING_NICKNAME}')
 
     # Else if the user asks for a PSF in one of the bands
     elif image_type is conf.MULTIBAND_NICKNAME:
         
         # Sanity check
         if band not in conf.BANDS:
-            raise ValueError(f'interface.make_psf :: ERROR - {band} is not a valid band nickname!')
+            raise ValueError(f'{band} is not a valid band nickname!')
 
         # Use all bands or just one?
         if band is not None:
@@ -146,17 +206,17 @@ def make_psf(image_type=conf.MULTIBAND_NICKNAME, band=None, override=False, sext
             mag_zpt = np.array(conf.MULTIBAND_ZPT)[idx_band][0]
 
             # Make the Mosaic
-            if conf.VERBOSE: print(f'interface.make_psf :: Making PSF for {band}')
+            logger.info(f'Making PSF for {band}')
             bandmosaic = Mosaic(band, mag_zeropoint = mag_zpt)
 
             # Make the PSF
-            if conf.VERBOSE: print(f'interface.make_psf :: Mosaic loaded for {band}')
+            logger.info(f'Mosaic loaded for {band}')
             bandmosaic._make_psf(xlims=multi_xlims, ylims=multi_ylims, override=override, sextractor_only=sextractor_only, psfex_only=psfex_only)
 
             if not sextractor_only:
-                if conf.VERBOSE: print(f'interface.make_psf :: PSF made successfully for {band}')
+                logger.info(f'PSF made successfully for {band}')
             else:
-                if conf.VERBOSE: print(f'interface.make_psf :: SExtraction complete for {band}')
+                logger.info(f'interface.make_psf :: SExtraction complete for {band}')
     
     return
 
@@ -166,24 +226,24 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, insert=False, ski
     # Make bricks for the detection image
     if image_type==conf.DETECTION_NICKNAME:
         # Detection
-        if conf.VERBOSE: print('interface.make_bricks :: Making mosaic for detection')
+        logger.info('Making mosaic for detection...')
         detmosaic = Mosaic(conf.DETECTION_NICKNAME, detection=True)
 
         if conf.NTHREADS > 0:
-            print('interface.make_bricks :: WARNING - Parallelization of brick making is currently disabled')
+            logger.warning('Parallelization of brick making is currently disabled')
             # BUGGY DUE TO MEM ALLOC
-            # if conf.VERBOSE: print('Making bricks for detection (in parallel)')
+            # logger.info('Making bricks for detection (in parallel)')
             # pool = mp.ProcessingPool(processes=conf.NTHREADS)
             # pool.map(partial(detmosaic._make_brick, detection=True, overwrite=True), np.arange(0, detmosaic.n_bricks()))
 
-        if conf.VERBOSE: print('interface.make_bricks :: Making bricks for detection (in serial)')
+        logger.info('Making bricks for detection (in serial)')
         for brick_id in np.arange(1, detmosaic.n_bricks()+1):
             detmosaic._make_brick(brick_id, detection=True, overwrite=True)
 
     # Make bricks for the modeling image
     elif image_type==conf.MODELING_NICKNAME:
         # Modeling
-        if conf.VERBOSE: print('interface.make_bricks :: Making mosaic for modeling')
+        logger.info('Making mosaic for modeling...')
         modmosaic = Mosaic(conf.MODELING_NICKNAME, modeling=True)
 
         # The user wants PSFs on the fly
@@ -195,8 +255,8 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, insert=False, ski
             modmosaic._make_psf(xlims=mod_xlims, ylims=mod_ylims)
 
         # Make bricks in parallel
-        if conf.NTHREADS > 0:
-            print('interface.make_bricks :: WARNING - Parallelization of brick making is currently disabled')
+        if conv.NTHREADS > 0:
+            logger.warning('Parallelization of brick making is currently disabled')
             # BUGGY DUE TO MEM ALLOC
             # if conf.VERBOSE: print('Making bricks for detection (in parallel)')
             # pool = mp.ProcessingPool(processes=conf.NTHREADS)
@@ -204,7 +264,7 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, insert=False, ski
 
         # Make bricks in serial
         else:
-            if conf.VERBOSE: print('interface.make_bricks :: Making bricks for modeling (in serial)')
+            logger.info('Making bricks for modeling (in serial)')
             for brick_id in np.arange(1, modmosaic.n_bricks()+1):
                 modmosaic._make_brick(brick_id, modeling=True, overwrite=True)
     
@@ -227,7 +287,7 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, insert=False, ski
                 overwrite = False
 
             # Build the mosaic
-            if conf.VERBOSE: print(f'interface.make_bricks :: Making mosaic for image {sband}')
+            logger.info('Making mosaic for image {sband}...')
             bandmosaic = Mosaic(sband)
 
             # The user wants PSFs made on the fly
@@ -241,27 +301,26 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, insert=False, ski
 
             # Make bricks in parallel
             if conf.NTHREADS > 0:
-                if conf.VERBOSE: print(f'interface.make_bricks :: Making bricks for band {sband} (in parallel)')
+                logger.info('Making bricks for band {sband} (in parallel)')
                 pool = mp.ProcessingPool(processes=conf.NTHREADS)
                 pool.map(partial(bandmosaic._make_brick, detection=False, overwrite=overwrite), np.arange(0, bandmosaic.n_bricks()))
 
             # Make bricks in serial
             else:
-                if conf.VERBOSE: print(f'interface.make_bricks :: Making bricks for band {sband} (in serial)')
+                logger.info('Making bricks for band {sband} (in serial)')
                 for brick_id in np.arange(1, bandmosaic.n_bricks()+1):
                     bandmosaic._make_brick(brick_id, detection=False, overwrite=overwrite)
 
     # image type is invalid
     else:
-        raise RuntimeError(f'interface.make_bricks :: ERROR {image_type} is an unrecognized nickname (see {conf.DETECTION_NICKNAME}, {conf.MODELING_NICKNAME}, {conf.MULTIBAND_NICKNAME})')
+        raise RuntimeError(f'{image_type} is an unrecognized nickname (see {conf.DETECTION_NICKNAME}, {conf.MODELING_NICKNAME}, {conf.MULTIBAND_NICKNAME})')
 
     return
 
         
-def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
+def runblob(blob_id, blobs, detection=None, catalog=None, plotting=0):
 
-    if conf.VERBOSE: print()
-    if conf.VERBOSE: print(f'interface.runblob :: Starting on Blob #{blob_id}')
+    logger.info(f'Starting on Blob #{blob_id}')
     tstart = time.time()
 
     modblob = None
@@ -273,20 +332,17 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
     else:
         fblob = weakref.proxy(blobs)
 
-    conf.PLOT = plotting
-
     # Make blob with detection image 
-
     if modblob is not None:
 
         if (conf.MODEL_PHOT_MAX_NBLOB > 0) & (modblob.n_sources > conf.MODEL_PHOT_MAX_NBLOB):
-            if conf.VERBOSE: print('interface.runblob :: Number of sources exceeds set limit. Skipping!')
+            logger.info('Number of sources exceeds set limit. Skipping!')
             return modblob.bcatalog.copy()
 
         # Run models
         astart = time.time()
         modblob.stage_images()
-        if conf.VERBOSE2: print(f'interface.runblob :: Images staged. ({time.time() - astart:3.3f})s')
+        logger.debug(f'Images staged. ({time.time() - astart:3.3f})s')
 
         astart = time.time()
         status = modblob.tractor_phot()
@@ -294,7 +350,7 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
         if not status:
             return modblob.bcatalog.copy()
 
-        if conf.VERBOSE2: print(f'interface.runblob :: Morphology determined. ({time.time() - astart:3.3f})s')
+        logger.debug(f'Morphology determined. ({time.time() - astart:3.3f})s')
 
 
         # Run follow-up phot
@@ -304,15 +360,15 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
                 # try:
                 modblob.aperture_phot(image_type=img_type, sub_background=conf.SUBTRACT_BACKGROUND)
                 # except:
-                #     if conf.VERBOSE: print(f'interface.runblob :: WARNING - Aperture photmetry FAILED for {conf.MODELING_NICKNAME} {img_type}')
+                #     logger.info(f'interface.runblob :: WARNING - Aperture photmetry FAILED for {conf.MODELING_NICKNAME} {img_type}')
         if conf.DO_SEXPHOT:
             try:
                 modblob.sextract_phot()
             except:
-                if conf.VERBOSE: print(f'interface.runblob :: WARNING - Source extraction on the residual blob FAILED for {conf.MODELING_NICKNAME} {img_type}')    
+                logger.warning(f'Source extraction on the residual blob FAILED for {conf.MODELING_NICKNAME} {img_type}')    
 
         duration = time.time() - tstart
-        if conf.VERBOSE: print(f'interface.runblob :: Solution for Blob #{modblob.blob_id} (N={modblob.n_sources}) arrived at in {duration:3.3f}s ({duration/modblob.n_sources:2.2f}s per src)')
+        logger.info(f'Solution for Blob #{modblob.blob_id} (N={modblob.n_sources}) arrived at in {duration:3.3f}s ({duration/modblob.n_sources:2.2f}s per src)')
     
         catout = modblob.bcatalog.copy()
         del modblob
@@ -326,11 +382,11 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
             fblob.model_catalog = modblob.solution_catalog.copy()
             fblob.position_variance = modblob.position_variance.copy()
             fblob.parameter_variance = modblob.parameter_variance.copy()
-            if conf.VERBOSE2: print(f'interface.runblob :: Solution parameters transferred. ({time.time() - astart:3.3f})s')
+            logger.info(f'Solution parameters transferred. ({time.time() - astart:3.3f})s')
 
         else:
             if catalog is None:
-                raise ValueError('interface.runblob :: ERROR - Input catalog not supplied!')
+                raise ValueError('Input catalog not supplied!')
             else:
                 blobmask = np.ones(len(catalog))
                 if blob_id is not None:
@@ -344,7 +400,7 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
 
                 fblob.model_catalog, good_sources = models_from_catalog(catalog, fblob.bands, fblob.mosaic_origin)
                 if (good_sources == False).all():
-                    if conf.VERBOSE: print('interface.runblob :: WARNING - All sources are invalid!')
+                    logger.warning('All sources are invalid!')
                     catalog['X_MODEL'] += fblob.subvector[1] + fblob.mosaic_origin[1] - conf.BRICK_BUFFER + 1
                     catalog['Y_MODEL'] += fblob.subvector[0] + fblob.mosaic_origin[0] - conf.BRICK_BUFFER + 1
                     return fblob.bcatalog.copy()
@@ -358,7 +414,7 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
         # Forced phot
         astart = time.time() 
         fblob.stage_images()
-        if conf.VERBOSE2: print(f'interface.runblob :: {fblob.bands} images staged. ({time.time() - astart:3.3f})s')
+        logger.info(f'{fblob.bands} images staged. ({time.time() - astart:3.3f})s')
 
         astart = time.time() 
         status = fblob.forced_phot()
@@ -366,7 +422,7 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
         if not status:
             return fblob.bcatalog.copy()
 
-        if conf.VERBOSE2: print(f'interface.runblob :: Force photometry complete. ({time.time() - astart:3.3f})s')
+        logger.info(f'Force photometry complete. ({time.time() - astart:3.3f})s')
 
 
         # Run follow-up phot
@@ -376,15 +432,15 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
                     try:
                         fblob.aperture_phot(band, img_type, sub_background=conf.SUBTRACT_BACKGROUND)
                     except:
-                        if conf.VERBOSE: print(f'interface.runblob :: Aperture photmetry FAILED for {band} {img_type}. Likely a bad blob.')
+                        logger.warning(f'Aperture photmetry FAILED for {band} {img_type}. Likely a bad blob.')
         if conf.DO_SEXPHOT:
             try:
                 [fblob.sextract_phot(band) for band in fblob.bands]
             except:
-                if conf.VERBOSE: print(f'interface.runblob :: Residual Sextractor photmetry FAILED. Likely a bad blob.)')
+                logger.warning(f'Residual Sextractor photmetry FAILED. Likely a bad blob.)')
 
         duration = time.time() - tstart
-        if conf.VERBOSE: print(f'interface.runblob :: Solution for blob {fblob.blob_id} (N={fblob.n_sources}) arrived at in {duration:3.3f}s ({duration/fblob.n_sources:2.2f}s per src)')
+        logger.info(f'Solution for blob {fblob.blob_id} (N={fblob.n_sources}) arrived at in {duration:3.3f}s ({duration/fblob.n_sources:2.2f}s per src)')
 
 
         catout = fblob.bcatalog.copy()
@@ -393,78 +449,101 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=False):
     return catout
 
 
-def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=None, use_mask=True):
+def make_models(brick_id, source_id=None, blob_id=None, segmap=None, blobmap=None, catalog=None, use_mask=True):
     # Create detection brick
     tstart = time.time()
 
     if (source_id is None) & (blob_id is None):
-        if (conf.NBLOBS == 0) & (conf.NTHREADS > 0) & ((conf.PLOT == True) | (conf.PLOT2 == True)):
-            conf.PLOT = False
-            conf.PLOT2 = False
-            if conf.VERBOSE: print('WARNING - Plotting not supported while modeling in parallel!')
+        if (conf.NBLOBS == 0) & (conf.NTHREADS > 0) & ((conf.PLOT > 0)):
+            conf.PLOT = 0
+            logger.warning('Plotting not supported while modeling in parallel!')
 
 
-    detbrick = stage_brickfiles(brick_id, nickname=conf.DETECTION_NICKNAME, detection=True)
+    detbrick = stage_brickfiles(brick_id, nickname=conf.DETECTION_NICKNAME, modeling=True)
 
-    if conf.VERBOSE: print(f'Detection brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
+    logger.info(f'Detection brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
 
-    # Sextract sources
+    # Sextract sources 
     tstart = time.time()
     if (segmap is None) & (catalog is None):
         try:
             detbrick.sextract(conf.DETECTION_NICKNAME, sub_background=conf.DETECTION_SUBTRACT_BACKGROUND, use_mask=use_mask, incl_apphot=conf.DO_APPHOT)
-            if conf.VERBOSE: print(f'Detection brick #{brick_id} sextracted {detbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
+            logger.info(f'Detection brick #{brick_id} sextracted {detbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
+            is_borrowed = False
         except:
             raise RuntimeError(f'Detection brick #{brick_id} sextraction FAILED. ({time.time() - tstart:3.3f}s)')
             return
-    elif (segmap is not None) & (catalog is not None):
+
+    # or find existing catalog/segmap info
+    elif (catalog == 'auto') | ((segmap is not None) & (catalog is not None) & (segmap is not None)):
+        if (catalog == 'auto'):
+            search_fn = os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat')
+            if os.path.exists(search_fn):
+                catalog = Table(fits.open(search_fn)[0].data)
+            else:
+                raise ValueError(f'No valid catalog was found for {brick_id}')
+            search_fn = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits')
+            if os.path.exists(search_fn):
+                hdul_seg = fits.open(search_fn)
+                segmap = hdul_seg['SEGMAP'].data
+                blobmap = hdul_seg['BLOBMAP'].data
+            else:
+                raise ValueError(f'No valid segmentation map was found for {brick_id}')
         catalog[conf.X_COLNAME].colname = 'x'
         catalog[conf.Y_COLNAME].colname = 'y'
+        catalog['x'] = catalog['x'] - detbrick.mosaic_origin[1] + conf.BRICK_BUFFER - 1
+        catalog['y'] = catalog['y'] - detbrick.mosaic_origin[0] + conf.BRICK_BUFFER - 1
         detbrick.catalog = catalog
+        detbrick.n_sources = len(catalog)
+        detbrick.n_blobs = catalog['blob_id'].max()
+        is_borrowed = True
         detbrick.segmap = segmap
-        if conv.VERBOSE: print(f'Overriding SExtraction with external catalog.')
+        detbrick.blobmap = blobmap
+        logger.info(f'Overriding SExtraction with external catalog.')
     else:
-        raise ValueError('No valid segmap and catalog provided to override SExtraction!')
+        raise ValueError('No valid segmap, blobmap, and catalog provided to override SExtraction!')
         return
 
     # Create modbrick
     tstart = time.time()
-    modbrick = stage_brickfiles(brick_id, nickname=conf.MODELING_NICKNAME, detection=True)
-    if conf.VERBOSE: print(f'Modeling brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
+    modbrick = stage_brickfiles(brick_id, nickname=conf.MODELING_NICKNAME, modeling=True)
+    logger.info(f'Modeling brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
 
-    if conf.PLOT2:
+    if conf.PLOT > 2:
         plot_brick(modbrick, 0, band=conf.MODELING_NICKNAME)
         plot_background(modbrick, 0, band=conf.MODELING_NICKNAME)
         plot_mask(modbrick, 0, band=conf.MODELING_NICKNAME)
 
-    if conf.VERBOSE:
-        print()
-        print(f'Brick #{brick_id} -- Image statistics for {conf.MODELING_NICKNAME}')
-        shape, minmax, mean, var = stats.describe(modbrick.images[0], axis=None)[:4]
-        print(f'    Limits: {minmax[0]:3.3f} - {minmax[1]:3.3f}')
-        print(f'    Mean: {mean:3.3f}+/-{np.sqrt(var):3.3f}')
-        print()
-        print(f'Brick #{brick_id} -- Weight statistics for {conf.MODELING_NICKNAME}')
-        shape, minmax, mean, var = stats.describe(modbrick.weights[0], axis=None)[:4]
-        print(f'    Limits: {minmax[0]:3.3f} - {minmax[1]:3.3f}')
-        print(f'    Mean: {mean:3.3f}+/-{np.sqrt(var):3.3f}')
-        print()
-        print(f'Brick #{brick_id} -- Background statistics for {conf.MODELING_NICKNAME}')
-        print(f'    Global: {modbrick.backgrounds[0, 0]:3.3f}')
-        print(f'    RMS: {modbrick.backgrounds[0, 1]:3.3f}')
+    logger.debug(f'Brick #{brick_id} -- Image statistics for {conf.MODELING_NICKNAME}')
+    shape, minmax, mean, var = stats.describe(modbrick.images[0], axis=None)[:4]
+    logger.debug(f'    Limits: {minmax[0]:3.3f} - {minmax[1]:3.3f}')
+    logger.debug(f'    Mean: {mean:3.3f}+/-{np.sqrt(var):3.3f}\n')
+    logger.debug(f'Brick #{brick_id} -- Weight statistics for {conf.MODELING_NICKNAME}')
+    shape, minmax, mean, var = stats.describe(modbrick.weights[0], axis=None)[:4]
+    logger.debug(f'    Limits: {minmax[0]:3.3f} - {minmax[1]:3.3f}')
+    logger.debug(f'    Mean: {mean:3.3f}+/-{np.sqrt(var):3.3f}\n')
+    logger.debug(f'Brick #{brick_id} -- Background statistics for {conf.MODELING_NICKNAME}')
+    logger.debug(f'    Global: {modbrick.backgrounds[0, 0]:3.3f}')
+    logger.debug(f'    RMS: {modbrick.backgrounds[0, 1]:3.3f}\n')
 
     modbrick.catalog = detbrick.catalog
     modbrick.segmap = detbrick.segmap
     modbrick.n_sources = detbrick.n_sources
+    if is_borrowed:
+        modbrick.blobmap = detbrick.blobmap
+        modbrick.n_sources = detbrick.n_sources
+        modbrick.n_blobs = detbrick.n_blobs
 
     # Cleanup on MODBRICK
     tstart = time.time()
-    modbrick.cleanup()
+    if not is_borrowed:
+        modbrick.cleanup()
     modbrick.add_columns() # doing on detbrick gets column names wrong
-    if conf.VERBOSE: print(f'Modeling brick #{brick_id} gained {modbrick.n_blobs} blobs with {modbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
+    logger.info(f'Modeling brick #{brick_id} gained {modbrick.n_blobs} blobs with {modbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
 
-    if conf.PLOT2:
+    if conf.PLOT > 2:
         plot_blobmap(modbrick)
+        plot_blobmap(modbrick, image=detbrick.images[0], band=conf.DETECTION_NICKNAME)
 
     # Save segmap and blobmaps
     hdul = fits.HDUList()
@@ -488,8 +567,10 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
             blob_id = blob_id[0]
         if blob_id is not None:
             if blob_id not in outcatalog['blob_id']:
-                raise ValueError(f'ERROR :: Requested blob id {blob_id} is NOT valid!')
+                raise ValueError(f'No blobs exist for requested blob id {blob_id}')
         modblob = modbrick.make_blob(blob_id)
+        if modblob is None:
+            raise ValueError('Requested blob is invalid')
         output_rows = runblob(blob_id, modblob, detection=True, plotting=conf.PLOT)
 
         output_cat = vstack(output_rows)
@@ -507,13 +588,13 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
             outcatalog[np.where(outcatalog['source_id'] == row['source_id'])[0]] = row
 
         # write out cat
-        hdr = header_from_dict(conf.__dict__, verbose=conf.VERBOSE)
+        hdr = header_from_dict(conf.__dict__)
         hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
         hdu_table = fits.table_to_hdu(outcatalog)
         hdul = fits.HDUList([hdu_table, hdu_info])
         outpath = os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat')
         hdul.writeto(outpath, output_verify='ignore', overwrite=conf.OVERWRITE)
-        if conf.VERBOSE: print(f'interface.make_models :: Wrote out catalog to {outpath}')
+        logger.info(f'interface.make_models :: Wrote out catalog to {outpath}')
 
         return None
     
@@ -562,9 +643,7 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, catalog=Non
         else:
             output_rows = [runblob(kblob_id+1, kblob, detection=True, plotting=conf.PLOT) for kblob_id, kblob in enumerate(modblobs)]
 
-        if conf.VERBOSE: print(f'Completed {run_n_blobs} blobs in {time.time() - tstart:3.3f}s')
-
-        #output_rows = [x for x in output_rows if x is not None]
+        logger.info(f'Completed {run_n_blobs} blobs in {time.time() - tstart:3.3f}s')
 
         output_cat = vstack(output_rows)
                 
@@ -606,10 +685,9 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
     tstart = time.time()
 
     if (source_id is None) & (blob_id is None):
-        if (conf.NBLOBS == 0) & (conf.NTHREADS > 0) & ((conf.PLOT == True) | (conf.PLOT2 == True)):
-            conf.PLOT = False
-            conf.PLOT2 = False
-            if conf.VERBOSE: print('WARNING - Plotting not supported while forcing models in parallel!')
+        if (conf.NBLOBS == 0) & (conf.NTHREADS > 0) & (conf.PLOT > 0):
+            conf.PLOT = 0
+            logger.warning('Plotting not supported while forcing models in parallel!')
 
     # for fband in band:
     
@@ -624,11 +702,11 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
             sys.exit('ERROR -- Input band is not a list, array, or string!')
             
 
-    fbrick = stage_brickfiles(brick_id, nickname=conf.MULTIBAND_NICKNAME, band=fband, detection=False)
+    fbrick = stage_brickfiles(brick_id, nickname=conf.MULTIBAND_NICKNAME, band=fband, modeling=False)
 
-    if conf.VERBOSE: print(f'{fband} brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
+    logger.info(f'{fband} brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
 
-    if conf.PLOT2:
+    if conf.PLOT > 0:
         for plt_band in fband:
             if len(fband) == 1:
                 idx = 0
@@ -638,25 +716,21 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
             plot_background(fbrick, idx, band=plt_band)
             plot_mask(fbrick, idx, band=plt_band)
 
-    if conf.VERBOSE:
-        for i, vb_band in enumerate(fband):
-            print()
-            print(f'Brick #{brick_id} -- Image statistics for {vb_band}')
-            shape, minmax, mean, var = stats.describe(fbrick.images[i], axis=None)[:4]
-            print(f'    Limits: {minmax[0]:3.3f} - {minmax[1]:3.3f}')
-            print(f'    Mean: {mean:3.3f}+/-{np.sqrt(var):3.3f}')
-            print()
-            print(f'Brick #{brick_id} -- Weight statistics for {vb_band}')
-            shape, minmax, mean, var = stats.describe(fbrick.weights[i], axis=None)[:4]
-            print(f'    Limits: {minmax[0]:3.3f} - {minmax[1]:3.3f}')
-            print(f'    Mean: {mean:3.3f}+/-{np.sqrt(var):3.3f}')
-            print()
-            print(f'Brick #{brick_id} -- Background statistics for {vb_band}')
-            print(f'    Global: {fbrick.backgrounds[i, 0]:3.3f}')
-            print(f'    RMS: {fbrick.backgrounds[i, 1]:3.3f}')
+    for i, vb_band in enumerate(fband):
+        logger.debug(f'Brick #{brick_id} -- Image statistics for {vb_band}')
+        shape, minmax, mean, var = stats.describe(fbrick.images[i], axis=None)[:4]
+        logger.debug(f'    Limits: {minmax[0]:3.3f} - {minmax[1]:3.3f}')
+        logger.debug(f'    Mean: {mean:3.3f}+/-{np.sqrt(var):3.3f}\n')
+        logger.debug(f'Brick #{brick_id} -- Weight statistics for {vb_band}')
+        shape, minmax, mean, var = stats.describe(fbrick.weights[i], axis=None)[:4]
+        logger.debug(f'    Limits: {minmax[0]:3.3f} - {minmax[1]:3.3f}')
+        logger.debug(f'    Mean: {mean:3.3f}+/-{np.sqrt(var):3.3f}\n')
+        logger.debug(f'Brick #{brick_id} -- Background statistics for {vb_band}')
+        logger.debug(f'    Global: {fbrick.backgrounds[i, 0]:3.3f}')
+        logger.debug(f'    RMS: {fbrick.backgrounds[i, 1]:3.3f}')
             
 
-    if conf.VERBOSE: print(f'Forcing models on {fband}')
+    logger.info(f'Forcing models on {fband}')
 
     tstart = time.time()
     if (source_id is not None) | (blob_id is not None):
@@ -694,7 +768,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
                 # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
                 # save
                 mastercat.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat'), format='fits', overwrite=conf.OVERWRITE)
-                if conf.VERBOSE: print(f'Saving results for brick #{fbrick.brick_id} to existing catalog file.')
+                logger.info(f'Saving results for brick #{fbrick.brick_id} to existing catalog file.')
         else:
                 
             for colname in output_cat.colnames:
@@ -720,7 +794,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
             # fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
             # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
             fbrick.catalog.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{mode_ext}.cat'), format='fits', overwrite=conf.OVERWRITE)
-            if conf.VERBOSE: print(f'Saving results for brick #{fbrick.brick_id} to new {mode_ext} catalog file.')
+            logger.info(f'Saving results for brick #{fbrick.brick_id} to new {mode_ext} catalog file.')
 
 
     else:
@@ -754,7 +828,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
         else:
             output_rows = [runblob(kblob_id, fbrick.make_blob(kblob_id), detection=False, catalog=fbrick.catalog, plotting=conf.PLOT) for kblob_id in np.arange(1, run_n_blobs+1)]
 
-        if conf.VERBOSE: print(f'Completed {run_n_blobs} blobs in {time.time() - tstart:3.3f}s')
+        logger.info(f'Completed {run_n_blobs} blobs in {time.time() - tstart:3.3f}s')
 
         #output_rows = [x for x in output_rows if x is not None]
 
@@ -787,7 +861,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
                 hdu_table = fits.table_to_hdu(mastercat)
                 hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
                 hdul.writeto(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat'), overwrite=conf.OVERWRITE)
-                if conf.VERBOSE: print(f'Saving results for brick #{fbrick.brick_id} to existing catalog file.')
+                logger.info(f'Saving results for brick #{fbrick.brick_id} to existing catalog file.')
 
                 outcatalog = mastercat
 
@@ -818,7 +892,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
             hdu_table = fits.table_to_hdu(fbrick.catalog)
             hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
             hdul.writeto(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{mode_ext}.cat'), overwrite=conf.OVERWRITE)
-            if conf.VERBOSE: print(f'Saving results for brick #{fbrick.brick_id} to new {mode_ext} catalog file.')
+            logger.info(f'Saving results for brick #{fbrick.brick_id} to new {mode_ext} catalog file.')
 
             outcatalog = fbrick.catalog
 
@@ -836,13 +910,13 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
     return
 
 
-def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, detection=False):
+def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, modeling=False):
     # Wraps Brick with a single parameter call
     # THIS ASSUMES YOU HAVE IMG, WGT, and MSK FOR ALL BANDS!
 
     path_brickfile = os.path.join(conf.BRICK_DIR, f'B{brick_id}_N{nickname}_W{conf.BRICK_WIDTH}_H{conf.BRICK_HEIGHT}.fits')
 
-    if detection:
+    if modeling:
         sbands = [nickname,]
     elif band is None:
         sbands = conf.BANDS
@@ -882,35 +956,21 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, detection=False)
         else:
             if conf.USE_GAUSSIAN_PSF:
                 psfmodels[i] = None
-                print(f'PSF model not found for {band} -- using {conf.PSF_SIGMA}" gaussian! ({path_psffile})')
+                logger.warning(f'PSF model not found for {band} -- using {conf.PSF_SIGMA}" gaussian! ({path_psffile})')
             else:
                 raise ValueError(f'PSF model not found for {band}! ({path_psffile})')
 
-    if detection:
+    if modeling:
         images, weights, masks = images[0], weights[0], masks[0]
 
     newbrick = Brick(images=images, weights=weights, masks=masks, psfmodels=psfmodels, wcs=wcs, bands=np.array(sbands), brick_id=brick_id)
-
-    if not detection:
-        catalog = Table.read(os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat'), format='fits')
-        newbrick.catalog = catalog
-        newbrick.n_sources = len(catalog)
-        newbrick.n_blobs = catalog['blob_id'].max()
-        try:
-            newbrick.add_columns(band_only=True)
-        except:
-            if conf.VERBOSE: print('WARNING - could not add new columns. Overwrting old ones!')
-        hdul_seg = fits.open(os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits'))
-        newbrick.segmap = hdul_seg['SEGMAP'].data
-        newbrick.blobmap = hdul_seg['BLOBMAP'].data 
 
     return newbrick
 
 
 def models_from_catalog(catalog, band, rmvector):
         # make multiband catalog from det output
-        if conf.VERBOSE2: print()
-        if conf.VERBOSE2: print('Adopting sources from existing catalog.')
+        logger.info('Adopting sources from existing catalog.')
         model_catalog = -99 * np.ones(len(catalog), dtype=object)
         good_sources = np.ones(len(catalog), dtype=bool)
 
@@ -924,7 +984,7 @@ def models_from_catalog(catalog, band, rmvector):
             # Check if valid source
             if not src['VALID_SOURCE']:
                 good_sources[i] = False
-                if conf.VERBOSE2: print(f'Source #{src["source_id"]}: {src["SOLMODEL"]} model at {position} is INVALID.')
+                logger.warning(f'Source #{src["source_id"]}: {src["SOLMODEL"]} model at {position} is INVALID.')
                 continue
 
             #shape = GalaxyShape(src['REFF'], 1./src['AB'], src['theta'])
@@ -948,18 +1008,18 @@ def models_from_catalog(catalog, band, rmvector):
                                                 SoftenedFracDev(src['FRACDEV']),
                                                 expshape, devshape)
 
-            if conf.VERBOSE2: print(f'Source #{src["source_id"]}: {src["SOLMODEL"]} model at {position}')
-            if conf.VERBOSE2: print(f'               {flux}') 
+            logger.debug(f'Source #{src["source_id"]}: {src["SOLMODEL"]} model at {position}')
+            logger.debug(f'               {flux}') 
             if src['SOLMODEL'] not in ('PointSource', 'SimpleGalaxy'):
                 if src['SOLMODEL'] != 'FixedCompositeGalaxy':
-                    if conf.VERBOSE2: print(f'               {shape}')
+                    logger.debug(f'               {shape}')
                 else:
-                    if conf.VERBOSE2: print(f'               {expshape}')
-                    if conf.VERBOSE2: print(f'               {devshape}')
+                    logger.debug(f'               {expshape}')
+                    logger.debug(f'               {devshape}')
 
 
         if (conf.FORCED_PHOT_MAX_NBLOB > 0) & (np.sum(good_sources) > conf.FORCED_PHOT_MAX_NBLOB):
-            if conf.VERBOSE: print(f'interface.force_models :: WARNING -- Number of good sources in blob ({np.sum(good_sources)}) exceeded limit of {conf.FORCED_PHOT_MAX_NBLOB}.')
+            logger.warning(f'Number of good sources in blob ({np.sum(good_sources)}) exceeded limit of {conf.FORCED_PHOT_MAX_NBLOB}.')
             good_sources = np.zeros_like(good_sources, dtype=bool)
 
         return model_catalog[good_sources], good_sources

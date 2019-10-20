@@ -32,17 +32,21 @@ from astropy.wcs import WCS
 
 from .subimage import Subimage
 import config as conf
-from .utils import plot_ldac
+from .visualization import plot_ldac
 
+import logging
 
 class Mosaic(Subimage):
     
     def __init__(self, band, detection=False, modeling=False, psfmodel=None, wcs=None, header=None, mag_zeropoint=None, skip_build=False,
                 ):
+
+        self.logger = logging.getLogger('farmer.mosaic')
+
         if skip_build:
-            if conf.VERBOSE: print('WARNING :: Skipping mosaic build!')
+            self.logger.warning('Skipping mosaic build!')
         else:
-            if conf.VERBOSE: print('Building mosaic...')
+            self.logger.info('Building mosaic...')
 
             if detection:
                 self.path_image = os.path.join(conf.IMAGE_DIR, conf.DETECTION_FILENAME.replace('EXT', conf.IMAGE_EXT))
@@ -68,7 +72,7 @@ class Mosaic(Subimage):
                 path = self.path_image
             else:
                 raise ValueError(f'No image found at {self.path_image}')
-            if conf.VERBOSE: print(f'Added image in {time()-tstart:3.3f}s. ({path})')
+            self.logger.info(f'Added image in {time()-tstart:3.3f}s. ({path})')
 
             tstart = time()
             if os.path.exists(self.path_weight):
@@ -79,7 +83,7 @@ class Mosaic(Subimage):
                 #raise ValueError(f'No weight found at {self.path_weight}')
                 self.weights = None
                 path = 'None found. Assuming equal weights.'
-            if conf.VERBOSE: print(f'Added weight in {time()-tstart:3.3f}s. ({path})')
+            self.logger.info(f'Added weight in {time()-tstart:3.3f}s. ({path})')
 
 
             tstart = time()
@@ -90,7 +94,7 @@ class Mosaic(Subimage):
             else:
                 self.masks = None    
                 path = 'None found. Assuming no masking.'
-            if conf.VERBOSE: print(f'Added mask in {time()-tstart:3.3f}s. ({path})')
+            self.logger.info(f'Added mask in {time()-tstart:3.3f}s. ({path})')
 
         self.psfmodels = psfmodel
         self.bands = band
@@ -122,21 +126,20 @@ class Mosaic(Subimage):
                     # #print('RUNNING SEXTRACTOR WITHOUT SEGMAP')
                     # #os.system(f'sex {self.path_image} -c config/config_psfex.sex -PARAMETERS_NAME config/param_psfex.sex -CATALOG_NAME {psf_cat} -CATALOG_TYPE FITS_LDAC -MAG_ZEROPOINT {self.mag_zeropoints}')
                     # sys.exit()
-                    if conf.VERBOSE: print('SExtractor succeded!')
+                    self.logger.info('SExtractor succeded!')
                 except:
                     raise ValueError('SExtractor failed!')
 
-            if conf.VERBOSE: print(f'LDAC crop parameters: {xlims}, {ylims}')
+            self.logger.debug(f'LDAC crop parameters: {xlims}, {ylims}')
 
             hdul_ldac = fits.open(unclean_cat, ignore_missing_end=True, mode='update')
             tab_ldac = hdul_ldac['LDAC_OBJECTS'].data
 
             n_obj = len(tab_ldac)
-            if conf.VERBOSE: print()
-            if conf.VERBOSE: print(f'{n_obj} sources found.')
+            self.logger.debug(f'{n_obj} sources found.')
 
-            if conf.PLOT:
-                if conf.VERBOSE: print('Plotting LDAC without pointsource bounding box')
+            if conf.PLOT > 0:
+                self.logger.debug('Plotting LDAC without pointsource bounding box')
                 plot_ldac(tab_ldac, self.bands, box=False)
                 
 
@@ -149,10 +152,10 @@ class Mosaic(Subimage):
             if n_obj == 0:
                 raise ValueError('No sources selected.')
 
-            if conf.VERBOSE: print(f'Found {n_obj} objects to determine PSF')
+            self.logger.info(f'Found {n_obj} objects to determine PSF')
 
-            if conf.PLOT:
-                if conf.VERBOSE: print('Plotting LDAC with pointsource bounding box')
+            if conf.PLOT > 0:
+                self.logger.debug('Plotting LDAC with pointsource bounding box')
                 plot_ldac(tab_ldac, self.bands, xlims=xlims, ylims=ylims, box=True, nsel=np.sum(mask_ldac))
 
             hdul_ldac['LDAC_OBJECTS'].data = tab_ldac[mask_ldac]
@@ -163,23 +166,23 @@ class Mosaic(Subimage):
                 psfvar_nsnap = 1
                 if self.bands not in conf.CONSTANT_PSF:
                     psfvar_nsnap = conf.PSFVAR_NSNAP
-                    if conf.VERBOSE: print(f'Creating spatially-varying PSF with PSFNSNAP = {psfvar_nsnap}')
+                    self.logger.info(f'Creating spatially-varying PSF with PSFNSNAP = {psfvar_nsnap}')
 
                 os.system(f'psfex {psf_cat} -c config/config.psfex -BASIS_TYPE PIXEL -PSF_DIR {psf_dir} -PSFVAR_NSNAP {psfvar_nsnap} -WRITE_XML Y -XML_NAME {path_savexml} -CHECKIMAGE_NAME {path_savechkimg} -CHECKPLOT_NAME {path_savechkplt}')
                 try:
                     oldpath = os.path.join(psf_dir, self.bands+"_clean.psf")
                     newpath = os.path.join(psf_dir, self.bands+".psf")
-                    if conf.VERBOSE: print(f'Moving {oldpath} to {newpath}')
+                    self.logger.debug(f'Moving {oldpath} to {newpath}')
                     os.system(f'mv {oldpath} {newpath}')
                 except:
-                    if conf.VERBOSE: print(f'WARNING -- Could not move {oldpath} to {newpath} ')
+                    self.logger.warning(f'Could not move {oldpath} to {newpath} ')
         else:
-            if conf.VERBOSE: print('No PSF attempted. PSF LDAC already exists and override is off')
+            self.logger.critical('No PSF attempted. PSF LDAC already exists and override is off')
         
     def _make_brick(self, brick_id, overwrite=False, detection=False, modeling=False,
             brick_width=conf.BRICK_WIDTH, brick_height=conf.BRICK_HEIGHT, brick_buffer=conf.BRICK_BUFFER):
 
-        if conf.VERBOSE: print(f'Making brick {brick_id}/{self.n_bricks()}')
+        self.logger.info(f'Making brick {brick_id}/{self.n_bricks()}')
 
         if detection:
             nickname = conf.DETECTION_NICKNAME

@@ -27,14 +27,15 @@ from scipy.ndimage import label, binary_dilation, binary_fill_holes
 
 from tractor import NCircularGaussianPSF, PixelizedPSF, Image, Tractor, FluxesPhotoCal, NullWCS, ConstantSky, EllipseESoft, Fluxes, PixPos
 from tractor.galaxy import ExpGalaxy, DevGalaxy, FixedCompositeGalaxy, SoftenedFracDev
-from .utils import SimpleGalaxy, plot_detblob, plot_fblob
 from tractor.pointsource import PointSource
 
-from .utils import create_circular_mask, plot_blobmap
+from .utils import create_circular_mask, SimpleGalaxy
+from .visualization import plot_blobmap, plot_detblob, plot_fblob
 from .subimage import Subimage
 from .blob import Blob
 import config as conf
 
+import logging
 
 class Brick(Subimage):
     """TODO: docstring"""
@@ -49,6 +50,8 @@ class Brick(Subimage):
                  buffer=conf.BRICK_BUFFER,
                  brick_id=-99):
         """TODO: docstring"""
+
+        self.logger = logging.getLogger('farmer.brick')
 
         self.wcs = wcs
         self.images = images
@@ -72,10 +75,10 @@ class Brick(Subimage):
         self._buff_top = self.dims[1] - self._buffer
 
         # Replace mask
-        self._masks[:, :, :self._buff_left] = True
-        self._masks[:, :, self._buff_right:] = True
-        self._masks[:, :self._buff_bottom] = True
-        self._masks[:, self._buff_top:] = True
+        # self._masks[:, :, :self._buff_left] = True
+        # self._masks[:, :, self._buff_right:] = True
+        # self._masks[:, :self._buff_bottom] = True
+        # self._masks[:, self._buff_top:] = True
 
         x0 = int(((brick_id - 1) * conf.BRICK_WIDTH) % conf.MOSAIC_WIDTH)
         y0 = int(((brick_id - 1) * conf.BRICK_HEIGHT) / conf.MOSAIC_HEIGHT) * conf.BRICK_HEIGHT
@@ -126,26 +129,33 @@ class Brick(Subimage):
         filler = np.zeros(len(self.catalog))
         for colname in self.bands:
             colname = colname.replace(' ', '_')
-            print(f'ADDING COLUMNS FOR {colname}')
-            self.catalog.add_column(Column(filler, name=f'MAG_{colname}'))
-            self.catalog.add_column(Column(filler, name=f'MAGERR_{colname}'))
-            self.catalog.add_column(Column(filler, name=f'RAWFLUX_{colname}'))
-            self.catalog.add_column(Column(filler, name=f'RAWFLUXERR_{colname}'))
-            self.catalog.add_column(Column(filler, name=f'FLUX_{colname}'))
-            self.catalog.add_column(Column(filler, name=f'FLUXERR_{colname}'))
-            self.catalog.add_column(Column(filler, name=f'CHISQ_{colname}'))
-            self.catalog.add_column(Column(filler, name=f'BIC_{colname}'))
+            self.logger.debug(f'Adding columns to catalog for {colname}')
+            try:
+                self.catalog.add_column(Column(filler, name=f'MAG_{colname}'))
+                self.catalog.add_column(Column(filler, name=f'MAGERR_{colname}'))
+                self.catalog.add_column(Column(filler, name=f'RAWFLUX_{colname}'))
+                self.catalog.add_column(Column(filler, name=f'RAWFLUXERR_{colname}'))
+                self.catalog.add_column(Column(filler, name=f'FLUX_{colname}'))
+                self.catalog.add_column(Column(filler, name=f'FLUXERR_{colname}'))
+                self.catalog.add_column(Column(filler, name=f'CHISQ_{colname}'))
+                self.catalog.add_column(Column(filler, name=f'BIC_{colname}'))
+            except:
+                self.logger.debug(f'Columns already exist for {colname}')
         if not band_only:
-            for colname in ('X_MODEL', 'Y_MODEL', 'XERR_MODEL', 'YERR_MODEL', 'RA', 'DEC'):
-                self.catalog.add_column(Column(filler, name=colname))
-            self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype='S20'), name='SOLMODEL'))
-            self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=bool), name='VALID_SOURCE'))
-            self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=int), name='N_CONVERGE'))
-            self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=int), name='N_BLOB'))
-            for colname in ('REFF', 'REFF_ERR', 'AB', 'AB_ERR', 'THETA', 'THETA_ERR',
-                        'FRACDEV', 'EXP_REFF', 'EXP_REFF_ERR', 'EXP_AB', 'EXP_AB_ERR', 'EXP_THETA', 'EXP_THETA_ERR', 
-                        'DEV_REFF', 'DEV_REFF_ERR', 'DEV_AB', 'DEV_AB_ERR', 'DEV_THETA', 'DEV_THETA_ERR' ):
-                self.catalog.add_column(Column(filler, name=colname))
+            try:
+                self.logger.debug(f'Adding model columns to catalog.')
+                for colname in ('X_MODEL', 'Y_MODEL', 'XERR_MODEL', 'YERR_MODEL', 'RA', 'DEC'):
+                    self.catalog.add_column(Column(filler, name=colname))
+                self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype='S20'), name='SOLMODEL'))
+                self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=bool), name='VALID_SOURCE'))
+                self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=int), name='N_CONVERGE'))
+                self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=int), name='N_BLOB'))
+                for colname in ('REFF', 'REFF_ERR', 'AB', 'AB_ERR', 'THETA', 'THETA_ERR',
+                            'FRACDEV', 'EXP_REFF', 'EXP_REFF_ERR', 'EXP_AB', 'EXP_AB_ERR', 'EXP_THETA', 'EXP_THETA_ERR', 
+                            'DEV_REFF', 'DEV_REFF_ERR', 'DEV_AB', 'DEV_AB_ERR', 'DEV_THETA', 'DEV_THETA_ERR' ):
+                    self.catalog.add_column(Column(filler, name=colname))
+            except:
+                self.logger.debug(f'Model columns already exist')
 
     def dilate(self, radius=conf.DILATION_RADIUS, fill_holes=True):
         """TODO: docstring"""
@@ -187,9 +197,8 @@ class Brick(Subimage):
     def make_model_image(self, catalog, include_chi=True, include_nopsf=False, save=True):
 
         # Make Images
-        if conf.VERBOSE2: 
-            print()
-            print('brick.make_model_image :: Creating blank image...')
+        self.logger.info('Making a model image...')
+        self.logger.debug('Creating blank image.')
 
         timages = np.zeros(self.n_bands, dtype=object)
 
@@ -205,16 +214,16 @@ class Brick(Subimage):
                     psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
                 if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
                     psfmodel.img /= psfmodel.img.sum() # HACK -- force normalization to 1
-                if conf.VERBOSE2: print(f'blob.stage_images :: Adopting constant PSF.')
+                self.logger.debug(f'blob.stage_images :: Adopting constant PSF.')
 
             if True: #band in conf.CONSTANT_PSF:
                 psfmodel = psf.constantPsfAt(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.)
-                if conf.PLOT:
+                if conf.PLOT > 0:
                     import matplotlib.pyplot as plt
                     fig, ax = plt.subplots()
                     ax.imshow(psf.getImage(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.))
                     fig.savefig(os.path.join(conf.PLOT_DIR, f'{band}_psf.pdf'))
-                if conf.VERBOSE2: print(f'blob.stage_images :: Adopting constant PSF.')
+                self.logger.debug(f'blob.stage_images :: Adopting constant PSF.')
             else:
                 blobmask = np.array(self.blobmap == src['blob_id'], bool)
                 idx, idy = blobmask.nonzero()
@@ -232,7 +241,7 @@ class Brick(Subimage):
                 blob_centerx = blob_center[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
                 blob_centery = blob_center[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
                 psfmodel = psf.constantPsfAt(blob_centerx, blob_centery) # init at blob center, may need to swap!
-                if conf.VERBOSE2: print(f'blob.stage_images :: Adopting varying PSF constant at ({blob_centerx}, {blob_centery})')
+                self.logger.debug(f'blob.stage_images :: Adopting varying PSF constant at ({blob_centerx}, {blob_centery})')
 
             if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
                 psfmodel.img /= psfmodel.img.sum()
@@ -284,8 +293,8 @@ class Brick(Subimage):
                                                 SoftenedFracDev(src['FRACDEV']),
                                                 shape_exp, shape_dev)
 
-            if conf.VERBOSE2: print(f'Source #{src["source_id"]}: {self.model_catalog[i].name} model at {position}')
-            if conf.VERBOSE2: print(f'               {flux}') 
+            self.logger.debug(f'Source #{src["source_id"]}: {self.model_catalog[i].name} model at {position}')
+            self.logger.debug(f'               {flux}') 
 
         # Clean
         self.model_catalog = self.model_catalog[self.model_mask]
@@ -294,24 +303,24 @@ class Brick(Subimage):
         tr = Tractor(self.timages, self.model_catalog)
         self.tr = tr
 
-        if conf.VERBOSE: print(f'brick.make_model_image :: Computing model image...')
+        self.logger.info(f'Computing model image...')
         self.model_images = [tr.getModelImage(k) for k in np.arange(self.n_bands)]
         if include_chi:
-            if conf.VERBOSE: print(f'brick.make_model_image :: Computing chi image...')
+            self.logger.info(f'Computing chi image...')
             self.chisq_images = [tr.getChiImage(k) for k in np.arange(self.n_bands)]
 
         # If no psf:
         if include_nopsf:
-            print('INCLUSION OF NO PSF IS CURRENTLY DISABLED.')
+            self.logger.warning('INCLUSION OF NO PSF IS CURRENTLY DISABLED.')
             include_nopsf = False
-            tr_nopsf = tr.copy()
-            [tr_nopsf.images[k].setPsf(None) for k in np.arange(self.n_bands)]
-            if conf.VERBOSE: print(f'brick.make_model_image :: Computing model image without PSF...')
-            self.nopsf_images = [tr_nopsf.getModelImage(k) for k in np.arange(self.n_bands)]
+            # tr_nopsf = tr.copy()
+            # [tr_nopsf.images[k].setPsf(None) for k in np.arange(self.n_bands)]
+            # self.logger.info(f'Computing model image without PSF...')
+            # self.nopsf_images = [tr_nopsf.getModelImage(k) for k in np.arange(self.n_bands)]
 
         if save:
             if os.path.exists(self.auxhdu_path):
-                if conf.VERBOSE: print(f'brick.make_model_image :: Saving image(s) to existing file, {self.auxhdu_path}')
+                self.logger.info(f'Saving image(s) to existing file, {self.auxhdu_path}')
                 # Save to file
                 hdul = fits.open(self.auxhdu_path, mode='update')
                 for i, band in enumerate(self.bands):
@@ -329,7 +338,7 @@ class Brick(Subimage):
                 hdul.flush()
 
             else:
-                if conf.VERBOSE: print(f'brick.make_model_image :: Saving image(s) to new file, {self.auxhdu_path}')
+                self.logger.info(f'Saving image(s) to new file, {self.auxhdu_path}')
                 # Save to file
                 hdul = fits.HDUList()
                 for i, band in enumerate(self.bands):
@@ -349,10 +358,10 @@ class Brick(Subimage):
 
     def make_residual_image(self, catalog=None, include_chi=True, include_nopsf=False, save=True):
         # Make model image or load it in
-        if conf.VERBOSE: print(f'brick.make_residual_image :: Making residual image')
+        self.logger.info(f'Making residual image')
 
         if include_nopsf:
-            print('INCLUSION OF NO PSF IS CURRENTLY DISABLED.')
+            self.logger.warning('INCLUSION OF NO PSF IS CURRENTLY DISABLED.')
             include_nopsf = False
 
         if self.model_images is None:
@@ -367,7 +376,7 @@ class Brick(Subimage):
         if save:
 
             if os.path.exists(self.auxhdu_path):
-                if conf.VERBOSE: print(f'brick.make_residual_image :: Saving image(s) to existing file, {self.auxhdu_path}')
+                self.logger.info(f'Saving image(s) to existing file, {self.auxhdu_path}')
                 hdul = fits.open(self.auxhdu_path, mode='update')
                 for i, band in enumerate(self.bands):
                     hdu_img = fits.ImageHDU(data=self.images[i], name=f'{band}_IMAGE')
@@ -388,7 +397,7 @@ class Brick(Subimage):
                 hdul.flush()
 
             else:
-                if conf.VERBOSE: print(f'brick.make_residual_image :: Saving image(s) to new file, s{self.auxhdu_path}')
+                self.logger.info(f'brick.make_residual_image :: Saving image(s) to new file, s{self.auxhdu_path}')
                 hdul = fits.HDUList()
                 for i, band in enumerate(self.bands):
                     hdu_img = fits.ImageHDU(data=self.images[i], name=f'{band}_IMAGE')

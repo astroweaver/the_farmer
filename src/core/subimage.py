@@ -30,14 +30,15 @@ from astropy.wcs.utils import proj_plane_pixel_scales
 
 import config as conf
 
-
+import logging
 class Subimage():
     """
     TODO: add doc string
     """
 
-    def __init__(self):
+    def __init__(self): 
 
+        self.logger = logging.getLogger('farmer.subimage')
 
         self.subvector = None
         self.catalog = None
@@ -277,7 +278,7 @@ class Subimage():
         # TODO: Handle more than one band at a time
         if band in self.bands:
             idx = conf.BANDS.index(band)
-            if conf.VERBOSE2: print(f'subimage._band2idx :: {band} returns idx={idx}')
+            self.logger.debug(f'subimage._band2idx :: {band} returns idx={idx}')
             return idx
         else:
             raise ValueError(f"{band} is not a valid band.")
@@ -309,8 +310,7 @@ class Subimage():
             # if not sub_background:
             #     thresh += background[0]
 
-            if conf.VERBOSE:
-                print(f'Detection is to be performed with weights? {conf.USE_DETECTION_WEIGHT}')
+            self.logger.debug(f'Detection is to be performed with weights? {conf.USE_DETECTION_WEIGHT}')
         else:
             thresh = conf.THRESH
 
@@ -328,7 +328,7 @@ class Subimage():
         else:
             mask = None
 
-        if conf.VERBOSE: print(f'Detection is to be performed with thresh = {thresh}')
+        self.logger.debug(f'Detection is to be performed with thresh = {thresh}')
 
         # Set extraction pixel limit buffer
         sep.set_extract_pixstack(conf.PIXSTACK_SIZE)
@@ -373,7 +373,7 @@ class Subimage():
             raise ValueError('No objects found by SExtractor.')
 
     def subtract_background(self, idx=None, flat=False):
-        if conf.VERBOSE2: print(f'Subtracting background. (flat={flat})')
+        self.logger.info(f'Subtracting background. (flat={flat})')
         if idx is None:
             if flat:
                 self.images -= self.backgrounds[0][0]
@@ -385,12 +385,11 @@ class Subimage():
             else:
                 self.images[idx] -= self.background_images[idx]
 
-        if conf.VERBOSE2:
-            print(f'Mesh size = ({conf.SUBTRACT_BW}, {conf.SUBTRACT_BH})')
-            print(f'Mean = {np.mean(self.background_images, (1,2))}')
-            print(f'Std = {np.std(self.background_images, (1,2))}')
-            print(f'Global = {self.backgrounds[:,0]}')
-            print(f'RMS = {self.backgrounds[:,1]}')
-            print()
+        self.logger.debug(f'    Mesh size = ({conf.SUBTRACT_BW}, {conf.SUBTRACT_BH})')
+        self.logger.debug(f'    Mean = {np.mean(self.background_images, (1,2))}')
+        self.logger.debug(f'    Std = {np.std(self.background_images, (1,2))}')
+        self.logger.debug(f'    Global = {self.backgrounds[:,0]}')
+        self.logger.debug(f'    RMS = {self.backgrounds[:,1]}')
+
 
 
