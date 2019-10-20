@@ -98,7 +98,7 @@ else:
         os.remove(logging_path)
 
     fh = logging.FileHandler(logging_path)
-    fh.setLevel(conf.LOGFILE_LOGGING_LEVEL)
+    fh.setLevel(logging.getLevelName(conf.LOGFILE_LOGGING_LEVEL))
     fh.setFormatter(formatter)
     logger.addHandler(fh)
 
