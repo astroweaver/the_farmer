@@ -76,6 +76,7 @@ print('Starting up logging system...')
 # Start the logging
 import logging.config
 logger = logging.getLogger('farmer')
+logger.setLevel(logging.WARNING)
 formatter = logging.Formatter('[%(asctime)s] %(name)s :: %(levelname)s - %(message)s', '%H:%M:%S')
 
 # Logging to the console at logging level
@@ -714,6 +715,8 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
         fbrick.blobmap = hdul_seg['BLOBMAP'].data
     else:
         raise ValueError(f'No valid segmentation map was found for {brick_id}')
+
+    fbrick.add_columns(band_only=True)
 
     logger.info(f'{fband} brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
 
