@@ -90,8 +90,8 @@ if conf.LOGFILE_LOGGING_LEVEL is None:
     
 else:
     # create file handler which logs even debug messages
-    print(f'Logging information will stream to console and {logging_path}\n')
     logging_path = os.path.join(conf.LOGGING_DIR, 'logfile.log')
+    print(f'Logging information will stream to console and {logging_path}\n')
     # If overwrite is on, remove old logger
     if conf.OVERWRITE & os.path.exists(logging_path):
         print('WARNING -- Existing logfile will be overwritten.')
