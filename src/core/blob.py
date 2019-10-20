@@ -290,7 +290,7 @@ class Blob(Subimage):
                     n_data = np.sum(self.segmap == src['source_id'])
                     self.chisq[i, self._level, self._sublevel] = totalchisq
                     self.rchisq[i, self._level, self._sublevel] = totalchisq / (n_data - m_param)
-                    self.bic[i, self._level, self._sublevel] = totalchisq + np.log(n_data) * m_param
+                    self.bic[i, self._level, self._sublevel] = totalchisq + np.log(n_data) * m_param - np.log(2 * n_data)
  
                     self.logger.debug(f'Source #{src["source_id"]} with {self.model_catalog[i].name} has chisq={self.bic[i, self._level, self._sublevel]:3.3f} | bic={self.bic[i, self._level, self._sublevel]:3.3f}')
                     self.logger.debug(f'               Fluxes: {self.bands[0]}={self.model_catalog[i].getBrightness().getFlux(self.bands[0]):3.3f}') 
@@ -355,7 +355,7 @@ class Blob(Subimage):
                 totalchisq = np.sum((self.tr.getChiImage(j)[self.segmap == src['source_id']])**2)
                 m_param = self.model_catalog[i].numberOfParams()
                 n_data = np.sum(self.segmap == src['source_id'])
-                self.solution_bic[i, j] = totalchisq + np.log(n_data) * m_param
+                self.solution_bic[i, j] = totalchisq + np.log(n_data) * m_param - np.log(2 * n_data)
                 self.solution_chisq[i, j] = totalchisq / (n_data - m_param)
                 # PENALTIES TBD
                 # residual = self.images[0] - self.tr.getModelImage(0)

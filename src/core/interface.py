@@ -72,12 +72,6 @@ OVERWRITE ................. {conf.OVERWRITE}
 )
 
 print('Starting up logging system...')
-# If overwrite is on, remove old logger
-logging_path = os.path.join(conf.LOGGING_DIR, 'logfile.log')
-if conf.OVERWRITE & os.path.exists(logging_path):
-    print('WARNING -- Existing logfile will be overwritten.')
-    os.remove(logging_path)
-    
 
 # Start the logging
 import logging.config
@@ -97,6 +91,11 @@ if conf.LOGFILE_LOGGING_LEVEL is None:
 else:
     # create file handler which logs even debug messages
     print(f'Logging information will stream to console and {logging_path}\n')
+    logging_path = os.path.join(conf.LOGGING_DIR, 'logfile.log')
+    # If overwrite is on, remove old logger
+    if conf.OVERWRITE & os.path.exists(logging_path):
+        print('WARNING -- Existing logfile will be overwritten.')
+        os.remove(logging_path)
 
     fh = logging.FileHandler(logging_path)
     fh.setLevel(logging.DEBUG)
