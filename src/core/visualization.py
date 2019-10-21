@@ -406,10 +406,7 @@ def plot_fblob(blob, band, fig=None, ax=None, final_opt=False):
         ax[2,5].axvline(0, c='grey', ls='dotted')
         ax[2,5].set_ylim(bottom=0)
 
-        # Show chisq or rchisq?
-        dof = ''
-        if conf.USE_REDUCEDCHISQ:
-            dof = '/N'
+        dof = '/N'
 
         # Solution params
         for i, src in enumerate(blob.solution_catalog):

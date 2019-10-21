@@ -36,12 +36,11 @@ from astropy.io import fits
 from astropy.table import Table, Column, vstack, join
 from astropy.wcs import WCS
 import numpy as np
-import pathos.multiprocessing as mp 
-import pathos.parallel as pp
 from functools import partial
 import matplotlib.pyplot as plt
 import weakref
 from scipy import stats
+import pathos as pa
 
 # Local imports
 from .brick import Brick
@@ -76,7 +75,11 @@ print('Starting up logging system...')
 # Start the logging
 import logging.config
 logger = logging.getLogger('farmer')
-logger.setLevel(logging.WARNING)
+if conf.LOGFILE_LOGGING_LEVEL is not None:
+    logging_level = logging.getLevelName(conf.LOGFILE_LOGGING_LEVEL)
+else:
+    logging_level = logging.DEBUG
+logger.setLevel(logging_level)
 formatter = logging.Formatter('[%(asctime)s] %(name)s :: %(levelname)s - %(message)s', '%H:%M:%S')
 
 # Logging to the console at logging level
@@ -317,36 +320,58 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, insert=False, ski
     return
 
         
-def runblob(blob_id, blobs, detection=None, catalog=None, plotting=0):
+def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0):
 
+    # if conf.NTHREADS != 0:
+    #     fh = logging.FileHandler(f'B{blob_id}.log')
+    #     fh.setLevel(logging.getLevelName(conf.LOGFILE_LOGGING_LEVEL))
+    #     formatter = logging.Formatter('[%(asctime)s] %(name)s :: %(levelname)s - %(message)s', '%H:%M:%S')
+    #     fh.setFormatter(formatter)
+
+    #     logger = pathos.logger(level=logging.getLevelName(conf.LOGFILE_LOGGING_LEVEL), handler=fh)
+
+    logger = logging.getLogger(f'farmer.blob.{blob_id}')
     logger.info(f'Starting on Blob #{blob_id}')
-    tstart = time.time()
 
     modblob = None
     fblob = None
-    if detection is None:
+    tstart = time.time()
+    logger.debug('Making weakref proxies of blobs')
+    if modeling is None:
         modblob, fblob = weakref.proxy(blobs[0]), weakref.proxy(blobs[1])
-    elif detection:
+    elif modeling:
         modblob = weakref.proxy(blobs)
     else:
         fblob = weakref.proxy(blobs)
+    logger.debug(f'Weakref made ({time.time() - tstart:3.3f})s')
 
-    # Make blob with detection image 
+
+    # Make blob with modeling image 
     if modblob is not None:
+        logger.debug(f'Making blob with {conf.MODELING_NICKNAME}')
+        modblob.logger = logger
 
         if (conf.MODEL_PHOT_MAX_NBLOB > 0) & (modblob.n_sources > conf.MODEL_PHOT_MAX_NBLOB):
             logger.info('Number of sources exceeds set limit. Skipping!')
+            # if conf.NTHREADS != 0:
+            #     logger.removeHandler(fh)
             return modblob.bcatalog.copy()
 
         # Run models
         astart = time.time()
+        logger.debug(f'Staging images for {conf.MODELING_NICKNAME}')
         modblob.stage_images()
         logger.debug(f'Images staged. ({time.time() - astart:3.3f})s')
 
         astart = time.time()
+        logger.debug(f'Modelling images for {conf.MODELING_NICKNAME}')
         status = modblob.tractor_phot()
 
         if not status:
+            logger.warning(f'Morphology failed! ({time.time() - astart:3.3f})s')
+
+            # if conf.NTHREADS != 0:
+            #     logger.removeHandler(fh)
             return modblob.bcatalog.copy()
 
         logger.debug(f'Morphology determined. ({time.time() - astart:3.3f})s')
@@ -375,6 +400,7 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=0):
     if fblob is not None:
         # make new blob with band information
         astart = time.time() 
+        fblob.logger = logger
 
 
         if modblob is not None:
@@ -402,6 +428,8 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=0):
                     logger.warning('All sources are invalid!')
                     catalog['X_MODEL'] += fblob.subvector[1] + fblob.mosaic_origin[1] - conf.BRICK_BUFFER + 1
                     catalog['Y_MODEL'] += fblob.subvector[0] + fblob.mosaic_origin[0] - conf.BRICK_BUFFER + 1
+                    if conf.NTHREADS != 0:
+                        logger.removeHandler(fh)
                     return fblob.bcatalog.copy()
 
                 fblob.position_variance = None
@@ -419,6 +447,8 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=0):
         status = fblob.forced_phot()
 
         if not status:
+            # if conf.NTHREADS != 0:
+            #     logger.removeHandler(fh)
             return fblob.bcatalog.copy()
 
         logger.info(f'Force photometry complete. ({time.time() - astart:3.3f})s')
@@ -445,6 +475,8 @@ def runblob(blob_id, blobs, detection=None, catalog=None, plotting=0):
         catout = fblob.bcatalog.copy()
         del fblob
 
+    # if conf.NTHREADS != 0:
+    #     logger.removeHandler(fh)
     return catout
 
 
@@ -545,12 +577,16 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, blobmap=Non
         plot_blobmap(modbrick, image=detbrick.images[0], band=conf.DETECTION_NICKNAME)
 
     # Save segmap and blobmaps
+    tstart = time.time()
+    logger.info('Saving segmentation and blob maps...')
     hdul = fits.HDUList()
     hdul.append(fits.PrimaryHDU())
     hdul.append(fits.ImageHDU(data=modbrick.segmap, name='SEGMAP'))
     hdul.append(fits.ImageHDU(data=modbrick.blobmap, name='BLOBMAP'))
-    hdul.writeto(os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits'), overwrite=conf.OVERWRITE)
+    outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits')
+    hdul.writeto(outpath, overwrite=conf.OVERWRITE)
     hdul.close()
+    logger.info(f'Saved to {outpath} ({time.time() - tstart:3.3f}s)')
 
     tstart = time.time()
     
@@ -567,6 +603,7 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, blobmap=Non
         if blob_id is not None:
             if blob_id not in outcatalog['blob_id']:
                 raise ValueError(f'No blobs exist for requested blob id {blob_id}')
+        logger.info(f'Runnig single blob for blob {blob_id}')
         modblob = modbrick.make_blob(blob_id)
         if modblob is None:
             raise ValueError('Requested blob is invalid')
@@ -593,58 +630,53 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, blobmap=Non
         hdul = fits.HDUList([hdu_table, hdu_info])
         outpath = os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat')
         hdul.writeto(outpath, output_verify='ignore', overwrite=conf.OVERWRITE)
-        logger.info(f'interface.make_models :: Wrote out catalog to {outpath}')
+        logger.info(f'Wrote out catalog to {outpath}')
 
-        return None
+        return
     
     # Else, production mode -- all objects in brick are to be run.
     else:
-
+        
         if conf.NBLOBS > 0:
             run_n_blobs = conf.NBLOBS
         else:
             run_n_blobs = modbrick.n_blobs
+        logger.info(f'Preparing to run {run_n_blobs} blobs.')
         
         outcatalog = modbrick.catalog.copy()
         mosaic_origin = modbrick.mosaic_origin
         brick_id = modbrick.brick_id
 
         #detblobs = [modbrick.make_blob(i) for i in np.arange(1, run_n_blobs+1)]
+        logger.info('Generating blobs...')
+        astart = time.time()
         modblobs = (modbrick.make_blob(i) for i in np.arange(1, run_n_blobs+1))
+        logger.info(f'{run_n_blobs} blobs generated ({time.time() - astart:3.3f}s)')
         #del modbrick
 
+        tstart = time.time()
+
         if conf.NTHREADS > 0:
-            # import p_tqdm
+            # from pathos.pools import ProcessPool, ThreadPool
 
-            # result = p_tqdm.p_map(partial(runblob, detection=True), np.arange(1, run_n_blobs+1), modblobs, num_cpus=conf.NTHREADS)
-            # if conf.VERBOSE2: print(f'Joining rows...')
-            # output_rows = [res for res in result]
+            pool = pa.pools.ProcessPool(ncpus=conf.NTHREADS)
+            logger.info(f'Parallel processing pool initalized with {conf.NTHREADS} threads.')
+            result = pool.uimap(partial(runblob, modeling=True, plotting=conf.PLOT), np.arange(1, run_n_blobs+1), modblobs)
+            pool.close()
+            pool.join()
+            pool.clear()
 
-            # pool = pp.ParallelPool(processes=conf.NTHREADS)
-            pool = mp.ProcessPool(processes=conf.NTHREADS)
-            result = pool.uimap(partial(runblob, detection=True, plotting=conf.PLOT), np.arange(1, run_n_blobs+1), modblobs)
-            # if conf.VERBOSE: print('Joining pool...')
-            # # pool.close()
-            # # pool.join()
-            # # pool.clear()
-            # if conf.VERBOSE: print('Joining results...')
             output_rows = list(result)
+            logger.info('Parallel processing complete.')
 
-            #rows = pool.map(runblob, zip(detblobs, fblobs))
-            # output_rows = pool.map(partial(runblob, detection=True), np.arange(1, run_n_blobs+1), detblobs)
-            # while not results.ready():
-            #     time.sleep(10)
-            #     if not conf.VERBOSE2: print(".", end=' ')
-            # pool.close()
-            # pool.join()
-            # pool.terminate()
-            # output_rows = results.get()
         else:
+            logger.info('Serial processing initalized.')
             output_rows = [runblob(kblob_id+1, kblob, detection=True, plotting=conf.PLOT) for kblob_id, kblob in enumerate(modblobs)]
 
-        logger.info(f'Completed {run_n_blobs} blobs in {time.time() - tstart:3.3f}s')
-
         output_cat = vstack(output_rows)
+
+        ttotal = time.time() - tstart
+        logger.info(f'Completed {run_n_blobs} blobs with {len(output_cat)} sources in {ttotal:3.3f}s (avg. {ttotal/len(output_cat):2.2f}s per source)')
                 
         for colname in output_cat.colnames:
             if colname not in outcatalog.colnames:
@@ -660,7 +692,7 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, blobmap=Non
         # write out cat
         # outcatalog['x'] += outcatalog['x'] + mosaic_origin[1] - conf.BRICK_BUFFER + 1.
         # outcatalog['y'] += outcatalog['y'] + mosaic_origin[0] - conf.BRICK_BUFFER + 1.
-        hdr = header_from_dict(conf.__dict__, verbose=conf.VERBOSE)
+        hdr = header_from_dict(conf.__dict__)
         hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
         hdu_table = fits.table_to_hdu(outcatalog)
         hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])

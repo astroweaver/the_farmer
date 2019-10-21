@@ -27,10 +27,11 @@ from astropy.table import Table, Column
 from tractor import NCircularGaussianPSF, PixelizedPSF, Image, Tractor, FluxesPhotoCal, NullWCS, ConstantSky, EllipseESoft, Fluxes, PixPos
 from tractor.galaxy import ExpGalaxy, DevGalaxy, FixedCompositeGalaxy, SoftenedFracDev
 from tractor.pointsource import PointSource
-from time import time
+import time
 import photutils
 import sep
 from matplotlib.colors import LogNorm
+import pathos
 
 from .subimage import Subimage
 from .utils import SimpleGalaxy, create_circular_mask
@@ -45,7 +46,13 @@ class Blob(Subimage):
     def __init__(self, brick, blob_id):
         """TODO: docstring"""
 
-        self.logger = logging.getLogger('farmer.blob')
+        self.logger = logging.getLogger(f'farmer.blob.{blob_id}')
+        # fh = logging.FileHandler(f'farmer_B{blob_id}.log')
+        # fh.setLevel(logging.getLevelName(conf.LOGFILE_LOGGING_LEVEL))
+        # formatter = logging.Formatter('[%(asctime)s] %(name)s :: %(levelname)s - %(message)s', '%H:%M:%S')
+        # fh.setFormatter(formatter)
+       
+        # self.logger = pathos.logger(level=logging.getLevelName(conf.LOGFILE_LOGGING_LEVEL), handler=fh)
 
         blobmask = np.array(brick.blobmap == blob_id, bool)
         mask_frac = blobmask.sum() / blobmask.size
@@ -117,7 +124,7 @@ class Blob(Subimage):
     def stage_images(self):
         """TODO: docstring"""
 
-        self.logger.debug('blob.stage_images :: Staging images...')
+        self.logger.debug('Staging images...')
 
         timages = np.zeros(self.n_bands, dtype=object)
 
@@ -290,7 +297,7 @@ class Blob(Subimage):
                     n_data = np.sum(self.segmap == src['source_id'])
                     self.chisq[i, self._level, self._sublevel] = totalchisq
                     self.rchisq[i, self._level, self._sublevel] = totalchisq / (n_data - m_param)
-                    self.bic[i, self._level, self._sublevel] = totalchisq + np.log(n_data) * m_param - np.log(2 * n_data)
+                    self.bic[i, self._level, self._sublevel] = self.rchisq[i, self._level, self._sublevel] + np.log(n_data) * m_param
  
                     self.logger.debug(f'Source #{src["source_id"]} with {self.model_catalog[i].name} has chisq={self.bic[i, self._level, self._sublevel]:3.3f} | bic={self.bic[i, self._level, self._sublevel]:3.3f}')
                     self.logger.debug(f'               Fluxes: {self.bands[0]}={self.model_catalog[i].getBrightness().getFlux(self.bands[0]):3.3f}') 
@@ -355,13 +362,8 @@ class Blob(Subimage):
                 totalchisq = np.sum((self.tr.getChiImage(j)[self.segmap == src['source_id']])**2)
                 m_param = self.model_catalog[i].numberOfParams()
                 n_data = np.sum(self.segmap == src['source_id'])
-                self.solution_bic[i, j] = totalchisq + np.log(n_data) * m_param - np.log(2 * n_data)
                 self.solution_chisq[i, j] = totalchisq / (n_data - m_param)
-                # PENALTIES TBD
-                # residual = self.images[0] - self.tr.getModelImage(0)
-                # if np.median(residual[self.masks[0]]) < 0:
-                #     if conf.VERBOSE2: print(f'Applying heavy penalty on source #{i+1} ({self.model_catalog[i].name})!')
-                #     totalchisq = 1E30
+                self.solution_bic[i, j] = self.solution_chisq[i, j] + np.log(n_data) * m_param
                 self.logger.debug(f'Source #{src["source_id"]} ({band}) with {self.model_catalog[i].name} has rchisq={self.solution_chisq[i, j]:3.3f} | bic={self.solution_bic[i, j]:3.3f}')
 
                 
@@ -391,14 +393,13 @@ class Blob(Subimage):
 
         return self.status
 
-    def decide_winners(self, use_bic=True):
+    def decide_winners(self, use_bic=conf.USE_BIC):
 
         if use_bic:
             self.logger.debug('Using BIC to select best-fit model')
             self.decide_winners_bic()
         else:
-            self.logger.debug('Using chisq to select best-fit model')
-            raise RuntimeError('BUGGY - NOT WORKING NOW.')
+            self.logger.debug('Using chisq/N to select best-fit model')
             self.decide_winners_chisq()
 
     def decide_winners_bic(self):
@@ -520,13 +521,13 @@ class Blob(Subimage):
         # take the model_catalog and chisq and figure out what's what
         # Only look at unsolved models!
         
-        if conf.USE_REDUCEDCHISQ:
-            chisq_exp = 1.0
-        else:
-            chisq_exp = 0.0
+        # if conf.USE_REDUCEDCHISQ:
+        #     chisq_exp = 1.0
+        # else:
+        chisq_exp = 0.0
 
         # holders - or else it's pure insanity.
-        chisq = self.chisq[~self._solved]
+        chisq = self.rchisq[~self._solved]
         solution_catalog = self.solution_catalog[~self._solved]
         solved_chisq = self.solved_chisq[~self._solved]
         tr_catalogs = self.tr_catalogs[~self._solved]
@@ -535,6 +536,7 @@ class Blob(Subimage):
         if self._level == 0:
             # Which have chi2(PS) < chi2(SG)?
             chmask = ((abs(chisq_exp - chisq[:, 0, 0]) - abs(chisq_exp - chisq[:, 0, 1])) < conf.PS_SG_THRESH)
+            chmask[(chisq[:, 0, 0] > 5) & (chisq[:, 0, 1] > 5)] = False # For these, keep trying! Essentially a back-door for high a/b sources.
             if chmask.any():
                 solution_catalog[chmask] = tr_catalogs[chmask, 0, 0].copy()
                 solved_chisq[chmask] = chisq[chmask, 0, 0]
@@ -557,7 +559,10 @@ class Blob(Subimage):
             nextmask = expmask & devmask & movemask
 
             # For which was SG better
-            premask = ~expmask & ~devmask
+            premask_sg = ~expmask & ~devmask & (chisq[:, 0, 1] < chisq[:, 0, 0])
+
+            # For which was PS better
+            premask_ps = ~expmask & ~devmask & (chisq[:, 0, 0] < chisq[:, 0, 1])
 
             # If Exp beats Dev by a lot
             nexpmask = expmask & ~movemask & (abs(chisq_exp - chisq[:, 1, 0])  <  abs(chisq_exp - chisq[:, 1, 1]))
@@ -568,10 +573,15 @@ class Blob(Subimage):
             if nextmask.any():
                 mids[nextmask] = 5
 
-            if premask.any():
-                solution_catalog[premask] = tr_catalogs[premask, 0, 1].copy()
-                solved_chisq[premask] = chisq[premask, 0, 1]
-                mids[premask] = 2
+            if premask_ps.any():
+                solution_catalog[premask_ps] = tr_catalogs[premask_ps, 0, 0].copy()
+                solved_chisq[premask_ps] = chisq[premask_ps, 0, 0]
+                mids[premask_ps] = 1
+
+            if premask_sg.any():
+                solution_catalog[premask_sg] = tr_catalogs[premask_sg, 0, 1].copy()
+                solved_chisq[premask_sg] = chisq[premask_sg, 0, 1]
+                mids[premask_sg] = 2
 
             if nexpmask.any():
 
@@ -628,7 +638,7 @@ class Blob(Subimage):
 
         self.n_converge = 0
         dlnp_init = 'NaN'
-        tstart = time()
+        tstart = time.time()
         
         for i in range(conf.TRACTOR_MAXSTEPS):
             try:
@@ -640,7 +650,7 @@ class Blob(Subimage):
                 return False
 
             if dlnp < conf.TRACTOR_CONTHRESH:
-                self.logger.info(f'Blob #{self.blob_id} converged in {i} steps ({dlnp_init:2.2f} --> {dlnp:2.2f}) ({time() - tstart:3.3f}s)')
+                self.logger.info(f'Blob #{self.blob_id} converged in {i} steps ({dlnp_init:2.2f} --> {dlnp:2.2f}) ({time.time() - tstart:3.3f}s)')
                 self.n_converge = i
                 break
             
@@ -681,6 +691,7 @@ class Blob(Subimage):
     def aperture_phot(self, band=None, image_type=None, sub_background=False):
         # Allow user to enter image (i.e. image, residual, model...)
 
+        tstart = time.time()
         if band is None:
             self.logger.info(f'Performing aperture photometry on {conf.MODELING_NICKNAME} {image_type}...')
         else:
@@ -756,7 +767,7 @@ class Blob(Subimage):
         for i, rad in enumerate(apertures):
             if not use_iso: # Run with all models in image
                 aper = photutils.CircularAperture(apxy[:,Iap], rad)
-                self.logger.debug('Measuring {apertures_arcsec[i]:2.2f}" aperture flux on {len(cat)} sources.')
+                self.logger.debug(f'Measuring {apertures_arcsec[i]:2.2f}" aperture flux on {len(cat)} sources.')
                 p = photutils.aperture_photometry(image, aper, error=imgerr)
                 # aper.plot()
                 apflux[Iap, i] = p.field('aperture_sum') * 10**(-0.4 * (zpt - 23.9))
@@ -816,6 +827,8 @@ class Blob(Subimage):
             row = np.argwhere(self.bcatalog['source_id'] == sid)[0][0]
             self.bcatalog[row][f'FLUX_APER_{band}_{image_type}'] = tuple(apflux[idx])
             self.bcatalog[row][f'FLUX_APER_{band}_{image_type}_err'] = tuple(apflux_err[idx])
+
+        self.logger.info(f'Aperture photometry complete ({time.time() - tstart:3.3f}s)')
 
     def sextract_phot(self, band=None, sub_background=False):
         # SHOULD WE STACK THE RESIDUALS? (No?)
@@ -935,9 +948,7 @@ class Blob(Subimage):
                 m_param = self.model_catalog[i].numberOfParams()
                 n_data = np.sum(self.segmap == src['source_id'])
                 self.solution_bic[i, j] = totalchisq + np.log(n_data) * m_param
-                if conf.USE_REDUCEDCHISQ:
-                    totalchisq /= (n_data - m_param)
-                self.solution_chisq[i, j] = totalchisq
+                self.solution_chisq[i, j] = totalchisq / (n_data - m_param)
                 # PENALTIES TBD
                 # residual = self.images[0] - self.tr.getModelImage(0)
                 # if np.median(residual[self.masks[0]]) < 0:
