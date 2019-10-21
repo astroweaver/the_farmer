@@ -662,16 +662,16 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, blobmap=Non
             pool = pa.pools.ProcessPool(ncpus=conf.NTHREADS)
             logger.info(f'Parallel processing pool initalized with {conf.NTHREADS} threads.')
             result = pool.uimap(partial(runblob, modeling=True, plotting=conf.PLOT), np.arange(1, run_n_blobs+1), modblobs)
+            logger.info('Parallel processing complete.')
             output_rows = list(result)
             pool.close()
+            logger.info('Pool closed.')
             pool.join()
-            pool.clear()
-
-            logger.info('Parallel processing complete.')
+            logger.info('Pool joined.')
 
         else:
             logger.info('Serial processing initalized.')
-            output_rows = [runblob(kblob_id+1, kblob, detection=True, plotting=conf.PLOT) for kblob_id, kblob in enumerate(modblobs)]
+            output_rows = [runblob(kblob_id+1, kblob, modeling=True, plotting=conf.PLOT) for kblob_id, kblob in enumerate(modblobs)]
 
         output_cat = vstack(output_rows)
 
@@ -786,7 +786,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
             assert(len(blob_id) == 1)
             blob_id = blob_id[0]
         fblob = fbrick.make_blob(blob_id)
-        output_rows = runblob(blob_id, fblob, detection=False, catalog=fbrick.catalog, plotting=conf.PLOT)
+        output_rows = runblob(blob_id, fblob, modeling=False, catalog=fbrick.catalog, plotting=conf.PLOT)
 
         output_cat = vstack(output_rows)
     
@@ -855,7 +855,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
         if conf.NTHREADS > 0:
 
             with mp.ProcessPool(processes=conf.NTHREADS) as pool:
-                result = pool.uimap(partial(runblob, detection=False, catalog=fbrick.catalog, plotting=conf.PLOT), np.arange(1, run_n_blobs+1), fblobs)
+                result = pool.uimap(partial(runblob, modeling=False, catalog=fbrick.catalog, plotting=conf.PLOT), np.arange(1, run_n_blobs+1), fblobs)
                 
                 output_rows = list(result)
 
@@ -863,7 +863,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
             # #rows = pool.map(partial(runblob, fbrick=fbrick, fbrick=fbrick), np.arange(1, fbrick.n_blobs))
             
             # #rows = pool.map(runblob, zip(fblobs, fblobs))
-            # output_rows = pool.map(partial(runblob, detection=False), np.arange(1, run_n_blobs+1), fblobs)
+            # output_rows = pool.map(partial(runblob, modeling=False), np.arange(1, run_n_blobs+1), fblobs)
             # while not results.ready():
             #     time.sleep(10)
             #     if not conf.VERBOSE2: print(".", end=' ')
@@ -872,7 +872,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
             # pool.terminate()
             # output_rows = results.get()
         else:
-            output_rows = [runblob(kblob_id, fbrick.make_blob(kblob_id), detection=False, catalog=fbrick.catalog, plotting=conf.PLOT) for kblob_id in np.arange(1, run_n_blobs+1)]
+            output_rows = [runblob(kblob_id, fbrick.make_blob(kblob_id), modeling=False, catalog=fbrick.catalog, plotting=conf.PLOT) for kblob_id in np.arange(1, run_n_blobs+1)]
 
         logger.info(f'Completed {run_n_blobs} blobs in {time.time() - tstart:3.3f}s')
 
