@@ -259,6 +259,11 @@ class Blob(Subimage):
 
         while not self._solved.all():
             self._level += 1
+
+            if self._level > 2:
+                self.logger.critical(f'SOURCE LEFT UNSOLVED IN BLOB {self.blob_id}')
+                raise RuntimeError(f'SOURCE LEFT UNSOLVED IN BLOB {self.blob_id}')
+
             for sublevel in np.arange(len(idx_models[self._level])):
                 self._sublevel = sublevel
 
@@ -299,7 +304,7 @@ class Blob(Subimage):
                     self.rchisq[i, self._level, self._sublevel] = totalchisq / (n_data - m_param)
                     self.bic[i, self._level, self._sublevel] = self.rchisq[i, self._level, self._sublevel] + np.log(n_data) * m_param
  
-                    self.logger.debug(f'Source #{src["source_id"]} with {self.model_catalog[i].name} has chisq={self.bic[i, self._level, self._sublevel]:3.3f} | bic={self.bic[i, self._level, self._sublevel]:3.3f}')
+                    self.logger.debug(f'Source #{src["source_id"]} with {self.model_catalog[i].name} has rchisq={self.rchisq[i, self._level, self._sublevel]:3.3f} | bic={self.bic[i, self._level, self._sublevel]:3.3f}')
                     self.logger.debug(f'               Fluxes: {self.bands[0]}={self.model_catalog[i].getBrightness().getFlux(self.bands[0]):3.3f}') 
                     if self.model_catalog[i].name not in ('PointSource', 'SimpleGalaxy'):
                         if self.model_catalog[i].name == 'FixedCompositeGalaxy':
@@ -527,6 +532,7 @@ class Blob(Subimage):
         chisq_exp = 0.0
 
         # holders - or else it's pure insanity.
+        sid = self.bcatalog['source_id'][~self._solved]
         chisq = self.rchisq[~self._solved]
         solution_catalog = self.solution_catalog[~self._solved]
         solved_chisq = self.solved_chisq[~self._solved]
@@ -535,6 +541,8 @@ class Blob(Subimage):
 
         if self._level == 0:
             # Which have chi2(PS) < chi2(SG)?
+            for i, blob_id in enumerate(sid):
+                self.logger.debug(f'Source #{blob_id} Chi2 -- PS({chisq[i, 0, 0]:3.3f}) vs. SG({chisq[i, 0, 1]:3.3f}) with thresh of {conf.PS_SG_THRESH:3.3f}')
             chmask = ((abs(chisq_exp - chisq[:, 0, 0]) - abs(chisq_exp - chisq[:, 0, 1])) < conf.PS_SG_THRESH)
             chmask[(chisq[:, 0, 0] > 5) & (chisq[:, 0, 1] > 5)] = False # For these, keep trying! Essentially a back-door for high a/b sources.
             if chmask.any():
@@ -546,6 +554,8 @@ class Blob(Subimage):
             mids[~chmask] = 3
 
         if self._level == 1:
+            for i, blob_id in enumerate(sid):
+                self.logger.debug(f'Source #{blob_id} Chi2 -- EXP({chisq[i, 1, 0]:3.3f}) vs. DEV({chisq[i, 1, 1]:3.3f}) with thresh of {conf.EXP_DEV_THRESH:3.3f}')
             # For which are they nearly equally good?
             movemask = (abs(chisq[:, 1, 0] - chisq[:, 1, 1]) < conf.EXP_DEV_THRESH)
 
@@ -596,6 +606,8 @@ class Blob(Subimage):
                 mids[ndevmask] = 4
 
         if self._level == 2:
+            for i, blob_id in enumerate(sid):
+                self.logger.debug(f'Source #{blob_id} Chi2 -- COMP({chisq[i, 2, 0]:3.3f})')
             # For which did Comp beat EXP and DEV?
             compmask = (abs(chisq_exp - chisq[:, 2, 0]) < abs(chisq_exp - chisq[:, 1, 0])) &\
                        (abs(chisq_exp - chisq[:, 2, 0]) < abs(chisq_exp - chisq[:, 1, 1]))
@@ -606,15 +618,16 @@ class Blob(Subimage):
                 mids[compmask] = 5
 
             # where better as EXP or DEV
-            if (~compmask).any():
-                ch_exp = (abs(chisq_exp - chisq[:, 1, 0]) < abs(chisq_exp - chisq[:, 1, 1])) & ~compmask
+            compmask_or = (chisq[:, 2, 0] > chisq[:, 1, 0]) | (chisq[:, 2, 0] > chisq[:, 1, 1])
+            if compmask_or.any():
+                ch_exp = (abs(chisq_exp - chisq[:, 1, 0]) <= abs(chisq_exp - chisq[:, 1, 1])) & compmask_or
 
                 if ch_exp.any():
                     solution_catalog[ch_exp] = tr_catalogs[ch_exp, 1, 0].copy()
                     solved_chisq[ch_exp] = chisq[ch_exp, 1, 0]
                     mids[ch_exp] = 3
 
-                ch_dev = (abs(chisq_exp - chisq[:, 1, 1]) < abs(chisq_exp - chisq[:, 1, 0])) & ~compmask
+                ch_dev = (abs(chisq_exp - chisq[:, 1, 1]) < abs(chisq_exp - chisq[:, 1, 0])) & compmask_or
 
                 if ch_dev.any():
                     solution_catalog[ch_dev] = tr_catalogs[ch_dev, 1, 1].copy()
@@ -699,7 +712,6 @@ class Blob(Subimage):
 
         if image_type not in ('image', 'model', 'isomodel', 'residual'):
             raise TypeError("image_type must be 'image', 'model', 'isomodel', or 'residual'")
-            return
 
         if band is None:
             idx = 0
