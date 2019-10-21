@@ -662,11 +662,11 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, blobmap=Non
             pool = pa.pools.ProcessPool(ncpus=conf.NTHREADS)
             logger.info(f'Parallel processing pool initalized with {conf.NTHREADS} threads.')
             result = pool.uimap(partial(runblob, modeling=True, plotting=conf.PLOT), np.arange(1, run_n_blobs+1), modblobs)
+            output_rows = list(result)
             pool.close()
             pool.join()
             pool.clear()
 
-            output_rows = list(result)
             logger.info('Parallel processing complete.')
 
         else:

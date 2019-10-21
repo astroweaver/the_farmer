@@ -37,6 +37,8 @@ cat_prefix = 'B'
 cat_suffix = 'cat'
 overwrite = True
 
+import logging
+
 def walk_through_files(path, file_prefix = 'B', file_extension='.fits'):
     """
     Generate a list of filenames at given path
