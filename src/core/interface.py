@@ -888,7 +888,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
                 # fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
                 # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
                 # save
-                hdr = header_from_dict(conf.__dict__, verbose=conf.VERBOSE)
+                hdr = header_from_dict(conf.__dict__)
                 hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
                 hdu_table = fits.table_to_hdu(mastercat)
                 hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
@@ -919,7 +919,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
             # write out cat
             # fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
             # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
-            hdr = header_from_dict(conf.__dict__, verbose=conf.VERBOSE)
+            hdr = header_from_dict(conf.__dict__)
             hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
             hdu_table = fits.table_to_hdu(fbrick.catalog)
             hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
