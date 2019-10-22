@@ -159,7 +159,7 @@ class Blob(Subimage):
                     pw, ph = np.shape(psfmodel.img)
                     cmask = create_circular_mask(pw, ph, radius=conf.PSF_MASKRAD / conf.PIXEL_SCALE)
                     bcmask = ~cmask.astype(bool) & (psfmodel.img > 0)
-                    psfmodel.img -= np.nanmedian(psfmodel.img[bcmask])
+                    psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
                     psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
                 if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
                     psfmodel.img /= psfmodel.img.sum() # HACK -- force normalization to 1
@@ -168,7 +168,7 @@ class Blob(Subimage):
             elif (psf is None):
                 if conf.USE_GAUSSIAN_PSF:
                     psfmodel = NCircularGaussianPSF([conf.PSF_SIGMA / conf.PIXEL_SCALE], [1,])
-                    self.logger.debug('Adopting {conf.PSF_SIGMA}" Gaussian PSF.')
+                    self.logger.debug(f'Adopting {conf.PSF_SIGMA}" Gaussian PSF.')
                 else:
                     raise ValueError(f'WARNING - No PSF model found for {band}!')
 
@@ -645,18 +645,30 @@ class Blob(Subimage):
         if tr is None:
             tr = self.tr
 
-        if conf.USE_CERES:
-            from tractor.ceres_optimizer import CeresOptimizer
-            tr.optimizer = CeresOptimizer()
+        # if conf.USE_CERES:
+        #     from tractor.ceres_optimizer import CeresOptimizer
+        #     tr.optimizer = CeresOptimizer()
 
-        tr.freezeParams('images')   
-        
-        self.logger.debug(f'Starting optimization ({conf.TRACTOR_MAXSTEPS}, {conf.TRACTOR_CONTHRESH})')
+        tr.freezeParams('images')  
+
+
+        # if conf.USE_CERES:
+
+        #     self.logger.debug(f'Starting ceres optimization ({conf.TRACTOR_MAXSTEPS}, {conf.TRACTOR_CONTHRESH})') 
+
+        #     self.n_converge = 0
+        #     tstart = time.time()
+        #     R = tr.optimize_loop() #variance=True, dnlp=conf.TRACTOR_CONTHRESH, max_iterations=conf.TRACTOR_MAXSTEPS)
+        #     self.logger.info(f'Blob #{self.blob_id} converged ({time.time() - tstart:3.3f}s)')
+
+        # else:
+
+        self.logger.debug(f'Starting lsqr optimization ({conf.TRACTOR_MAXSTEPS}, {conf.TRACTOR_CONTHRESH})') 
 
         self.n_converge = 0
         dlnp_init = 'NaN'
         tstart = time.time()
-        
+
         for i in range(conf.TRACTOR_MAXSTEPS):
             try:
                 dlnp, X, alpha, var = tr.optimize(shared_params=False, variance=True)
@@ -678,7 +690,7 @@ class Blob(Subimage):
 
         cat = tr.getCatalog()
         var_catalog = cat.copy()
-        var_catalog.setParams(var)
+        # var_catalog.setParams(var)
         # if (cat != 0).all():
         #     var_catalog = self.solution_catalog.copy()
         #     var_catalog = var_catalog.setParams(var)
@@ -1004,7 +1016,7 @@ class Blob(Subimage):
 
             self.bcatalog[row]['MAG_'+band] = -2.5 * np.log10(src.getBrightness().getFlux(band)) + zpt
             self.bcatalog[row]['MAGERR_'+band] = 1.09 * np.sqrt(flux_var[row].brightness.getParams()[i]) / src.getBrightness().getFlux(band)
-            self.bcatalog[row]['RAWFLUX_'+band] = src.getBrightness().getFlux(band)  # Force fluxes to be in uJy!
+            self.bcatalog[row]['RAWFLUX_'+band] = src.getBrightness().getFlux(band)
             self.bcatalog[row]['RAWFLUXERR_'+band] = np.sqrt(flux_var[row].brightness.getParams()[i])
             self.bcatalog[row]['FLUX_'+band] = src.getBrightness().getFlux(band) * 10**(-0.4 * (zpt - 23.9))  # Force fluxes to be in uJy!
             self.bcatalog[row]['FLUXERR_'+band] = np.sqrt(flux_var[row].brightness.getParams()[i]) * 10**(-0.4 * (zpt - 23.9))

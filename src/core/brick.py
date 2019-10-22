@@ -210,41 +210,53 @@ class Brick(Subimage):
                     pw, ph = np.shape(psfmodel.img)
                     cmask = create_circular_mask(pw, ph, radius=conf.PSF_MASKRAD / conf.PIXEL_SCALE)
                     bcmask = ~cmask.astype(bool) & (psfmodel.img > 0)
-                    psfmodel.img -= np.nanmedian(psfmodel.img[bcmask])
+                    psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
                     psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
                 if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
                     psfmodel.img /= psfmodel.img.sum() # HACK -- force normalization to 1
                 self.logger.debug(f'blob.stage_images :: Adopting constant PSF.')
 
-            if True: #band in conf.CONSTANT_PSF:
-                psfmodel = psf.constantPsfAt(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.)
-                if conf.PLOT > 0:
+                if conf.PLOT > 1:
                     import matplotlib.pyplot as plt
                     fig, ax = plt.subplots()
                     ax.imshow(psf.getImage(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.))
                     fig.savefig(os.path.join(conf.PLOT_DIR, f'{band}_psf.pdf'))
-                self.logger.debug(f'blob.stage_images :: Adopting constant PSF.')
-            else:
-                blobmask = np.array(self.blobmap == src['blob_id'], bool)
-                idx, idy = blobmask.nonzero()
-                xlo, xhi = np.min(idx), np.max(idx) + 1
-                ylo, yhi = np.min(idy), np.max(idy) + 1
-                w = xhi - xlo
-                h = yhi - ylo
 
-                left = x0 - buffer
-                bottom = y0 - buffer
+            elif (psf is not None):
+                # blobmask = np.array(self.blobmap == src['blob_id'], bool)
+                # idx, idy = blobmask.nonzero()
+                # xlo, xhi = np.min(idx), np.max(idx) + 1
+                # ylo, yhi = np.min(idy), np.max(idy) + 1
+                # w = xhi - xlo
+                # h = yhi - ylo
 
-                subvector = (left, bottom)
+                # left = x0 - conf.BLOB_BUFFER
+                # bottom = y0 - conf.BLOB_BUFFER
 
-                blob_center = (xlo + w/2., ylo + h/2.)
-                blob_centerx = blob_center[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
-                blob_centery = blob_center[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
-                psfmodel = psf.constantPsfAt(blob_centerx, blob_centery) # init at blob center, may need to swap!
+                # subvector = (left, bottom)
+
+                # blob_center = (xlo + w/2., ylo + h/2.)
+                # blob_centerx = blob_center[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
+                # blob_centery = blob_center[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
+                blob_centerx = self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
+                blob_centery = self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
+                psfmodel = psf.constantPsfAt(blob_centerx, blob_centery) # init at brick center, for now...
+                if conf.RMBACK_PSF & (not conf.FORCE_GAUSSIAN_PSF):
+                    pw, ph = np.shape(psfmodel.img)
+                    cmask = create_circular_mask(pw, ph, radius=conf.PSF_MASKRAD / conf.PIXEL_SCALE)
+                    bcmask = ~cmask.astype(bool) & (psfmodel.img > 0)
+                    psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
+                    psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
+                if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
+                    psfmodel.img /= psfmodel.img.sum() # HACK -- force normalization to 1
                 self.logger.debug(f'blob.stage_images :: Adopting varying PSF constant at ({blob_centerx}, {blob_centery})')
 
-            if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
-                psfmodel.img /= psfmodel.img.sum()
+            elif (psf is None):
+                if conf.USE_GAUSSIAN_PSF:
+                    psfmodel = NCircularGaussianPSF([conf.PSF_SIGMA / conf.PIXEL_SCALE], [1,])
+                    self.logger.debug(f'Adopting {conf.PSF_SIGMA}" Gaussian PSF.')
+                else:
+                    raise ValueError(f'WARNING - No PSF model found for {band}!')
 
             timages[i] = Image(data=np.zeros_like(self.images[0]),
                             invvar=np.ones_like(self.images[0]),
@@ -286,8 +298,8 @@ class Brick(Subimage):
                 shape = EllipseESoft.fromRAbPhi(src['REFF'], 1/src['AB'], -src['THETA'])
                 self.model_catalog[i] = DevGalaxy(position, flux, shape)
             elif src['SOLMODEL'] == "FixedCompositeGalaxy":
-                shape_exp = EllipseESoft.fromRAbPhi(src['REFF'], 1/src['AB'], -src['THETA'])
-                shape_dev = EllipseESoft.fromRAbPhi(src['REFF'], 1/src['AB'], -src['THETA'])
+                shape_exp = EllipseESoft.fromRAbPhi(src['EXP_REFF'], 1/src['EXP_AB'], -src['EXP_THETA'])
+                shape_dev = EllipseESoft.fromRAbPhi(src['DEV_REFF'], 1/src['DEV_AB'], -src['DEV_THETA'])
                 self.model_catalog[i] = FixedCompositeGalaxy(
                                                 position, flux,
                                                 SoftenedFracDev(src['FRACDEV']),
