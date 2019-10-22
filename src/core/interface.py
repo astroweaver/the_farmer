@@ -399,10 +399,10 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0):
 
     if fblob is not None:
         # make new blob with band information
-        astart = time.time() 
+        logger.debug(f'Making blob with {conf.MULTIBAND_NICKNAME}')
         fblob.logger = logger
 
-
+        astart = time.time() 
         if modblob is not None:
             fblob.model_catalog = modblob.solution_catalog.copy()
             fblob.position_variance = modblob.position_variance.copy()
@@ -428,8 +428,6 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0):
                     logger.warning('All sources are invalid!')
                     catalog['X_MODEL'] += fblob.subvector[1] + fblob.mosaic_origin[1] - conf.BRICK_BUFFER + 1
                     catalog['Y_MODEL'] += fblob.subvector[0] + fblob.mosaic_origin[0] - conf.BRICK_BUFFER + 1
-                    if conf.NTHREADS != 0:
-                        logger.removeHandler(fh)
                     return fblob.bcatalog.copy()
 
                 fblob.position_variance = None
@@ -441,9 +439,10 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0):
         # Forced phot
         astart = time.time() 
         fblob.stage_images()
-        logger.info(f'{fblob.bands} images staged. ({time.time() - astart:3.3f})s')
+        logger.info(f'{len(fblob.bands)} images staged. ({time.time() - astart:3.3f})s')
 
         astart = time.time() 
+        logger.info(f'Starting forced photometry...')
         status = fblob.forced_phot()
 
         if not status:
@@ -627,7 +626,7 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, blobmap=Non
         hdr = header_from_dict(conf.__dict__)
         hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
         hdu_table = fits.table_to_hdu(outcatalog)
-        hdul = fits.HDUList([hdu_table, hdu_info])
+        hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
         outpath = os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat')
         hdul.writeto(outpath, output_verify='ignore', overwrite=conf.OVERWRITE)
         logger.info(f'Wrote out catalog to {outpath}')
@@ -693,7 +692,9 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, blobmap=Non
         hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
         hdu_table = fits.table_to_hdu(outcatalog)
         hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
-        hdul.writeto(os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat'), overwrite=conf.OVERWRITE)
+        outpath = os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat')
+        hdul.writeto(outpath, output_verify='ignore', overwrite=conf.OVERWRITE)
+        logger.info(f'Wrote out catalog to {outpath}')
         
         # open again and add
 
@@ -732,6 +733,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
 
     search_fn = os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat')
     if os.path.exists(search_fn):
+        print(fits.open(search_fn).info())
         fbrick.catalog = Table(fits.open(search_fn)[1].data)
         fbrick.n_sources = len(fbrick.catalog)
         fbrick.n_blobs = fbrick.catalog['blob_id'].max()
@@ -747,9 +749,9 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
 
     fbrick.add_columns(band_only=True)
 
-    logger.info(f'{fband} brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
+    logger.info(f'{conf.MULTIBAND_NICKNAME} brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
 
-    if conf.PLOT > 1:
+    if conf.PLOT > 2:
         for plt_band in fband:
             if len(fband) == 1:
                 idx = 0
@@ -773,7 +775,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
         logger.debug(f'    RMS: {fbrick.backgrounds[i, 1]:3.3f}')
             
 
-    logger.info(f'Forcing models on {fband}')
+    logger.info(f'Forcing models on {len(fband)} {conf.MULTIBAND_NICKNAME} bands')
 
     tstart = time.time()
     if (source_id is not None) | (blob_id is not None):

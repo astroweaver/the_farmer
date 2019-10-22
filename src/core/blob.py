@@ -24,7 +24,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import ascii, fits
 from astropy.table import Table, Column
-from tractor import NCircularGaussianPSF, PixelizedPSF, Image, Tractor, FluxesPhotoCal, NullWCS, ConstantSky, EllipseESoft, Fluxes, PixPos
+from tractor import NCircularGaussianPSF, PixelizedPSF, Image, Tractor, FluxesPhotoCal, NullWCS, ConstantSky, EllipseE, EllipseESoft, Fluxes, PixPos
 from tractor.galaxy import ExpGalaxy, DevGalaxy, FixedCompositeGalaxy, SoftenedFracDev
 from tractor.pointsource import PointSource
 import time
@@ -218,8 +218,8 @@ class Blob(Subimage):
             flux = Fluxes(**dict(zip(self.bands, src['flux']*np.ones(self.n_bands))))
 
             #shape = GalaxyShape(src['a'], src['b'] / src['a'], src['theta'])
-            shape = EllipseESoft.fromRAbPhi(src['a'], src['b'] / src['a'], -0.5*src['theta'])
-            #shape = EllipseESoft.fromRAbPhi(1, 1, 0)
+            shape = EllipseESoft.fromRAbPhi(src['a'], src['b'] / src['a'], -np.rad2deg(src['theta']))
+            # shape = EllipseESoft.fromRAbPhi(3.0, 0.6, 38)
 
             if mid == 1:
                 self.model_catalog[i] = PointSource(position, flux)
@@ -645,6 +645,10 @@ class Blob(Subimage):
         if tr is None:
             tr = self.tr
 
+        if conf.USE_CERES:
+            from tractor.ceres_optimizer import CeresOptimizer
+            tr.optimizer = CeresOptimizer()
+
         tr.freezeParams('images')   
         
         self.logger.debug(f'Starting optimization ({conf.TRACTOR_MAXSTEPS}, {conf.TRACTOR_CONTHRESH})')
@@ -656,6 +660,7 @@ class Blob(Subimage):
         for i in range(conf.TRACTOR_MAXSTEPS):
             try:
                 dlnp, X, alpha, var = tr.optimize(shared_params=False, variance=True)
+                self.logger.debug(f'    {i}) dlnp = {dlnp}')
                 if i == 0:
                     dlnp_init = dlnp
             except:
@@ -667,7 +672,6 @@ class Blob(Subimage):
                 self.n_converge = i
                 break
             
-
         if var is None:
             self.logger.warning(f'Variance was not output for blob #{self.blob_id}')
             return False
@@ -795,7 +799,7 @@ class Blob(Subimage):
                         image *= self.masks[self.band2idx(band)]
                     if sub_background:
                         image -= self.background_images[idx]
-                    self.logger.debug('Measuring {apertures_arcsec[i]:2.2f}" aperture flux on 1 source of {len(cat)}.')
+                    self.logger.debug(f'Measuring {apertures_arcsec[i]:2.2f}" aperture flux on 1 source of {len(cat)}.')
                     p = photutils.aperture_photometry(image, aper, error=imgerr)
                     # aper.plot()
                     apflux[j, i] = p.field('aperture_sum') * 10**(-0.4 * (zpt - 23.9))
@@ -937,41 +941,36 @@ class Blob(Subimage):
         self.solution_model_images = np.array([self.tr.getModelImage(i) for i in np.arange(self.n_bands)])
         self.solution_chi_images = np.array([self.tr.getChiImage(i) for i in np.arange(self.n_bands)])
 
-        self.logger.debug(f'Resulting model parameters for blob #{self.blob_id}')
+        self.logger.info(f'Resulting model parameters for blob #{self.blob_id}')
         for i, src in enumerate(self.bcatalog):
-            self.logger.debug(f'Source #{src["source_id"]}: {self.solution_catalog[i].name} model at {self.solution_catalog[i].pos}')
-            if self.solution_catalog[i].name not in ('PointSource', 'SimpleGalaxy'):
-                if self.solution_catalog[i].name == 'FixedCompositeGalaxy': 
-                    shapeExp, shapeExp_err = self.solution_catalog[i].shapeExp, self.forced_variance[i].shapeExp.getParams('shapeExp')
-                    shapeDev, shapeDev_err = self.solution_catalog[i].shapeDev, self.forced_variance[i].shapeDev.getParams('shapeDev')
-                    self.logger.debug(f'    ShapeExp -- Log(Reff): {shapeExp.re:3.3f} +/- {shapeExp_err.re:3.3f}')
-                    self.logger.debug(f'    ShapeExp -- ee1:       {shapeExp.ee1:3.3f} +/- {shapeExp_err.ee1:3.3f}')
-                    self.logger.debug(f'    ShapeExp -- ee2:       {shapeExp.ee2:3.3f} +/- {shapeExp_err.ee2:3.3f}')
-                    self.logger.debug(f'    ShapeDev -- Log(Reff): {shapeDev.re:3.3f} +/- {shapeDev_err.re:3.3f}')
-                    self.logger.debug(f'    ShapeDev -- ee1:       {shapeDev.ee1:3.3f} +/- {shapeDev_err.ee1:3.3f}')
-                    self.logger.debug(f'    ShapeDev -- ee2:       {shapeDev.ee2:3.3f} +/- {shapeDev_err.ee2:3.3f}')
-                else:
-                    shape, shape_err = self.solution_catalog[i].shape, self.forced_variance[i].shape
-                    self.logger.debug(f'    Shape -- Log(Reff): {shape.re:3.3f} +/- {shape_err.re:3.3f}')
-                    self.logger.debug(f'    Shape -- ee1:       {shape.ee1:3.3f} +/- {shape_err.ee1:3.3f}')
-                    self.logger.debug(f'    Shape -- ee2:       {shape.ee2:3.3f} +/- {shape_err.ee2:3.3f}')
+            self.logger.info(f'Source #{src["source_id"]}: {self.solution_catalog[i].name} model at {self.solution_catalog[i].pos}')
+            # if self.solution_catalog[i].name not in ('PointSource', 'SimpleGalaxy'):
+            #     if self.solution_catalog[i].name == 'FixedCompositeGalaxy': 
+            #         shapeExp, shapeExp_err = self.solution_catalog[i].shapeExp, self.forced_variance[i].shapeExp.getParams('shapeExp')
+            #         shapeDev, shapeDev_err = self.solution_catalog[i].shapeDev, self.forced_variance[i].shapeDev.getParams('shapeDev')
+            #         self.logger.info(f'    ShapeExp -- Reff:      {shapeExp.re:3.3f} +/- {shapeExp_err.re:3.3f}')
+            #         self.logger.info(f'    ShapeExp -- ee1:       {shapeExp.ee1:3.3f} +/- {shapeExp_err.ee1:3.3f}')
+            #         self.logger.info(f'    ShapeExp -- ee2:       {shapeExp.ee2:3.3f} +/- {shapeExp_err.ee2:3.3f}')
+            #         self.logger.info(f'    ShapeDev -- Reff:      {shapeDev.re:3.3f} +/- {shapeDev_err.re:3.3f}')
+            #         self.logger.info(f'    ShapeDev -- ee1:       {shapeDev.ee1:3.3f} +/- {shapeDev_err.ee1:3.3f}')
+            #         self.logger.info(f'    ShapeDev -- ee2:       {shapeDev.ee2:3.3f} +/- {shapeDev_err.ee2:3.3f}')
+            #     else:
+            #         shape, shape_err = self.solution_catalog[i].shape, self.forced_variance[i].shape
+            #         self.logger.info(f'    Shape -- Reff:      {shape.re:3.3f} +/- {shape_err.re:3.3f}')
+            #         self.logger.info(f'    Shape -- ee1:       {shape.ee1:3.3f} +/- {shape_err.ee1:3.3f}')
+            #         self.logger.info(f'    Shape -- ee2:       {shape.ee2:3.3f} +/- {shape_err.ee2:3.3f}')
             for j, band in enumerate(self.bands):
                 totalchisq = np.sum((self.tr.getChiImage(j)[self.segmap == src['source_id']])**2)
                 m_param = self.model_catalog[i].numberOfParams()
                 n_data = np.sum(self.segmap == src['source_id'])
                 self.solution_bic[i, j] = totalchisq + np.log(n_data) * m_param
                 self.solution_chisq[i, j] = totalchisq / (n_data - m_param)
-                # PENALTIES TBD
-                # residual = self.images[0] - self.tr.getModelImage(0)
-                # if np.median(residual[self.masks[0]]) < 0:
-                #     self.logger.debug(f'Applying heavy penalty on source #{i+1} ({self.model_catalog[i].name})!')
-                #     totalchisq = 1E30
-                flux = self.solution_catalog[i].getBrightness().getFlux(self.bands[j])
-                fluxerr = np.sqrt(self.forced_variance[i].brightness.getParams()[j])
-                self.logger.debug(f'Source #{src["source_id"]} in {self.bands[j]}')
-                self.logger.debug(f'    Flux({self.bands[j]}):  {flux:3.3f} +/- {fluxerr:3.3f}') 
-                self.logger.debug(f'    Chisq({self.bands[j]}): {totalchisq:3.3f}')
-                self.logger.debug(f'    BIC({self.bands[j]}):   {self.solution_bic[i, j]:3.3f}')
+                # flux = self.solution_catalog[i].getBrightness().getFlux(self.bands[j])
+                # fluxerr = np.sqrt(self.forced_variance[i].brightness.getParams()[j])
+                # self.logger.info(f'Source #{src["source_id"]} in {self.bands[j]}')
+                # self.logger.info(f'    Flux({self.bands[j]}):  {flux:3.3f} +/- {fluxerr:3.3f}') 
+                # self.logger.info(f'    Chisq({self.bands[j]}): {totalchisq:3.3f}')
+                # self.logger.info(f'    BIC({self.bands[j]}):   {self.solution_bic[i, j]:3.3f}')
 
 
         # self.rows = np.zeros(len(self.solution_catalog))
@@ -1040,8 +1039,8 @@ class Blob(Subimage):
             self.bcatalog[row]['y'] = self.bcatalog[row]['y'] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
             self.bcatalog[row]['X_MODEL'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
             self.bcatalog[row]['Y_MODEL'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
-            self.logger.info(f"   Detection Position: {self.bcatalog[row]['x']:3.3f}, {self.bcatalog[row]['y']:3.3f}")
-            self.logger.info(f"   Model Position:     {self.bcatalog[row]['X_MODEL']:3.3f}, {self.bcatalog[row]['Y_MODEL']:3.3f}")
+            self.logger.info(f"    Detection Position: {self.bcatalog[row]['x']:3.3f}, {self.bcatalog[row]['y']:3.3f}")
+            self.logger.info(f"    Model Position:     {self.bcatalog[row]['X_MODEL']:3.3f}, {self.bcatalog[row]['Y_MODEL']:3.3f}")
             self.logger.debug(f"   Blob Origin:        {self.subvector[1]:3.3f}, {self.subvector[0]:3.3f}")
             self.logger.debug(f"   Mosaic Origin:      {self.mosaic_origin[1]:3.3f}, {self.mosaic_origin[0]:3.3f}")
             self.logger.debug(f"   Brick Buffer:       {conf.BRICK_BUFFER:3.3f}")
@@ -1065,6 +1064,7 @@ class Blob(Subimage):
                 self.bcatalog[row]['AB'] = (src.shape.e + 1) / (1 - src.shape.e)
                 if (src.shape.e >= 1) | (src.shape.e <= -1):
                     self.bcatalog[row]['VALID_SOURCE'] = False
+                    self.logger.warning(f'Source has invalid ellipticity! (e = {src.shape.e:3.3f})')
                 self.bcatalog[row]['AB_ERR'] = np.sqrt(self.parameter_variance[row].shape.getParams()[1])
                 self.bcatalog[row]['THETA'] = np.rad2deg(src.shape.theta)
                 self.bcatalog[row]['THETA_ERR'] = np.sqrt(self.parameter_variance[row].shape.getParams()[2])
