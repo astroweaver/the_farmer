@@ -301,7 +301,10 @@ class Blob(Subimage):
                     m_param = self.model_catalog[i].numberOfParams()
                     n_data = np.sum(self.segmap == src['source_id'])
                     self.chisq[i, self._level, self._sublevel] = totalchisq
-                    self.rchisq[i, self._level, self._sublevel] = totalchisq / (n_data - m_param)
+                    ndof = (n_data - m_param)
+                    if ndof < 1:
+                        ndof = 1
+                    self.rchisq[i, self._level, self._sublevel] = totalchisq / ndof
                     self.bic[i, self._level, self._sublevel] = self.rchisq[i, self._level, self._sublevel] + np.log(n_data) * m_param
  
                     self.logger.debug(f'Source #{src["source_id"]} with {self.model_catalog[i].name} has rchisq={self.rchisq[i, self._level, self._sublevel]:3.3f} | bic={self.bic[i, self._level, self._sublevel]:3.3f}')
@@ -367,7 +370,10 @@ class Blob(Subimage):
                 totalchisq = np.sum((self.tr.getChiImage(j)[self.segmap == src['source_id']])**2)
                 m_param = self.model_catalog[i].numberOfParams()
                 n_data = np.sum(self.segmap == src['source_id'])
-                self.solution_chisq[i, j] = totalchisq / (n_data - m_param)
+                ndof = (n_data - m_param)
+                if ndof < 1:
+                    ndof = 1
+                self.solution_chisq[i, j] = totalchisq / ndof
                 self.solution_bic[i, j] = self.solution_chisq[i, j] + np.log(n_data) * m_param
                 self.logger.debug(f'Source #{src["source_id"]} ({band}) with {self.model_catalog[i].name} has rchisq={self.solution_chisq[i, j]:3.3f} | bic={self.solution_bic[i, j]:3.3f}')
 
@@ -568,11 +574,11 @@ class Blob(Subimage):
             # Which better than SG but nearly equally good?
             nextmask = expmask & devmask & movemask
 
-            # For which was SG better
+            # For which was SG best? Then go back!
             premask_sg = ~expmask & ~devmask & (chisq[:, 0, 1] < chisq[:, 0, 0])
 
-            # For which was PS better
-            premask_ps = ~expmask & ~devmask & (chisq[:, 0, 0] < chisq[:, 0, 1])
+            # For which was PS best? The go back!
+            premask_ps = (chisq[:, 0, 0] < chisq[:, 0, 1]) & (chisq[:, 0, 0] < chisq[:, 1, 0]) & (chisq[:, 0, 0] < chisq[:, 1, 1])
 
             # If Exp beats Dev by a lot
             nexpmask = expmask & ~movemask & (abs(chisq_exp - chisq[:, 1, 0])  <  abs(chisq_exp - chisq[:, 1, 1]))
@@ -580,9 +586,22 @@ class Blob(Subimage):
              # If Dev beats Exp by a lot
             ndevmask = devmask & ~movemask & (abs(chisq_exp - chisq[:, 1, 1]) < abs(chisq_exp - chisq[:, 1, 0]))
 
+            # Check solved first
+            if nexpmask.any():
+                solution_catalog[nexpmask] = tr_catalogs[nexpmask, 1, 0].copy()
+                solved_chisq[nexpmask] = chisq[nexpmask, 1, 0]
+                mids[nexpmask] = 3
+
+            if ndevmask.any():
+                solution_catalog[ndevmask] = tr_catalogs[ndevmask, 1, 1].copy()
+                solved_chisq[ndevmask] = chisq[ndevmask, 1, 1]
+                mids[ndevmask] = 4
+
+            # Then which ones might advance
             if nextmask.any():
                 mids[nextmask] = 5
 
+            # Then which are going back (which can overrwrite)
             if premask_ps.any():
                 solution_catalog[premask_ps] = tr_catalogs[premask_ps, 0, 0].copy()
                 solved_chisq[premask_ps] = chisq[premask_ps, 0, 0]
@@ -593,17 +612,9 @@ class Blob(Subimage):
                 solved_chisq[premask_sg] = chisq[premask_sg, 0, 1]
                 mids[premask_sg] = 2
 
-            if nexpmask.any():
+            
 
-                solution_catalog[nexpmask] = tr_catalogs[nexpmask, 1, 0].copy()
-                solved_chisq[nexpmask] = chisq[nexpmask, 1, 0]
-                mids[nexpmask] = 3
 
-            if ndevmask.any():
-
-                solution_catalog[ndevmask] = tr_catalogs[ndevmask, 1, 1].copy()
-                solved_chisq[ndevmask] = chisq[ndevmask, 1, 1]
-                mids[ndevmask] = 4
 
         if self._level == 2:
             for i, blob_id in enumerate(sid):
