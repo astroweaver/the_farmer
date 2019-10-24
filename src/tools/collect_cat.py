@@ -58,7 +58,7 @@ first_stack = True
 for i, fname in enumerate(walk_through_files(out_dir, cat_prefix, cat_suffix)):
     print('addding {}'.format(fname))
     try:
-        cat = Table.read(fname, format='fits')
+        cat = Table.read(fname, 1, memmap=True)
         total_count += 1
     except:
         print('COULD NOT READ FILE.')
@@ -121,6 +121,7 @@ for i, fname in enumerate(walk_through_files(out_dir, cat_prefix, cat_suffix)):
             print('Failed to stack!')
             continue
         
+    del cat
     
     
 
