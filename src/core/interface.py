@@ -379,7 +379,7 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0):
 
         # Run follow-up phot
         if conf.DO_APPHOT:
-            for img_type in ('image', 'model', 'residual'):
+            for img_type in ('image', 'model', 'isomodel', 'residual'):
                 # for band in modblob.bands:
                 # try:
                 modblob.aperture_phot(image_type=img_type, sub_background=conf.SUBTRACT_BACKGROUND)
@@ -423,7 +423,7 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0):
                 catalog['X_MODEL'] -= fblob.subvector[1] + fblob.mosaic_origin[1] - conf.BRICK_BUFFER + 1
                 catalog['Y_MODEL'] -= fblob.subvector[0] + fblob.mosaic_origin[0] - conf.BRICK_BUFFER + 1
 
-                fblob.model_catalog, good_sources = models_from_catalog(catalog, fblob.bands, fblob.mosaic_origin)
+                fblob.model_catalog, good_sources = models_from_catalog(catalog, fblob)
                 if (good_sources == False).all():
                     logger.warning('All sources are invalid!')
                     catalog['X_MODEL'] += fblob.subvector[1] + fblob.mosaic_origin[1] - conf.BRICK_BUFFER + 1
@@ -1002,18 +1002,23 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, modeling=False):
     return newbrick
 
 
-def models_from_catalog(catalog, band, rmvector):
+def models_from_catalog(catalog, fblob):
         # make multiband catalog from det output
         logger.info('Adopting sources from existing catalog.')
         model_catalog = -99 * np.ones(len(catalog), dtype=object)
         good_sources = np.ones(len(catalog), dtype=bool)
 
-        
+        band, rmvector = fblob.bands, fblob.mosaic_origin
 
         for i, src in enumerate(catalog):
 
             position = PixPos(src['X_MODEL'], src['Y_MODEL'])
-            flux = Fluxes(**dict(zip(band, src['FLUX_'+conf.MODELING_NICKNAME] * np.ones(len(band)))))
+            
+            original_zpt = 23.9
+            idx_bands = [fblob._band2idx(b) for b in fblob.bands]
+            target_zpt = np.array(conf.MULTIBAND_ZPT)[idx_bands]
+            flux_conv = src['FLUX_'+conf.MODELING_NICKNAME] * 10 ** (-0.4 * (target_zpt - original_zpt))
+            flux = Fluxes(**dict(zip(band, flux_conv)))
 
             # Check if valid source
             if not src['VALID_SOURCE']:

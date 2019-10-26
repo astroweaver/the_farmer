@@ -27,6 +27,7 @@ from astropy.table import Table, Column
 from tractor import NCircularGaussianPSF, PixelizedPSF, Image, Tractor, FluxesPhotoCal, NullWCS, ConstantSky, EllipseE, EllipseESoft, Fluxes, PixPos
 from tractor.galaxy import ExpGalaxy, DevGalaxy, FixedCompositeGalaxy, SoftenedFracDev
 from tractor.pointsource import PointSource
+from tractor.psf import HybridPixelizedPSF
 import time
 import photutils
 import sep
@@ -151,6 +152,10 @@ class Blob(Subimage):
                     psfmodel.img /= psfmodel.img.sum() # HACK -- force normalization to 1
                 self.logger.debug('Adopting constant PSF.')
 
+                if conf.USE_MOG_PSF:
+                    self.logger.debug('Making a Gaussian Mixture PSF')
+                    psfmodel = HybridPixelizedPSF(pix=psfmodel, N=10).gauss
+
             elif (psf is not None):
                 blob_centerx = self.blob_center[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
                 blob_centery = self.blob_center[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
@@ -165,6 +170,7 @@ class Blob(Subimage):
                     psfmodel.img /= psfmodel.img.sum() # HACK -- force normalization to 1
                 self.logger.debug(f'Adopting varying PSF constant at ({blob_centerx}, {blob_centery}).')
             
+
             elif (psf is None):
                 if conf.USE_GAUSSIAN_PSF:
                     psfmodel = NCircularGaussianPSF([conf.PSF_SIGMA / conf.PIXEL_SCALE], [1,])
@@ -172,15 +178,18 @@ class Blob(Subimage):
                 else:
                     raise ValueError(f'WARNING - No PSF model found for {band}!')
 
-            if psf is not None:
+            if (psf is not None) & (~conf.USE_MOG_PSF):
                 try:
                     psfimg = psfmodel.img
                 except:
                     psfimg = psfmodel.getImage(0, 0)
-                self.psfimg = psfimg
+            else:
+                psfimg = psfmodel.getPointSourcePatch(0, 0).getImage()
+
+            self.psfimg = psfimg
             
-                if (conf.PLOT > 1):
-                    plot_psf(psfimg, band, show_gaussian=False)
+            if (conf.PLOT > 1):
+                plot_psf(psfimg, band, show_gaussian=False)
                     
             self.logger.debug('Making image...')
             timages[i] = Image(data=image,
@@ -216,14 +225,11 @@ class Blob(Subimage):
             else:
                 position = PixPos(src['x'], src['y'])
             
-            original_zpt = 23.9
-            idx_bands = [self._band2idx(b) for b in self.bands]
-            target_zpt = np.array(conf.MULTIBAND_ZPT)[idx_bands]
-            flux_conv = src['FLUX_MODELING'] * 10 ** (-0.4 * (target_zpt - original_zpt))
-            flux = Fluxes(**dict(zip(self.bands, flux_conv)))
+            flux = Fluxes(**dict(zip(self.bands, src['flux'] * np.ones(len(self.bands)))))
 
             #shape = GalaxyShape(src['a'], src['b'] / src['a'], src['theta'])
-            shape = EllipseESoft.fromRAbPhi(src['a'], src['b'] / src['a'], -np.rad2deg(src['theta']))
+            pa = 90 + np.rad2deg(src['theta'])
+            shape = EllipseESoft.fromRAbPhi(src['a'], src['b'] / src['a'], pa)
             # shape = EllipseESoft.fromRAbPhi(3.0, 0.6, 38)
 
             if mid == 1:
@@ -434,7 +440,7 @@ class Blob(Subimage):
             for i, blob_id in enumerate(sid):
                 self.logger.debug(f'Source #{blob_id} BIC -- PS({bic[i, 0, 0]:3.3f}) vs. SG({bic[i, 0, 1]:3.3f}) with thresh of {conf.PS_SG_THRESH:3.3f}')
             chmask = (bic[:, 0, 0] - bic[:, 0, 1] < conf.PS_SG_THRESH)
-            chmask[(rchisq[:, 0, 0] > 5) & (rchisq[:, 0, 1] > 5)] = False # For these, keep trying! Essentially a back-door for high a/b sources.
+            chmask[(rchisq[:, 0, 0] > conf.CHISQ_FORCE_EXP_DEV) & (rchisq[:, 0, 1] > conf.CHISQ_FORCE_EXP_DEV)] = False # For these, keep trying! Essentially a back-door for high a/b sources.
             if chmask.any():
                 solution_catalog[chmask] = tr_catalogs[chmask, 0, 0].copy()
                 solved_bic[chmask] = bic[chmask, 0, 0]
@@ -555,7 +561,7 @@ class Blob(Subimage):
             for i, blob_id in enumerate(sid):
                 self.logger.debug(f'Source #{blob_id} Chi2 -- PS({chisq[i, 0, 0]:3.3f}) vs. SG({chisq[i, 0, 1]:3.3f}) with thresh of {conf.PS_SG_THRESH:3.3f}')
             chmask = ((abs(chisq_exp - chisq[:, 0, 0]) - abs(chisq_exp - chisq[:, 0, 1])) < conf.PS_SG_THRESH)
-            chmask[(chisq[:, 0, 0] > 5) & (chisq[:, 0, 1] > 5)] = False # For these, keep trying! Essentially a back-door for high a/b sources.
+            chmask[(chisq[:, 0, 0] > conf.CHISQ_FORCE_EXP_DEV) & (chisq[:, 0, 1] > conf.CHISQ_FORCE_EXP_DEV)] = False # For these, keep trying! Essentially a back-door for high a/b sources.
             if chmask.any():
                 solution_catalog[chmask] = tr_catalogs[chmask, 0, 0].copy()
                 solved_chisq[chmask] = chisq[chmask, 0, 0]
@@ -699,6 +705,15 @@ class Blob(Subimage):
                 self.logger.info(f'Blob #{self.blob_id} converged in {i} steps ({dlnp_init:2.2f} --> {dlnp:2.2f}) ({time.time() - tstart:3.3f}s)')
                 self.n_converge = i
                 break
+
+            # cat = tr.getCatalog()
+            # for j, src in enumerate(cat):
+            #     if abs(self.bcatalog[j]['x'] - src.pos[0]) > 1:
+            #         self.logger.warning(f"Source #{self.bcatalog[j]['source_id']} moved too far away in x!")
+            #         src.pos = PixPos(self.bcatalog[j]['x'], self.bcatalog[j]['y'])
+            #     if abs(self.bcatalog[j]['y'] - src.pos[1]) > 1:
+            #         self.logger.warning(f"Source #{self.bcatalog[j]['source_id']} moved too far away in y!")
+            #         src.pos = PixPos(self.bcatalog[j]['x'], self.bcatalog[j]['y'])
             
         if var is None:
             self.logger.warning(f'Variance was not output for blob #{self.blob_id}')
@@ -1078,7 +1093,7 @@ class Blob(Subimage):
                 skyc = self.brick_wcs.all_pix2world(self.bcatalog[row]['X_MODEL'] - self.mosaic_origin[0] + conf.BRICK_BUFFER, self.bcatalog[row]['Y_MODEL'] - self.mosaic_origin[1] + conf.BRICK_BUFFER, 0)
                 self.bcatalog[row]['RA'] = skyc[0]
                 self.bcatalog[row]['DEC'] = skyc[1]
-                self.logger.info(f"    Sky Model RA, Dec:   {skyc[0]:3.3f} deg, {skyc[1]:3.3f} deg")
+                self.logger.info(f"    Sky Model RA, Dec:   {skyc[0]:6.6f} deg, {skyc[1]:6.6f} deg")
 
             # Model Parameters
             self.bcatalog[row]['SOLMODEL'] = src.name
