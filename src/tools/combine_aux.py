@@ -15,7 +15,7 @@ dir_aux = conf.INTERIM_DIR
 def combine(band, img_type):
     print(f'Starting aux combine on {band} {img_type}')
     img_total = np.zeros((conf.MOSAIC_WIDTH, conf.MOSAIC_HEIGHT))
-
+    N = 0
     for i in np.arange(n_bricks):
         fn = f'B{i+1}_AUXILLARY_MAPS.fits'
         brick_id = i + 1
@@ -24,6 +24,7 @@ def combine(band, img_type):
             continue
         with fits.open(path) as hdul:
             print(f'{i} -- {fn}')
+            N+=1
             img = hdul['{band}_{img_type}'].data
             
             img_crop = img[conf.BRICK_BUFFER:-conf.BRICK_BUFFER,conf.BRICK_BUFFER:-conf.BRICK_BUFFER]
@@ -32,9 +33,10 @@ def combine(band, img_type):
             y0 = int(((brick_id - 1) * conf.BRICK_HEIGHT) / conf.MOSAIC_HEIGHT) * conf.BRICK_HEIGHT
             img_total[x0:x0+conf.BRICK_WIDTH, y0:y0+conf.BRICK_HEIGHT] = img_crop
 
-
-    hdul = fits.HDUList([fits.PrimaryHDU(), fits.ImageHDU(data = img_total)])
-    hdul.writeto('AUX_{band}_{img_type}.fits', overwrite=conf.OVERWRITE)
+    if N > 0:
+        hdul = fits.HDUList([fits.PrimaryHDU(), fits.ImageHDU(data = img_total)])
+        hdul.writeto('AUX_{band}_{img_type}.fits', overwrite=conf.OVERWRITE)
+        print(f'Wrote out {N} bricks to AUX_{band}_{img_type}.fits')
 
 for band in conf.BANDS:
     for img_type in ('IMAGE', 'MODEL', 'RESIDUAL'):
