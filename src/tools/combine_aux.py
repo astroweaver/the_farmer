@@ -1,11 +1,11 @@
 # Combine all aux images
-
+import os
 import sys
 sys.path.insert(0, os.path.join(os.getcwd(), 'config'))
 import config as conf
 import numpy as np
 from astropy.io import fits
-import os
+
 
 
 
