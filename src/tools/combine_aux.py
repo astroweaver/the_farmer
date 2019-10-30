@@ -18,12 +18,12 @@ def combine(band, img_type):
 
     for i in np.arange(n_bricks):
         fn = f'B{i+1}_AUXILLARY_MAPS.fits'
-        print(f'{i} -- {fn}')
         brick_id = i + 1
         path = os.path.join(dir_aux, fn)
         if not os.path.exists(path):
             continue
         with fits.open(path) as hdul:
+            print(f'{i} -- {fn}')
             img = hdul['{band}_{img_type}'].data
             
             img_crop = img[conf.BRICK_BUFFER:-conf.BRICK_BUFFER,conf.BRICK_BUFFER:-conf.BRICK_BUFFER]
