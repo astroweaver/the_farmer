@@ -9,7 +9,7 @@ from astropy.io import fits
 
 
 
-n_bricks = conf.MOSAIC_WIDTH / conf.BRICK_WIDTH * conf.MOSAIC_HEIGHT / conf.BRICK_HEIGHT
+n_bricks = int(conf.MOSAIC_WIDTH / conf.BRICK_WIDTH * conf.MOSAIC_HEIGHT / conf.BRICK_HEIGHT)
 dir_aux = conf.INTERIM_DIR
 
 def combine(band, img_type):
