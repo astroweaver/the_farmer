@@ -10,7 +10,7 @@ from astropy.io import fits
 
 
 n_bricks = int(conf.MOSAIC_WIDTH / conf.BRICK_WIDTH * conf.MOSAIC_HEIGHT / conf.BRICK_HEIGHT)
-dir_aux = conf.INTERIM_DIR
+dir_aux = '.'
 
 def combine(band, img_type):
     print(f'Starting aux combine on {band} {img_type}')
@@ -39,5 +39,5 @@ def combine(band, img_type):
         print(f'Wrote out {N} bricks to AUX_{band}_{img_type}.fits')
 
 for band in conf.BANDS:
-    for img_type in ('IMAGE', 'MODEL', 'RESIDUAL'):
+    for img_type in ('MODEL', 'RESIDUAL'):
         combine(band, img_type)
