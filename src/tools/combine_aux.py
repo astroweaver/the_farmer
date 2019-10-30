@@ -25,7 +25,12 @@ def combine(band, img_type):
         with fits.open(path) as hdul:
             print(f'{i} -- {fn}')
             N+=1
-            img = hdul[f'{band}_{img_type}'].data
+            try:
+                extension = f'{band}_{img_type}'
+                extension = extension.upper()
+                img = hdul[extension].data
+            except:
+                print(f'Could not find extension: {extension}')
             
             img_crop = img[conf.BRICK_BUFFER:-conf.BRICK_BUFFER,conf.BRICK_BUFFER:-conf.BRICK_BUFFER]
             
