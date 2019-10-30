@@ -40,7 +40,7 @@ def combine(band, img_type):
 
     if N > 0:
         hdul = fits.HDUList([fits.PrimaryHDU(), fits.ImageHDU(data = img_total)])
-        hdul.writeto('AUX_{band}_{img_type}.fits', overwrite=conf.OVERWRITE)
+        hdul.writeto(f'AUX_{band}_{img_type}.fits', overwrite=conf.OVERWRITE)
         print(f'Wrote out {N} bricks to AUX_{band}_{img_type}.fits')
 
 for band in conf.BANDS:
