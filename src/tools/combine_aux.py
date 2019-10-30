@@ -1,7 +1,7 @@
 # Combine all aux images
 import os
 import sys
-sys.path.insert(0, os.path.join('../../config'))
+sys.path.insert(0, os.path.join('/n07data/weaver/COSMOS2020/config'))
 import config as conf
 import numpy as np
 from astropy.io import fits
