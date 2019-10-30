@@ -42,7 +42,7 @@ import weakref
 from scipy import stats
 import pathos as pa
 from astropy.coordinates import SkyCoord
-import sfdmap
+# import sfdmap
 
 
 
@@ -56,7 +56,7 @@ try:
 except:
     raise RuntimeError('Cannot find configuration file!')
 
-m = sfdmap.SFDMap(conf.SFDMAP_DIR)
+# m = sfdmap.SFDMap(conf.SFDMAP_DIR)
 
 # Make sure no interactive plotting is going on.
 plt.ioff()
@@ -629,12 +629,12 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, blobmap=Non
         for row in output_cat:
             outcatalog[np.where(outcatalog['source_id'] == row['source_id'])[0]] = row
 
-        vs = outcatalog['VALID_SOURCE']
-        scoords = SkyCoord(ra=outcatalog[vs]['RA'], dec=outcatalog[vs]['DEC'], unit='degree')
-        ebmv = m.ebv(scoords)
-        col_ebmv = Column(np.zeros_like(outcatalog['RA']), name='EBV')
-        col_ebmv[vs] = ebmv
-        outcatalog.add_column(col_ebmv)
+        # vs = outcatalog['VALID_SOURCE']
+        # scoords = SkyCoord(ra=outcatalog[vs]['RA'], dec=outcatalog[vs]['DEC'], unit='degree')
+        # ebmv = m.ebv(scoords)
+        # col_ebmv = Column(np.zeros_like(outcatalog['RA']), name='EBV')
+        # col_ebmv[vs] = ebmv
+        # outcatalog.add_column(col_ebmv)
 
         # write out cat
         hdr = header_from_dict(conf.__dict__)
@@ -699,12 +699,13 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, blobmap=Non
         for row in output_cat:
             outcatalog[np.where(outcatalog['source_id'] == row['source_id'])[0]] = row
 
-        vs = outcatalog['VALID_SOURCE']
-        scoords = SkyCoord(ra=outcatalog[vs]['RA'], dec=outcatalog[vs]['DEC'], unit='degree')
-        ebmv = m.ebv(scoords)
-        col_ebmv = Column(np.zeros_like(outcatalog['RA']), name='EBV')
-        col_ebmv[vs] = ebmv
-        outcatalog.add_column(col_ebmv)
+        # vs = outcatalog['VALID_SOURCE']
+        # scoords = SkyCoord(ra=outcatalog[vs]['RA'], dec=outcatalog[vs]['DEC'], unit='degree')
+        # ebmv = m.ebv(scoords)
+        # col_ebmv = Column(np.zeros_like(outcatalog['RA']), name='EBV')
+        # col_ebmv[vs] = ebmv
+        # outcatalog.add_column(col_ebmv)
+        
 
         # write out cat
         # outcatalog['x'] += outcatalog['x'] + mosaic_origin[1] - conf.BRICK_BUFFER + 1.
