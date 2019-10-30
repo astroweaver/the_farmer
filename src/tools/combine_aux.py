@@ -1,9 +1,13 @@
 # Combine all aux images
 
+import sys
+sys.path.insert(0, os.path.join(os.getcwd(), 'config'))
 import config as conf
 import numpy as np
 from astropy.io import fits
 import os
+
+
 
 n_bricks = conf.MOSAIC_WIDTH / conf.BRICK_WIDTH * conf.MOSAIC_HEIGHT / conf.BRICK_HEIGHT
 dir_aux = conf.DIR_INTERIM
