@@ -277,6 +277,16 @@ class Brick(Subimage):
                 self.model_mask[i] = False
                 continue
 
+            raw_fluxes = np.array([src[f'RAWFLUX_{band}'] for band in self.bands])
+            if conf.RESIDUAL_CHISQ_REJECTION is not None:
+                for j, band in enumerate(self.bands):
+                    if src[f'CHISQ_{band}'] > conf.RESIDUAL_CHISQ_REJECTION:
+                        raw_fluxes[j] = 0.0
+                        self.logger.debug('Source has too large chisq. Rejecting!')
+            if conf.RESIDUAL_NEGFLUX_REJECTION:
+                raw_fluxes[raw_fluxes < 0.0] = 0.0
+                self.logger.debug('Source has negative flux. Rejecting!')
+
             # self.bcatalog[row]['X_MODEL'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
             # self.bcatalog[row]['Y_MODEL'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
 
@@ -284,7 +294,7 @@ class Brick(Subimage):
             by_model = src['Y_MODEL'] - self.mosaic_origin[0] + conf.BRICK_BUFFER - 1
 
             position = PixPos(bx_model, by_model)
-            flux = Fluxes(**dict(zip(self.bands, [src[f'RAWFLUX_{band}'] for band in self.bands]))) # IMAGES ARE IN NATIVE ZPT, USE RAWFLUXES!
+            flux = Fluxes(**dict(zip(self.bands, raw_fluxes))) # IMAGES ARE IN NATIVE ZPT, USE RAWFLUXES!
 
             if src['SOLMODEL'] == "PointSource":
                 self.model_catalog[i] = PointSource(position, flux)

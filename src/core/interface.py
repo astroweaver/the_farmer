@@ -41,6 +41,10 @@ import matplotlib.pyplot as plt
 import weakref
 from scipy import stats
 import pathos as pa
+from astropy.coordinates import SkyCoord
+import sfdmap
+
+
 
 # Local imports
 from .brick import Brick
@@ -51,6 +55,8 @@ try:
     import config as conf
 except:
     raise RuntimeError('Cannot find configuration file!')
+
+m = sfdmap.SFDMap(conf.SFDMAP_DIR)
 
 # Make sure no interactive plotting is going on.
 plt.ioff()
@@ -257,7 +263,7 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, insert=False, ski
             modmosaic._make_psf(xlims=mod_xlims, ylims=mod_ylims)
 
         # Make bricks in parallel
-        if conv.NTHREADS > 0:
+        if conf.NTHREADS > 0:
             logger.warning('Parallelization of brick making is currently disabled')
             # BUGGY DUE TO MEM ALLOC
             # if conf.VERBOSE: print('Making bricks for detection (in parallel)')
@@ -289,7 +295,7 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, insert=False, ski
                 overwrite = False
 
             # Build the mosaic
-            logger.info('Making mosaic for image {sband}...')
+            logger.info(f'Making mosaic for image {sband}...')
             bandmosaic = Mosaic(sband)
 
             # The user wants PSFs made on the fly
@@ -303,13 +309,14 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, insert=False, ski
 
             # Make bricks in parallel
             if conf.NTHREADS > 0:
-                logger.info('Making bricks for band {sband} (in parallel)')
-                pool = mp.ProcessingPool(processes=conf.NTHREADS)
-                pool.map(partial(bandmosaic._make_brick, detection=False, overwrite=overwrite), np.arange(0, bandmosaic.n_bricks()))
-
+                logger.info(f'Making bricks for band {sband} (in parallel)')
+                with pa.pools.ProcessPool(ncpus=conf.NTHREADS) as pool:
+                    logger.info(f'Parallel processing pool initalized with {conf.NTHREADS} threads.')
+                    pool.uimap(partial(bandmosaic._make_brick, detection=False, overwrite=overwrite), np.arange(0, bandmosaic.n_bricks()))
+                    logger.info('Parallel processing complete.')
             # Make bricks in serial
             else:
-                logger.info('Making bricks for band {sband} (in serial)')
+                logger.info(f'Making bricks for band {sband} (in serial)')
                 for brick_id in np.arange(1, bandmosaic.n_bricks()+1):
                     bandmosaic._make_brick(brick_id, detection=False, overwrite=overwrite)
 
@@ -622,6 +629,13 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, blobmap=Non
         for row in output_cat:
             outcatalog[np.where(outcatalog['source_id'] == row['source_id'])[0]] = row
 
+        vs = outcatalog['VALID_SOURCE']
+        scoords = SkyCoord(ra=outcatalog[vs]['RA'], dec=outcatalog[vs]['DEC'], unit='degree')
+        ebmv = m.ebv(scoords)
+        col_ebmv = Column(np.zeros_like(outcatalog['RA']), name='EBV')
+        col_ebmv[vs] = ebmv
+        outcatalog.add_column(col_ebmv)
+
         # write out cat
         hdr = header_from_dict(conf.__dict__)
         hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
@@ -685,6 +699,13 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, blobmap=Non
         for row in output_cat:
             outcatalog[np.where(outcatalog['source_id'] == row['source_id'])[0]] = row
 
+        vs = outcatalog['VALID_SOURCE']
+        scoords = SkyCoord(ra=outcatalog[vs]['RA'], dec=outcatalog[vs]['DEC'], unit='degree')
+        ebmv = m.ebv(scoords)
+        col_ebmv = Column(np.zeros_like(outcatalog['RA']), name='EBV')
+        col_ebmv[vs] = ebmv
+        outcatalog.add_column(col_ebmv)
+
         # write out cat
         # outcatalog['x'] += outcatalog['x'] + mosaic_origin[1] - conf.BRICK_BUFFER + 1.
         # outcatalog['y'] += outcatalog['y'] + mosaic_origin[0] - conf.BRICK_BUFFER + 1.
@@ -699,11 +720,11 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, blobmap=Non
         # open again and add
 
         # If user wants model and/or residual images made:
-        cleancatalog = outcatalog[outcatalog['VALID_SOURCE']]
-
         if conf.MAKE_RESIDUAL_IMAGE:
+            cleancatalog = outcatalog[outcatalog['VALID_SOURCE']]
             modbrick.make_residual_image(catalog=cleancatalog)
         elif conf.MAKE_MODEL_IMAGE:
+            cleancatalog = outcatalog[outcatalog['VALID_SOURCE']]
             modbrick.make_model_image(catalog=cleancatalog)
 
         return
@@ -932,13 +953,11 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
 
 
         # If user wants model and/or residual images made:
-        # If user wants model and/or residual images made:
-        cleancatalog = outcatalog[outcatalog['VALID_SOURCE']]
 
         if conf.MAKE_RESIDUAL_IMAGE:
-            fbrick.make_residual_image(catalog=cleancatalog)
+            fbrick.make_residual_image(catalog=outcatalog)
         elif conf.MAKE_MODEL_IMAGE:
-            fbrick.make_model_image(cleancatalog)
+            fbrick.make_model_image(outcatalog)
         
 
     return
@@ -986,7 +1005,11 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, modeling=False):
             continue
         path_psffile = os.path.join(conf.PSF_DIR, f'{band}.psf')
         if os.path.exists(path_psffile) & (not conf.FORCE_GAUSSIAN_PSF):
-            psfmodels[i] = PixelizedPsfEx(fn=path_psffile)
+            try:
+                psfmodels[i] = PixelizedPsfEx(fn=path_psffile)
+            except:
+                img = fits.open(path_psffile)[0].data
+                psfmodels[i] = PixelizedPSF(img)
         else:
             if conf.USE_GAUSSIAN_PSF:
                 psfmodels[i] = None

@@ -585,6 +585,11 @@ class Blob(Subimage):
             # Which better than SG but nearly equally good?
             nextmask = expmask & devmask & movemask
 
+            # What if they are both bad?
+            badmask = (chisq[:, 1, 0] > conf.CHISQ_FORCE_COMP) & (chisq[:, 1, 1] > conf.CHISQ_FORCE_COMP)
+
+            nextmask |= badmask
+
             # For which was SG best? Then go back!
             premask_sg = ~expmask & ~devmask & (chisq[:, 0, 1] < chisq[:, 0, 0])
 
@@ -592,10 +597,10 @@ class Blob(Subimage):
             premask_ps = (chisq[:, 0, 0] < chisq[:, 0, 1]) & (chisq[:, 0, 0] < chisq[:, 1, 0]) & (chisq[:, 0, 0] < chisq[:, 1, 1])
 
             # If Exp beats Dev by a lot
-            nexpmask = expmask & ~movemask & (abs(chisq_exp - chisq[:, 1, 0])  <  abs(chisq_exp - chisq[:, 1, 1]))
+            nexpmask = expmask & ~movemask & (abs(chisq_exp - chisq[:, 1, 0])  <  abs(chisq_exp - chisq[:, 1, 1])) & ~badmask
 
              # If Dev beats Exp by a lot
-            ndevmask = devmask & ~movemask & (abs(chisq_exp - chisq[:, 1, 1]) < abs(chisq_exp - chisq[:, 1, 0]))
+            ndevmask = devmask & ~movemask & (abs(chisq_exp - chisq[:, 1, 1]) < abs(chisq_exp - chisq[:, 1, 0])) & ~badmask
 
             # Check solved first
             if nexpmask.any():
@@ -611,6 +616,7 @@ class Blob(Subimage):
             # Then which ones might advance
             if nextmask.any():
                 mids[nextmask] = 5
+            
 
             # Then which are going back (which can overrwrite)
             if premask_ps.any():
@@ -1023,7 +1029,7 @@ class Blob(Subimage):
 
         if conf.PLOT > 0:
             [plot_fblob(self, band, axlist[idx][0], axlist[idx][1], final_opt=True) for idx, band in enumerate(self.bands)]
-
+            [plot_modprofile(self, band) for idx, band in enumerate(self.bands)]
 
         return status
 

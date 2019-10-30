@@ -185,12 +185,19 @@ def plot_blob(myblob, myfblob):
     #fig.suptitle(f'Solution for {blob_id}')
     fig.subplots_adjust(wspace=0.01, hspace=0, right=0.8)
     fig.savefig(os.path.join(conf.PLOT_DIR, f'{myblob.brick_id}_{myblob.blob_id}.pdf'))
+    plt.close()
 
-def plot_modprofile(blob):
+def plot_modprofile(blob, band=None):
+
+    if band is None:
+        band = conf.MODELING_NICKNAME
+        idx = 0
+    else:
+        idx = blob._band2idx(band)
 
     psfmodel = blob.psfimg
 
-    back = blob.backgrounds[0]
+    back = blob.backgrounds[idx]
     mean, rms = back[0], back[1]
     noise = np.random.normal(mean, rms, size=blob.dims)
     tr = blob.solution_tractor
@@ -199,21 +206,21 @@ def plot_modprofile(blob):
     img_opt = dict(cmap='Greys', norm=norm)
     # img_opt = dict(cmap='RdGy', vmin=-5*rms, vmax=5*rms)
 
-    xlim = (-np.shape(blob.images[0])[1]/2,  np.shape(blob.images[0])[1]/2)
+    xlim = (-np.shape(blob.images[idx])[1]/2,  np.shape(blob.images[idx])[1]/2)
 
     fig, ax = plt.subplots(ncols = 4, nrows = 2, figsize=(20,10))
-    ax[1,0].imshow(blob.images[0], **img_opt)
-    ax[1,1].imshow(blob.solution_model_images[0],  **img_opt)
-    residual = blob.images[0] - blob.solution_model_images[0]
-    ax[1,2].imshow(residual, cmap='RdGy', vmin=-5*rms, vmax=5*rms)
+    ax[1,0].imshow(blob.images[idx], **img_opt)
+    ax[1,1].imshow(blob.solution_model_images[idx],  **img_opt)
+    residual = blob.images[idx] - blob.solution_model_images[idx]
+    ax[1,2].imshow(residual, **img_opt)
 
-    xax = np.arange(-np.shape(blob.images[0])[1]/2,  np.shape(blob.images[0])[1]/2)
-    [ax[0,0].plot(xax * 0.15, blob.images[0][x], c='royalblue', alpha=0.5) for x in np.arange(0, np.shape(blob.images[0])[0])]
+    xax = np.arange(-np.shape(blob.images[idx])[1]/2,  np.shape(blob.images[idx])[1]/2)
+    [ax[0,0].plot(xax * 0.15, blob.images[idx][x], c='royalblue', alpha=0.5) for x in np.arange(0, np.shape(blob.images[idx])[0])]
     ax[0,0].axvline(0, ls='dotted', c='k')
     ax[0,0].set(yscale='log', xlabel='arcsec')
 
-    xax = np.arange(-np.shape(blob.solution_model_images[0])[1]/2,  np.shape(blob.solution_model_images[0])[1]/2)
-    [ax[0,1].plot(xax * 0.15, blob.solution_model_images[0][x], c='royalblue', alpha=0.5) for x in np.arange(0, np.shape(blob.solution_model_images[0])[0])]
+    xax = np.arange(-np.shape(blob.solution_model_images[idx])[1]/2,  np.shape(blob.solution_model_images[idx])[1]/2)
+    [ax[0,1].plot(xax * 0.15, blob.solution_model_images[idx][x], c='royalblue', alpha=0.5) for x in np.arange(0, np.shape(blob.solution_model_images[idx])[0])]
     ax[0,1].axvline(0, ls='dotted', c='k')
     ax[0,1].set(yscale='log', xlabel='arcsec')
 
@@ -233,12 +240,14 @@ def plot_modprofile(blob):
     ax[0,3].set(xlim=xlim, yscale='log', ylim=(1E-6, 1E-1), xlabel='arcsec')
 
     for i in np.arange(3):
-        ax[0, i].set(xlim=(0.15*xlim[0], 0.15*xlim[1]), ylim=(np.nanmedian(blob.images[0]), blob.images[0].max()))
+        ax[0, i].set(xlim=(0.15*xlim[0], 0.15*xlim[1]), ylim=(np.nanmedian(blob.images[idx]), blob.images[idx].max()))
         # ax[1, i].set(xlim=(-15, 15), ylim=(-15, 15))
     ax[0, 3].set(xlim=(0.15*xlim[0], 0.15*xlim[1]))
-    outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{conf.MODELING_NICKNAME}_debugprofile.pdf')
+    outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{band}_debugprofile.pdf')
     logger.info(f'Saving figure: {outpath}') 
     fig.savefig(outpath)
+    plt.close()
+
 
 def plot_detblob(blob, fig=None, ax=None, level=0, sublevel=0, final_opt=False, init=False):
 
@@ -531,6 +540,8 @@ def plot_ldac(tab_ldac, band, xlims=None, ylims=None, box=False, nsel=None):
     if nsel is not None:
         ax.text(x=0.05, y=0.95, s=f'N = {nsel}', transform=ax.transAxes)
     fig.savefig(os.path.join(conf.PLOT_DIR, f'{band}_box_{box}_ldac.pdf'), overwrite=True)
+
+    plt.close()
 
 def plot_psf(psfmodel, band, show_gaussian=False):
 
