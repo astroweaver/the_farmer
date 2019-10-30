@@ -754,7 +754,6 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
 
     search_fn = os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat')
     if os.path.exists(search_fn):
-        print(fits.open(search_fn).info())
         fbrick.catalog = Table(fits.open(search_fn)[1].data)
         fbrick.n_sources = len(fbrick.catalog)
         fbrick.n_blobs = fbrick.catalog['blob_id'].max()

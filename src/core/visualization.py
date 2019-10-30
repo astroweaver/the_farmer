@@ -202,7 +202,7 @@ def plot_modprofile(blob, band=None):
     noise = np.random.normal(mean, rms, size=blob.dims)
     tr = blob.solution_tractor
     
-    norm = LogNorm(np.max([mean + rms, 1E-5]), blob.images.max(), clip='True')
+    norm = LogNorm(mean + 3*rms, blob.images[idx].max(), clip='True')
     img_opt = dict(cmap='Greys', norm=norm)
     # img_opt = dict(cmap='RdGy', vmin=-5*rms, vmax=5*rms)
 

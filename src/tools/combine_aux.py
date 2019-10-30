@@ -43,6 +43,9 @@ def combine(band, img_type):
         hdul.writeto(f'AUX_{band}_{img_type}.fits', overwrite=conf.OVERWRITE)
         print(f'Wrote out {N} bricks to AUX_{band}_{img_type}.fits')
 
+for img_type in ('MODEL', 'RESIDUAL'):
+    combine(conf.MODELING_NICKNAME, img_type)
+
 for band in conf.BANDS:
     for img_type in ('MODEL', 'RESIDUAL'):
         combine(band, img_type)
