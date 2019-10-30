@@ -1,6 +1,7 @@
 # Combine all aux images
 
 import config as conf
+import numpy as np
 from astropy.io import fits
 import os
 
@@ -19,7 +20,7 @@ def combine(band, img_type):
         if not os.path.exists(path):
             continue
         with fits.open(path) as hdul:
-            img = hdul['MODELING_IMAGE'].data
+            img = hdul['{band}_{img_type}'].data
             
             img_crop = img[conf.BRICK_BUFFER:-conf.BRICK_BUFFER,conf.BRICK_BUFFER:-conf.BRICK_BUFFER]
             
