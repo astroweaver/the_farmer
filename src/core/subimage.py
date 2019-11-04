@@ -114,7 +114,7 @@ class Subimage():
             self.backgrounds = np.zeros((self.n_bands, 2), dtype=float)
             self.background_images = np.zeros_like(self._images) 
             for i, img in enumerate(self._images):
-                background = sep.Background(img, bw = conf.SUBTRACT_BW, bh = conf.SUBTRACT_BH)
+                background = sep.Background(img, bw = conf.SUBTRACT_BW, bh = conf.SUBTRACT_BH, fw = conf.SUBTRACT_FW, fh = conf.SUBTRACT_FH)
                 self.backgrounds[i] = background.globalback, background.globalrms
                 self.background_images[i] = background.back()
 
@@ -334,7 +334,8 @@ class Subimage():
         sep.set_extract_pixstack(conf.PIXSTACK_SIZE)
 
         if sub_background:
-            background = sep.Background(self.images[idx], bw = conf.DETECT_BW, bh = conf.DETECT_BH)
+            background = sep.Background(self.images[idx], bw = conf.DETECT_BW, bh = conf.DETECT_BH
+                                fw = conf.DETECT_FW, fh = conf.DETECT_FH)
             image -= background.back()
 
         kwargs = dict(var=var, mask=mask, minarea=conf.MINAREA, filter_kernel=convfilt, 
