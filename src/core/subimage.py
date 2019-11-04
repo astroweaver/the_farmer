@@ -334,7 +334,7 @@ class Subimage():
         sep.set_extract_pixstack(conf.PIXSTACK_SIZE)
 
         if sub_background:
-            background = sep.Background(self.images[idx], bw = conf.DETECT_BW, bh = conf.DETECT_BH
+            background = sep.Background(self.images[idx], bw = conf.DETECT_BW, bh = conf.DETECT_BH,
                                 fw = conf.DETECT_FW, fh = conf.DETECT_FH)
             image -= background.back()
 
