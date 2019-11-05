@@ -140,9 +140,13 @@ class Blob(Subimage):
             if conf.APPLY_SEGMASK:
                 tweight[mask] = 0
 
+            remove_background_psf = False
+            if band in conf.RMBACK_PSF:
+                remove_background_psf = True
+
             if (band in conf.CONSTANT_PSF) & (psf is not None):
                 psfmodel = psf.constantPsfAt(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.)
-                if conf.RMBACK_PSF & (not conf.FORCE_GAUSSIAN_PSF):
+                if remove_background_psf & (not conf.FORCE_GAUSSIAN_PSF):
                     pw, ph = np.shape(psfmodel.img)
                     cmask = create_circular_mask(pw, ph, radius=conf.PSF_MASKRAD / conf.PIXEL_SCALE)
                     bcmask = ~cmask.astype(bool) & (psfmodel.img > 0)
@@ -160,7 +164,7 @@ class Blob(Subimage):
                 blob_centerx = self.blob_center[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
                 blob_centery = self.blob_center[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
                 psfmodel = psf.constantPsfAt(blob_centerx, blob_centery) # init at blob center, may need to swap!
-                if conf.RMBACK_PSF & (not conf.FORCE_GAUSSIAN_PSF):
+                if remove_background_psf & (not conf.FORCE_GAUSSIAN_PSF):
                     pw, ph = np.shape(psfmodel.img)
                     cmask = create_circular_mask(pw, ph, radius=conf.PSF_MASKRAD / conf.PIXEL_SCALE)
                     bcmask = ~cmask.astype(bool) & (psfmodel.img > 0)
