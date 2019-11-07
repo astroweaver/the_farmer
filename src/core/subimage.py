@@ -176,9 +176,10 @@ class Subimage():
         if array is None:
             self._masks = np.zeros_like(self._images, dtype=bool)
         else:
+            swap = {0: 1, 1:0}
             try:
                 ndim = np.ndim(array)
-                array = np.array(array)
+                array = np.array(array)[swap]  # Since our convention is different!
             except:
                 raise TypeError('Not a valid image array.')
 
