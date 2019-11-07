@@ -178,7 +178,7 @@ class Subimage():
         else:
             try:
                 ndim = np.ndim(array)
-                array = not np.array(array)  # Since our convention is different!
+                array = np.array(array)
             except:
                 raise TypeError('Not a valid image array.')
 
