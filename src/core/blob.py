@@ -94,7 +94,7 @@ class Blob(Subimage):
         
         blob_sourcemask = np.in1d(brick.catalog['source_id'], blob_sources)
         self.bcatalog = brick.catalog[blob_sourcemask].copy() # working copy
-        print(self.bcatalog['x', 'y', 'X_MODEL', 'Y_MODEL'])
+        print(self.bcatalog['source_id', 'blob_id', 'x', 'y', 'X_MODEL', 'Y_MODEL'])
         if (self.bcatalog['VALID_SOURCE'] == False).all():
             self.logger.warning('Blob is rejected as no sources are valid!')
             self.rejected = True

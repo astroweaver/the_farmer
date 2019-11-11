@@ -530,6 +530,7 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, blobmap=Non
                 catalog = Table(fits.open(search_fn)[1].data)
             else:
                 raise ValueError(f'No valid catalog was found for {brick_id}')
+            logger.info(f'Overriding SExtraction with external catalog. ({search_fn})')
             search_fn = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits')
             if os.path.exists(search_fn):
                 hdul_seg = fits.open(search_fn)
@@ -537,8 +538,12 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, blobmap=Non
                 blobmap = hdul_seg['BLOBMAP'].data
             else:
                 raise ValueError(f'No valid segmentation map was found for {brick_id}')
-        catalog[conf.X_COLNAME].colname = 'x'
-        catalog[conf.Y_COLNAME].colname = 'y'
+        if 'x' in catalog.colnames:
+            catalog['x'].name = 'x_orig'
+        if 'y' in catalog.colnames:
+            catalog['y'].name = 'y_orig'
+        catalog[conf.X_COLNAME].name = 'x'
+        catalog[conf.Y_COLNAME].name = 'y'
         catalog['x'] = catalog['x'] - detbrick.mosaic_origin[1] + conf.BRICK_BUFFER - 1
         catalog['y'] = catalog['y'] - detbrick.mosaic_origin[0] + conf.BRICK_BUFFER - 1
         detbrick.catalog = catalog
@@ -547,7 +552,7 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, blobmap=Non
         is_borrowed = True
         detbrick.segmap = segmap
         detbrick.blobmap = blobmap
-        logger.info(f'Overriding SExtraction with external catalog.')
+        
     else:
         raise ValueError('No valid segmap, blobmap, and catalog provided to override SExtraction!')
         return
@@ -579,7 +584,6 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, blobmap=Non
     modbrick.n_sources = detbrick.n_sources
     if is_borrowed:
         modbrick.blobmap = detbrick.blobmap
-        modbrick.n_sources = detbrick.n_sources
         modbrick.n_blobs = detbrick.n_blobs
 
     # Cleanup on MODBRICK
@@ -995,6 +999,7 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, modeling=False):
             sbands = band
         else:
             sbands = [band,]
+        conf.BANDS = sbands
 
     if os.path.exists(path_brickfile):
         # Stage things
