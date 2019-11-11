@@ -147,7 +147,7 @@ class Brick(Subimage):
                 for colname in ('X_MODEL', 'Y_MODEL', 'XERR_MODEL', 'YERR_MODEL', 'RA', 'DEC'):
                     self.catalog.add_column(Column(filler, name=colname))
                 self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype='S20'), name='SOLMODEL'))
-                self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=bool), name='VALID_SOURCE'))
+                self.catalog.add_column(Column(np.ones(len(self.catalog), dtype=bool), name='VALID_SOURCE'))
                 self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=int), name='N_CONVERGE'))
                 self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=int), name='N_BLOB'))
                 for colname in ('REFF', 'REFF_ERR', 'AB', 'AB_ERR', 'THETA', 'THETA_ERR',

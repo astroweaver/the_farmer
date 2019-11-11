@@ -195,7 +195,7 @@ def plot_modprofile(blob, band=None):
     else:
         idx = blob._band2idx(band)
 
-    psfmodel = blob.psfimg
+    psfmodel = blob.psfimg[band]
 
     back = blob.backgrounds[idx]
     mean, rms = back[0], back[1]
@@ -204,7 +204,7 @@ def plot_modprofile(blob, band=None):
     
     norm = LogNorm(mean + 3*rms, blob.images[idx].max(), clip='True')
     img_opt = dict(cmap='Greys', norm=norm)
-    # img_opt = dict(cmap='RdGy', vmin=-5*rms, vmax=5*rms)
+    img_opt = dict(cmap='RdGy', vmin=-5*rms, vmax=5*rms)
 
     xlim = (-np.shape(blob.images[idx])[1]/2,  np.shape(blob.images[idx])[1]/2)
 
@@ -258,6 +258,7 @@ def plot_detblob(blob, fig=None, ax=None, level=0, sublevel=0, final_opt=False, 
     
     norm = LogNorm(np.max([mean + rms, 1E-5]), blob.images.max(), clip='True')
     img_opt = dict(cmap='Greys', norm=norm)
+    img_opt = dict(cmap='RdGy', vmin=-5*rms, vmax=5*rms)
 
     # Init
     if fig is None:
@@ -386,7 +387,7 @@ def plot_fblob(blob, band, fig=None, ax=None, final_opt=False):
     
     norm = LogNorm(np.max([mean + rms, 1E-5]), 0.90*blob.images.max(), clip='True')
     img_opt = dict(cmap='Greys', norm=norm)
-    # img_opt = dict(cmap='RdGy', vmin=-5*rms, vmax=5*rms)
+    img_opt = dict(cmap='RdGy', vmin=-5*rms, vmax=5*rms)
 
     if final_opt:
         

@@ -358,6 +358,12 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0):
         logger.debug(f'Making blob with {conf.MODELING_NICKNAME}')
         modblob.logger = logger
 
+        if modblob.rejected:
+            logger.info('Blob has been rejected!')
+            # if conf.NTHREADS != 0:
+            #     logger.removeHandler(fh)
+            return modblob.bcatalog.copy()
+
         if (conf.MODEL_PHOT_MAX_NBLOB > 0) & (modblob.n_sources > conf.MODEL_PHOT_MAX_NBLOB):
             logger.info('Number of sources exceeds set limit. Skipping!')
             # if conf.NTHREADS != 0:
@@ -442,6 +448,11 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0):
                 fblob.bcatalog = catalog[good_sources]
                 fblob.n_sources = len(catalog)
 
+        if fblob.rejected:
+            logger.info('Blob has been rejected!')
+            # if conf.NTHREADS != 0:
+            #     logger.removeHandler(fh)
+            return fblob.bcatalog.copy()
 
         # Forced phot
         astart = time.time() 
@@ -516,7 +527,7 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, blobmap=Non
         if (catalog == 'auto'):
             search_fn = os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat')
             if os.path.exists(search_fn):
-                catalog = Table(fits.open(search_fn)[0].data)
+                catalog = Table(fits.open(search_fn)[1].data)
             else:
                 raise ValueError(f'No valid catalog was found for {brick_id}')
             search_fn = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits')
@@ -583,18 +594,21 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, blobmap=Non
         plot_blobmap(modbrick, image=detbrick.images[0], band=conf.DETECTION_NICKNAME)
 
     # Save segmap and blobmaps
-    tstart = time.time()
-    logger.info('Saving segmentation and blob maps...')
-    hdul = fits.HDUList()
-    hdul.append(fits.PrimaryHDU())
-    hdul.append(fits.ImageHDU(data=modbrick.segmap, name='SEGMAP'))
-    hdul.append(fits.ImageHDU(data=modbrick.blobmap, name='BLOBMAP'))
-    outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits')
-    hdul.writeto(outpath, overwrite=conf.OVERWRITE)
-    hdul.close()
-    logger.info(f'Saved to {outpath} ({time.time() - tstart:3.3f}s)')
+    if not is_borrowed:
+        tstart = time.time()
+        logger.info('Saving segmentation and blob maps...')
+        hdul = fits.HDUList()
+        hdul.append(fits.PrimaryHDU())
+        hdul.append(fits.ImageHDU(data=modbrick.segmap, name='SEGMAP'))
+        hdul.append(fits.ImageHDU(data=modbrick.blobmap, name='BLOBMAP'))
+        outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits')
+        hdul.writeto(outpath, overwrite=conf.OVERWRITE)
+        hdul.close()
+        logger.info(f'Saved to {outpath} ({time.time() - tstart:3.3f}s)')
 
-    tstart = time.time()
+        tstart = time.time()
+    else:
+        logger.info(f'You gave me a catalog and segmap, so I am not saving it again.')
     
     # Run a specific source or blob
     if (source_id is not None) | (blob_id is not None):
@@ -609,9 +623,9 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, blobmap=Non
         if blob_id is not None:
             if blob_id not in outcatalog['blob_id']:
                 raise ValueError(f'No blobs exist for requested blob id {blob_id}')
-        logger.info(f'Runnig single blob for blob {blob_id}')
+        logger.info(f'Running single blob for blob {blob_id}')
         modblob = modbrick.make_blob(blob_id)
-        if modblob is None:
+        if modblob.rejected:
             raise ValueError('Requested blob is invalid')
         output_rows = runblob(blob_id, modblob, modeling=True, plotting=conf.PLOT)
 
@@ -637,13 +651,14 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, blobmap=Non
         # outcatalog.add_column(col_ebmv)
 
         # write out cat
-        hdr = header_from_dict(conf.__dict__)
-        hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
-        hdu_table = fits.table_to_hdu(outcatalog)
-        hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
-        outpath = os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat')
-        hdul.writeto(outpath, output_verify='ignore', overwrite=conf.OVERWRITE)
-        logger.info(f'Wrote out catalog to {outpath}')
+        if conf.OUTPUT:
+            hdr = header_from_dict(conf.__dict__)
+            hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
+            hdu_table = fits.table_to_hdu(outcatalog)
+            hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
+            outpath = os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat')
+            hdul.writeto(outpath, output_verify='ignore', overwrite=conf.OVERWRITE)
+            logger.info(f'Wrote out catalog to {outpath}')
 
         return
     
@@ -710,13 +725,14 @@ def make_models(brick_id, source_id=None, blob_id=None, segmap=None, blobmap=Non
         # write out cat
         # outcatalog['x'] += outcatalog['x'] + mosaic_origin[1] - conf.BRICK_BUFFER + 1.
         # outcatalog['y'] += outcatalog['y'] + mosaic_origin[0] - conf.BRICK_BUFFER + 1.
-        hdr = header_from_dict(conf.__dict__)
-        hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
-        hdu_table = fits.table_to_hdu(outcatalog)
-        hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
-        outpath = os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat')
-        hdul.writeto(outpath, output_verify='ignore', overwrite=conf.OVERWRITE)
-        logger.info(f'Wrote out catalog to {outpath}')
+        if conf.OUTPUT:
+            hdr = header_from_dict(conf.__dict__)
+            hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
+            hdu_table = fits.table_to_hdu(outcatalog)
+            hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
+            outpath = os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat')
+            hdul.writeto(outpath, output_verify='ignore', overwrite=conf.OVERWRITE)
+            logger.info(f'Wrote out catalog to {outpath}')
         
         # open again and add
 
@@ -859,8 +875,9 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True)
             # write out cat
             # fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
             # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
-            fbrick.catalog.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{mode_ext}.cat'), format='fits', overwrite=conf.OVERWRITE)
-            logger.info(f'Saving results for brick #{fbrick.brick_id} to new {mode_ext} catalog file.')
+            if conf.OUTPUT:
+                fbrick.catalog.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{mode_ext}.cat'), format='fits', overwrite=conf.OVERWRITE)
+                logger.info(f'Saving results for brick #{fbrick.brick_id} to new {mode_ext} catalog file.')
 
 
     else:
@@ -1010,6 +1027,8 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, modeling=False):
             except:
                 img = fits.open(path_psffile)[0].data
                 psfmodels[i] = PixelizedPSF(img)
+            logger.info(f'PSF model for {band} adopted. ({path_psffile})')
+
         else:
             if conf.USE_GAUSSIAN_PSF:
                 psfmodels[i] = None
@@ -1034,6 +1053,11 @@ def models_from_catalog(catalog, fblob):
         band, rmvector = fblob.bands, fblob.mosaic_origin
 
         for i, src in enumerate(catalog):
+
+            if (src['X_MODEL'] < 0) | (src['Y_MODEL'] < 0):
+                good_sources[i] = False
+                logger.warning(f'Source #{src["source_id"]}: {src["SOLMODEL"]} model at ({src["X_MODEL"]}, {src["Y_MODEL"]}) is INVALID.')
+                continue
 
             position = PixPos(src['X_MODEL'], src['Y_MODEL'])
             

@@ -48,6 +48,7 @@ class Blob(Subimage):
         """TODO: docstring"""
 
         self.logger = logging.getLogger(f'farmer.blob.{blob_id}')
+        self.rejected = False
         # fh = logging.FileHandler(f'farmer_B{blob_id}.log')
         # fh.setLevel(logging.getLevelName(conf.LOGFILE_LOGGING_LEVEL))
         # formatter = logging.Formatter('[%(asctime)s] %(name)s :: %(levelname)s - %(message)s', '%H:%M:%S')
@@ -59,8 +60,7 @@ class Blob(Subimage):
         mask_frac = blobmask.sum() / blobmask.size
         if (mask_frac > conf.SPARSE_THRESH) & (blobmask.size > conf.SPARSE_SIZE):
             self.logger.warning('Blob is rejected as mask is sparse - likely an artefact issue.')
-            del brick
-            return None
+            self.rejected = True
 
         self.brick_wcs = brick.wcs.copy()
         self.mosaic_origin = brick.mosaic_origin
@@ -94,9 +94,15 @@ class Blob(Subimage):
         
         blob_sourcemask = np.in1d(brick.catalog['source_id'], blob_sources)
         self.bcatalog = brick.catalog[blob_sourcemask].copy() # working copy
+        print(self.bcatalog['x', 'y', 'X_MODEL', 'Y_MODEL'])
+        if (self.bcatalog['VALID_SOURCE'] == False).all():
+            self.logger.warning('Blob is rejected as no sources are valid!')
+            self.rejected = True
+
         # print(self.bcatalog['x', 'y'])
         self.bcatalog['x'] -= self.subvector[1]
         self.bcatalog['y'] -= self.subvector[0]
+
         # print(self.bcatalog['x', 'y'])
         # print(self.subvector)
         self.n_sources = len(self.bcatalog)
@@ -115,6 +121,7 @@ class Blob(Subimage):
         # self.parameter_variance = np.zeros((self.n_sources, 3))
         # self.forced_variance = np.zeros((self.n_sources, self.n_bands))
         self.solution_tractor = None
+        self.psfimg = {}
 
         self.residual_catalog = np.zeros((self.n_bands), dtype=object)
         self.residual_segmap = np.zeros_like(self.segmap)
@@ -190,7 +197,7 @@ class Blob(Subimage):
             else:
                 psfimg = psfmodel.getPointSourcePatch(0, 0).getImage()
 
-            self.psfimg = psfimg
+            self.psfimg[band] = psfimg
             
             if (conf.PLOT > 1):
                 plot_psf(psfimg, band, show_gaussian=False)
@@ -1066,6 +1073,8 @@ class Blob(Subimage):
 
             # Just do the positions again - more straightforward to do it here than in interface.py
             # Why do we need this!? Should we not be adding in extra X/Y if the force_position is turned off?
+            self.bcatalog[row]['x'] = self.bcatalog[row]['x'] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
+            self.bcatalog[row]['y'] = self.bcatalog[row]['y'] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
             self.bcatalog[row]['X_MODEL'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
             self.bcatalog[row]['Y_MODEL'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
 
