@@ -214,6 +214,8 @@ class Brick(Subimage):
                     pw, ph = np.shape(psfmodel.img)
                     cmask = create_circular_mask(pw, ph, radius=conf.PSF_MASKRAD / conf.PIXEL_SCALE)
                     bcmask = ~cmask.astype(bool) & (psfmodel.img > 0)
+                    # psfmodel.img -= np.nanmedian(psfmodel.img[bcmask])
+                    # psfmodel.img[np.isnan(psfmodel.img)] = 0
                     psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
                     psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
                 if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
@@ -249,6 +251,8 @@ class Brick(Subimage):
                     pw, ph = np.shape(psfmodel.img)
                     cmask = create_circular_mask(pw, ph, radius=conf.PSF_MASKRAD / conf.PIXEL_SCALE)
                     bcmask = ~cmask.astype(bool) & (psfmodel.img > 0)
+                    # psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
+                    # psfmodel.img[np.isnan(psfmodel.img)] = 0
                     psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
                     psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
                 if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):

@@ -208,7 +208,7 @@ def plot_modprofile(blob, band=None):
 
     xlim = (-np.shape(blob.images[idx])[1]/2,  np.shape(blob.images[idx])[1]/2)
 
-    fig, ax = plt.subplots(ncols = 4, nrows = 2, figsize=(20,10))
+    fig, ax = plt.subplots(ncols = 5, nrows = 2, figsize=(20,10))
     ax[1,0].imshow(blob.images[idx], **img_opt)
     ax[1,1].imshow(blob.solution_model_images[idx],  **img_opt)
     residual = blob.images[idx] - blob.solution_model_images[idx]
@@ -238,6 +238,27 @@ def plot_modprofile(blob, band=None):
     [ax[0,3].plot(xax * 0.15, psfmodel[x], c='royalblue', alpha=0.5) for x in np.arange(0, np.shape(psfmodel)[0])]
     ax[0,3].axvline(0, ls='dotted', c='k')
     ax[0,3].set(xlim=xlim, yscale='log', ylim=(1E-6, 1E-1), xlabel='arcsec')
+
+    for j, src in enumerate(tr.getCatalog()):
+        try:
+            mtype = src.name
+        except:
+            mtype = 'PointSource'
+        flux = src.getBrightness().getFlux(band)
+        chisq = blob.solved_chisq[j]
+        band = band.replace(' ', '_')
+        if band == conf.MODELING_NICKNAME:
+            zpt = conf.MODELING_ZPT
+        else:
+            zpt = conf.MULTIBAND_ZPT[idx]
+        mag = zpt - 2.5 * np.log10(flux)
+
+        topt = dict(color=colors[j], transform = ax[0, 3].transAxes)
+        ystart = 0.99 - j * 0.4
+        ax[0, 4].text(1.05, ystart - 0.1, f'{j}) {mtype}', **topt)
+        ax[0, 4].text(1.05, ystart - 0.2, f'  F({band}) = {flux:4.4f}', **topt)
+        ax[0, 4].text(1.05, ystart - 0.3, f'  M({band}) = {mag:4.4f}', **topt)
+        ax[0, 4].text(1.05, ystart - 0.4, f'  $\chi^{2}$ = {chisq:4.4f}', **topt)
 
     for i in np.arange(3):
         ax[0, i].set(xlim=(0.15*xlim[0], 0.15*xlim[1]), ylim=(np.nanmedian(blob.images[idx]), blob.images[idx].max()))

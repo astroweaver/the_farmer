@@ -144,6 +144,7 @@ class Blob(Subimage):
         for i, (image, weight, mask, psf, band) in enumerate(zip(self.images, self.weights, self.masks, self.psfmodels, self.bands)):
             self.logger.debug(f'Staging image for {band}')
             tweight = weight.copy()
+            bcmask = None
             if conf.APPLY_SEGMASK:
                 tweight[mask] = 0
 
@@ -152,12 +153,14 @@ class Blob(Subimage):
                 remove_background_psf = True
 
             if (band in conf.CONSTANT_PSF) & (psf is not None):
-                psfmodel = psf.constantPsfAt(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.)
+                psfmodel = psf.constantPsfAt(0, 0 ) #conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.)
                 if remove_background_psf & (not conf.FORCE_GAUSSIAN_PSF):
                     pw, ph = np.shape(psfmodel.img)
                     cmask = create_circular_mask(pw, ph, radius=conf.PSF_MASKRAD / conf.PIXEL_SCALE)
                     bcmask = ~cmask.astype(bool) & (psfmodel.img > 0)
                     psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
+                    # psfmodel.img[np.isnan(psfmodel.img)] = 0
+                    # psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
                     psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
                 if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
                     psfmodel.img /= psfmodel.img.sum() # HACK -- force normalization to 1
@@ -176,6 +179,8 @@ class Blob(Subimage):
                     cmask = create_circular_mask(pw, ph, radius=conf.PSF_MASKRAD / conf.PIXEL_SCALE)
                     bcmask = ~cmask.astype(bool) & (psfmodel.img > 0)
                     psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
+                    # psfmodel.img[np.isnan(psfmodel.img)] = 0
+                    # psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
                     psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
                 if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
                     psfmodel.img /= psfmodel.img.sum() # HACK -- force normalization to 1
