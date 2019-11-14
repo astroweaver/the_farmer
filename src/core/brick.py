@@ -290,11 +290,18 @@ class Brick(Subimage):
                 for j, band in enumerate(self.bands):
                     if src[f'CHISQ_{band}'] > conf.RESIDUAL_CHISQ_REJECTION:
                         raw_fluxes[j] = 0.0
-                        self.logger.debug('Source has too large chisq. Rejecting!')
+                        self.logger.debug(f'Source has too large chisq in {band}.')
+                    if (raw_fluxes <= 0.0).all():
+                        self.model_mask[i] = False
+                        self.logger.debug('Source has too large chisq in all bands. Rejecting!')
             if conf.RESIDUAL_NEGFLUX_REJECTION:
-                if (raw_fluxes < 0.0).any():
+                if (raw_fluxes <= 0.0).all():
+                    self.model_mask[i] = False
+                    self.logger.debug('Source has negative flux in all bands. Rejecting!')
+                elif (raw_fluxes < 0.0).any():
                     raw_fluxes[raw_fluxes < 0.0] = 0.0
-                    self.logger.debug('Source has negative flux. Rejecting!')
+                    self.logger.debug('Source has negative flux in some bands.')
+                    
 
             # self.bcatalog[row]['X_MODEL'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
             # self.bcatalog[row]['Y_MODEL'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
@@ -332,6 +339,10 @@ class Brick(Subimage):
             self.logger.debug(f'               {flux}') 
 
         # Clean
+        if not self.model_mask.any():
+            mtotal = len(self.model_catalog)
+            nmasked = np.sum(~self.model_mask)
+            raise RuntimeError(f'No valid models to make model image! (of {mtotal}, {nmasked} masked)')
         self.model_catalog = self.model_catalog[self.model_mask]
 
         # Tractorize
