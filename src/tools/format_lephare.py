@@ -1,7 +1,11 @@
 import numpy as np 
+import sys
 from astropy.table import Table, Column
 
 import config as conf
+
+fn = sys.argv[1]
+fnout = sys.argv[2]
 
 def farmer_to_lephare(fn, fnout, sfddir=conf.SFDMAP_DIR, idx=0):
     
@@ -34,3 +38,6 @@ def farmer_to_lephare(fn, fnout, sfddir=conf.SFDMAP_DIR, idx=0):
     tab.add_column(Column(ebv, name='EBV'))
     
     tab.write(fnout, format='fits')
+
+
+farmer_to_lephare(fn, fnout)
