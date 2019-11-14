@@ -1,7 +1,7 @@
 import numpy as np 
 import sys
 from astropy.table import Table, Column
-
+sys.path.insert(0, os.path.join('/n07data/weaver/COSMOS2020/config'))
 import config as conf
 
 fn = sys.argv[1]
