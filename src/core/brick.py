@@ -292,8 +292,9 @@ class Brick(Subimage):
                         raw_fluxes[j] = 0.0
                         self.logger.debug('Source has too large chisq. Rejecting!')
             if conf.RESIDUAL_NEGFLUX_REJECTION:
-                raw_fluxes[raw_fluxes < 0.0] = 0.0
-                self.logger.debug('Source has negative flux. Rejecting!')
+                if (raw_fluxes < 0.0).any():
+                    raw_fluxes[raw_fluxes < 0.0] = 0.0
+                    self.logger.debug('Source has negative flux. Rejecting!')
 
             # self.bcatalog[row]['X_MODEL'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
             # self.bcatalog[row]['Y_MODEL'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
@@ -322,6 +323,10 @@ class Brick(Subimage):
                                                 position, flux,
                                                 SoftenedFracDev(src['FRACDEV']),
                                                 shape_exp, shape_dev)
+            else:
+                self.logger.warning(f'Source #{src["source_id"]}: has no solution model at {position}')
+                self.model_mask[i] = False
+                continue
 
             self.logger.debug(f'Source #{src["source_id"]}: {self.model_catalog[i].name} model at {position}')
             self.logger.debug(f'               {flux}') 

@@ -94,7 +94,6 @@ class Blob(Subimage):
         
         blob_sourcemask = np.in1d(brick.catalog['source_id'], blob_sources)
         self.bcatalog = brick.catalog[blob_sourcemask].copy() # working copy
-        print(self.bcatalog['source_id', 'blob_id', 'x', 'y', 'X_MODEL', 'Y_MODEL'])
         if (self.bcatalog['VALID_SOURCE'] == False).all():
             self.logger.warning('Blob is rejected as no sources are valid!')
             self.rejected = True
@@ -1170,3 +1169,8 @@ class Blob(Subimage):
                 self.logger.info(f"    Reff(Dev):          {self.bcatalog[row]['DEV_REFF']:3.3f} +/- {self.bcatalog[row]['DEV_REFF_ERR']:3.3f}")
                 self.logger.info(f"    a/b (Dev):          {self.bcatalog[row]['DEV_AB']:3.3f} +/- {self.bcatalog[row]['DEV_AB_ERR']:3.3f}")
                 self.logger.info(f"    pa  (Dev):          {self.bcatalog[row]['DEV_THETA']:3.3f} +/- {self.bcatalog[row]['DEV_THETA_ERR']:3.3f}")
+
+            elif src.name != 'PointSource': # last resort
+                self.logger.warning(f"Source does not have a valid solution model!")
+                valid_source = False
+                self.bcatalog[row]['VALID_SOURCE'] = valid_source
