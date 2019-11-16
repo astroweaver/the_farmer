@@ -362,13 +362,17 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0):
             logger.info('Blob has been rejected!')
             # if conf.NTHREADS != 0:
             #     logger.removeHandler(fh)
-            return modblob.bcatalog.copy()
+            catout = modblob.bcatalog.copy()
+            del modblob
+            return catout
 
         if (conf.MODEL_PHOT_MAX_NBLOB > 0) & (modblob.n_sources > conf.MODEL_PHOT_MAX_NBLOB):
             logger.info('Number of sources exceeds set limit. Skipping!')
             # if conf.NTHREADS != 0:
             #     logger.removeHandler(fh)
-            return modblob.bcatalog.copy()
+            catout = modblob.bcatalog.copy()
+            del modblob
+            return catout
 
         # Run models
         astart = time.time()
@@ -385,7 +389,9 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0):
 
             # if conf.NTHREADS != 0:
             #     logger.removeHandler(fh)
-            return modblob.bcatalog.copy()
+            catout = modblob.bcatalog.copy()
+            del modblob
+            return catout
 
         logger.debug(f'Morphology determined. ({time.time() - astart:3.3f})s')
 
@@ -441,7 +447,7 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0):
                     logger.warning('All sources are invalid!')
                     catalog['X_MODEL'] += fblob.subvector[1] + fblob.mosaic_origin[1] - conf.BRICK_BUFFER + 1
                     catalog['Y_MODEL'] += fblob.subvector[0] + fblob.mosaic_origin[0] - conf.BRICK_BUFFER + 1
-                    return fblob.bcatalog.copy()
+                    return catalog
 
                 fblob.position_variance = None
                 fblob.parameter_variance = None
@@ -452,7 +458,9 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0):
             logger.info('Blob has been rejected!')
             # if conf.NTHREADS != 0:
             #     logger.removeHandler(fh)
-            return fblob.bcatalog.copy()
+            catout = fblob.bcatalog.copy()
+            del fblob
+            return catout
 
         # Forced phot
         astart = time.time() 
@@ -466,7 +474,9 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0):
         if not status:
             # if conf.NTHREADS != 0:
             #     logger.removeHandler(fh)
-            return fblob.bcatalog.copy()
+            catout = fblob.bcatalog.copy()
+            del fblob
+            return catout
 
         logger.info(f'Force photometry complete. ({time.time() - astart:3.3f})s')
 
