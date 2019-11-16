@@ -152,7 +152,7 @@ class Blob(Subimage):
                 remove_background_psf = True
 
             if (band in conf.CONSTANT_PSF) & (psf is not None):
-                psfmodel = psf.constantPsfAt(0, 0 ) #conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.)
+                psfmodel = psf.constantPsfAt(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.)
                 if remove_background_psf & (not conf.FORCE_GAUSSIAN_PSF):
                     pw, ph = np.shape(psfmodel.img)
                     cmask = create_circular_mask(pw, ph, radius=conf.PSF_MASKRAD / conf.PIXEL_SCALE)
