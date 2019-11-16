@@ -1124,7 +1124,7 @@ class Blob(Subimage):
             self.bcatalog[row]['N_CONVERGE'] = self.n_converge
             self.bcatalog[row]['N_BLOB'] = self.n_sources
 
-            if src.name in ('SimpleGalaxy', 'ExpGalaxy', 'DevGalaxy'):
+            if src.name in ('ExpGalaxy', 'DevGalaxy'):
                 self.bcatalog[row]['REFF'] = src.shape.re
                 self.bcatalog[row]['REFF_ERR'] = np.sqrt(self.parameter_variance[row].shape.getParams()[0])
                 self.bcatalog[row]['EE1'] = src.shape.ee1
@@ -1179,7 +1179,7 @@ class Blob(Subimage):
                 self.logger.info(f"    a/b (Dev):          {self.bcatalog[row]['DEV_AB']:3.3f} +/- {self.bcatalog[row]['DEV_AB_ERR']:3.3f}")
                 self.logger.info(f"    pa  (Dev):          {self.bcatalog[row]['DEV_THETA']:3.3f} +/- {self.bcatalog[row]['DEV_THETA_ERR']:3.3f}")
 
-            elif src.name != 'PointSource': # last resort
+            elif src.name not in ('PointSource', 'SimpleGalaxy'): # last resort
                 self.logger.warning(f"Source does not have a valid solution model!")
                 valid_source = False
                 self.bcatalog[row]['VALID_SOURCE'] = valid_source
