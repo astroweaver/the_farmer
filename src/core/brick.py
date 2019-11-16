@@ -150,9 +150,9 @@ class Brick(Subimage):
                 self.catalog.add_column(Column(np.ones(len(self.catalog), dtype=bool), name='VALID_SOURCE'))
                 self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=int), name='N_CONVERGE'))
                 self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=int), name='N_BLOB'))
-                for colname in ('REFF', 'REFF_ERR', 'AB', 'AB_ERR', 'THETA', 'THETA_ERR',
-                            'FRACDEV', 'EXP_REFF', 'EXP_REFF_ERR', 'EXP_AB', 'EXP_AB_ERR', 'EXP_THETA', 'EXP_THETA_ERR', 
-                            'DEV_REFF', 'DEV_REFF_ERR', 'DEV_AB', 'DEV_AB_ERR', 'DEV_THETA', 'DEV_THETA_ERR' ):
+                for colname in ('REFF', 'REFF_ERR', 'EE1', 'EE2', 'AB', 'AB_ERR', 'THETA', 'THETA_ERR',
+                            'FRACDEV', 'EXP_REFF', 'EXP_REFF_ERR', 'EXP_EE1', 'EXP_EE2', 'EXP_AB', 'EXP_AB_ERR', 'EXP_THETA', 'EXP_THETA_ERR', 
+                            'DEV_REFF', 'DEV_REFF_ERR', 'DEV_EE1', 'DEV_EE2', 'DEV_AB', 'DEV_AB_ERR', 'DEV_THETA', 'DEV_THETA_ERR' ):
                     self.catalog.add_column(Column(filler, name=colname))
             except:
                 self.logger.debug(f'Model columns already exist')
@@ -318,14 +318,14 @@ class Brick(Subimage):
             elif src['SOLMODEL'] == "SimpleGalaxy":
                 self.model_catalog[i] = SimpleGalaxy(position, flux)
             elif src['SOLMODEL'] == "ExpGalaxy":
-                shape = EllipseESoft.fromRAbPhi(src['REFF'], 1./src['AB'], -src['THETA'])
+                shape = EllipseESoft(src['REFF'], src['EE1'], src['EE2'])
                 self.model_catalog[i] = ExpGalaxy(position, flux, shape)
             elif src['SOLMODEL'] == "DevGalaxy":
-                shape = EllipseESoft.fromRAbPhi(src['REFF'], 1/src['AB'], -src['THETA'])
+                shape = EllipseESoft(src['REFF'], src['EE1'], src['EE2'])
                 self.model_catalog[i] = DevGalaxy(position, flux, shape)
             elif src['SOLMODEL'] == "FixedCompositeGalaxy":
-                shape_exp = EllipseESoft.fromRAbPhi(src['EXP_REFF'], 1/src['EXP_AB'], -src['EXP_THETA'])
-                shape_dev = EllipseESoft.fromRAbPhi(src['DEV_REFF'], 1/src['DEV_AB'], -src['DEV_THETA'])
+                shape_exp = EllipseESoft(src['REFF'], src['EXP_EE1'], src['EXP_EE2'])
+                shape_dev = EllipseESoft(src['REFF'], src['DEV_EE1'], src['DEV_EE2'])
                 self.model_catalog[i] = FixedCompositeGalaxy(
                                                 position, flux,
                                                 SoftenedFracDev(src['FRACDEV']),

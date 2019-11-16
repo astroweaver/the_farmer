@@ -1127,6 +1127,8 @@ class Blob(Subimage):
             if src.name in ('SimpleGalaxy', 'ExpGalaxy', 'DevGalaxy'):
                 self.bcatalog[row]['REFF'] = src.shape.re
                 self.bcatalog[row]['REFF_ERR'] = np.sqrt(self.parameter_variance[row].shape.getParams()[0])
+                self.bcatalog[row]['EE1'] = src.shape.ee1
+                self.bcatalog[row]['EE2'] = src.shape.ee2
                 self.bcatalog[row]['AB'] = (src.shape.e + 1) / (1 - src.shape.e)
                 if (src.shape.e >= 1) | (src.shape.e <= -1):
                     # self.bcatalog[row]['VALID_SOURCE'] = False
@@ -1157,11 +1159,18 @@ class Blob(Subimage):
                 # self.bcatalog[row]['ab_err'] = np.sqrt(self.parameter_variance[row][1])
                 # self.bcatalog[row]['phi_err'] = np.sqrt(self.parameter_variance[row][2])
 
+                self.bcatalog[row]['EE1'] = src.shapeExp.ee1
+                self.bcatalog[row]['EE2'] = src.shapeDev.ee2
+
                 if (src.shapeExp.e >= 1) | (src.shapeExp.e <= -1):
-                    self.bcatalog[row]['VALID_SOURCE'] = False
+                    # self.bcatalog[row]['VALID_SOURCE'] = False
+                    self.logger.warning(f'Source has invalid ellipticity! (e = {src.shapeExp.e:3.3f})')
+
 
                 if (src.shapeDev.e >= 1) | (src.shapeDev.e <= -1):
-                    self.bcatalog[row]['VALID_SOURCE'] = False
+                    # self.bcatalog[row]['VALID_SOURCE'] = False
+                    self.logger.warning(f'Source has invalid ellipticity! (e = {src.shapeDev.e:3.3f})')
+
 
                 self.logger.info(f"    Reff(Exp):          {self.bcatalog[row]['EXP_REFF']:3.3f} +/- {self.bcatalog[row]['EXP_REFF_ERR']:3.3f}")
                 self.logger.info(f"    a/b (Exp):          {self.bcatalog[row]['EXP_AB']:3.3f} +/- {self.bcatalog[row]['EXP_AB_ERR']:3.3f}")
