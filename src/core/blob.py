@@ -367,7 +367,7 @@ class Blob(Subimage):
                     self.logger.debug(f'               {self.model_catalog[i].shapeDev}')
                 else:
                     self.logger.debug(f'               {self.model_catalog[i].shape}')
-            if conf.FREEZE_POSITION:
+            if conf.FREEZE_FINAL_POSITION:
                 self.model_catalog[i].freezeParams('pos')
                 self.logger.debug(f'Position parameter frozen at {self.model_catalog[i].pos}')
         self.tr = Tractor(self.timages, self.model_catalog)
