@@ -1105,8 +1105,8 @@ def models_from_catalog(catalog, fblob):
             elif src['SOLMODEL'] == 'FixedCompositeGalaxy':
                 #expshape = EllipseESoft.fromRAbPhi(src['EXP_REFF'], 1./src['EXP_AB'],  -src['EXP_THETA'])
                 #devshape = EllipseESoft.fromRAbPhi(src['DEV_REFF'], 1./src['DEV_AB'],  -src['DEV_THETA'])
-                expshape = EllipseESoft(src['REFF'], src['EXP_EE1'], src['EXP_EE2'])
-                devshape = EllipseESoft(src['REFF'], src['DEV_EE1'], src['DEV_EE2'])
+                expshape = EllipseESoft(src['EXP_REFF'], src['EXP_EE1'], src['EXP_EE2'])
+                devshape = EllipseESoft(src['DEV_REFF'], src['DEV_EE1'], src['DEV_EE2'])
                 model_catalog[i] = FixedCompositeGalaxy(
                                                 position, flux,
                                                 SoftenedFracDev(src['FRACDEV']),

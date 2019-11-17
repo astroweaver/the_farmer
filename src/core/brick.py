@@ -324,8 +324,8 @@ class Brick(Subimage):
                 shape = EllipseESoft(src['REFF'], src['EE1'], src['EE2'])
                 self.model_catalog[i] = DevGalaxy(position, flux, shape)
             elif src['SOLMODEL'] == "FixedCompositeGalaxy":
-                shape_exp = EllipseESoft(src['REFF'], src['EXP_EE1'], src['EXP_EE2'])
-                shape_dev = EllipseESoft(src['REFF'], src['DEV_EE1'], src['DEV_EE2'])
+                shape_exp = EllipseESoft(src['EXP_REFF'], src['EXP_EE1'], src['EXP_EE2'])
+                shape_dev = EllipseESoft(src['DEV_REFF'], src['DEV_EE1'], src['DEV_EE2'])
                 self.model_catalog[i] = FixedCompositeGalaxy(
                                                 position, flux,
                                                 SoftenedFracDev(src['FRACDEV']),

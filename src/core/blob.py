@@ -1125,7 +1125,7 @@ class Blob(Subimage):
             self.bcatalog[row]['N_BLOB'] = self.n_sources
 
             if src.name in ('ExpGalaxy', 'DevGalaxy'):
-                self.bcatalog[row]['REFF'] = src.shape.re
+                self.bcatalog[row]['REFF'] = src.shape.logre
                 self.bcatalog[row]['REFF_ERR'] = np.sqrt(self.parameter_variance[row].shape.getParams()[0])
                 self.bcatalog[row]['EE1'] = src.shape.ee1
                 self.bcatalog[row]['EE2'] = src.shape.ee2
@@ -1143,13 +1143,13 @@ class Blob(Subimage):
 
             elif src.name == 'FixedCompositeGalaxy':
                 self.bcatalog[row]['FRACDEV'] = src.fracDev.getValue()
-                self.bcatalog[row]['EXP_REFF'] = src.shapeExp.re
+                self.bcatalog[row]['EXP_REFF'] = src.shapeExp.logre
                 self.bcatalog[row]['EXP_REFF_ERR'] = np.sqrt(self.parameter_variance[row].shapeExp.getParams()[0])
                 self.bcatalog[row]['EXP_AB'] = (src.shapeExp.e + 1) / (1 - src.shapeExp.e)
                 self.bcatalog[row]['EXP_AB_ERR'] = np.sqrt(self.parameter_variance[row].shapeExp.getParams()[1])
                 self.bcatalog[row]['EXP_THETA'] = np.rad2deg(src.shapeExp.theta)
                 self.bcatalog[row]['EXP_THETA_ERR'] = np.sqrt(self.parameter_variance[row].shapeExp.getParams()[2])
-                self.bcatalog[row]['DEV_REFF'] = src.shapeDev.re
+                self.bcatalog[row]['DEV_REFF'] = src.shapeDev.logre
                 self.bcatalog[row]['DEV_REFF_ERR'] = np.sqrt(self.parameter_variance[row].shapeDev.getParams()[0])
                 self.bcatalog[row]['DEV_AB'] = (src.shapeDev.e + 1) / (1 - src.shapeDev.e)
                 self.bcatalog[row]['DEV_AB_ERR'] = np.sqrt(self.parameter_variance[row].shapeDev.getParams()[1])
@@ -1159,8 +1159,11 @@ class Blob(Subimage):
                 # self.bcatalog[row]['ab_err'] = np.sqrt(self.parameter_variance[row][1])
                 # self.bcatalog[row]['phi_err'] = np.sqrt(self.parameter_variance[row][2])
 
-                self.bcatalog[row]['EE1'] = src.shapeExp.ee1
-                self.bcatalog[row]['EE2'] = src.shapeDev.ee2
+                self.bcatalog[row]['EXP_EE1'] = src.shapeExp.ee1
+                self.bcatalog[row]['EXP_EE2'] = src.shapeExp.ee2
+                self.bcatalog[row]['DEV_EE1'] = src.shapeDev.ee1
+                self.bcatalog[row]['DEV_EE2'] = src.shapeDev.ee2
+
 
                 if (src.shapeExp.e >= 1) | (src.shapeExp.e <= -1):
                     # self.bcatalog[row]['VALID_SOURCE'] = False
