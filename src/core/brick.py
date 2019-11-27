@@ -290,7 +290,7 @@ class Brick(Subimage):
                 for j, band in enumerate(self.bands):
                     if src[f'CHISQ_{band}'] > conf.RESIDUAL_CHISQ_REJECTION:
                         raw_fluxes[j] = 0.0
-                        self.logger.debug(f'Source has too large chisq in {band}.')
+                        self.logger.debug(f'Source has too large chisq in {band}. ({src[f'CHISQ_{band}']:3.3f}) > {conf.RESIDUAL_CHISQ_REJECTION})')
                     if (raw_fluxes <= 0.0).all():
                         self.model_mask[i] = False
                         self.logger.debug('Source has too large chisq in all bands. Rejecting!')
