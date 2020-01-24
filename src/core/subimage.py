@@ -33,7 +33,14 @@ import config as conf
 import logging
 class Subimage():
     """
-    TODO: add doc string
+    Parent superclass for all images in Farmer. Does useful calculations:
+
+    * WCS
+    * Sextraction
+    * Weights/Masks
+    * Data validation
+    * PSF models
+    * Image chopping
     """
 
     def __init__(self): 
@@ -133,7 +140,6 @@ class Subimage():
         #     print(f'Std = {np.std(self.background_images, (1,2))}')
         #     print(f'Global = {self.backgrounds[:,0]}')
         #     print(f'RMS = {self.backgrounds[:,1]}')
-
 
 
     ### DATA VALIDATION - WEIGHTS
@@ -273,11 +279,13 @@ class Subimage():
         # FIXME: too many return values; maybe try a namedtuple? a class?
         return subimages, subweights, submasks, self.psfmodels, self.bands, subwcs, subvector, self.slicepix, self.slice
 
-    def _band2idx(self, band):
+    def _band2idx(self, band, bands=conf.BANDS):
         # Convert band to index for arrays
         # TODO: Handle more than one band at a time
-        if band in self.bands:
-            idx = conf.BANDS.index(band)
+        if type(bands) != list:
+            bands = list(bands)
+        if band in bands:
+            idx = bands.index(band)
             self.logger.debug(f'subimage._band2idx :: {band} returns idx={idx}')
             return idx
         else:
@@ -342,9 +350,16 @@ class Subimage():
                 filter_type=conf.FILTER_TYPE, segmentation_map=True, 
                 deblend_nthresh=conf.DEBLEND_NTHRESH, deblend_cont=conf.DEBLEND_CONT)
         catalog, segmap = sep.extract(image, thresh, **kwargs)
-
+        
         if len(catalog) != 0:
             catalog = Table(catalog)
+            catalog.add_column(Column(catalog['x'], name='x_orig' ))
+            catalog.add_column(Column(catalog['y'], name='y_orig' ))
+            
+            if self.wcs is not None:
+                skyc = self.wcs.all_pix2world(catalog['x_orig'], catalog['y_orig'], 0)
+                catalog.add_column(Column(skyc[0], name=f'RA_{conf.DETECTION_NICKNAME}'))
+                catalog.add_column(Column(skyc[1], name=f'DEC_{conf.DETECTION_NICKNAME}'))
 
             # Aperture Photometry
             if incl_apphot:
