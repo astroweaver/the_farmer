@@ -31,7 +31,6 @@ from matplotlib.patches import Rectangle
 
 PSF_DIR = '.'
 PLOT = True
-VERBOSE = True
 OVERRIDE = True
 BAND = 'hsc_i' # unique nickname of band
 MAG_ZEROPOINTS = [23.93,]

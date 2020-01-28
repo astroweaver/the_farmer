@@ -53,7 +53,7 @@ class Mosaic(Subimage):
                 self.path_weight = os.path.join(conf.IMAGE_DIR, conf.DETECTION_FILENAME.replace('EXT', conf.WEIGHT_EXT))
                 self.path_mask = os.path.join(conf.IMAGE_DIR, conf.DETECTION_FILENAME.replace('EXT', conf.MASK_EXT))
                 
-            elif modeling:
+            elif modeling & (band is conf.MODELING_NICKANME):
                 self.path_image = os.path.join(conf.IMAGE_DIR, conf.MODELING_FILENAME.replace('EXT', conf.IMAGE_EXT))
                 self.path_weight = os.path.join(conf.IMAGE_DIR, conf.MODELING_FILENAME.replace('EXT', conf.WEIGHT_EXT))
                 self.path_mask = os.path.join(conf.IMAGE_DIR, conf.MODELING_FILENAME.replace('EXT', conf.MASK_EXT))
@@ -168,6 +168,8 @@ class Mosaic(Subimage):
                 if self.bands not in conf.CONSTANT_PSF:
                     psfvar_nsnap = conf.PSFVAR_NSNAP
                     self.logger.info(f'Creating spatially-varying PSF with PSFNSNAP = {psfvar_nsnap}')
+                else:
+                    self.logger.info(f'Creating constant PSF')
 
                 os.system(f'psfex {psf_cat} -c config/config.psfex -BASIS_TYPE PIXEL -PSF_DIR {psf_dir} -PSFVAR_NSNAP {psfvar_nsnap} -WRITE_XML Y -XML_NAME {path_savexml} -CHECKIMAGE_NAME {path_savechkimg} -CHECKPLOT_NAME {path_savechkplt}')
                 try:
@@ -235,7 +237,6 @@ class Mosaic(Subimage):
         x0 = int(((brick_id - 1) * brick_width) % self.dims[0])
         y0 = int(((brick_id - 1) * brick_height) / self.dims[1]) * brick_height
         return np.array([x0, y0])
-
 
     def n_bricks(self, brick_width=conf.BRICK_WIDTH, brick_height=conf.BRICK_HEIGHT):
         n_xbricks = self.dims[0] / brick_width

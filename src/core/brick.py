@@ -124,9 +124,23 @@ class Brick(Subimage):
         self.catalog = self.catalog[self._allowed_sources]
         self.n_sources = len(self.catalog)
 
-    def add_columns(self, band_only=False):
+    def add_columns(self, modeling=True, modbrick_name=conf.MODELING_NICKNAME):
         """TODO: docstring"""
         filler = np.zeros(len(self.catalog))
+        if 'N_BLOB' not in self.catalog.colnames:
+            self.catalog.add_column(Column(-99*np.ones(len(self.catalog), dtype=int), name='N_BLOB'))
+        if 'BEST_MODEL_BAND' not in self.catalog.colnames:
+            self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype='S20'), name='BEST_MODEL_BAND'))
+        if 'X_MODEL' not in self.catalog.colnames:
+            self.catalog.add_column(Column(-99*np.ones(len(self.catalog), dtype=float), name='X_MODEL'))
+        if 'Y_MODEL' not in self.catalog.colnames:
+            self.catalog.add_column(Column(-99*np.ones(len(self.catalog), dtype=float), name='Y_MODEL'))
+        if 'RA' not in self.catalog.colnames:
+            self.catalog.add_column(Column(-99*np.ones(len(self.catalog), dtype=float), name='RA'))
+        if 'DEC' not in self.catalog.colnames:
+            self.catalog.add_column(Column(-99*np.ones(len(self.catalog), dtype=float), name='DEC'))
+        if 'VALID_SOURCE' not in self.catalog.colnames:
+            self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=bool), name='VALID_SOURCE'))
         for colname in self.bands:
             colname = colname.replace(' ', '_')
             self.logger.debug(f'Adding columns to catalog for {colname}')
@@ -139,23 +153,23 @@ class Brick(Subimage):
                 self.catalog.add_column(Column(filler, name=f'FLUXERR_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'CHISQ_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'BIC_{colname}'))
+                self.catalog.add_column(Column(filler, name=f'N_CONVERGE_{colname}'))
             except:
                 self.logger.debug(f'Columns already exist for {colname}')
-        if not band_only:
-            try:
-                self.logger.debug(f'Adding model columns to catalog.')
-                for colname in ('X_MODEL', 'Y_MODEL', 'XERR_MODEL', 'YERR_MODEL', 'RA', 'DEC'):
-                    self.catalog.add_column(Column(filler, name=colname))
-                self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype='S20'), name='SOLMODEL'))
-                self.catalog.add_column(Column(np.ones(len(self.catalog), dtype=bool), name='VALID_SOURCE'))
-                self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=int), name='N_CONVERGE'))
-                self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=int), name='N_BLOB'))
-                for colname in ('REFF', 'REFF_ERR', 'EE1', 'EE2', 'AB', 'AB_ERR', 'THETA', 'THETA_ERR',
-                            'FRACDEV', 'EXP_REFF', 'EXP_REFF_ERR', 'EXP_EE1', 'EXP_EE2', 'EXP_AB', 'EXP_AB_ERR', 'EXP_THETA', 'EXP_THETA_ERR', 
-                            'DEV_REFF', 'DEV_REFF_ERR', 'DEV_EE1', 'DEV_EE2', 'DEV_AB', 'DEV_AB_ERR', 'DEV_THETA', 'DEV_THETA_ERR' ):
-                    self.catalog.add_column(Column(filler, name=colname))
-            except:
-                self.logger.debug(f'Model columns already exist')
+            if modeling:
+                try:
+                    self.logger.debug(f'Adding model columns to catalog.')
+                    for colname_fill in [f'{colext}_{colname}' for colext in ('X_MODEL', 'Y_MODEL', 'XERR_MODEL', 'YERR_MODEL', 'RA', 'DEC')]:
+                        self.catalog.add_column(Column(filler, name=colname_fill))
+                    self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype='S20'), name=f'SOLMODEL_{colname}'))
+                    self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=bool), name=f'VALID_SOURCE_{colname}'))
+                    
+                    for colname_fill in [f'{colext}_{colname}' for colext in ('REFF', 'REFF_ERR', 'EE1', 'EE2', 'AB', 'AB_ERR', 'THETA', 'THETA_ERR',
+                                'FRACDEV', 'EXP_REFF', 'EXP_REFF_ERR', 'EXP_EE1', 'EXP_EE2', 'EXP_AB', 'EXP_AB_ERR', 'EXP_THETA', 'EXP_THETA_ERR', 
+                                'DEV_REFF', 'DEV_REFF_ERR', 'DEV_EE1', 'DEV_EE2', 'DEV_AB', 'DEV_AB_ERR', 'DEV_THETA', 'DEV_THETA_ERR' )]:
+                        self.catalog.add_column(Column(filler, name=colname_fill))
+                except:
+                    self.logger.debug(f'Model columns already exist')
 
     def dilate(self, radius=conf.DILATION_RADIUS, fill_holes=True):
         """TODO: docstring"""
@@ -280,10 +294,20 @@ class Brick(Subimage):
         self.model_catalog = np.zeros(len(catalog), dtype=object)
         self.model_mask = np.ones(len(catalog), dtype=bool)
         for i, src in enumerate(catalog):
+            
+            if (catalog['BEST_MODEL_BAND'] == '').all():
+                self.logger.debug('No best models chosen yet.')
+                best_band = self.bands[0]
+                if not src[f'VALID_SOURCE_{self.bands[0]}']:
+                    self.model_mask[i] = False
+                    self.logger.debug('Source does not have a valid model.')
+                    continue
+            else:
+                best_band = src['BEST_MODEL_BAND']
 
-            if not src['VALID_SOURCE']:
-                self.model_mask[i] = False
-                continue
+                if not src[f'VALID_SOURCE_{best_band}']:
+                    self.model_mask[i] = False
+                    continue
 
             raw_fluxes = np.array([src[f'RAWFLUX_{band}'] for band in self.bands])
             if conf.RESIDUAL_CHISQ_REJECTION is not None:
@@ -307,29 +331,29 @@ class Brick(Subimage):
             # self.bcatalog[row]['X_MODEL'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
             # self.bcatalog[row]['Y_MODEL'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
 
-            bx_model = src['X_MODEL'] - self.mosaic_origin[1] + conf.BRICK_BUFFER - 1
-            by_model = src['Y_MODEL'] - self.mosaic_origin[0] + conf.BRICK_BUFFER - 1
+            bx_model = src[f'X_MODEL_{best_band}'] - self.mosaic_origin[1] + conf.BRICK_BUFFER - 1
+            by_model = src[f'Y_MODEL_{best_band}'] - self.mosaic_origin[0] + conf.BRICK_BUFFER - 1
 
             position = PixPos(bx_model, by_model)
             flux = Fluxes(**dict(zip(self.bands, raw_fluxes))) # IMAGES ARE IN NATIVE ZPT, USE RAWFLUXES!
 
-            if src['SOLMODEL'] == "PointSource":
+            if src[f'SOLMODEL_{best_band}'] == "PointSource":
                 self.model_catalog[i] = PointSource(position, flux)
                 self.model_catalog[i].name = 'PointSource' # HACK to get around Dustin's HACK.
-            elif src['SOLMODEL'] == "SimpleGalaxy":
+            elif src[f'SOLMODEL_{best_band}'] == "SimpleGalaxy":
                 self.model_catalog[i] = SimpleGalaxy(position, flux)
-            elif src['SOLMODEL'] == "ExpGalaxy":
-                shape = EllipseESoft(src['REFF'], src['EE1'], src['EE2'])
+            elif src[f'SOLMODEL_{best_band}'] == "ExpGalaxy":
+                shape = EllipseESoft(src[f'REFF_{best_band}'], src[f'EE1_{best_band}'], src[f'EE2_{best_band}'])
                 self.model_catalog[i] = ExpGalaxy(position, flux, shape)
-            elif src['SOLMODEL'] == "DevGalaxy":
-                shape = EllipseESoft(src['REFF'], src['EE1'], src['EE2'])
+            elif src[f'SOLMODEL_{best_band}'] == "DevGalaxy":
+                shape = EllipseESoft(src[f'REFF_{best_band}'], src[f'EE1_{best_band}'], src[f'EE2_{best_band}'])
                 self.model_catalog[i] = DevGalaxy(position, flux, shape)
-            elif src['SOLMODEL'] == "FixedCompositeGalaxy":
-                shape_exp = EllipseESoft(src['EXP_REFF'], src['EXP_EE1'], src['EXP_EE2'])
-                shape_dev = EllipseESoft(src['DEV_REFF'], src['DEV_EE1'], src['DEV_EE2'])
+            elif src[f'SOLMODEL_{best_band}'] == "FixedCompositeGalaxy":
+                shape_exp = EllipseESoft(src[f'EXP_REFF_{best_band}'], src[f'EXP_EE1_{best_band}'], src[f'EXP_EE2_{best_band}'])
+                shape_dev = EllipseESoft(src[f'DEV_REFF_{best_band}'], src[f'DEV_EE1_{best_band}'], src[f'DEV_EE2_{best_band}'])
                 self.model_catalog[i] = FixedCompositeGalaxy(
                                                 position, flux,
-                                                SoftenedFracDev(src['FRACDEV']),
+                                                SoftenedFracDev(src[f'FRACDEV_{best_band}']),
                                                 shape_exp, shape_dev)
             else:
                 self.logger.warning(f'Source #{src["source_id"]}: has no solution model at {position}')
@@ -340,11 +364,14 @@ class Brick(Subimage):
             self.logger.debug(f'               {flux}') 
 
         # Clean
-        if not self.model_mask.any():
-            mtotal = len(self.model_catalog)
-            nmasked = np.sum(~self.model_mask)
+        mtotal = len(self.model_catalog)
+        nmasked = np.sum(~self.model_mask)
+        msrc = np.sum(self.model_mask)
+        if not self.model_mask.any():        
             raise RuntimeError(f'No valid models to make model image! (of {mtotal}, {nmasked} masked)')
+        self.logger.info(f'Making model image with {msrc}/{mtotal} sources. ({nmasked} are masked)')
         self.model_catalog = self.model_catalog[self.model_mask]
+
 
         # Tractorize
         tr = Tractor(self.timages, self.model_catalog)

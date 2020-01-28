@@ -1,3 +1,4 @@
+# NOTE: nicknames MUST be < 50 char (FITS standard)
 translate = {
         'hsc_U': 'HSC-UD-COSMOS-U-ver1.1_rs',
         'hsc_g': 'HSC_g_SSP_PDR2_04_07_19_v2',

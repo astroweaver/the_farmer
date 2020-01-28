@@ -193,7 +193,7 @@ def plot_modprofile(blob, band=None):
         band = conf.MODELING_NICKNAME
         idx = 0
     else:
-        idx = blob._band2idx(band)
+        idx = blob._band2idx(band, bands=blob.bands)
 
     psfmodel = blob.psfimg[band]
 
@@ -245,7 +245,7 @@ def plot_modprofile(blob, band=None):
         except:
             mtype = 'PointSource'
         flux = src.getBrightness().getFlux(band)
-        chisq = blob.solved_chisq[j]
+        chisq = blob.solution_chisq[j, idx]
         band = band.replace(' ', '_')
         if band == conf.MODELING_NICKNAME:
             zpt = conf.MODELING_ZPT
@@ -284,7 +284,7 @@ def plot_detblob(blob, fig=None, ax=None, level=0, sublevel=0, final_opt=False, 
     # Init
     if fig is None:
         plt.ioff()
-        fig, ax = plt.subplots(figsize=(24,48), ncols=6, nrows=12)
+        fig, ax = plt.subplots(figsize=(24,48), ncols=6, nrows=13)
 
         # Detection image
         ax[0,0].imshow(blob.images[0], **img_opt)
@@ -310,13 +310,11 @@ def plot_detblob(blob, fig=None, ax=None, level=0, sublevel=0, final_opt=False, 
         [[ax[i,j].axis('off') for i in np.arange(nrow+1, 11)] for j in np.arange(0, 6)]
 
         ax[11,0].axis('off')
-        residual = blob.images[0] - blob.solution_model_images[0]
-        ax[11,1].imshow(blob.solution_model_images[0], **img_opt)
-        ax[11,2].imshow(blob.solution_model_images[0] + noise, **img_opt)
+        residual = blob.images[0] - blob.pre_solution_model_images[0]
+        ax[11,1].imshow(blob.pre_solution_model_images[0], **img_opt)
+        ax[11,2].imshow(blob.pre_solution_model_images[0] + noise, **img_opt)
         ax[11,3].imshow(residual, cmap='RdGy', vmin=-5*rms, vmax=5*rms)
         ax[11,4].imshow(blob.tr.getChiImage(0), cmap='RdGy', vmin = -5, vmax = 5)
-
-        ax[11,1].set_ylabel('Solution')
 
         bins = np.linspace(np.nanmin(residual), np.nanmax(residual), 30)
         minx, maxx = 0, 0
@@ -331,6 +329,29 @@ def plot_detblob(blob, fig=None, ax=None, level=0, sublevel=0, final_opt=False, 
         ax[11,5].set_xlim(minx, maxx)
         ax[11,5].axvline(0, c='grey', ls='dotted')
         ax[11,5].set_ylim(bottom=0)
+
+        ax[12,0].axis('off')
+        residual = blob.images[0] - blob.solution_model_images[0]
+        ax[12,1].imshow(blob.solution_model_images[0], **img_opt)
+        ax[12,2].imshow(blob.solution_model_images[0] + noise, **img_opt)
+        ax[12,3].imshow(residual, cmap='RdGy', vmin=-5*rms, vmax=5*rms)
+        ax[12,4].imshow(blob.tr.getChiImage(0), cmap='RdGy', vmin = -5, vmax = 5)
+
+        ax[12,1].set_ylabel('Solution')
+
+        bins = np.linspace(np.nanmin(residual), np.nanmax(residual), 30)
+        minx, maxx = 0, 0
+        for i, src in enumerate(blob.bcatalog):
+            res_seg = residual[blob.segmap==src['source_id']].flatten()
+            ax[12,5].hist(res_seg, bins=20, histtype='step', color=colors[i], density=True)
+            resmin, resmax = np.nanmin(res_seg), np.nanmax(res_seg)
+            if resmin < minx:
+                minx = resmin
+            if resmax > maxx:
+                maxx = resmax
+        ax[12,5].set_xlim(minx, maxx)
+        ax[12,5].axvline(0, c='grey', ls='dotted')
+        ax[12,5].set_ylim(bottom=0)
 
         # Solution params
         for i, src in enumerate(blob.solution_catalog):
@@ -398,7 +419,7 @@ def plot_detblob(blob, fig=None, ax=None, level=0, sublevel=0, final_opt=False, 
 
     return fig, ax
 
-def plot_fblob(blob, band, fig=None, ax=None, final_opt=False):
+def plot_fblob(blob, band, fig=None, ax=None, final_opt=False, debug=False):
 
     idx = np.argwhere(blob.bands == band)[0][0]
     back = blob.backgrounds[idx]
@@ -406,9 +427,9 @@ def plot_fblob(blob, band, fig=None, ax=None, final_opt=False):
     noise = np.random.normal(mean, rms, size=blob.dims)
     tr = blob.solution_tractor
     
-    norm = LogNorm(np.max([mean + rms, 1E-5]), 0.90*blob.images.max(), clip='True')
+    norm = LogNorm(np.max([mean + rms, 1E-5]), 0.98*blob.images.max(), clip='True')
     img_opt = dict(cmap='Greys', norm=norm)
-    img_opt = dict(cmap='RdGy', vmin=-5*rms, vmax=5*rms)
+    # img_opt = dict(cmap='RdGy', vmin=-5*rms, vmax=5*rms)
 
     if final_opt:
         
@@ -500,6 +521,11 @@ def plot_fblob(blob, band, fig=None, ax=None, final_opt=False):
 
         [ax[1,i+1].set_title(title, fontsize=20) for i, title in enumerate(('Model', 'Model+Noise', 'Image-Model', '$\chi^{2}$', 'Residuals'))]
 
+        if debug:
+            outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{blob.bands[idx]}_DEBUG.pdf')
+            fig.savefig(outpath)
+            plt.close()
+            logger.info(f'DEBUG | Saving figure: {outpath}')
     
     return fig, ax
 
@@ -568,7 +594,7 @@ def plot_ldac(tab_ldac, band, xlims=None, ylims=None, box=False, nsel=None):
 def plot_psf(psfmodel, band, show_gaussian=False):
 
     fig, ax = plt.subplots(ncols=3, figsize=(30,10))
-    norm = LogNorm(1e-5, 0.1*np.nanmax(psfmodel), clip='True')
+    norm = LogNorm(1e-8, 0.1*np.nanmax(psfmodel), clip='True')
     img_opt = dict(cmap='Blues', norm=norm)
     ax[0].imshow(psfmodel, **img_opt, extent=0.15 *np.array([-np.shape(psfmodel)[0]/2,  np.shape(psfmodel)[0]/2, -np.shape(psfmodel)[0]/2,  np.shape(psfmodel)[0]/2,]))
     ax[0].set(xlim=(-15,15), ylim=(-15, 15))

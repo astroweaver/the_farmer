@@ -31,6 +31,7 @@ import logging
 logger = logging.getLogger('farmer.utils')
 
 def header_from_dict(params):
+    """ Take in dictionary and churn out a header. Never forget configs again. """
     hdr = fits.Header()
     total_public_entries = np.sum([ not k.startswith('__') for k in params.keys()])
     logger.debug(f'header_from_dict :: Dictionary has {total_public_entries} entires')
