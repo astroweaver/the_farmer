@@ -171,7 +171,9 @@ class Mosaic(Subimage):
                 else:
                     self.logger.info(f'Creating constant PSF')
 
-                os.system(f'psfex {psf_cat} -c config/config.psfex -BASIS_TYPE PIXEL -PSF_DIR {psf_dir} -PSFVAR_NSNAP {psfvar_nsnap} -WRITE_XML Y -XML_NAME {path_savexml} -CHECKIMAGE_NAME {path_savechkimg} -CHECKPLOT_NAME {path_savechkplt}')
+                cmd = f'psfex {psf_cat} -c config/config.psfex -BASIS_TYPE PIXEL -PSF_DIR {psf_dir} -PSFVAR_NSNAP {psfvar_nsnap} -WRITE_XML Y -XML_NAME {path_savexml} -CHECKIMAGE_NAME {path_savechkimg} -CHECKPLOT_NAME {path_savechkplt}'
+                self.logger.debug(cmd)
+                os.system(cmd)
                 try:
                     oldpath = os.path.join(psf_dir, self.bands+"_clean.psf")
                     newpath = os.path.join(psf_dir, self.bands+".psf")
