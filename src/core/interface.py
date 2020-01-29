@@ -247,7 +247,7 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, insert=False, ski
     """
 
     # Make bricks for the detection image
-    if image_type==conf.DETECTION_NICKNAME | (image_type is None):
+    if (image_type==conf.DETECTION_NICKNAME) | (image_type is None):
         # Detection
         logger.info('Making mosaic for detection...')
         detmosaic = Mosaic(conf.DETECTION_NICKNAME, detection=True)
@@ -264,7 +264,7 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, insert=False, ski
             detmosaic._make_brick(brick_id, detection=True, overwrite=True)
 
     # Make bricks for the modeling image
-    elif image_type==conf.MODELING_NICKNAME | (image_type is None):
+    elif (image_type==conf.MODELING_NICKNAME) | (image_type is None):
         # Modeling
         logger.info('Making mosaic for modeling...')
         modmosaic = Mosaic(conf.MODELING_NICKNAME, modeling=True)
@@ -292,7 +292,7 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, insert=False, ski
                 modmosaic._make_brick(brick_id, modeling=True, overwrite=True)
     
     # Make bricks for one or more multiband images
-    elif image_type==conf.MULTIBAND_NICKNAME | (image_type is None):
+    elif (image_type==conf.MULTIBAND_NICKNAME) | (image_type is None):
 
         # One variable list
         if band is not None:
