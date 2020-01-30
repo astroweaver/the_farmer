@@ -62,7 +62,7 @@ for i, bid in enumerate(np.unique(brick_id)):
 
                 # DEEP FLAG
                 subcat_deep = subcat[subcat['FLAG_shallowstripes']]
-                print(f'Number of sources in deep region: {len(brick_deep)}')
+                print(f'Number of sources in deep region: {len(subcat_deep)}')
 
                 # from the blobmap
                 inval_blob_deep = blob_id[~subcat_deep['VALID_SOURCE']]
@@ -94,11 +94,11 @@ for i, bid in enumerate(np.unique(brick_id)):
 
 
                 # UDEEP FLAG
-                subcat_deep = subcat[subcat['FLAG_deepstripes']]
-                print(f'Number of sources in udeep region: {len(brick_deep)}')
+                subcat_udeep = subcat[subcat['FLAG_deepstripes']]
+                print(f'Number of sources in udeep region: {len(subcat_udeep)}')
 
                 # from the blobmap
-                inval_blob_deep = blob_id[~subcat_deep['VALID_SOURCE']]
+                inval_blob_deep = blob_id[~subcat_udeep['VALID_SOURCE']]
 
                 inval_px = np.sum(blobmap[np.isin(blobmap, inval_blob_deep)])
                 ok_px = total_px - masked_px - inval_px
@@ -112,7 +112,7 @@ for i, bid in enumerate(np.unique(brick_id)):
                 bad_px_udeep_blob += bad_px
 
                 # from the seg map
-                inval_seg_deep = source_id[~subcat_deep['VALID_SOURCE']]
+                inval_seg_deep = source_id[~subcat_udeep['VALID_SOURCE']]
 
                 inval_px = np.sum(segmap[np.isin(segmap, inval_seg_deep)])
                 ok_px = total_px - masked_px - inval_px
