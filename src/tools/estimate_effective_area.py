@@ -9,7 +9,7 @@ from astropy.io import fits
 fname_tab = sys.argv[1]
 dir_segmaps = sys.argv[2]
 dir_bricks = sys.argv[3]
-pixelscale = int(sys.argv[4])
+pixelscale = float(sys.argv[4])
 N_try = int(sys.argv[5])
 
 # open catalog
