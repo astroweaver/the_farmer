@@ -54,7 +54,7 @@ for i, bid in enumerate(np.unique(brick_id)):
                 brick_udeep = brick_id[tab['FLAG_shallowstripes'] & (tab['brick_id'] == bid)]
                 print(f'Number of sources in udeep region: {len(brick_udeep)}')
 
-                inval_brick_udeep = brick_id[tab['VALID_SOURCE'] & tab['FLAG_shallowstripes'] & (tab['brick_id'] == b$
+                inval_brick_udeep = brick_id[tab['VALID_SOURCE'] & tab['FLAG_shallowstripes'] & (tab['brick_id'] == bid)]
 
                 area_bad = np.sum(blobmap[np.isin(blobmap, inval_brick_udeep)])
                 pc_bad  = area_bad / (2004*2004)  # estimation!
