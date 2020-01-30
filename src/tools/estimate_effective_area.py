@@ -21,7 +21,7 @@ masked_px_udeep = 0
 if N_try > len(np.unique(brick_id)):
         N_try = len(np.unique(brick_id))
 
-print(f'Will try {N_try} bricks!')
+print(f'Will try {N_try}/{len(np.unique(brick_id))} bricks!')
 
 count = 0
 for i, bid in enumerate(np.unique(brick_id)):
