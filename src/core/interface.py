@@ -1213,6 +1213,8 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, modeling=False):
 
             except:
                 img = fits.open(path_psffile)[0].data
+                img = img.astype('float32')
+                img[img<=0.] = 1E-31
                 psfmodels[i] = PixelizedPSF(img)
                 logger.info(f'PSF model for {band} adopted as PixelizedPSF. ({path_psffile})')
 

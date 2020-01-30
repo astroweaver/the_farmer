@@ -1231,10 +1231,12 @@ class Blob(Subimage):
                 self.bcatalog[row][f'REFF_ERR_{mod_band}'] = np.sqrt(self.parameter_variance[row].shape.getParams()[0])
                 self.bcatalog[row][f'EE1_{mod_band}'] = src.shape.ee1
                 self.bcatalog[row][f'EE2_{mod_band}'] = src.shape.ee2
-                self.bcatalog[row][f'AB_{mod_band}'] = (src.shape.e + 1) / (1 - src.shape.e)
                 if (src.shape.e >= 1) | (src.shape.e <= -1):
                     # self.bcatalog[row][f'VALID_SOURCE'] = False
+                    self.bcatalog[row][f'AB_{mod_band}'] = -99.0
                     self.logger.warning(f'Source has invalid ellipticity! (e = {src.shape.e:3.3f})')
+                else:
+                    self.bcatalog[row][f'AB_{mod_band}'] = (src.shape.e + 1) / (1 - src.shape.e)
                 self.bcatalog[row][f'AB_ERR_{mod_band}'] = np.sqrt(self.parameter_variance[row].shape.getParams()[1])
                 self.bcatalog[row][f'THETA_{mod_band}'] = np.rad2deg(src.shape.theta)
                 self.bcatalog[row][f'THETA_ERR_{mod_band}'] = np.sqrt(self.parameter_variance[row].shape.getParams()[2])

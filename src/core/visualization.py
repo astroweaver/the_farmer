@@ -305,6 +305,11 @@ def plot_detblob(blob, fig=None, ax=None, level=0, sublevel=0, final_opt=False, 
 
         [ax[1,i+1].set_title(title, fontsize=20) for i, title in enumerate(('Model', 'Model+Noise', 'Image-Model', '$\chi^{2}$', 'Residuals'))]
 
+
+        outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{conf.MODELING_NICKNAME}.pdf')
+        fig.savefig(outpath)
+        logger.info(f'Saving figure: {outpath}')
+
     elif final_opt:
         nrow = 4 * level + 2* sublevel + 2
         [[ax[i,j].axis('off') for i in np.arange(nrow+1, 11)] for j in np.arange(0, 6)]
@@ -416,6 +421,10 @@ def plot_detblob(blob, fig=None, ax=None, level=0, sublevel=0, final_opt=False, 
             else:
                 ax[nrow,1].plot([x, x], [y - 10, y - 5], c=color)
                 ax[nrow,1].plot([x - 10, x - 5], [y, y], c=color)
+
+        outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{conf.MODELING_NICKNAME}.pdf')
+        fig.savefig(outpath)
+        logger.info(f'Saving figure: {outpath}')
 
     return fig, ax
 
