@@ -7,7 +7,8 @@ from astropy.table import Table
 from astropy.io import fits
 
 fname_tab = sys.argv[1]
-N_try = int(sys.argv[2])
+dir_segmaps = sys.argv[2]
+N_try = int(sys.argv[3])
 
 # open catalog
 tab = Table.read(fname_tab)
@@ -33,7 +34,7 @@ for i, bid in enumerate(np.unique(brick_id)):
                 continue
 
         # open segmap
-        with fits.open(f'B{bid}_SEGMAPS.fits') as hdul:
+        with fits.open(os.path.join(dir_segmaps, f'B{bid}_SEGMAPS.fits')) as hdul:
                 blobmap = hdul['BLOBMAP'].data
 
                 # deep regions
