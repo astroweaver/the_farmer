@@ -32,10 +32,6 @@ for i, bid in enumerate(np.unique(brick_id)):
                 print('ALL INVALID!')
                 continue
 
-        count += 1
-        if count > N_try:
-            break
-
         # open segmap
         with fits.open(f'B{bid}_SEGMAPS.fits') as hdul:
                 blobmap = hdul['BLOBMAP'].data
@@ -66,6 +62,11 @@ for i, bid in enumerate(np.unique(brick_id)):
                 print(f'Area of invalid sources: {area_bad} ({pc_bad*100}%)')
 
                 masked_px_udeep += area_bad
+
+        count += 1
+        if count > N_try:
+            print(f'Exceeded maximum number of bricks to attempt {N_try}. Exiting.')
+            break
 
 
 print(f'Final bad area over {i} bricks in deep: {masked_px_deep} px')
