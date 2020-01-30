@@ -46,7 +46,7 @@ for i, bid in enumerate(np.unique(brick_id)):
                 area_bad = np.sum(blobmap[np.isin(blobmap, inval_brick_deep)])
                 pc_bad  = area_bad / (2004*2004)  # estimation!
 
-                print(f'Area of invalid sources: {area_bad} ({pc_bad*100}%)')
+                print(f'Area of invalid sources: {area_bad} px ({pc_bad*100}%)')
 
                 masked_px_deep += area_bad
 
@@ -65,7 +65,7 @@ for i, bid in enumerate(np.unique(brick_id)):
                 masked_px_udeep += area_bad
 
         count += 1
-        if count > N_try:
+        if count >= N_try:
             print(f'Exceeded maximum number of bricks to attempt {N_try}. Exiting.')
             break
 
