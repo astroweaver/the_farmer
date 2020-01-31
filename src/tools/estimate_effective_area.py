@@ -26,6 +26,12 @@ good_px_deep_blob = 0
 bad_px_deep_seg = 0
 bad_px_deep_blob = 0
 
+good_px_udeep_seg = 0
+good_px_udeep_blob = 0
+
+bad_px_udeep_seg = 0
+bad_px_udeep_blob = 0
+
 if N_try > len(np.unique(brick_id)):
         N_try = len(np.unique(brick_id))
 
