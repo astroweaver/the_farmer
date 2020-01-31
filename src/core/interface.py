@@ -239,7 +239,7 @@ def make_psf(image_type=conf.MULTIBAND_NICKNAME, band=None, sextractor_only=Fals
     return
 
 
-def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, insert=False, skip_psf=False):
+def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, insert=False, skip_psf=True):
     """ Stage 1. Here we collect the detection, modelling, and multiband images for processing. We may also cut them up! 
     
     NB: PSFs can be automatically made at this stage too, assuming you've determined your PSF selection a priori.
