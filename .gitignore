@@ -29,6 +29,12 @@ __pycache__/
 *.out
 *.app
 
+*.ipynb
+.DS_Store
+*.fits
+*.tbl
+*.cat
+
 # Distribution / packaging
 .Python
 env/
@@ -101,7 +107,7 @@ target/
 .ipynb_checkpoints/
 
 # exclude compiled binaries
-bin/
+
 
 # exclude data from source control by default
 /data/external

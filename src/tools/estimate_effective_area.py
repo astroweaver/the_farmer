@@ -59,8 +59,8 @@ for i, bid in enumerate(np.unique(brick_id)):
                 # apply the mask to both first
                 masked_px = np.sum(mask)
                 total_px = mask.shape[0] * mask.shape[1]
-                blobmap[mask] = -99
-                segmap[mask] = -99
+                blobmap[mask] = 0
+                segmap[mask] = 0
 
                 print(f'Total area: {total_px} px')
                 print(f'Total masked area: {masked_px} px')

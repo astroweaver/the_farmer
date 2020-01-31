@@ -14,8 +14,8 @@ DETECT_MINAREA   5              # min. # of pixels above threshold
 DETECT_MAXAREA   100000         # max. # of pixels above threshold (0=unlimited)
 THRESH_TYPE      RELATIVE       # threshold type: RELATIVE (in sigmas)
                                 # or ABSOLUTE (in ADUs)
-DETECT_THRESH    20             # <sigmas> or <threshold>,<ZP> in mag.arcsec-2
-ANALYSIS_THRESH  20             # <sigmas> or <threshold>,<ZP> in mag.arcsec-2
+DETECT_THRESH    10             # <sigmas> or <threshold>,<ZP> in mag.arcsec-2
+ANALYSIS_THRESH  10             # <sigmas> or <threshold>,<ZP> in mag.arcsec-2
 
 FILTER           N              # apply filter for detection (Y or N)?
 FILTER_NAME      config/default.conv
@@ -60,12 +60,12 @@ PIXEL_SCALE      0              # size of pixel in arcsec (0=use FITS WCS info)
 
 #------------------------------ Background -----------------------------------
 
-BACK_TYPE        MANUAL         # AUTO or MANUAL
+BACK_TYPE        AUTO         # AUTO or MANUAL
 BACK_VALUE       0.0            # Default background value in MANUAL mode
-BACK_SIZE        128            # Background mesh: <size> or <width>,<height>
+BACK_SIZE        126            # Background mesh: <size> or <width>,<height>
 BACK_FILTERSIZE  3              # Background filter: <size> or <width>,<height>
 
-BACKPHOTO_TYPE   LOCAL          # can be GLOBAL or LOCAL
+BACKPHOTO_TYPE   GLOBAL          # can be GLOBAL or LOCAL
 BACKPHOTO_THICK  30             # thickness of the background LOCAL annulus
 BACK_FILTTHRESH  0.0            # Threshold above which the background-
                                 # map filter operates
@@ -80,11 +80,10 @@ CHECKIMAGE_NAME  check.fits     # Filename for the check-image
 
 #--------------------- Memory (change with caution!) -------------------------
 
-MEMORY_OBJSTACK  1000000           # number of objects in stack
+MEMORY_OBJSTACK  20000           # number of objects in stack
 MEMORY_PIXSTACK  1000000         # number of pixels in stack
-MEMORY_BUFSIZE   20000            # number of lines in buffer
+MEMORY_BUFSIZE   2000            # number of lines in buffer
 
 #----------------------------- Miscellaneous ---------------------------------
 
 VERBOSE_TYPE     NORMAL         # can be QUIET, NORMAL or FULL
-NTHREADS         10
