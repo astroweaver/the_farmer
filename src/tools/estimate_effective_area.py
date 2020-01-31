@@ -164,6 +164,7 @@ bad_px_deep_blob *= (pixelscale / 3600)**2
 bad_px_udeep_seg *= (pixelscale / 3600)**2
 bad_px_udeep_blob *= (pixelscale / 3600)**2
 
+print()
 print('From blobmaps:')
 print(f'Final good/bad area over {i} bricks in deep: {good_px_deep_blob}/{bad_px_deep_blob} deg2')
 print(f'Final good/bad area over {i} bricks in udeep: {good_px_udeep_blob}/{bad_px_udeep_blob} deg2')

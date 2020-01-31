@@ -203,6 +203,8 @@ class Mosaic(Subimage):
             raise ValueError(f'No existing file found for {path_fitsname}. Will not write new one.')
 
         x0, y0 = self._get_origin(brick_id, brick_width, brick_height)
+        if (brick_width + brick_buffer == conf.MOSAIC_WIDTH) & (brick_height + brick_buffer == conf.MOSAIC_HEIGHT):
+            x0, y0 = brick_buffer, brick_buffer
         subinfo = self._get_subimage(x0, y0, brick_width, brick_height, brick_buffer)
         subimage, subweight, submask, psfmodel, band, subwcs, subvector, slicepix, subslice = subinfo
 
