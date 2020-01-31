@@ -78,6 +78,7 @@ for i, bid in enumerate(np.unique(brick_id)):
                 ok_px = total_px - masked_px - inval_px
                 bad_px = masked_px + inval_px
 
+                print(f'Based on the blobmap:')
                 print(f'    Total inval area: {inval_px} px')
                 print(f'    Total ok area: {ok_px} px')
                 print(f'    Total bad area: {bad_px} px')
@@ -92,6 +93,7 @@ for i, bid in enumerate(np.unique(brick_id)):
                 ok_px = total_px - masked_px - inval_px
                 bad_px = masked_px + inval_px
                 
+                print(f'Based on the segmap:')
                 print(f'    Total inval area: {inval_px} px')
                 print(f'    Total ok area: {ok_px} px')
                 print(f'    Total bad area: {bad_px} px')
@@ -113,6 +115,7 @@ for i, bid in enumerate(np.unique(brick_id)):
                 ok_px = total_px - masked_px - inval_px
                 bad_px = masked_px + inval_px
 
+                print(f'Based on the blobmap:')
                 print(f'    Total inval area: {inval_px} px')
                 print(f'    Total ok area: {ok_px} px')
                 print(f'    Total bad area: {bad_px} px')
@@ -127,6 +130,7 @@ for i, bid in enumerate(np.unique(brick_id)):
                 ok_px = total_px - masked_px - inval_px
                 bad_px = masked_px + inval_px
                 
+                print(f'Based on the segmap:')
                 print(f'    Total inval area: {inval_px} px')
                 print(f'    Total ok area: {ok_px} px')
                 print(f'    Total bad area: {bad_px} px')
@@ -151,8 +155,14 @@ print(f'Final good/bad area over {i} bricks in udeep: {good_px_udeep_seg}/{bad_p
 good_px_deep_seg *= (pixelscale / 3600)**2
 good_px_deep_blob *= (pixelscale / 3600)**2
 
+good_px_udeep_seg *= (pixelscale / 3600)**2
+good_px_udeep_blob *= (pixelscale / 3600)**2
+
 bad_px_deep_seg *= (pixelscale / 3600)**2
 bad_px_deep_blob *= (pixelscale / 3600)**2
+
+bad_px_udeep_seg *= (pixelscale / 3600)**2
+bad_px_udeep_blob *= (pixelscale / 3600)**2
 
 print('From blobmaps:')
 print(f'Final good/bad area over {i} bricks in deep: {good_px_deep_blob}/{bad_px_deep_blob} deg2')
