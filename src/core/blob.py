@@ -1249,13 +1249,23 @@ class Blob(Subimage):
                 self.bcatalog[row][f'FRACDEV_{mod_band}'] = src.fracDev.getValue()
                 self.bcatalog[row][f'EXP_REFF_{mod_band}'] = src.shapeExp.logre
                 self.bcatalog[row][f'EXP_REFF_ERR_{mod_band}'] = np.sqrt(self.parameter_variance[row].shapeExp.getParams()[0])
-                self.bcatalog[row][f'EXP_AB_{mod_band}'] = (src.shapeExp.e + 1) / (1 - src.shapeExp.e)
+                if (src.shapeExp.e >= 1) | (src.shapeExp.e <= -1):
+                    # self.bcatalog[row][f'VALID_SOURCE'] = False
+                    self.bcatalog[row][f'EXP_AB_{mod_band}'] = -99.0
+                    self.logger.warning(f'Source has invalid ellipticity! (e = {src.shapeExp.e:3.3f})')
+                else:
+                    self.bcatalog[row][f'EXP_AB_{mod_band}'] = (src.shapeExp.e + 1) / (1 - src.shapeExp.e)
                 self.bcatalog[row][f'EXP_AB_ERR_{mod_band}'] = np.sqrt(self.parameter_variance[row].shapeExp.getParams()[1])
                 self.bcatalog[row][f'EXP_THETA_{mod_band}'] = np.rad2deg(src.shapeExp.theta)
                 self.bcatalog[row][f'EXP_THETA_ERR_{mod_band}'] = np.sqrt(self.parameter_variance[row].shapeExp.getParams()[2])
                 self.bcatalog[row][f'DEV_REFF_{mod_band}'] = src.shapeDev.logre
                 self.bcatalog[row][f'DEV_REFF_ERR_{mod_band}'] = np.sqrt(self.parameter_variance[row].shapeDev.getParams()[0])
-                self.bcatalog[row][f'DEV_AB_{mod_band}'] = (src.shapeDev.e + 1) / (1 - src.shapeDev.e)
+                if (src.shapeDev.e >= 1) | (src.shapeDev.e <= -1):
+                    # self.bcatalog[row][f'VALID_SOURCE'] = False
+                    self.bcatalog[row][f'DEV_AB_{mod_band}'] = -99.0
+                    self.logger.warning(f'Source has invalid ellipticity! (e = {src.shapeDev.e:3.3f})')
+                else:
+                    self.bcatalog[row][f'DEV_AB_{mod_band}'] = (src.shapeDev.e + 1) / (1 - src.shapeDev.e)
                 self.bcatalog[row][f'DEV_AB_ERR_{mod_band}'] = np.sqrt(self.parameter_variance[row].shapeDev.getParams()[1])
                 self.bcatalog[row][f'DEV_THETA_{mod_band}'] = np.rad2deg(src.shapeDev.theta)
                 self.bcatalog[row][f'DEV_THETA_ERR_{mod_band}'] = np.sqrt(self.parameter_variance[row].shapeDev.getParams()[2])
