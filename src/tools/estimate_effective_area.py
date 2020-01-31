@@ -48,8 +48,7 @@ for i, bid in enumerate(np.unique(brick_id)):
 
                 # get subcatalog for this brick
                 subcat = tab[brick_id==bid]
-                blob_id = subcat['blob_id']
-                source_id = subcat['source_id']
+                
 
                 # apply the mask to both first
                 masked_px = np.sum(mask)
@@ -62,6 +61,8 @@ for i, bid in enumerate(np.unique(brick_id)):
 
                 # DEEP FLAG
                 subcat_deep = subcat[subcat['FLAG_shallowstripes']]
+                blob_id = subcat_deep['blob_id']
+                source_id = subcat_deep['source_id']
                 print(f'Number of sources in deep region: {len(subcat_deep)}')
 
                 # from the blobmap
@@ -95,6 +96,8 @@ for i, bid in enumerate(np.unique(brick_id)):
 
                 # UDEEP FLAG
                 subcat_udeep = subcat[subcat['FLAG_deepstripes']]
+                blob_id = subcat_udeep['blob_id']
+                source_id = subcat_udeep['source_id']
                 print(f'Number of sources in udeep region: {len(subcat_udeep)}')
 
                 # from the blobmap
