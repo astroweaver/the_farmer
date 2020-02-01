@@ -846,10 +846,10 @@ def make_models(brick_id, band=conf.MODELING_NICKNAME, source_id=None, blob_id=N
         # modbrick.catalog[invalid][f'X_MODEL_{modbrick.bands[0]}'] = modbrick.catalog[invalid]['x_orig'] + modbrick.mosaic_origin[1] - conf.BRICK_BUFFER
         # modbrick.catalog[invalid][f'Y_MODEL_{modbrick.bands[0]}'] = modbrick.catalog[invalid]['y_orig'] + modbrick.mosaic_origin[0] - conf.BRICK_BUFFER
 
-        print(np.sum(invalid), len(invalid))
-        plt.pause(10)
-        idx = np.argwhere(invalid)[:20]
-        print(modbrick.catalog[idx][f'X_MODEL_{modbrick.bands[0]}'],  np.array(modbrick.catalog[idx]['x_orig']) + modbrick.mosaic_origin[1] - conf.BRICK_BUFFER)
+        # print(np.sum(invalid), len(invalid))
+        # plt.pause(10)
+        # idx = np.argwhere(invalid)[:20]
+        # print(modbrick.catalog[idx][f'X_MODEL_{modbrick.bands[0]}'],  np.array(modbrick.catalog[idx]['x_orig']) + modbrick.mosaic_origin[1] - conf.BRICK_BUFFER)
 
     modbrick.catalog['x'] = modbrick.catalog['x'] + modbrick.mosaic_origin[1] - conf.BRICK_BUFFER
     modbrick.catalog['y'] = modbrick.catalog['y'] + modbrick.mosaic_origin[0] - conf.BRICK_BUFFER

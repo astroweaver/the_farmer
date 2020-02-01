@@ -15,6 +15,9 @@ import numpy as np
 from tractor.galaxy import ExpGalaxy
 from tractor import EllipseE
 from tractor.galaxy import ExpGalaxy
+
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm, SymLogNorm
 from matplotlib.patches import Ellipse
