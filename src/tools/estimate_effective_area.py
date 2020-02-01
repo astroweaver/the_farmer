@@ -42,9 +42,6 @@ for i, bid in enumerate(np.unique(brick_id)):
         print()
         print(bid)
 
-        if bid != 276:
-                continue
-
         if (~tab['VALID_SOURCE'][tab['brick_id']==bid]).all():
                 print('ALL INVALID!')
                 continue
