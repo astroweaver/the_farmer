@@ -42,6 +42,9 @@ for i, bid in enumerate(np.unique(brick_id)):
         print()
         print(bid)
 
+        if bid != 276:
+                continue
+
         if (~tab['VALID_SOURCE'][tab['brick_id']==bid]).all():
                 print('ALL INVALID!')
                 continue
@@ -72,9 +75,10 @@ for i, bid in enumerate(np.unique(brick_id)):
                 print(f'Number of sources in deep region: {len(subcat_deep)}')
 
                 # from the blobmap
-                inval_blob_deep = blob_id[~subcat_deep['VALID_SOURCE']]
+                inval_blob_deep = np.unique(blob_id[~subcat_deep['VALID_SOURCE']])
+                print(f'Number of invalid blobs: {len(inval_blob_deep)}')
 
-                inval_px = np.sum(blobmap[np.isin(blobmap, inval_blob_deep)])
+                inval_px = np.sum(np.isin(blobmap, inval_blob_deep))
                 ok_px = total_px - masked_px - inval_px
                 bad_px = masked_px + inval_px
 
@@ -89,7 +93,7 @@ for i, bid in enumerate(np.unique(brick_id)):
                 # from the seg map
                 inval_seg_deep = source_id[~subcat_deep['VALID_SOURCE']]
 
-                inval_px = np.sum(segmap[np.isin(segmap, inval_seg_deep)])
+                inval_px = np.sum(np.isin(segmap, inval_seg_deep))
                 ok_px = total_px - masked_px - inval_px
                 bad_px = masked_px + inval_px
                 
