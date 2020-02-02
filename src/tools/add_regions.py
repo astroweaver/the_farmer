@@ -25,18 +25,21 @@ coords = SkyCoord(ra=ra * u.deg, dec=dec * u.deg)
 # make a quick function to handle the column making
 def mask_select(regfile, coords, opt=1):
     regions = read_ds9(regfile)
+    print('    - read file OK')
 
     reg_total = regions[0]
     # make composite
     if len(regions) > 1:
         for reg in regions:
             reg_total &= reg
+    print('    - composite made OK')
 
     # find sources
     if opt == 1: # is in
         col = coords in reg_total
     elif opt == 0: # is outside of
         col = coords not in reg_total
+    print('    - column made OK')
 
     return col
 
