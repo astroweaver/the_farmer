@@ -4,6 +4,7 @@ import numpy as np
 from astropy.io import fits
 from astropy.table import Table, Column
 from astropy.coordinates import SkyCoord
+import astropy.units as u
 from regions import read_ds9
 
 # fake the mask structure
