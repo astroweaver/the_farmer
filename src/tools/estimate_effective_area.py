@@ -93,6 +93,7 @@ for i, bid in enumerate(np.unique(brick_id)):
 
                 # from the seg map
                 inval_seg_deep = source_id[~subcat_deep['VALID_SOURCE']]
+                print(f'Number of invalid sources: {len(inval_seg_deep)}')
 
                 inval_px = np.sum(np.isin(segmap, inval_seg_deep))
                 ok_px = total_px - masked_px - inval_px
@@ -115,6 +116,7 @@ for i, bid in enumerate(np.unique(brick_id)):
 
                 # from the blobmap
                 inval_blob_deep = blob_id[~subcat_udeep['VALID_SOURCE']]
+                print(f'Number of invalid blobs: {len(inval_blob_deep)}')
 
                 inval_px = np.sum(np.isin(blobmap, inval_blob_deep))
                 ok_px = total_px - masked_px - inval_px
@@ -130,6 +132,7 @@ for i, bid in enumerate(np.unique(brick_id)):
 
                 # from the seg map
                 inval_seg_deep = source_id[~subcat_udeep['VALID_SOURCE']]
+                print(f'Number of invalid sources: {len(inval_seg_deep)}')
 
                 inval_px = np.sum(np.isin(segmap, inval_seg_deep))
                 ok_px = total_px - masked_px - inval_px
