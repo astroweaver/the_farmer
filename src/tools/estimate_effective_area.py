@@ -58,7 +58,7 @@ for i, bid in enumerate(np.unique(brick_id)):
 
                 # apply the mask to both first
                 masked_px = np.sum(mask)
-                total_px = mask.shape[0] * mask.shape[1]
+                total_px = (mask.shape[0] - 200) * (mask.shape[1] - 200)
                 blobmap[mask] = 0
                 segmap[mask] = 0
 
@@ -80,9 +80,9 @@ for i, bid in enumerate(np.unique(brick_id)):
                 bad_px = masked_px + inval_px
 
                 print(f'Based on the blobmap:')
-                print(f'    Total inval area: {inval_px} px')
-                print(f'    Total ok area: {ok_px} px')
-                print(f'    Total bad area: {bad_px} px')
+                print(f'    Total inval area: {inval_px} px ({100*inval_px/total_px}%)')
+                print(f'    Total ok area: {ok_px} px ({100*ok_px/total_px}%)')
+                print(f'    Total bad area: {bad_px} px' ({100*bad_px/total_px}%))
 
                 good_px_deep_blob += ok_px
                 bad_px_deep_blob += bad_px
@@ -95,9 +95,9 @@ for i, bid in enumerate(np.unique(brick_id)):
                 bad_px = masked_px + inval_px
                 
                 print(f'Based on the segmap:')
-                print(f'    Total inval area: {inval_px} px')
-                print(f'    Total ok area: {ok_px} px')
-                print(f'    Total bad area: {bad_px} px')
+                print(f'    Total inval area: {inval_px} px ({100*inval_px/total_px}%)')
+                print(f'    Total ok area: {ok_px} px ({100*ok_px/total_px}%)')
+                print(f'    Total bad area: {bad_px} px' ({100*bad_px/total_px}%))
 
                 good_px_deep_seg += ok_px
                 bad_px_deep_seg += bad_px
@@ -112,14 +112,14 @@ for i, bid in enumerate(np.unique(brick_id)):
                 # from the blobmap
                 inval_blob_deep = blob_id[~subcat_udeep['VALID_SOURCE']]
 
-                inval_px = np.sum(blobmap[np.isin(blobmap, inval_blob_deep)])
+                inval_px = np.sum(np.isin(blobmap, inval_blob_deep))
                 ok_px = total_px - masked_px - inval_px
                 bad_px = masked_px + inval_px
 
                 print(f'Based on the blobmap:')
-                print(f'    Total inval area: {inval_px} px')
-                print(f'    Total ok area: {ok_px} px')
-                print(f'    Total bad area: {bad_px} px')
+                print(f'    Total inval area: {inval_px} px ({100*inval_px/total_px}%)')
+                print(f'    Total ok area: {ok_px} px ({100*ok_px/total_px}%)')
+                print(f'    Total bad area: {bad_px} px' ({100*bad_px/total_px}%))
 
                 good_px_udeep_blob += ok_px
                 bad_px_udeep_blob += bad_px
@@ -127,14 +127,14 @@ for i, bid in enumerate(np.unique(brick_id)):
                 # from the seg map
                 inval_seg_deep = source_id[~subcat_udeep['VALID_SOURCE']]
 
-                inval_px = np.sum(segmap[np.isin(segmap, inval_seg_deep)])
+                inval_px = np.sum(np.isin(segmap, inval_seg_deep))
                 ok_px = total_px - masked_px - inval_px
                 bad_px = masked_px + inval_px
                 
                 print(f'Based on the segmap:')
-                print(f'    Total inval area: {inval_px} px')
-                print(f'    Total ok area: {ok_px} px')
-                print(f'    Total bad area: {bad_px} px')
+                print(f'    Total inval area: {inval_px} px ({100*inval_px/total_px}%)')
+                print(f'    Total ok area: {ok_px} px ({100*ok_px/total_px}%)')
+                print(f'    Total bad area: {bad_px} px' ({100*bad_px/total_px}%))
 
                 good_px_udeep_seg += ok_px
                 bad_px_udeep_seg += bad_px
