@@ -82,7 +82,7 @@ for i, bid in enumerate(np.unique(brick_id)):
                 print(f'Based on the blobmap:')
                 print(f'    Total inval area: {inval_px} px ({100*inval_px/total_px}%)')
                 print(f'    Total ok area: {ok_px} px ({100*ok_px/total_px}%)')
-                print(f'    Total bad area: {bad_px} px' ({100*bad_px/total_px}%))
+                print(f'    Total bad area: {bad_px} px ({100*bad_px/total_px}%)')
 
                 good_px_deep_blob += ok_px
                 bad_px_deep_blob += bad_px
@@ -97,7 +97,7 @@ for i, bid in enumerate(np.unique(brick_id)):
                 print(f'Based on the segmap:')
                 print(f'    Total inval area: {inval_px} px ({100*inval_px/total_px}%)')
                 print(f'    Total ok area: {ok_px} px ({100*ok_px/total_px}%)')
-                print(f'    Total bad area: {bad_px} px' ({100*bad_px/total_px}%))
+                print(f'    Total bad area: {bad_px} px ({100*bad_px/total_px}%)')
 
                 good_px_deep_seg += ok_px
                 bad_px_deep_seg += bad_px
@@ -119,7 +119,7 @@ for i, bid in enumerate(np.unique(brick_id)):
                 print(f'Based on the blobmap:')
                 print(f'    Total inval area: {inval_px} px ({100*inval_px/total_px}%)')
                 print(f'    Total ok area: {ok_px} px ({100*ok_px/total_px}%)')
-                print(f'    Total bad area: {bad_px} px' ({100*bad_px/total_px}%))
+                print(f'    Total bad area: {bad_px} px ({100*bad_px/total_px}%)')
 
                 good_px_udeep_blob += ok_px
                 bad_px_udeep_blob += bad_px
@@ -134,7 +134,7 @@ for i, bid in enumerate(np.unique(brick_id)):
                 print(f'Based on the segmap:')
                 print(f'    Total inval area: {inval_px} px ({100*inval_px/total_px}%)')
                 print(f'    Total ok area: {ok_px} px ({100*ok_px/total_px}%)')
-                print(f'    Total bad area: {bad_px} px' ({100*bad_px/total_px}%))
+                print(f'    Total bad area: {bad_px} px ({100*bad_px/total_px}%)')
 
                 good_px_udeep_seg += ok_px
                 bad_px_udeep_seg += bad_px
