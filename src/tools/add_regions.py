@@ -24,6 +24,7 @@ coords = SkyCoord(ra=ra * u.deg, dec=dec * u.deg)
 
 # make a quick function to handle the column making
 def mask_select(regfile, coords, opt=1):
+    print('    - reading file...')
     regions = read_ds9(regfile)
     print('    - read file OK')
 
