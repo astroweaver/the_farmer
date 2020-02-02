@@ -48,14 +48,16 @@ for i, bid in enumerate(np.unique(brick_id)):
 
         # open segmap
         with fits.open(os.path.join(dir_segmaps, f'B{bid}_SEGMAPS.fits')) as hdul:
+                print('Opening files...')
                 blobmap = hdul['BLOBMAP'].data
                 segmap = hdul['SEGMAP'].data
                 mask = fits.getdata(os.path.join(dir_bricks, f'B{bid}_NDETECTION_W2004_H2004.fits'), 'DETECTION_MASK')
 
+                print('Getting subcatalog')
                 # get subcatalog for this brick
                 subcat = tab[brick_id==bid]
                 
-
+                print('Applying mask')
                 # apply the mask to both first
                 masked_px = np.sum(mask)
                 total_px = (mask.shape[0] - 200) * (mask.shape[1] - 200)
