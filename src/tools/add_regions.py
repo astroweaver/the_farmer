@@ -5,6 +5,7 @@ from astropy.io import fits
 from astropy.table import Table, Column
 from astropy.coordinates import SkyCoord
 import astropy.units as u
+from astropy import wcs
 from regions import read_ds9
 
 # fake the mask structure
@@ -22,6 +23,16 @@ table = Table.read(filename)
 ra, dec = table['RA'], table['DEC']
 coords = SkyCoord(ra=ra * u.deg, dec=dec * u.deg)
 
+# Create a new WCS object.  The number of axes must be set
+# from the start
+w = wcs.WCS(naxis=2)
+
+w.wcs.crpix = [0, 0]
+w.wcs.cdelt = np.array([-1, 1])
+w.wcs.crval = [0, 0]
+w.wcs.ctype = ["RA---TAN", "DEC--TAN"]
+
+
 # make a quick function to handle the column making
 def mask_select(regfile, coords, opt=1):
     print('    - reading file...')
@@ -37,9 +48,9 @@ def mask_select(regfile, coords, opt=1):
 
     # find sources
     if opt == 1: # is in
-        col = reg_total.contains(coords)
+        col = reg_total.contains(coords, w)
     elif opt == 0: # is outside of
-        col = reg_total.contains(coords)
+        col = reg_total.contains(coords, w)
     print('    - column made OK')
 
     return col
