@@ -57,15 +57,17 @@ for i, bid in enumerate(np.unique(brick_id)):
                 # get subcatalog for this brick
                 subcat = tab[brick_id==bid]
                 
-                print('Applying mask')
+                
                 # apply the mask to both first
                 masked_px = np.sum(mask)
+                print(f'Total masked area: {masked_px} px')
                 total_px = (mask.shape[0] - 200) * (mask.shape[1] - 200)
+                print(f'Total area: {total_px} px')
+
+                print('Applying mask')
                 blobmap[mask] = 0
                 segmap[mask] = 0
-
-                print(f'Total area: {total_px} px')
-                print(f'Total masked area: {masked_px} px')
+                
 
                 # DEEP FLAG
                 subcat_deep = subcat[subcat['FLAG_shallowstripes']]
