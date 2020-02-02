@@ -37,9 +37,9 @@ def mask_select(regfile, coords, opt=1):
 
     # find sources
     if opt == 1: # is in
-        col = coords in reg_total
+        col = reg_total.contains(coords)
     elif opt == 0: # is outside of
-        col = coords not in reg_total
+        col = reg_total.contains(coords)
     print('    - column made OK')
 
     return col
