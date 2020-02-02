@@ -47,10 +47,10 @@ for name in masks.keys():
     fnames, opts = masks[name]
 
     if len(fnames) == 1:
-        col = mask_select(fnames[0], coords, opt=opts[0])
+        col = mask_select(os.path.join(mask_dir, fnames[0]), coords, opt=opts[0])
 
     for fname, opt in zip(fnames, opts):
-        col &= mask_select(fname, coords, opt=opt)
+        col &= mask_select(os.path.join(mask_dir, fname), coords, opt=opt)
 
     print(f'{np.sum(col)} sources selected in {name} ({100*np.sum(col) / len(col)}%)')
 
