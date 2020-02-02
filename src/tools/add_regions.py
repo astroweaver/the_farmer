@@ -48,15 +48,16 @@ def mask_select(regfile, coords, opt=1):
 for name in masks.keys():
     fnames, opts = masks[name]
 
-    if len(fnames) == 1:
-        col = mask_select(os.path.join(mask_dir, fnames[0]), coords, opt=opts[0])
-
-    for fname, opt in zip(fnames, opts):
-        col &= mask_select(os.path.join(mask_dir, fname), coords, opt=opt)
+    print(fnames[0], opts[0])
+    col = mask_select(os.path.join(mask_dir, fnames[0]), coords, opt=opts[0])
+    if len(fnames) > 1:
+        for fname, opt in zip(fnames[1:], opts[1:]):
+            print(fname, opt)
+            col &= mask_select(os.path.join(mask_dir, fname), coords, opt=opt)
 
     print(f'{np.sum(col)} sources selected in {name} ({100*np.sum(col) / len(col)}%)')
 
-    table.add_column(Column(col, name=name))
+    table.add_column(Column(col, name='flag_'+name))
 
 
 # save it
