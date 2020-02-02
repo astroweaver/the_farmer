@@ -15,7 +15,7 @@ masks = {
     'ultradeep': [('deepstripes-hjmcc.reg',), (1, )],
     'suprimecam': [('COSMOS.Peterr2.dd.reg',), (1, )]
 }
-filename = 'COSMOS2020_19_10_31.fits'
+filename = 'COSMOS_14_01_20_withflags.fits'
 
 table = Table.read(filename)
 ra, dec = table['RA'], table['DEC']
