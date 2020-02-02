@@ -1,4 +1,5 @@
 # imports
+import os
 import numpy as np
 from astropy.io import fits
 from astropy.table import Table, Column
@@ -8,7 +9,7 @@ from regions import read_ds9
 # fake the mask structure
 mask_dir = '/n07data/weaver/COSMOS2020/data/images/masks/'
 masks = {
-    'brightstars': [('hsc_S18mask_griz.reg',) (1,)],
+    'brightstars': [('hsc_S18mask_griz.reg',), (1,)],
     'ultravista': [('border_uv_2.reg'), (1, )],
     'deep': [('ultravista', 'deepstripes-hjmcc.reg'), (1, 0)],
     'ultradeep': [('deepstripes-hjmcc.reg',), (1, )],
