@@ -571,7 +571,7 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
     return catout
 
 
-def make_models(brick_id, band=conf.MODELING_NICKNAME, source_id=None, blob_id=None, segmap=None, blobmap=None, catalog=None, use_mask=True, source_only=False):
+def make_models(brick_id, band=conf.MODELING_NICKNAME, source_id=None, blob_id=None, segmap=None, blobmap=None, catalog=None, multiband_model=True, use_mask=True, source_only=False):
     """ Stage 2. Detect your sources and determine the best model parameters for them """
 
     # Create detection brick
@@ -615,18 +615,24 @@ def make_models(brick_id, band=conf.MODELING_NICKNAME, source_id=None, blob_id=N
             else:
                 raise ValueError(f'No valid segmentation map was found for {brick_id}')
         if 'x' in catalog.colnames:
-            catalog['x'].name = 'x_orig'
+            if 'x_borrowed' in catalog.colnames:
+                catalog.remove_column('x_borrowed')
+            catalog['x'].name = 'x_borrowed'
         if 'y' in catalog.colnames:
-            catalog['y'].name = 'y_orig'
+            if 'y_borrowed' in catalog.colnames:
+                catalog.remove_column('y_borrowed')
+            catalog['y'].name = 'y_borrowed'
         catalog[conf.X_COLNAME].name = 'x'
         catalog[conf.Y_COLNAME].name = 'y'
-        catalog['x'] = catalog['x'] - detbrick.mosaic_origin[1] + conf.BRICK_BUFFER - 1
-        catalog['y'] = catalog['y'] - detbrick.mosaic_origin[0] + conf.BRICK_BUFFER - 1
+        # catalog['x'] = catalog['x'] - detbrick.mosaic_origin[1] + conf.BRICK_BUFFER - 1
+        # catalog['y'] = catalog['y'] - detbrick.mosaic_origin[0] + conf.BRICK_BUFFER - 1
         detbrick.catalog = catalog
         detbrick.n_sources = len(catalog)
-        detbrick.n_blobs = catalog['blob_id'].max()
+        detbrick.n_blobs = len(np.unique(catalog['blob_id']))
         is_borrowed = True
         detbrick.segmap = segmap
+        detbrick.segmask = segmap.copy()
+        detbrick.segmask[segmap!=0] = 1 
         detbrick.blobmap = blobmap
         
     else:
@@ -639,41 +645,251 @@ def make_models(brick_id, band=conf.MODELING_NICKNAME, source_id=None, blob_id=N
         mod_nickname = band 
 
     else:
-        img_names = [band,]
+        if type(band) == list:
+            img_names = band
+        else:
+            img_names = [band,]
         mod_nickname = conf.MULTIBAND_NICKNAME
 
-    # Loop over bands to do the modelling on
-    for band_num, mod_band in enumerate(img_names):
+    # Loop over bands to do the modelling on -- if model in series!
+    if not multiband_model:
+        for band_num, mod_band in enumerate(img_names):
+            tstart = time.time()
+            if band_num > 0:
+                n_blobs, n_sources, segmap, segmask, blobmap, catalog = detbrick.n_blobs, detbrick.n_sources, detbrick.segmap, detbrick.segmask, detbrick.blobmap, detbrick.catalog
+                catalog['x'] = catalog['x'] - detbrick.mosaic_origin[1] + conf.BRICK_BUFFER - 1
+                catalog['y'] = catalog['y'] - detbrick.mosaic_origin[0] + conf.BRICK_BUFFER - 1
+            modbrick = stage_brickfiles(brick_id, band=mod_band, nickname=mod_nickname, modeling=True)
+            if band != conf.MODELING_NICKNAME:
+                modbrick.bands = [f'{conf.MODELING_NICKNAME}_{mod_band}',]
+                modbrick.n_bands = len(modbrick.bands)
+            else:
+                mod_band = conf.MODELING_NICKNAME
+            logger.info(f'Modeling brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
+
+
+            if conf.PLOT > 2:
+                plot_brick(modbrick, 0, band=mod_band)
+                plot_background(modbrick, 0, band=mod_band)
+                plot_mask(modbrick, 0, band=mod_band)
+
+            logger.debug(f'Brick #{brick_id} -- Image statistics for {mod_band}')
+            shape, minmax, mean, var = stats.describe(modbrick.images[0], axis=None)[:4]
+            logger.debug(f'    Limits: {minmax[0]:3.3f} - {minmax[1]:3.3f}')
+            logger.debug(f'    Mean: {mean:3.3f}+/-{np.sqrt(var):3.3f}\n')
+            logger.debug(f'Brick #{brick_id} -- Weight statistics for {mod_band}')
+            shape, minmax, mean, var = stats.describe(modbrick.weights[0], axis=None)[:4]
+            logger.debug(f'    Limits: {minmax[0]:3.3f} - {minmax[1]:3.3f}')
+            logger.debug(f'    Mean: {mean:3.3f}+/-{np.sqrt(var):3.3f}\n')
+            logger.debug(f'Brick #{brick_id} -- Background statistics for {mod_band}')
+            logger.debug(f'    Global: {modbrick.backgrounds[0, 0]:3.3f}')
+            logger.debug(f'    RMS: {modbrick.backgrounds[0, 1]:3.3f}\n')
+
+            modbrick.catalog = detbrick.catalog.copy()
+            modbrick.segmap = detbrick.segmap
+            modbrick.n_sources = detbrick.n_sources
+            if is_borrowed:
+                modbrick.blobmap = detbrick.blobmap
+
+            # Cleanup on MODBRICK
+            tstart = time.time()
+            if (~is_borrowed) & (band_num == 0):
+                modbrick.cleanup()
+            if band_num > 0:
+                modbrick.n_blobs, modbrick.n_sources, modbrick.segmap, modbrick.segmask, modbrick.blobmap, modbrick.catalog = n_blobs, n_sources, segmap, segmask, blobmap, catalog
+            modbrick.add_columns(modbrick_name=mod_band) # doing on detbrick gets column names wrong
+            logger.info(f'Modeling brick #{brick_id} gained {modbrick.n_blobs} blobs with {modbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
+
+            if conf.PLOT > 2:
+                plot_blobmap(modbrick)
+                plot_blobmap(modbrick, image=detbrick.images[0], band=conf.DETECTION_NICKNAME)
+
+            # Save segmap and blobmaps
+            if (~is_borrowed) & (band_num == 0):
+                tstart = time.time()
+                logger.info('Saving segmentation and blob maps...')
+                hdul = fits.HDUList()
+                hdul.append(fits.PrimaryHDU())
+                hdul.append(fits.ImageHDU(data=modbrick.segmap, name='SEGMAP'))
+                hdul.append(fits.ImageHDU(data=modbrick.blobmap, name='BLOBMAP'))
+                outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits')
+                hdul.writeto(outpath, overwrite=conf.OVERWRITE)
+                hdul.close()
+                logger.info(f'Saved to {outpath} ({time.time() - tstart:3.3f}s)')
+
+                tstart = time.time()
+            else:
+                logger.info(f'You gave me a catalog and segmap, so I am not saving it again.')
+
+            if source_only:
+                if source_id is None:
+                    raise ValueError('Source only is set True, but no source is has been provided!')
+            
+            # Run a specific source or blob
+            if (source_id is not None) | (blob_id is not None):
+                # conf.PLOT = True
+                outcatalog = modbrick.catalog.copy()
+                # print('AHHHHH   ', outcatalog['x', 'y'])
+                mosaic_origin = modbrick.mosaic_origin
+                # print('MOSAIC ORIGIN ', mosaic_origin)
+                brick_id = modbrick.brick_id
+                if source_id is not None:
+                    blob_id = np.unique(modbrick.blobmap[modbrick.segmap == source_id])
+                    if len(blob_id) == 1:
+                        blob_id = blob_id[0]
+                    else:
+                        raise ValueError('Requested source is not in brick!')
+                if blob_id is not None:
+                    if blob_id not in outcatalog['blob_id']:
+                        raise ValueError(f'No blobs exist for requested blob id {blob_id}')
+
+                logger.info(f'Running single blob for blob {blob_id}')
+                modblob = modbrick.make_blob(blob_id)
+
+                # if source_id is set, then look at only that source
+
+
+
+                
+                if modblob.rejected:
+                    raise ValueError('Requested blob is invalid')
+                if source_only & (source_id not in modblob.bcatalog['source_id']):
+                    logger.warning('Requested source is not in blob!')
+                    for source in modblob.bcatalog:
+                        logger.warning(source['source_id'], source['cflux'])
+                    raise ValueError('Requested source is not in blob!')
+
+                output_rows = runblob(blob_id, modblob, modeling=True, plotting=conf.PLOT, source_id=source_id)
+
+                output_cat = vstack(output_rows)
+                        
+                for colname in output_cat.colnames:
+                    if colname not in outcatalog.colnames:
+                        colshape = output_cat[colname].shape
+                        if colname.startswith('FLUX_APER'):
+                            outcatalog.add_column(Column(length=len(outcatalog), dtype=float, shape=(len(conf.APER_PHOT)), name=colname))
+                        else:
+                            outcatalog.add_column(Column(length=len(outcatalog), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
+
+                #outcatalog = join(outcatalog, output_cat, join_type='left', )
+                for row in output_cat:
+                    outcatalog[np.where(outcatalog['source_id'] == row['source_id'])[0]] = row
+
+                # vs = outcatalog['VALID_SOURCE']
+                # scoords = SkyCoord(ra=outcatalog[vs]['RA'], dec=outcatalog[vs]['DEC'], unit='degree')
+                # ebmv = m.ebv(scoords)
+                # col_ebmv = Column(np.zeros_like(outcatalog['RA']), name='EBV')
+                # col_ebmv[vs] = ebmv
+                # outcatalog.add_column(col_ebmv)
+                modbrick.catalog = outcatalog
+            
+            # Else, production mode -- all objects in brick are to be run.
+            else:
+                
+                if conf.NBLOBS > 0:
+                    run_n_blobs = conf.NBLOBS
+                else:
+                    run_n_blobs = modbrick.n_blobs
+                logger.info(f'Preparing to run {run_n_blobs} blobs.')
+                
+                outcatalog = modbrick.catalog.copy()
+                mosaic_origin = modbrick.mosaic_origin
+                brick_id = modbrick.brick_id
+
+                logger.info('Generating blobs...')
+                astart = time.time()
+                modblobs = (modbrick.make_blob(i) for i in np.arange(1, run_n_blobs+1))
+                logger.info(f'{run_n_blobs} blobs generated ({time.time() - astart:3.3f}s)')
+                #del modbrick
+
+                tstart = time.time()
+
+                if conf.NTHREADS > 0:
+
+                    with pa.pools.ProcessPool(ncpus=conf.NTHREADS) as pool:
+                        logger.info(f'Parallel processing pool initalized with {conf.NTHREADS} threads.')
+                        result = pool.uimap(partial(runblob, modeling=True, plotting=conf.PLOT, source_only=source_only), np.arange(1, run_n_blobs+1), modblobs)
+                        output_rows = list(result)
+                        logger.info('Parallel processing complete.')
+
+
+                else:
+                    logger.info('Serial processing initalized.')
+                    output_rows = [runblob(kblob_id+1, kblob, modeling=True, plotting=conf.PLOT, source_only=source_only) for kblob_id, kblob in enumerate(modblobs)]
+
+                output_cat = vstack(output_rows)
+
+                ttotal = time.time() - tstart
+                logger.info(f'Completed {run_n_blobs} blobs with {len(output_cat)} sources in {ttotal:3.3f}s (avg. {ttotal/len(output_cat):2.2f}s per source)')
+                        
+                for colname in output_cat.colnames:
+                    if colname not in outcatalog.colnames:
+                        colshape = output_cat[colname].shape
+                        if colname.startswith('FLUX_APER'):
+                            outcatalog.add_column(Column(length=len(outcatalog), dtype=float, shape=(len(conf.APER_PHOT)), name=colname))
+                        else:
+                            outcatalog.add_column(Column(length=len(outcatalog), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
+                #outcatalog = join(outcatalog, output_cat, join_type='left', )
+                for row in output_cat:
+                    outcatalog[np.where(outcatalog['source_id'] == row['source_id'])[0]] = row
+
+                # vs = outcatalog['VALID_SOURCE']
+                # scoords = SkyCoord(ra=outcatalog[vs]['RA'], dec=outcatalog[vs]['DEC'], unit='degree')
+                # ebmv = m.ebv(scoords)
+                # col_ebmv = Column(np.zeros_like(outcatalog['RA']), name='EBV')
+                # col_ebmv[vs] = ebmv
+                # outcatalog.add_column(col_ebmv)
+                modbrick.catalog = outcatalog
+
+                # open again and add
+
+                # If user wants model and/or residual images made:
+                if conf.MAKE_RESIDUAL_IMAGE:
+                    cleancatalog = outcatalog[outcatalog[f'VALID_SOURCE_{modbrick.bands[0]}']]
+                    modbrick.make_residual_image(catalog=cleancatalog)
+                elif conf.MAKE_MODEL_IMAGE:
+                    cleancatalog = outcatalog[outcatalog[f'VALID_SOURCE_{modbrick.bands[0]}']]
+                    modbrick.make_model_image(catalog=cleancatalog)
+
+            # Reconstuct mosaic positions of invalid sources 
+            invalid = ~modbrick.catalog[f'VALID_SOURCE_{modbrick.bands[0]}']
+            # modbrick.catalog[invalid][f'X_MODEL_{modbrick.bands[0]}'] = modbrick.catalog[invalid]['x_orig'] + modbrick.mosaic_origin[1] - conf.BRICK_BUFFER
+            # modbrick.catalog[invalid][f'Y_MODEL_{modbrick.bands[0]}'] = modbrick.catalog[invalid]['y_orig'] + modbrick.mosaic_origin[0] - conf.BRICK_BUFFER
+
+            # print(np.sum(invalid), len(invalid))
+            # plt.pause(10)
+            # idx = np.argwhere(invalid)[:20]
+            # print(modbrick.catalog[idx][f'X_MODEL_{modbrick.bands[0]}'],  np.array(modbrick.catalog[idx]['x_orig']) + modbrick.mosaic_origin[1] - conf.BRICK_BUFFER)
+
+   
+    # if multiband model is enabled...
+    elif multiband_model:
         tstart = time.time()
-        if band_num > 0:
-            n_blobs, n_sources, segmap, segmask, blobmap, catalog = modbrick.n_blobs, modbrick.n_sources, modbrick.segmap, modbrick.segmask, modbrick.blobmap, modbrick.catalog
-            catalog['x'] = catalog['x'] - detbrick.mosaic_origin[1] + conf.BRICK_BUFFER - 1
-            catalog['y'] = catalog['y'] - detbrick.mosaic_origin[0] + conf.BRICK_BUFFER - 1
-        modbrick = stage_brickfiles(brick_id, band=mod_band, nickname=mod_nickname, modeling=True)
-        if band != conf.MODELING_NICKNAME:
-            modbrick.bands = [f'{conf.MODELING_NICKNAME}_{mod_band}',]
-            modbrick.n_bands = len(modbrick.bands)
-        else:
-            mod_band = conf.MODELING_NICKNAME
-        logger.info(f'Modeling brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
+        n_blobs, n_sources, segmap, segmask, blobmap, catalog = detbrick.n_blobs, detbrick.n_sources, detbrick.segmap, detbrick.segmask, detbrick.blobmap, detbrick.catalog
+        catalog['x'] = catalog['x'] - detbrick.mosaic_origin[1] + conf.BRICK_BUFFER - 1
+        catalog['y'] = catalog['y'] - detbrick.mosaic_origin[0] + conf.BRICK_BUFFER - 1
+        modbrick = stage_brickfiles(brick_id, band=img_names, nickname=mod_nickname, modeling=True)
+        modbrick.bands = [f'{conf.MODELING_NICKNAME}_{b}' for b in img_names]
+        modbrick.n_bands = len(modbrick.bands)
+        logger.info(f'Multi-band Modeling brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
 
+        for i, mod_band in enumerate(modbrick.bands):
+            if conf.PLOT > 2:
+                plot_brick(modbrick, 0, band=mod_band)
+                plot_background(modbrick, 0, band=mod_band)
+                plot_mask(modbrick, 0, band=mod_band)
 
-        if conf.PLOT > 2:
-            plot_brick(modbrick, 0, band=mod_band)
-            plot_background(modbrick, 0, band=mod_band)
-            plot_mask(modbrick, 0, band=mod_band)
-
-        logger.debug(f'Brick #{brick_id} -- Image statistics for {mod_band}')
-        shape, minmax, mean, var = stats.describe(modbrick.images[0], axis=None)[:4]
-        logger.debug(f'    Limits: {minmax[0]:3.3f} - {minmax[1]:3.3f}')
-        logger.debug(f'    Mean: {mean:3.3f}+/-{np.sqrt(var):3.3f}\n')
-        logger.debug(f'Brick #{brick_id} -- Weight statistics for {mod_band}')
-        shape, minmax, mean, var = stats.describe(modbrick.weights[0], axis=None)[:4]
-        logger.debug(f'    Limits: {minmax[0]:3.3f} - {minmax[1]:3.3f}')
-        logger.debug(f'    Mean: {mean:3.3f}+/-{np.sqrt(var):3.3f}\n')
-        logger.debug(f'Brick #{brick_id} -- Background statistics for {mod_band}')
-        logger.debug(f'    Global: {modbrick.backgrounds[0, 0]:3.3f}')
-        logger.debug(f'    RMS: {modbrick.backgrounds[0, 1]:3.3f}\n')
+            logger.debug(f'Brick #{brick_id} -- Image statistics for {mod_band}')
+            shape, minmax, mean, var = stats.describe(modbrick.images[i], axis=None)[:4]
+            logger.debug(f'    Limits: {minmax[0]:3.3f} - {minmax[1]:3.3f}')
+            logger.debug(f'    Mean: {mean:3.3f}+/-{np.sqrt(var):3.3f}\n')
+            logger.debug(f'Brick #{brick_id} -- Weight statistics for {mod_band}')
+            shape, minmax, mean, var = stats.describe(modbrick.weights[i], axis=None)[:4]
+            logger.debug(f'    Limits: {minmax[0]:3.3f} - {minmax[1]:3.3f}')
+            logger.debug(f'    Mean: {mean:3.3f}+/-{np.sqrt(var):3.3f}\n')
+            logger.debug(f'Brick #{brick_id} -- Background statistics for {mod_band}')
+            logger.debug(f'    Global: {modbrick.backgrounds[i, 0]:3.3f}')
+            logger.debug(f'    RMS: {modbrick.backgrounds[i, 1]:3.3f}\n')
 
         modbrick.catalog = detbrick.catalog.copy()
         modbrick.segmap = detbrick.segmap
@@ -683,10 +899,14 @@ def make_models(brick_id, band=conf.MODELING_NICKNAME, source_id=None, blob_id=N
 
         # Cleanup on MODBRICK
         tstart = time.time()
-        if (~is_borrowed) & (band_num == 0):
+        if not is_borrowed:
+            logger.info('Cleaning up brick')
             modbrick.cleanup()
-        if band_num > 0:
-            modbrick.n_blobs, modbrick.n_sources, modbrick.segmap, modbrick.segmask, modbrick.blobmap, modbrick.catalog = n_blobs, n_sources, segmap, segmask, blobmap, catalog
+        modbrick.n_blobs, modbrick.n_sources, modbrick.segmap, modbrick.segmask, modbrick.blobmap, modbrick.catalog = n_blobs, n_sources, segmap, segmask, blobmap, catalog
+        if is_borrowed:
+            if 'VALID_SOURCE' in modbrick.catalog.colnames:
+                    modbrick.catalog['VALID_SOURCE'] = np.zeros(len(modbrick.catalog), dtype=bool)
+        modbrick.shared_params = True ## CRITICAL THING TO DO HERE!
         modbrick.add_columns(modbrick_name=mod_band) # doing on detbrick gets column names wrong
         logger.info(f'Modeling brick #{brick_id} gained {modbrick.n_blobs} blobs with {modbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
 
@@ -695,7 +915,7 @@ def make_models(brick_id, band=conf.MODELING_NICKNAME, source_id=None, blob_id=N
             plot_blobmap(modbrick, image=detbrick.images[0], band=conf.DETECTION_NICKNAME)
 
         # Save segmap and blobmaps
-        if (~is_borrowed) & (band_num == 0):
+        if not is_borrowed:
             tstart = time.time()
             logger.info('Saving segmentation and blob maps...')
             hdul = fits.HDUList()
@@ -735,6 +955,7 @@ def make_models(brick_id, band=conf.MODELING_NICKNAME, source_id=None, blob_id=N
 
             logger.info(f'Running single blob for blob {blob_id}')
             modblob = modbrick.make_blob(blob_id)
+            
 
             # if source_id is set, then look at only that source
 
@@ -843,14 +1064,8 @@ def make_models(brick_id, band=conf.MODELING_NICKNAME, source_id=None, blob_id=N
 
         # Reconstuct mosaic positions of invalid sources 
         invalid = ~modbrick.catalog[f'VALID_SOURCE_{modbrick.bands[0]}']
-        # modbrick.catalog[invalid][f'X_MODEL_{modbrick.bands[0]}'] = modbrick.catalog[invalid]['x_orig'] + modbrick.mosaic_origin[1] - conf.BRICK_BUFFER
-        # modbrick.catalog[invalid][f'Y_MODEL_{modbrick.bands[0]}'] = modbrick.catalog[invalid]['y_orig'] + modbrick.mosaic_origin[0] - conf.BRICK_BUFFER
 
-        # print(np.sum(invalid), len(invalid))
-        # plt.pause(10)
-        # idx = np.argwhere(invalid)[:20]
-        # print(modbrick.catalog[idx][f'X_MODEL_{modbrick.bands[0]}'],  np.array(modbrick.catalog[idx]['x_orig']) + modbrick.mosaic_origin[1] - conf.BRICK_BUFFER)
-
+   
     modbrick.catalog['x'] = modbrick.catalog['x'] + modbrick.mosaic_origin[1] - conf.BRICK_BUFFER
     modbrick.catalog['y'] = modbrick.catalog['y'] + modbrick.mosaic_origin[0] - conf.BRICK_BUFFER
     modbrick.catalog['x_orig'] = modbrick.catalog['x_orig'] + modbrick.mosaic_origin[1] - conf.BRICK_BUFFER
@@ -859,7 +1074,7 @@ def make_models(brick_id, band=conf.MODELING_NICKNAME, source_id=None, blob_id=N
 
     # If model bands is more than one, choose best one
     # Choose based on min chisq
-    if len(img_names) > 1:
+    if (len(img_names) > 1) & ~multiband_model:
         logger.info(f'Selecting best-fit models within {len(img_names)} bands')
         name_arr = np.ones(shape=(len(modbrick.catalog), len(img_names)), dtype='U11')
         score_arr = np.zeros(shape=(len(modbrick.catalog), len(img_names)))
@@ -885,6 +1100,10 @@ def make_models(brick_id, band=conf.MODELING_NICKNAME, source_id=None, blob_id=N
                 modbrick.bcatalog[row][f'RA'] = skyc[0]
                 modbrick.bcatalog[row][f'DEC'] = skyc[1]
                 logger.info(f"    Sky Model RA, Dec:   {skyc[0]:6.6f} deg, {skyc[1]:6.6f} deg")
+
+    elif (len(img_names) > 1) & multiband_model:
+        # do the multiband model stuff!
+        pass
     
     elif img_names[0] != conf.MODELING_NICKNAME:
         modbrick.catalog['BEST_MODEL_BAND'] = f'{conf.MODELING_NICKNAME}_{img_names[0]}'
@@ -1184,6 +1403,7 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, modeling=False):
 
             # Stuff data into arrays
             for i, tband in enumerate(sbands):
+                logger.info(f'Adding {tband} IMAGE, WEIGHT, and MASK arrays to modbrick')
                 images[i] = hdul_brick[f"{tband}_IMAGE"].data
                 weights[i] = hdul_brick[f"{tband}_WEIGHT"].data
                 masks[i] = hdul_brick[f"{tband}_MASK"].data
@@ -1225,7 +1445,7 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, modeling=False):
             else:
                 raise ValueError(f'PSF model not found for {band}! ({path_psffile})')
 
-    if modeling:
+    if modeling & (len(sbands) == 1):
         images, weights, masks = images[0], weights[0], masks[0]
 
     newbrick = Brick(images=images, weights=weights, masks=masks, psfmodels=psfmodels, wcs=wcs, bands=np.array(sbands), brick_id=brick_id)

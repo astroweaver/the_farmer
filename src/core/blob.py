@@ -125,6 +125,8 @@ class Blob(Subimage):
         # print(self.mosaic_origin)
         self.n_sources = len(self.bcatalog)
 
+        self.shared_params = brick.shared_params
+
         self.mids = np.ones(self.n_sources, dtype=int)
         self.model_catalog = np.zeros(self.n_sources, dtype=object)
         self.solution_catalog = np.zeros(self.n_sources, dtype=object)
@@ -369,7 +371,7 @@ class Blob(Subimage):
 
         else:
 
-            self.logger.debug(f'Starting lsqr optimization ({conf.TRACTOR_MAXSTEPS}, {conf.TRACTOR_CONTHRESH})') 
+            self.logger.debug(f'Starting lsqr optimization ({conf.TRACTOR_MAXSTEPS}, {conf.TRACTOR_CONTHRESH}) (shared_params={self.shared_params})') 
 
             self.n_converge = 0
             dlnp_init = 'NaN'
@@ -377,7 +379,7 @@ class Blob(Subimage):
 
             for i in range(conf.TRACTOR_MAXSTEPS):
                 try:
-                    dlnp, X, alpha, var = tr.optimize(shared_params=False, variance=True)
+                    dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, variance=True)
                     self.logger.debug(f'    {i+1}) dlnp = {np.log10(dlnp)}')
                     if i == 0:
                         dlnp_init = dlnp
