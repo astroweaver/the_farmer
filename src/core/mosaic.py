@@ -161,7 +161,7 @@ class Mosaic(Subimage):
                     for selection in conf.FLAG_STARCATALOG:
                         self.logger.debug(f'   ...where {selection}')
                         col, val = selection.split('==')
-                        mask_star &= (table_star[col] == val) 
+                        mask_star &= (table_star[col] == int(val)) 
                     table_star = table_star[mask_star]
                 ra, dec = table_star[conf.STARCATALOG_COORDCOLS[0]], table_star[conf.STARCATALOG_COORDCOLS[1]]
                 starcoords = SkyCoord(ra=ra * u.deg, dec = dec * u.deg)
