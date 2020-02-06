@@ -163,7 +163,7 @@ class Mosaic(Subimage):
                         col, val = selection.split('==')
                         mask_star &= (table_star[col] == val) 
                     table_star = table_star[mask_star]
-                ra, dec = table_star[conf.STARCATALOG_COORDCOLS[0]] table_star[conf.STARCATALOG_COORDCOLS[1]]
+                ra, dec = table_star[conf.STARCATALOG_COORDCOLS[0]], table_star[conf.STARCATALOG_COORDCOLS[1]]
                 starcoords = SkyCoord(ra=ra * u.deg, dec = dec * u.deg)
                 thresh = conf.STARCATALOG_MATCHRADIUS * u.arcsec
                 ral, decl = tab_ldac['ALPHA_J2000'], tabl_ldac['DELTA_J2000']
