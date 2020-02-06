@@ -166,7 +166,7 @@ class Mosaic(Subimage):
                 ra, dec = table_star[conf.STARCATALOG_COORDCOLS[0]], table_star[conf.STARCATALOG_COORDCOLS[1]]
                 starcoords = SkyCoord(ra=ra * u.deg, dec = dec * u.deg)
                 thresh = conf.STARCATALOG_MATCHRADIUS * u.arcsec
-                head = fits.getheader(tab_ldac, 1)
+                head = fits.getheader(self.path_image, 0)
                 w = WCS(head)
                 x, y = tab_ldac['X_IMAGE'], tab_ldac['Y_IMAGE']
                 ral, decl = w.all_pix2world(x, y, 1)
