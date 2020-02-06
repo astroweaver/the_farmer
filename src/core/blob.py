@@ -377,6 +377,14 @@ class Blob(Subimage):
             dlnp_init = 'NaN'
             tstart = time.time()
 
+            # grab inital positions
+            cat = tr.getCatalog()
+            x_orig = np.zeros(self.n_sources)
+            y_orig = np.zeros(self.n_sources)
+            for i, src in enumerate(cat):
+                x_orig[i] = src.pos[0]
+                y_orig[i] = src.pos[1]
+
             for i in range(conf.TRACTOR_MAXSTEPS):
                 try:
                     dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, variance=True)
@@ -392,14 +400,23 @@ class Blob(Subimage):
                     self.n_converge = i
                     break
 
-                # cat = tr.getCatalog()
-                # for j, src in enumerate(cat):
-                #     if abs(self.bcatalog[j]['x'] - src.pos[0]) > 1:
-                #         self.logger.warning(f"Source #{self.bcatalog[j]['source_id']} moved too far away in x!")
-                #         src.pos = PixPos(self.bcatalog[j]['x'], self.bcatalog[j]['y'])
-                #     if abs(self.bcatalog[j]['y'] - src.pos[1]) > 1:
-                #         self.logger.warning(f"Source #{self.bcatalog[j]['source_id']} moved too far away in y!")
-                #         src.pos = PixPos(self.bcatalog[j]['x'], self.bcatalog[j]['y'])
+                if conf.CORRAL_SOURCES:
+                    # check if any sources have left their segment
+                    cat = tr.getCatalog()
+                    for idx, src in enumerate(cat):
+                        sid = self.bcatalog['source_id'][idx]
+                        xp, yp = src.pos[0], src.pos[1]
+                        srcseg = self.segmap == sid
+                        maxx, maxy = np.shape(self.segmap)
+                        if (xp > maxx) | (xp < 0) | (yp < 0) | (yp > maxy):
+                            self.logger.warning(f'Source {sid} has escaped the blob!')
+                            cat[idx].pos = PixPos(x_orig[idx], y_orig[idx])
+                        elif ~srcseg[int(yp), int(xp)]:
+                            self.logger.warning(f'Source {sid} has escaped its segment!')
+                            cat[idx].pos = PixPos(x_orig[idx], y_orig[idx])
+
+                    tr.setCatalog(cat)
+
                 
         if var is None:
             self.logger.warning(f'Variance was not output for blob #{self.blob_id}')
@@ -446,7 +463,10 @@ class Blob(Subimage):
         self._level = -1
 
         if conf.PLOT > 0:
-            fig, ax = plot_detblob(self)
+            fig = np.ones(len(self.bands), dtype=object)
+            ax = np.ones(len(self.bands), dtype=object)
+            for i, band in enumerate(self.bands):
+                fig[i], ax[i] = plot_detblob(self, band=band)
 
         while not self._solved.all():
             self._level += 1
@@ -468,7 +488,8 @@ class Blob(Subimage):
                 self.tr = Tractor(self.timages, self.model_catalog)
 
                 if conf.PLOT > 0:
-                    plot_detblob(self, fig, ax, level=self._level, sublevel=self._sublevel, init=True)
+                    for figi, axi, band in zip(fig, ax, self.bands):
+                        plot_detblob(self, figi, axi, band=band, level=self._level, sublevel=self._sublevel, init=True)
 
                 # optimize
                 self.logger.debug(self.stage)
@@ -513,7 +534,8 @@ class Blob(Subimage):
                     self.mids[~self._solved] += 1
 
                 if conf.PLOT > 1:
-                    plot_detblob(self, fig, ax, level=self._level, sublevel=self._sublevel)
+                    for figi, axi, band in zip(fig, ax, self.bands):
+                        plot_detblob(self, figi, axi, band=band, level=self._level, sublevel=self._sublevel)
 
             # decide
             self.decide_winners()
@@ -585,7 +607,8 @@ class Blob(Subimage):
                     self.logger.debug(f'               {self.solution_catalog[i].shape}')
 
         if conf.PLOT > 1:
-            plot_detblob(self, fig, ax, level=self._level, sublevel=self._sublevel, final_opt=True)
+            for figi, axi, band in zip(fig, ax, self.bands):
+                plot_detblob(self, figi, axi, band=band, level=self._level, sublevel=self._sublevel, final_opt=True)
         
         if conf.PLOT > 0:
             [plot_modprofile(self, band=band) for band in self.bands]

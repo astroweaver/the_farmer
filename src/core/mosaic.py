@@ -25,6 +25,8 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import ascii, fits
+from astropy.coordinates import SkyCoord
+import astropy.units as u
 from astropy.table import Table, Column
 from scipy.ndimage import label, binary_dilation, binary_fill_holes
 from time import time
@@ -148,6 +150,19 @@ class Mosaic(Subimage):
                     (tab_ldac['MAG_AUTO'] < ylims[1]) &\
                     (tab_ldac['FLUX_RADIUS'] > xlims[0]) &\
                     (tab_ldac['FLUX_RADIUS'] < xlims[1])
+            
+
+            if conf.USE_STARCATALOG:
+                self.logger.debug(f'Crossmatching to star catalog {conf.STARCATALOG_FILENAME}')
+                table_star = Table.read(os.path.join(conf.STARCATALOG_DIR, conf.STARCATALOG_FILENAME))
+                ra, dec = table_star(conf.STARCATALOG_COORDCOLS[0], conf.STARCATALOG_COORDCOLS[1])
+                starcoords = SkyCoord(ra=ra * u.deg, dec = dec * u.deg)
+                thresh = conf.STARCATALOG_MATCHRADIUS * u.arcsec
+                ral, decl = tab_ldac['ALPHA_J2000'], tabl_ldac['DELTA_J2000']
+                candcoords = SkyCoord(ra = ral * u.deg, dec = decl * u.deg)
+                idx, d2d, __ = candcoords.match_to_catalog_sky(starcoords)
+                mask_ldac &= (idx < thresh)
+
 
             n_obj = np.sum(mask_ldac)
             if n_obj == 0:
@@ -157,7 +172,7 @@ class Mosaic(Subimage):
 
             if conf.PLOT > 0:
                 self.logger.debug('Plotting LDAC with pointsource bounding box')
-                plot_ldac(tab_ldac, self.bands, xlims=xlims, ylims=ylims, box=True, nsel=np.sum(mask_ldac))
+                plot_ldac(tab_ldac, self.bands, xlims=xlims, ylims=ylims, box=True, sel=mask_ldac)
 
             hdul_ldac['LDAC_OBJECTS'].data = tab_ldac[mask_ldac]
             hdul_ldac.writeto(psf_cat, overwrite=override)

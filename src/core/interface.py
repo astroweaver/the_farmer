@@ -64,8 +64,20 @@ warnings.filterwarnings("ignore")
 
 print(
 f"""
-******** F A R M E R ********
-(c) J. Weaver (DAWN, Univ. of Copenhagen)
+====================================================================
+ ________    _       _______     ____    ____  ________  _______        
+|_   __  |  / \     |_   __ \   |_   \  /   _||_   __  ||_   __ \    
+  | |_ \_| / _ \      | |__) |    |   \/   |    | |_ \_|  | |__) |   
+  |  _|   / ___ \     |  __ /     | |\  /| |    |  _| _   |  __ /    
+ _| |_  _/ /   \ \_  _| |  \ \_  _| |_\/_| |_  _| |__/ | _| |  \ \_ 
+|_____||____| |____||____| |___||_____||_____||________||____| |___|
+                                                                    
+--------------------------------------------------------------------
+M O D E L   P H O T O M E T R Y   W I T H   T H E   T R A C T O R   
+--------------------------------------------------------------------
+                                                                    
+    (C) 2020 -- J. Weaver (DAWN, University of Copenhagen)          
+====================================================================
 
 CONSOLE_LOGGING_LEVEL ..... {conf.CONSOLE_LOGGING_LEVEL}			
 LOGFILE_LOGGING_LEVEL ..... {conf.LOGFILE_LOGGING_LEVEL}												
@@ -111,28 +123,6 @@ if not len(logger.handlers):
         fh.setLevel(logging.getLevelName(conf.LOGFILE_LOGGING_LEVEL))
         fh.setFormatter(formatter)
         logger.addHandler(fh)
-
-
-
-# The logo
-logger.info(
-"""
-====================================================================
- ________    _       _______     ____    ____  ________  _______        
-|_   __  |  / \     |_   __ \   |_   \  /   _||_   __  ||_   __ \    
-  | |_ \_| / _ \      | |__) |    |   \/   |    | |_ \_|  | |__) |   
-  |  _|   / ___ \     |  __ /     | |\  /| |    |  _| _   |  __ /    
- _| |_  _/ /   \ \_  _| |  \ \_  _| |_\/_| |_  _| |__/ | _| |  \ \_ 
-|_____||____| |____||____| |___||_____||_____||________||____| |___|
-                                                                    
---------------------------------------------------------------------
-M O D E L   P H O T O M E T R Y   W I T H   T H E   T R A C T O R   
---------------------------------------------------------------------
-                                                                    
-    (C) 2019 -- J. Weaver (DAWN, University of Copenhagen)          
-====================================================================
-"""
-)
 
 
 
@@ -865,9 +855,10 @@ def make_models(brick_id, band=conf.MODELING_NICKNAME, source_id=None, blob_id=N
     # if multiband model is enabled...
     elif multiband_model:
         tstart = time.time()
-        n_blobs, n_sources, segmap, segmask, blobmap, catalog = detbrick.n_blobs, detbrick.n_sources, detbrick.segmap, detbrick.segmask, detbrick.blobmap, detbrick.catalog
-        catalog['x'] = catalog['x'] - detbrick.mosaic_origin[1] + conf.BRICK_BUFFER - 1
-        catalog['y'] = catalog['y'] - detbrick.mosaic_origin[0] + conf.BRICK_BUFFER - 1
+        n_sources, segmap, catalog = detbrick.n_sources, detbrick.segmap, detbrick.catalog
+        if is_borrowed:
+            catalog['x'] = catalog['x'] - detbrick.mosaic_origin[1] + conf.BRICK_BUFFER - 1
+            catalog['y'] = catalog['y'] - detbrick.mosaic_origin[0] + conf.BRICK_BUFFER - 1
         modbrick = stage_brickfiles(brick_id, band=img_names, nickname=mod_nickname, modeling=True)
         modbrick.bands = [f'{conf.MODELING_NICKNAME}_{b}' for b in img_names]
         modbrick.n_bands = len(modbrick.bands)
@@ -891,9 +882,9 @@ def make_models(brick_id, band=conf.MODELING_NICKNAME, source_id=None, blob_id=N
             logger.debug(f'    Global: {modbrick.backgrounds[i, 0]:3.3f}')
             logger.debug(f'    RMS: {modbrick.backgrounds[i, 1]:3.3f}\n')
 
-        modbrick.catalog = detbrick.catalog.copy()
-        modbrick.segmap = detbrick.segmap
-        modbrick.n_sources = detbrick.n_sources
+        modbrick.catalog = catalog.copy()
+        modbrick.segmap = segmap
+        modbrick.n_sources = n_sources
         if is_borrowed:
             modbrick.blobmap = detbrick.blobmap
 
@@ -902,7 +893,6 @@ def make_models(brick_id, band=conf.MODELING_NICKNAME, source_id=None, blob_id=N
         if not is_borrowed:
             logger.info('Cleaning up brick')
             modbrick.cleanup()
-        modbrick.n_blobs, modbrick.n_sources, modbrick.segmap, modbrick.segmask, modbrick.blobmap, modbrick.catalog = n_blobs, n_sources, segmap, segmask, blobmap, catalog
         if is_borrowed:
             if 'VALID_SOURCE' in modbrick.catalog.colnames:
                     modbrick.catalog['VALID_SOURCE'] = np.zeros(len(modbrick.catalog), dtype=bool)

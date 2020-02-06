@@ -273,7 +273,7 @@ def plot_modprofile(blob, band=None):
     plt.close()
 
 
-def plot_detblob(blob, fig=None, ax=None, level=0, sublevel=0, final_opt=False, init=False):
+def plot_detblob(blob, fig=None, ax=None, band=None, level=0, sublevel=0, final_opt=False, init=False):
 
     back = blob.backgrounds[0]
     mean, rms = back[0], back[1]
@@ -284,13 +284,21 @@ def plot_detblob(blob, fig=None, ax=None, level=0, sublevel=0, final_opt=False, 
     img_opt = dict(cmap='Greys', norm=norm)
     img_opt = dict(cmap='RdGy', vmin=-5*rms, vmax=5*rms)
 
+    if band is None:
+        idx = 0
+        band = ''
+    else:
+        # print(blob.bands)
+        # print(band)
+        idx = np.argwhere(np.array(blob.bands) == band)[0][0]
+
     # Init
     if fig is None:
         plt.ioff()
         fig, ax = plt.subplots(figsize=(24,48), ncols=6, nrows=13)
 
         # Detection image
-        ax[0,0].imshow(blob.images[0], **img_opt)
+        ax[0,0].imshow(blob.images[idx], **img_opt)
         [ax[0,i].axis('off') for i in np.arange(1, 6)]
 
         for j, src in enumerate(blob.bcatalog):
@@ -308,8 +316,7 @@ def plot_detblob(blob, fig=None, ax=None, level=0, sublevel=0, final_opt=False, 
 
         [ax[1,i+1].set_title(title, fontsize=20) for i, title in enumerate(('Model', 'Model+Noise', 'Image-Model', '$\chi^{2}$', 'Residuals'))]
 
-
-        outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{conf.MODELING_NICKNAME}.pdf')
+        outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{conf.MODELING_NICKNAME}_{band}.pdf')
         fig.savefig(outpath)
         logger.info(f'Saving figure: {outpath}')
 
@@ -318,11 +325,11 @@ def plot_detblob(blob, fig=None, ax=None, level=0, sublevel=0, final_opt=False, 
         [[ax[i,j].axis('off') for i in np.arange(nrow+1, 11)] for j in np.arange(0, 6)]
 
         ax[11,0].axis('off')
-        residual = blob.images[0] - blob.pre_solution_model_images[0]
-        ax[11,1].imshow(blob.pre_solution_model_images[0], **img_opt)
-        ax[11,2].imshow(blob.pre_solution_model_images[0] + noise, **img_opt)
+        residual = blob.images[idx] - blob.pre_solution_model_images[idx]
+        ax[11,1].imshow(blob.pre_solution_model_images[idx], **img_opt)
+        ax[11,2].imshow(blob.pre_solution_model_images[idx] + noise, **img_opt)
         ax[11,3].imshow(residual, cmap='RdGy', vmin=-5*rms, vmax=5*rms)
-        ax[11,4].imshow(blob.tr.getChiImage(0), cmap='RdGy', vmin = -5, vmax = 5)
+        ax[11,4].imshow(blob.tr.getChiImage(idx), cmap='RdGy', vmin = -5, vmax = 5)
 
         bins = np.linspace(np.nanmin(residual), np.nanmax(residual), 30)
         minx, maxx = 0, 0
@@ -339,11 +346,11 @@ def plot_detblob(blob, fig=None, ax=None, level=0, sublevel=0, final_opt=False, 
         ax[11,5].set_ylim(bottom=0)
 
         ax[12,0].axis('off')
-        residual = blob.images[0] - blob.solution_model_images[0]
-        ax[12,1].imshow(blob.solution_model_images[0], **img_opt)
-        ax[12,2].imshow(blob.solution_model_images[0] + noise, **img_opt)
+        residual = blob.images[idx] - blob.solution_model_images[idx]
+        ax[12,1].imshow(blob.solution_model_images[idx], **img_opt)
+        ax[12,2].imshow(blob.solution_model_images[idx] + noise, **img_opt)
         ax[12,3].imshow(residual, cmap='RdGy', vmin=-5*rms, vmax=5*rms)
-        ax[12,4].imshow(blob.tr.getChiImage(0), cmap='RdGy', vmin = -5, vmax = 5)
+        ax[12,4].imshow(blob.tr.getChiImage(idx), cmap='RdGy', vmin = -5, vmax = 5)
 
         ax[12,1].set_ylabel('Solution')
 
@@ -369,7 +376,7 @@ def plot_detblob(blob, fig=None, ax=None, level=0, sublevel=0, final_opt=False, 
 
 
         #fig.subplots_adjust(wspace=0, hspace=0)
-        outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{conf.MODELING_NICKNAME}.pdf')
+        outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{conf.MODELING_NICKNAME}_{band}.pdf')
         fig.savefig(outpath)
         plt.close()
         logger.info(f'Saving figure: {outpath}')
@@ -379,12 +386,12 @@ def plot_detblob(blob, fig=None, ax=None, level=0, sublevel=0, final_opt=False, 
             nrow = 4 * level + 2 * sublevel + 1
         else:
             nrow = 4 * level + 2 * sublevel + 2
-        residual = blob.images[0] - blob.tr.getModelImage(0)
+        residual = blob.images[idx] - blob.tr.getModelImage(idx)
         ax[nrow,0].axis('off')
-        ax[nrow,1].imshow(blob.tr.getModelImage(0), **img_opt)
-        ax[nrow,2].imshow(blob.tr.getModelImage(0) + noise, **img_opt)
+        ax[nrow,1].imshow(blob.tr.getModelImage(idx), **img_opt)
+        ax[nrow,2].imshow(blob.tr.getModelImage(idx) + noise, **img_opt)
         ax[nrow,3].imshow(residual, cmap='RdGy', vmin=-5*rms, vmax=5*rms)
-        ax[nrow,4].imshow(blob.tr.getChiImage(0), cmap='RdGy', vmin = -5, vmax = 5)
+        ax[nrow,4].imshow(blob.tr.getChiImage(idx), cmap='RdGy', vmin = -5, vmax = 5)
 
         models = {1:'PointSource', 3:'SimpleGalaxy', 5:'ExpGalaxy', 7:'DevGalaxy', 9:'CompositeGalaxy'}
         if init:
@@ -425,7 +432,7 @@ def plot_detblob(blob, fig=None, ax=None, level=0, sublevel=0, final_opt=False, 
                 ax[nrow,1].plot([x, x], [y - 10, y - 5], c=color)
                 ax[nrow,1].plot([x - 10, x - 5], [y, y], c=color)
 
-        outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{conf.MODELING_NICKNAME}.pdf')
+        outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{conf.MODELING_NICKNAME}_{band}.pdf')
         fig.savefig(outpath)
         logger.info(f'Saving figure: {outpath}')
 
@@ -582,22 +589,25 @@ def plot_blobmap(brick, image=None, band=None):
     plt.close()
     logger.info(f'Saving figure: {out_path}')
 
-def plot_ldac(tab_ldac, band, xlims=None, ylims=None, box=False, nsel=None):
+def plot_ldac(tab_ldac, band, xlims=None, ylims=None, box=False, sel=None):
     fig, ax = plt.subplots()
     xbin = np.arange(0, 15, 0.1)
     ybin = np.arange(12, 26, 0.1)
     ax.hist2d(tab_ldac['FLUX_RADIUS'], tab_ldac['MAG_AUTO'], bins=(xbin, ybin), cmap='Greys', norm=LogNorm())
     if box:
-        rect = Rectangle((xlims[0], ylims[0]), xlims[1] - xlims[0], ylims[1] - ylims[0], fill=True, alpha=0.3,
-                                edgecolor='r', facecolor='r', zorder=3, linewidth=1)
+        rect = Rectangle((xlims[0], ylims[0]), xlims[1] - xlims[0], ylims[1] - ylims[0], fill=False, alpha=0.3,
+                                edgecolor='r', facecolor=None, zorder=3, linewidth=1)
         ax.add_patch(rect)
+    if (sel is not None) & box:
+        ax.scatter(tab_ldac['FLUX_RADIUS'][sel], tab_ldac['MAG_AUTO'][sel], s=1, c='r')
 
     fig.subplots_adjust(bottom = 0.15)
     ax.set(xlabel='Flux Radius (px)', xlim=(0, 15),
             ylabel='Mag Auto (AB)', ylim=(26, 12))
     ax.grid()
 
-    if nsel is not None:
+    if sel is not None:
+        nsel = np.sum(sel)
         ax.text(x=0.05, y=0.95, s=f'N = {nsel}', transform=ax.transAxes)
     fig.savefig(os.path.join(conf.PLOT_DIR, f'{band}_box_{box}_ldac.pdf'), overwrite=True)
 

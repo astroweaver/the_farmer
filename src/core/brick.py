@@ -115,8 +115,6 @@ class Brick(Subimage):
         for i in idx:
             self.segmap[self.segmap == i+1] = 0
 
-    
-
     def clean_catalog(self):
         """TODO: docstring"""
         sid_col = np.arange(1, self.n_sources+1, dtype=int)
