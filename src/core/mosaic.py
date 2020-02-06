@@ -153,15 +153,23 @@ class Mosaic(Subimage):
             
 
             if conf.USE_STARCATALOG:
-                self.logger.debug(f'Crossmatching to star catalog {conf.STARCATALOG_FILENAME}')
+                self.logger.debug(f'Crossmatching to star catalog {conf.STARCATALOG_FILENAME} with thresh = {conf.STARCATALOG_MATCHRADIUS}')
                 table_star = Table.read(os.path.join(conf.STARCATALOG_DIR, conf.STARCATALOG_FILENAME))
+                if conf.FLAG_STARCATALOG is not None:
+                    self.logger.debug(f'Cleaning star catalog {conf.STARCATALOG_FILENAME}')
+                    mask_star = np.ones(len(table_star), dtype=bool)
+                    for selection in conf.FLAG_STARCATALOG:
+                        self.logger.debug(f'   ...where {selection}')
+                        col, val = selection.split('==')
+                        mask_star &= (mask_star[col] == val) 
+                    table_star = table_star[mask_star]
                 ra, dec = table_star(conf.STARCATALOG_COORDCOLS[0], conf.STARCATALOG_COORDCOLS[1])
                 starcoords = SkyCoord(ra=ra * u.deg, dec = dec * u.deg)
                 thresh = conf.STARCATALOG_MATCHRADIUS * u.arcsec
                 ral, decl = tab_ldac['ALPHA_J2000'], tabl_ldac['DELTA_J2000']
                 candcoords = SkyCoord(ra = ral * u.deg, dec = decl * u.deg)
                 idx, d2d, __ = candcoords.match_to_catalog_sky(starcoords)
-                mask_ldac &= (idx < thresh)
+                mask_ldac &= (d2d < thresh)
 
 
             n_obj = np.sum(mask_ldac)
