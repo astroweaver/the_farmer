@@ -170,8 +170,8 @@ class Mosaic(Subimage):
                 w = WCS(head)
                 x, y = tab_ldac['X_IMAGE'], tab_ldac['Y_IMAGE']
                 ral, decl = w.all_pix2world(x, y, 1)
-                candcoords = SkyCoord(ra = ral, dec = decl)
-                idx, d2d, __ = candcoords.match_to_catalog_sky(starcoords)
+                candcoords = SkyCoord(ra = ral * u.deg, dec = decl * u.deg)
+                __, d2d, __ = candcoords.match_to_catalog_sky(starcoords)
                 mask_ldac &= (d2d < thresh)
 
 
