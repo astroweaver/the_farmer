@@ -150,6 +150,8 @@ class Mosaic(Subimage):
                     (tab_ldac['MAG_AUTO'] < ylims[1]) &\
                     (tab_ldac['FLUX_RADIUS'] > xlims[0]) &\
                     (tab_ldac['FLUX_RADIUS'] < xlims[1])
+
+            self.logger.info(f'Found {np.sum(mask_ldac)} objects from box to determine PSF')
             
 
             if conf.USE_STARCATALOG:
@@ -172,6 +174,7 @@ class Mosaic(Subimage):
                 ral, decl = w.all_pix2world(x, y, 1)
                 candcoords = SkyCoord(ra = ral * u.deg, dec = decl * u.deg)
                 __, d2d, __ = candcoords.match_to_catalog_sky(starcoords)
+                self.logger.info(f'Found {np.sum(d2d < thresh)} objects from {conf.STARCATALOG_FILENAME} to determine PSF')
                 mask_ldac &= (d2d < thresh)
 
 
