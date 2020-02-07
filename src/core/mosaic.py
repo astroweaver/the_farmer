@@ -188,7 +188,7 @@ class Mosaic(Subimage):
                 self.logger.debug('Plotting LDAC with pointsource bounding box')
                 plot_ldac(tab_ldac, self.bands, xlims=xlims, ylims=ylims, box=True, sel=mask_ldac)
 
-            hdul_ldac['LDAC_OBJECTS'].data = tab_ldac[mask_ldac]
+            hdul_ldac['LDAC_OBJECTS'].data = tab_ldac[mask_ldac][:100]
             hdul_ldac.writeto(psf_cat, overwrite=override)
 
             # RUN PSF

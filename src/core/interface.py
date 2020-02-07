@@ -561,7 +561,7 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
     return catout
 
 
-def make_models(brick_id, band=conf.MODELING_NICKNAME, source_id=None, blob_id=None, segmap=None, blobmap=None, catalog=None, multiband_model=True, use_mask=True, source_only=False):
+def make_models(brick_id, band=conf.MODELING_NICKNAME, source_id=None, blob_id=None, segmap=None, blobmap=None, catalog=None, multiband_model=False, use_mask=True, source_only=False):
     """ Stage 2. Detect your sources and determine the best model parameters for them """
 
     # Create detection brick
@@ -680,6 +680,8 @@ def make_models(brick_id, band=conf.MODELING_NICKNAME, source_id=None, blob_id=N
             modbrick.n_sources = detbrick.n_sources
             if is_borrowed:
                 modbrick.blobmap = detbrick.blobmap
+                modbrick.n_blobs = detbrick.n_blobs
+                modbrick.segmask = detbrick.segmask
 
             # Cleanup on MODBRICK
             tstart = time.time()
@@ -687,7 +689,7 @@ def make_models(brick_id, band=conf.MODELING_NICKNAME, source_id=None, blob_id=N
                 modbrick.cleanup()
             if band_num > 0:
                 modbrick.n_blobs, modbrick.n_sources, modbrick.segmap, modbrick.segmask, modbrick.blobmap, modbrick.catalog = n_blobs, n_sources, segmap, segmask, blobmap, catalog
-            modbrick.add_columns(modbrick_name=mod_band) # doing on detbrick gets column names wrong
+            modbrick.add_columns(modbrick_name=mod_band, multiband_model = False) # doing on detbrick gets column names wrong
             logger.info(f'Modeling brick #{brick_id} gained {modbrick.n_blobs} blobs with {modbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
 
             if conf.PLOT > 2:
@@ -887,6 +889,8 @@ def make_models(brick_id, band=conf.MODELING_NICKNAME, source_id=None, blob_id=N
         modbrick.n_sources = n_sources
         if is_borrowed:
             modbrick.blobmap = detbrick.blobmap
+            modbrick.n_blobs = detbrick.n_blobs
+            modbrick.segmask = detbrick.segmask
 
         # Cleanup on MODBRICK
         tstart = time.time()
@@ -897,7 +901,7 @@ def make_models(brick_id, band=conf.MODELING_NICKNAME, source_id=None, blob_id=N
             if 'VALID_SOURCE' in modbrick.catalog.colnames:
                     modbrick.catalog['VALID_SOURCE'] = np.zeros(len(modbrick.catalog), dtype=bool)
         modbrick.shared_params = True ## CRITICAL THING TO DO HERE!
-        modbrick.add_columns(modbrick_name=mod_band) # doing on detbrick gets column names wrong
+        modbrick.add_columns(multiband_model=True) # doing on detbrick gets column names wrong
         logger.info(f'Modeling brick #{brick_id} gained {modbrick.n_blobs} blobs with {modbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
 
         if conf.PLOT > 2:
@@ -1046,14 +1050,14 @@ def make_models(brick_id, band=conf.MODELING_NICKNAME, source_id=None, blob_id=N
 
             # If user wants model and/or residual images made:
             if conf.MAKE_RESIDUAL_IMAGE:
-                cleancatalog = outcatalog[outcatalog[f'VALID_SOURCE_{modbrick.bands[0]}']]
+                cleancatalog = outcatalog[outcatalog[f'VALID_SOURCE']]
                 modbrick.make_residual_image(catalog=cleancatalog)
             elif conf.MAKE_MODEL_IMAGE:
-                cleancatalog = outcatalog[outcatalog[f'VALID_SOURCE_{modbrick.bands[0]}']]
+                cleancatalog = outcatalog[outcatalog[f'VALID_SOURCE']]
                 modbrick.make_model_image(catalog=cleancatalog)
 
         # Reconstuct mosaic positions of invalid sources 
-        invalid = ~modbrick.catalog[f'VALID_SOURCE_{modbrick.bands[0]}']
+        invalid = ~modbrick.catalog[f'VALID_SOURCE']
 
    
     modbrick.catalog['x'] = modbrick.catalog['x'] + modbrick.mosaic_origin[1] - conf.BRICK_BUFFER
@@ -1092,8 +1096,11 @@ def make_models(brick_id, band=conf.MODELING_NICKNAME, source_id=None, blob_id=N
                 logger.info(f"    Sky Model RA, Dec:   {skyc[0]:6.6f} deg, {skyc[1]:6.6f} deg")
 
     elif (len(img_names) > 1) & multiband_model:
-        # do the multiband model stuff!
-        pass
+        modbrick.catalog['BEST_MODEL_BAND'] = conf.MODELING_NICKNAME
+        # modbrick.catalog['X_MODEL']
+        # modbrick.catalog['Y_MODEL'] # ???? WHAT
+        # modbrick.catalog['VALID_SOURCE']
+
     
     elif img_names[0] != conf.MODELING_NICKNAME:
         modbrick.catalog['BEST_MODEL_BAND'] = f'{conf.MODELING_NICKNAME}_{img_names[0]}'
@@ -1457,9 +1464,8 @@ def models_from_catalog(catalog, fblob):
         best_band = src['BEST_MODEL_BAND']
 
         if src['BEST_MODEL_BAND'] == '':
-            good_sources[i] = False
-            logger.warning(f'Source #{src["source_id"]}: no best-fit model chosen!')
-            continue
+            logger.warning(f'Source #{src["source_id"]}: no best-fit model chosen, trying out {conf.MODELING_NICKNAME}')
+            best_band = conf.MODELING_NICKNAME
 
         if (src[f'X_MODEL_{best_band}'] < 0) | (src[f'Y_MODEL_{best_band}'] < 0):
             good_sources[i] = False
@@ -1475,11 +1481,17 @@ def models_from_catalog(catalog, fblob):
         
         # src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER
         #     self.bcatalog[row][f'Y_MODEL_{mod_band}'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER
-        
-        original_zpt = conf.MODELING_ZPT
+       
         idx_bands = [fblob._band2idx(b) for b in fblob.bands]
         target_zpt = np.array(conf.MULTIBAND_ZPT)[idx_bands]
-        flux_conv = src[f'RAWFLUX_{best_band}'] * 10 ** (-0.4 * (target_zpt - original_zpt))
+        try:
+            original_zpt = conf.MODELING_ZPT
+            flux_conv = src[f'RAWFLUX_{best_band}'] * 10 ** (-0.4 * (target_zpt - original_zpt))
+        except:
+            # IF I TRIED MULTIBAND MODELING, THEN I STILL NEED AN INITIAL FLUX. START WITH 0 idx!
+            original_zpt = fblob._band2idx(fblob.bands[0])
+            flux_conv = src[f'RAWFLUX_{fblob.bands[0]}'] * 10 ** (-0.4 * (target_zpt - original_zpt))
+
         flux = Fluxes(**dict(zip(band, flux_conv)))
 
         # Check if valid source

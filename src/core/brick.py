@@ -68,6 +68,7 @@ class Brick(Subimage):
 
         self.segmap = None
         self.blobmap = None
+        self.shared_params = False
 
         self._buff_left = self._buffer
         self._buff_right = self.dims[0] - self._buffer
@@ -122,7 +123,7 @@ class Brick(Subimage):
         self.catalog = self.catalog[self._allowed_sources]
         self.n_sources = len(self.catalog)
 
-    def add_columns(self, modeling=True, modbrick_name=conf.MODELING_NICKNAME):
+    def add_columns(self, modeling=True, multiband_model=False, modbrick_name=conf.MODELING_NICKNAME):
         """TODO: docstring"""
         filler = np.zeros(len(self.catalog))
         if 'N_BLOB' not in self.catalog.colnames:
@@ -154,7 +155,7 @@ class Brick(Subimage):
                 self.catalog.add_column(Column(filler, name=f'N_CONVERGE_{colname}'))
             except:
                 self.logger.debug(f'Columns already exist for {colname}')
-            if modeling:
+            if modeling & (not multiband_model):
                 try:
                     self.logger.debug(f'Adding model columns to catalog.')
                     for colname_fill in [f'{colext}_{colname}' for colext in ('X_MODEL', 'Y_MODEL', 'XERR_MODEL', 'YERR_MODEL', 'RA', 'DEC')]:
@@ -168,6 +169,21 @@ class Brick(Subimage):
                         self.catalog.add_column(Column(filler, name=colname_fill))
                 except:
                     self.logger.debug(f'Model columns already exist')
+        if multiband_model:
+            colname = modbrick_name
+            try:
+                self.logger.debug(f'Adding model columns to catalog.')
+                for colname_fill in [f'{colext}_{colname}' for colext in ('X_MODEL', 'Y_MODEL', 'XERR_MODEL', 'YERR_MODEL', 'RA', 'DEC')]:
+                    self.catalog.add_column(Column(filler, name=colname_fill))
+                self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype='S20'), name=f'SOLMODEL_{colname}'))
+                self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=bool), name=f'VALID_SOURCE_{colname}'))
+                
+                for colname_fill in [f'{colext}_{colname}' for colext in ('REFF', 'REFF_ERR', 'EE1', 'EE2', 'AB', 'AB_ERR', 'THETA', 'THETA_ERR',
+                            'FRACDEV', 'EXP_REFF', 'EXP_REFF_ERR', 'EXP_EE1', 'EXP_EE2', 'EXP_AB', 'EXP_AB_ERR', 'EXP_THETA', 'EXP_THETA_ERR', 
+                            'DEV_REFF', 'DEV_REFF_ERR', 'DEV_EE1', 'DEV_EE2', 'DEV_AB', 'DEV_AB_ERR', 'DEV_THETA', 'DEV_THETA_ERR' )]:
+                    self.catalog.add_column(Column(filler, name=colname_fill))
+            except:
+                self.logger.debug(f'Model columns already exist')
 
     def dilate(self, radius=conf.DILATION_RADIUS, fill_holes=True):
         """TODO: docstring"""

@@ -599,7 +599,7 @@ def plot_ldac(tab_ldac, band, xlims=None, ylims=None, box=False, sel=None):
                                 edgecolor='r', facecolor=None, zorder=3, linewidth=1)
         ax.add_patch(rect)
     if (sel is not None) & box:
-        ax.scatter(tab_ldac['FLUX_RADIUS'][sel], tab_ldac['MAG_AUTO'][sel], s=1, c='r')
+        ax.scatter(tab_ldac['FLUX_RADIUS'][sel], tab_ldac['MAG_AUTO'][sel], s=0.1, c='r')
 
     fig.subplots_adjust(bottom = 0.15)
     ax.set(xlabel='Flux Radius (px)', xlim=(0, 15),

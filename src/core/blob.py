@@ -126,6 +126,7 @@ class Blob(Subimage):
         self.n_sources = len(self.bcatalog)
 
         self.shared_params = brick.shared_params
+        self.multiband_model = brick.shared_params # HACK
 
         self.mids = np.ones(self.n_sources, dtype=int)
         self.model_catalog = np.zeros(self.n_sources, dtype=object)
@@ -276,7 +277,7 @@ class Blob(Subimage):
 
             self.psfimg[band] = psfimg
             
-            if (conf.PLOT > 1):
+            if (conf.PLOT > 2):
                 plot_psf(psfimg, band, show_gaussian=False)
                     
             self.logger.debug('Making image...')
@@ -619,7 +620,7 @@ class Blob(Subimage):
             # row = np.argwhere(self.brick.catalog['source_id'] == sid)[0][0]
             # self.rows[idx] = row
             # print(f'STASHING {sid} IN ROW {row}')
-            self.get_catalog(idx, src)
+            self.get_catalog(idx, src, multiband_model=self.multiband_model)
 
         return self.status
 
@@ -641,6 +642,7 @@ class Blob(Subimage):
                 self.model_catalog[i].thawParams('pos')
 
             best_band = f"{self.bcatalog[i]['BEST_MODEL_BAND']}"
+
 
             self.logger.debug(f"Source #{self.bcatalog[i]['source_id']}: {self.model_catalog[i].name} model at {self.model_catalog[i].pos}")
             self.logger.debug(f'               {self.model_catalog[i].brightness}')
@@ -1165,7 +1167,7 @@ class Blob(Subimage):
         else:
             self.logger.debug('No objects found by SExtractor.')
 
-    def get_catalog(self, row, src, multiband_only=False):
+    def get_catalog(self, row, src, multiband_only=False, multiband_model=False):
         """ Turn photometry into a catalog. Add flags. """
 
         sid = self.bcatalog['source_id'][row]
@@ -1228,7 +1230,10 @@ class Blob(Subimage):
 
         if not multiband_only:
             # Position information
-            mod_band = self.bands[0]
+            if multiband_model:
+                mod_band = conf.MODELING_NICKNAME
+            else:
+                mod_band = self.bands[0]
             self.bcatalog[row]['x'] = self.bcatalog[row]['x'] + self.subvector[1] #+ self.mosaic_origin[1] - conf.BRICK_BUFFER
             self.bcatalog[row]['y'] = self.bcatalog[row]['y'] + self.subvector[0] #+ self.mosaic_origin[0] - conf.BRICK_BUFFER
             self.bcatalog[row][f'X_MODEL_{mod_band}'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER
