@@ -340,13 +340,9 @@ class Brick(Subimage):
                 elif (raw_fluxes < 0.0).any():
                     raw_fluxes[raw_fluxes < 0.0] = 0.0
                     self.logger.debug('Source has negative flux in some bands.')
-                    
 
-            # self.bcatalog[row]['X_MODEL'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
-            # self.bcatalog[row]['Y_MODEL'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
-
-            bx_model = src[f'X_MODEL_{best_band}'] - self.mosaic_origin[1] + conf.BRICK_BUFFER - 1
-            by_model = src[f'Y_MODEL_{best_band}'] - self.mosaic_origin[0] + conf.BRICK_BUFFER - 1
+            bx_model = src[f'X_MODEL_{best_band}'] - self.mosaic_origin[1] + conf.BRICK_BUFFER 
+            by_model = src[f'Y_MODEL_{best_band}'] - self.mosaic_origin[0] + conf.BRICK_BUFFER
 
             position = PixPos(bx_model, by_model)
             flux = Fluxes(**dict(zip(self.bands, raw_fluxes))) # IMAGES ARE IN NATIVE ZPT, USE RAWFLUXES!
