@@ -193,7 +193,7 @@ class Mosaic(Subimage):
 
             # RUN PSF
             if not sextractor_only:
-                psfvar_nsnap = 0
+                psfvar_nsnap = 1
                 if self.bands not in conf.CONSTANT_PSF:
                     psfvar_nsnap = conf.PSFVAR_NSNAP
                     self.logger.info(f'Creating spatially-varying PSF with PSFNSNAP = {psfvar_nsnap}')
