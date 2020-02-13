@@ -1414,7 +1414,7 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, modeling=False):
 
         if band in conf.PRFMAP_PSF:
             # read in prfmap table
-            prftab = ascii.read(os.path.join(conf.PRFMAP_DIR, band+'_prfmap.dat'))
+            prftab = ascii.read(conf.PRFMAP_GRID_FILENAME)
             prftab_ra = prftab[conf.PRFMAP_COLUMNS[1]]
             prftab_dec = prftab[conf.PRFMAP_COLUMNS[2]]
             prfcoords = SkyCoord(ra=prftab_ra*u.degree, dec=prftab_dec*u.degree)
