@@ -171,8 +171,6 @@ class Blob(Subimage):
                 band_strip = band[len(conf.MODELING_NICKNAME)+1:]
                 self.logger.debug(f'Striped name for image: {band_strip}')
             tweight = weight.copy()
-            if band == 'irac_ch1':
-                tweight = 1./ tweight # hmmm
             bcmask = None
             if conf.APPLY_SEGMASK:
                 tweight[mask] = 0
@@ -224,7 +222,7 @@ class Blob(Subimage):
                     return False
                 hdul = fits.open(path_prffile)
                 from scipy.ndimage.interpolation import rotate
-                img = hdul[0].data.T
+                img = hdul[0].data
                 assert(img.shape[0] == img.shape[1]) # am I square!?
                 self.logger.debug(f'PRF size: {np.shape(img)}')
                 
