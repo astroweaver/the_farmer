@@ -262,6 +262,9 @@ def plot_modprofile(blob, band=None):
         ax[0, 4].text(1.05, ystart - 0.2, f'  F({band}) = {flux:4.4f}', **topt)
         ax[0, 4].text(1.05, ystart - 0.3, f'  M({band}) = {mag:4.4f}', **topt)
         ax[0, 4].text(1.05, ystart - 0.4, f'  $\chi^{2}$ = {chisq:4.4f}', **topt)
+    
+    ax[0, 4].axis('off')
+    ax[1, 4].axis('off')
 
     for i in np.arange(3):
         ax[0, i].set(xlim=(0.15*xlim[0], 0.15*xlim[1]), ylim=(np.nanmedian(blob.images[idx]), blob.images[idx].max()))
