@@ -215,7 +215,7 @@ class Blob(Subimage):
                 self.minsep[band] = minsep # record it, and add it to the output catalog!
 
                 # open id file
-                pad_prf_idx = (5 - len(prf_idx) * "0") + str(prf_idx)
+                pad_prf_idx = (5 - len(str(prf_idx)) * "0") + str(prf_idx)
                 path_prffile = os.path.join(conf.PRFMAP_DIR, f'{conf.PRFMAP_FILENAME}{pad_prf_idx}.fits')
                 if not os.path.exists(path_prffile):
                     self.logger.error(f'PRF file has not been found!')
