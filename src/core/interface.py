@@ -1486,10 +1486,12 @@ def models_from_catalog(catalog, fblob):
         target_zpt = np.array(conf.MULTIBAND_ZPT)[idx_bands]
         try:
             original_zpt = conf.MODELING_ZPT
+            logger.info(f'Converting fluxes from zerpoint {original_zpt} to {target_zpt}')
             flux_conv = src[f'RAWFLUX_{best_band}'] * 10 ** (-0.4 * (target_zpt - original_zpt))
         except:
             # IF I TRIED MULTIBAND MODELING, THEN I STILL NEED AN INITIAL FLUX. START WITH 0 idx!
             original_zpt = fblob._band2idx(fblob.bands[0])
+            logger.warning(f'Coming from multiband model, so using flux from {fblob.bands[0]} <-- HACK!')
             flux_conv = src[f'RAWFLUX_{fblob.bands[0]}'] * 10 ** (-0.4 * (target_zpt - original_zpt))
 
         flux = Fluxes(**dict(zip(band, flux_conv)))
