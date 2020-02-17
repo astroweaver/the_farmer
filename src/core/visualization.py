@@ -484,8 +484,10 @@ def plot_fblob(blob, band, fig=None, ax=None, final_opt=False, debug=False):
             original_zpt = np.array(conf.MULTIBAND_ZPT)[idx]
             target_zpt = 23.9
             flux_ujy = src.getBrightness().getFlux(band) * 10 ** (0.4 * (target_zpt - original_zpt))
+            flux_var = blob.forced_variance
+            fluxerr_ujy = np.sqrt(flux_var[i].brightness.getParams()[idx]) * 10**(-0.4 * (target_zpt - original_zpt))
             ax[1,0].text(0.1, 0.8 - 0.4*i, f'#{blob.bcatalog[i]["source_id"]} Model:{src.name}', color=colors[i], transform=ax[1,0].transAxes)
-            ax[1,0].text(0.1, 0.8 - 0.4*i - 0.1, f'       Flux: {flux_ujy}', color=colors[i], transform=ax[1,0].transAxes)
+            ax[1,0].text(0.1, 0.8 - 0.4*i - 0.1, f'       Flux: {flux_ujy:3.3f}+\-{fluxerr_ujy:3.3f} uJy', color=colors[i], transform=ax[1,0].transAxes)
             ax[1,0].text(0.1, 0.8 - 0.4*i - 0.2, f'       Chi2{dof}: {blob.solution_chisq[i,idx]:3.3f}', color=colors[i], transform=ax[1,0].transAxes)
 
         #fig.subplots_adjust(wspace=0, hspace=0)
