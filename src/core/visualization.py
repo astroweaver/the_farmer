@@ -448,7 +448,7 @@ def plot_fblob(blob, band, fig=None, ax=None, final_opt=False, debug=False):
     
     norm = LogNorm(np.max([mean + rms, 1E-5]), 0.98*blob.images.max(), clip='True')
     img_opt = dict(cmap='Greys', norm=norm)
-    # img_opt = dict(cmap='RdGy', vmin=-5*rms, vmax=5*rms)
+    img_opt = dict(cmap='RdGy', vmin=-5*rms, vmax=5*rms)
 
     if final_opt:
         
