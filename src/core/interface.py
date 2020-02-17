@@ -183,7 +183,7 @@ def make_psf(image_type=conf.MULTIBAND_NICKNAME, band=None, sextractor_only=Fals
     elif image_type is conf.MODELING_NICKNAME:
         # Make the Mosaic
         logger.info(f'Making PSF for {conf.MODELING_NICKNAME}')
-        modmosaic = Mosaic(conf.MODELING_NICKNAME, modeling=True, mag_zeropoint=conf.MODELING_ZPT)
+        modmosaic = Mosaic(conf.MODELING_NICKNAME, modeling=True, mag_zeropoint=conf.MODELING_ZPT, skip_build=True)
 
         # Make the PSF
         logger.info(f'Mosaic loaded for {conf.MODELING_NICKNAME}')
