@@ -171,8 +171,8 @@ class Blob(Subimage):
                 band_strip = band[len(conf.MODELING_NICKNAME)+1:]
                 self.logger.debug(f'Striped name for image: {band_strip}')
             tweight = weight.copy()
-            if band == 'irac_ch1':
-                tweight *= 0.5
+            # if band == 'irac_ch1':
+            #     tweight *= 0.5
             bcmask = None
             if conf.APPLY_SEGMASK:
                 tweight[mask] = 0

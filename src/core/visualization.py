@@ -481,8 +481,11 @@ def plot_fblob(blob, band, fig=None, ax=None, final_opt=False, debug=False):
 
         # Solution params
         for i, src in enumerate(blob.solution_catalog):
+            original_zpt = np.array(conf.MULTIBAND_ZPT)[idx]
+            target_zpt = 23.9
+            flux_ujy = src.getBrightness().getFlux(band) * 10 ** (0.4 * (target_zpt - original_zpt))
             ax[1,0].text(0.1, 0.8 - 0.4*i, f'#{blob.bcatalog[i]["source_id"]} Model:{src.name}', color=colors[i], transform=ax[1,0].transAxes)
-            ax[1,0].text(0.1, 0.8 - 0.4*i - 0.1, f'       Flux: {src.brightness[idx]:3.3f}', color=colors[i], transform=ax[1,0].transAxes)
+            ax[1,0].text(0.1, 0.8 - 0.4*i - 0.1, f'       Flux: {flux_ujy}', color=colors[i], transform=ax[1,0].transAxes)
             ax[1,0].text(0.1, 0.8 - 0.4*i - 0.2, f'       Chi2{dof}: {blob.solution_chisq[i,idx]:3.3f}', color=colors[i], transform=ax[1,0].transAxes)
 
         #fig.subplots_adjust(wspace=0, hspace=0)
@@ -503,7 +506,11 @@ def plot_fblob(blob, band, fig=None, ax=None, final_opt=False, debug=False):
 
             for j, src in enumerate(blob.bcatalog):
                 objects = blob.bcatalog[j]
-                e = Ellipse(xy=(objects['x'], objects['y']),
+                position = [src[f'x'], src[f'y']]
+
+                position[0] -= (blob.subvector[1] + blob.mosaic_origin[1] - conf.BRICK_BUFFER)
+                position[1] -= (blob.subvector[0] + blob.mosaic_origin[0] - conf.BRICK_BUFFER)
+                e = Ellipse(xy=(position[0], position[1]),
                             width=6*objects['a'],
                             height=6*objects['b'],
                             angle=objects['theta'] * 180. / np.pi)
