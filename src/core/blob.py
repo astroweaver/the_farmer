@@ -172,7 +172,7 @@ class Blob(Subimage):
                 self.logger.debug(f'Striped name for image: {band_strip}')
             tweight = weight.copy()
             if band == 'irac_ch1':
-                tweight = 1/ (tweight**2) # hmmm
+                tweight = 1./ tweight # hmmm
             bcmask = None
             if conf.APPLY_SEGMASK:
                 tweight[mask] = 0
