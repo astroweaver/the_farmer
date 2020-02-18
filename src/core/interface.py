@@ -215,7 +215,7 @@ def make_psf(image_type=conf.MULTIBAND_NICKNAME, band=None, sextractor_only=Fals
 
             # Make the Mosaic
             logger.info(f'Making PSF for {band}')
-            bandmosaic = Mosaic(band, mag_zeropoint = mag_zpt)
+            bandmosaic = Mosaic(band, mag_zeropoint = mag_zpt, skip_build=True)
 
             # Make the PSF
             logger.info(f'Mosaic loaded for {band}')
