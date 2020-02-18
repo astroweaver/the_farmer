@@ -99,9 +99,10 @@ class Mosaic(Subimage):
                 path = 'None found. Assuming no masking.'
             self.logger.info(f'Added mask in {time()-tstart:3.3f}s. ({path})')
 
-        self.psfmodels = psfmodel
+        
         self.bands = band
         self.n_bands = 1
+        self.psfmodels = psfmodel
         self.mag_zeropoints = mag_zeropoint
         
         super().__init__()
