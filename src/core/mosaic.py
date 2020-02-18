@@ -45,25 +45,25 @@ class Mosaic(Subimage):
 
         self.logger = logging.getLogger('farmer.mosaic')
 
+        if detection:
+            self.path_image = os.path.join(conf.IMAGE_DIR, conf.DETECTION_FILENAME.replace('EXT', conf.IMAGE_EXT))
+            self.path_weight = os.path.join(conf.IMAGE_DIR, conf.DETECTION_FILENAME.replace('EXT', conf.WEIGHT_EXT))
+            self.path_mask = os.path.join(conf.IMAGE_DIR, conf.DETECTION_FILENAME.replace('EXT', conf.MASK_EXT))
+                
+        elif modeling & (band is conf.MODELING_NICKNAME):
+            self.path_image = os.path.join(conf.IMAGE_DIR, conf.MODELING_FILENAME.replace('EXT', conf.IMAGE_EXT))
+            self.path_weight = os.path.join(conf.IMAGE_DIR, conf.MODELING_FILENAME.replace('EXT', conf.WEIGHT_EXT))
+            self.path_mask = os.path.join(conf.IMAGE_DIR, conf.MODELING_FILENAME.replace('EXT', conf.MASK_EXT))
+        else:
+            raw_band = np.array(conf.RAWBANDS)[np.array(conf.BANDS) == band][0] # this should be OK -- bands and rawbands are matched!
+            self.path_image = os.path.join(conf.IMAGE_DIR, conf.MULTIBAND_FILENAME.replace('EXT', conf.IMAGE_EXT).replace('BAND', raw_band))
+            self.path_weight = os.path.join(conf.IMAGE_DIR, conf.MULTIBAND_FILENAME.replace('EXT', conf.WEIGHT_EXT).replace('BAND', raw_band))
+            self.path_mask = os.path.join(conf.IMAGE_DIR, conf.MULTIBAND_FILENAME.replace('EXT', conf.MASK_EXT).replace('BAND', raw_band))
+
         if skip_build:
             self.logger.warning('Skipping mosaic build!')
         else:
             self.logger.info('Building mosaic...')
-
-            if detection:
-                self.path_image = os.path.join(conf.IMAGE_DIR, conf.DETECTION_FILENAME.replace('EXT', conf.IMAGE_EXT))
-                self.path_weight = os.path.join(conf.IMAGE_DIR, conf.DETECTION_FILENAME.replace('EXT', conf.WEIGHT_EXT))
-                self.path_mask = os.path.join(conf.IMAGE_DIR, conf.DETECTION_FILENAME.replace('EXT', conf.MASK_EXT))
-                
-            elif modeling & (band is conf.MODELING_NICKNAME):
-                self.path_image = os.path.join(conf.IMAGE_DIR, conf.MODELING_FILENAME.replace('EXT', conf.IMAGE_EXT))
-                self.path_weight = os.path.join(conf.IMAGE_DIR, conf.MODELING_FILENAME.replace('EXT', conf.WEIGHT_EXT))
-                self.path_mask = os.path.join(conf.IMAGE_DIR, conf.MODELING_FILENAME.replace('EXT', conf.MASK_EXT))
-            else:
-                raw_band = np.array(conf.RAWBANDS)[np.array(conf.BANDS) == band][0] # this should be OK -- bands and rawbands are matched!
-                self.path_image = os.path.join(conf.IMAGE_DIR, conf.MULTIBAND_FILENAME.replace('EXT', conf.IMAGE_EXT).replace('BAND', raw_band))
-                self.path_weight = os.path.join(conf.IMAGE_DIR, conf.MULTIBAND_FILENAME.replace('EXT', conf.WEIGHT_EXT).replace('BAND', raw_band))
-                self.path_mask = os.path.join(conf.IMAGE_DIR, conf.MULTIBAND_FILENAME.replace('EXT', conf.MASK_EXT).replace('BAND', raw_band))
 
             # open the files
             tstart = time()

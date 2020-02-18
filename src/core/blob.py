@@ -511,9 +511,14 @@ class Blob(Subimage):
                 for i, src in enumerate(self.bcatalog):
                     if self._solved[i]:
                         continue
-                    totalchisq = np.sum((self.tr.getChiImage(0)[self.segmap == src['source_id']])**2)
+                    if self.multiband_model:
+                        totalchisq = 0
+                        for k in np.arange(self.n_bands):
+                            totalchisq += np.sum((self.tr.getChiImage(k)[self.segmap == src['source_id']])**2)
+                    else:
+                        totalchisq = np.sum((self.tr.getChiImage(0)[self.segmap == src['source_id']])**2)
                     m_param = self.model_catalog[i].numberOfParams()
-                    n_data = np.sum(self.segmap == src['source_id'])
+                    n_data = np.sum(self.segmap == src['source_id']) * self.n_bands # 1, or else multimodel!
                     self.chisq[i, self._level, self._sublevel] = totalchisq
                     ndof = (n_data - m_param)
                     if ndof < 1:
@@ -522,7 +527,9 @@ class Blob(Subimage):
                     self.bic[i, self._level, self._sublevel] = self.rchisq[i, self._level, self._sublevel] + np.log(n_data) * m_param
  
                     self.logger.debug(f'Source #{src["source_id"]} with {self.model_catalog[i].name} has rchisq={self.rchisq[i, self._level, self._sublevel]:3.3f} | bic={self.bic[i, self._level, self._sublevel]:3.3f}')
-                    self.logger.debug(f'               Fluxes: {self.bands[0]}={self.model_catalog[i].getBrightness().getFlux(self.bands[0]):3.3f}') 
+                    self.logger.debug(f'     with {len(self.bands)} bands, {m_param} parameters, {n_data} points in total --> NDOF = {ndof}')
+                    for k, band in enumerate(self.bands):
+                        self.logger.debug(f'               Fluxes: {self.bands[k]}={self.model_catalog[i].getBrightness().getFlux(self.bands[k]):3.3f}') 
                     if self.model_catalog[i].name not in ('PointSource', 'SimpleGalaxy'):
                         if self.model_catalog[i].name == 'FixedCompositeGalaxy':
                             self.logger.debug(f'               {self.model_catalog[i].shapeExp}')
