@@ -101,6 +101,7 @@ class Mosaic(Subimage):
 
         self.psfmodels = psfmodel
         self.bands = band
+        self.n_bands = 1
         self.mag_zeropoints = mag_zeropoint
         
         super().__init__()
