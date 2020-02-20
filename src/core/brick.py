@@ -48,14 +48,30 @@ class Brick(Subimage):
                  wcs=None,
                  bands=None,
                  buffer=conf.BRICK_BUFFER,
-                 brick_id=-99):
+                 brick_id=-99,
+                 use_rms_weights = conf.USE_RMS_WEIGHTS,
+                 scale_weights = conf.SCALE_WEIGHTS):
         """TODO: docstring"""
 
         self.logger = logging.getLogger('farmer.brick')
 
         self.wcs = wcs
         self.images = images
-        self.weights = weights
+        if use_rms_weights:
+            self.logger.info('Using the RMS image as a weight!')
+            self.weights = 1./(self.background_rms_images**2)
+        elif scale_weights:
+            self.logger.info('Using the RMS image to scale the weight!')
+            for i, (rms, wgt) in enumerate(zip(self.background_rms_images, weights)):
+                median_wrms = np.median(1/rms**2)
+                median_wgt = np.median(wgt)
+                self.logger.debug(f' Median rms weight: {median_wrms:3.6f}, and in RMS: {1./np.sqrt(median_wrms):3.6f}')
+                self.logger.debug(f' Median input weight: {median_wgt:3.6f}, and in RMS: {1./np.sqrt(median_wgt):3.6f}')
+                self.logger.debug(f' Will apply a factor of {median_wrms/median_wgt:6.6f} to scale input weights.')
+                weights[i] *= median_wrms / median_wgt
+            self.weights = weights
+        else:
+            self.weights = weights
         self.masks = masks
         self.psfmodels = psfmodels
         self.bands = np.array(bands)
@@ -153,6 +169,7 @@ class Brick(Subimage):
                 self.catalog.add_column(Column(filler, name=f'CHISQ_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'BIC_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'N_CONVERGE_{colname}'))
+                self.catalog.add_column(Column(filler, name=f'SNR_{colname}'))
             except:
                 self.logger.debug(f'Columns already exist for {colname}')
             if modeling & (not multiband_model):

@@ -242,7 +242,7 @@ def plot_modprofile(blob, band=None):
     ax[0,3].axvline(0, ls='dotted', c='k')
     ax[0,3].set(xlim=xlim, yscale='log', ylim=(1E-6, 1E-1), xlabel='arcsec')
 
-    for j, src in enumerate(tr.getCatalog()):
+    for j, src in enumerate(blob.solution_catalog):
         try:
             mtype = src.name
         except:
@@ -275,6 +275,77 @@ def plot_modprofile(blob, band=None):
     fig.savefig(outpath)
     plt.close()
 
+def plot_xsection(blob, band, src, sid):
+    if band is None:
+        band = conf.MODELING_NICKNAME
+        idx = 0
+    else:
+        idx = blob._band2idx(band, bands=blob.bands)
+
+    back = blob.backgrounds[idx]
+    mean, rms = back[0], back[1]
+    noise = np.random.normal(mean, rms, size=blob.dims)
+    tr = blob.solution_tractor
+
+    fig, ax = plt.subplots(ncols=2)
+
+    posx, posy = src.pos[0], src.pos[1]
+
+    # x slice
+    imgx = blob.images[idx][:, int(posx)]
+    errx = 1/np.sqrt(blob.weights[idx][:, int(posx)])
+    modx = blob.solution_model_images[idx][:, int(posx)]
+    resx = imgx - modx
+
+    # y slice
+    imgy = blob.images[idx][int(posy), :]
+    erry = 1/np.sqrt(blob.weights[idx][int(posy), :])
+    mody = blob.solution_model_images[idx][int(posy), :]
+    resy = imgy - mody
+
+    # idea: show areas outside segment in grey
+
+    ylim = (0.9*np.min([np.min(imgx), np.min(imgy)]), 1.1*np.max([np.max(imgx), np.max(imgy)]))
+
+    xax = np.arange(-np.shape(blob.images[idx])[0]/2,  np.shape(blob.images[idx])[0]/2) * conf.PIXEL_SCALE
+    ax[0].errorbar(xax, imgx, yerr=errx, c='k')
+    ax[0].plot(xax, modx, c='r')
+    ax[0].plot(xax, resx, c='g')
+    ax[0].axvline(0, ls='dotted', c='k')
+    ax[0].set(ylim =ylim,  xlabel='arcsec')
+
+    yax = np.arange(-np.shape(blob.images[idx])[1]/2,  np.shape(blob.images[idx])[1]/2) * conf.PIXEL_SCALE
+    ax[1].errorbar(yax, imgy, yerr=erry, c='k')
+    ax[1].plot(yax, mody, c='r')
+    ax[1].plot(yax, resy, c='g')
+    ax[1].axvline(0, ls='dotted', c='k')
+    ax[1].set(ylim=ylim, xlabel='arcsec')
+
+    # for j, src in enumerate(blob.solution_catalog):
+    #     try:
+    #         mtype = src.name
+    #     except:
+    #         mtype = 'PointSource'
+    #     flux = src.getBrightness().getFlux(band)
+    #     chisq = blob.solution_chisq[j, idx]
+    #     band = band.replace(' ', '_')
+    #     if band == conf.MODELING_NICKNAME:
+    #         zpt = conf.MODELING_ZPT
+    #     else:
+    #         zpt = conf.MULTIBAND_ZPT[idx]
+    #     mag = zpt - 2.5 * np.log10(flux)
+
+    #     topt = dict(color=colors[j], transform = ax[0, 3].transAxes)
+    #     ystart = 0.99 - j * 0.4
+    #     ax[0, 4].text(1.05, ystart - 0.1, f'{j}) {mtype}', **topt)
+    #     ax[0, 4].text(1.05, ystart - 0.2, f'  F({band}) = {flux:4.4f}', **topt)
+    #     ax[0, 4].text(1.05, ystart - 0.3, f'  M({band}) = {mag:4.4f}', **topt)
+    #     ax[0, 4].text(1.05, ystart - 0.4, f'  $\chi^{2}$ = {chisq:4.4f}', **topt)
+    
+    outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_S{sid}_{band}_xsection.pdf')
+    logger.info(f'Saving figure: {outpath}') 
+    fig.savefig(outpath)
+    plt.close()
 
 def plot_detblob(blob, fig=None, ax=None, band=None, level=0, sublevel=0, final_opt=False, init=False):
 

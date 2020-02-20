@@ -120,14 +120,17 @@ class Subimage():
         if (self.shape[1] * self.shape[2]) < 1E8:
             self.backgrounds = np.zeros((self.n_bands, 2), dtype=float)
             self.background_images = np.zeros_like(self._images) 
+            self.background_rms_images = np.zeros_like(self._images) 
             for i, img in enumerate(self._images):
                 background = sep.Background(img, bw = conf.SUBTRACT_BW, bh = conf.SUBTRACT_BH, fw = conf.SUBTRACT_FW, fh = conf.SUBTRACT_FH)
                 self.backgrounds[i] = background.globalback, background.globalrms
                 self.background_images[i] = background.back()
+                self.background_rms_images[i] = background.rms()
 
         else:
             self.backgrounds = None
             self.background_images = None
+            self.background_rms_images = None
 
         # if conf.VERBOSE2:
         #     print('--- Image Details ---')

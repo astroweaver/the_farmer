@@ -40,7 +40,7 @@ import pathos
 
 from .subimage import Subimage
 from .utils import SimpleGalaxy, create_circular_mask
-from .visualization import plot_detblob, plot_fblob, plot_psf, plot_modprofile, plot_mask
+from .visualization import plot_detblob, plot_fblob, plot_psf, plot_modprofile, plot_mask, plot_xsection
 import config as conf
 
 import logging
@@ -138,6 +138,7 @@ class Blob(Subimage):
         self.chisq = np.zeros((self.n_sources, 3, 2))
         self.rchisq = np.zeros((self.n_sources, 3, 2))
         self.bic = np.zeros((self.n_sources, 3, 2))
+        self.noise = np.zeros((self.n_sources, self.n_bands))
         # self.position_variance = np.zeros((self.n_sources, 2))
         # self.parameter_variance = np.zeros((self.n_sources, 3))
         # self.forced_variance = np.zeros((self.n_sources, self.n_bands))
@@ -410,6 +411,13 @@ class Blob(Subimage):
                         xp, yp = src.pos[0], src.pos[1]
                         srcseg = self.segmap == sid
                         maxx, maxy = np.shape(self.segmap)
+
+                        # fig, ax = plt.subplots()
+                        # ax.imshow(srcseg)
+                        # ax.scatter(xp, yp)
+                        # plt.savefig(os.path.join(conf.PLOT_DIR,f'tr_{i}_{idx}.pdf'))
+                        # self.logger.debug('MAKING CORRAL IMAGE!')
+
                         if (xp > maxx) | (xp < 0) | (yp < 0) | (yp > maxy):
                             self.logger.warning(f'Source {sid} has escaped the blob!')
                             cat[idx].pos = PixPos(x_orig[idx], y_orig[idx])
@@ -604,7 +612,8 @@ class Blob(Subimage):
                 self.solution_bic[i, j] = self.solution_chisq[i, j] + np.log(n_data) * m_param
                 self.logger.debug(f'Source #{src["source_id"]} ({band}) with {self.model_catalog[i].name} has rchisq={self.solution_chisq[i, j]:3.3f} | bic={self.solution_bic[i, j]:3.3f}')
 
-                
+                # signal-to-noise
+                self.noise[i, j] = np.sum(self.background_rms_images[j][self.segmap == src['source_id']])
 
             self.logger.debug(f'Source #{src["source_id"]}: {self.solution_catalog[i].name} model at {self.solution_catalog[i].pos}')
             self.logger.debug(f'               Fluxes: {self.bands[0]}={self.solution_catalog[i].getBrightness().getFlux(self.bands[0])}') 
@@ -618,13 +627,16 @@ class Blob(Subimage):
         if conf.PLOT > 1:
             for figi, axi, band in zip(fig, ax, self.bands):
                 plot_detblob(self, figi, axi, band=band, level=self._level, sublevel=self._sublevel, final_opt=True)
-        
+
+                for k, src in enumerate(self.solution_catalog):
+                    sid = self.bcatalog['source_id'][k]
+                    plot_xsection(self, band, src, sid)
+
         if conf.PLOT > 0:
             [plot_modprofile(self, band=band) for band in self.bands]
 
         # self.rows = np.zeros(len(self.solution_catalog))
         for idx, src in enumerate(self.solution_catalog):
-            sid = self.bcatalog['source_id'][idx]
             # row = np.argwhere(self.brick.catalog['source_id'] == sid)[0][0]
             # self.rows[idx] = row
             # print(f'STASHING {sid} IN ROW {row}')
@@ -714,6 +726,13 @@ class Blob(Subimage):
                 # self.logger.info(f'    Chisq({self.bands[j]}): {totalchisq:3.3f}')
                 # self.logger.info(f'    BIC({self.bands[j]}):   {self.solution_bic[i, j]:3.3f}')
 
+                # signal-to-noise
+                self.noise[i, j] = np.sum(self.background_rms_images[j][self.segmap == src['source_id']])
+
+                if conf.PLOT > 1:
+                    for k, src in enumerate(self.solution_catalog):
+                        sid = self.bcatalog['source_id'][k]
+                        plot_xsection(self, band, src, sid)
 
         # self.rows = np.zeros(len(self.solution_catalog))
         for idx, src in enumerate(self.solution_catalog):
@@ -1205,6 +1224,7 @@ class Blob(Subimage):
             self.bcatalog[row]['CHISQ_'+band] = self.solution_chisq[row, i]
             self.bcatalog[row]['BIC_'+band] = self.solution_bic[row, i]
             self.bcatalog[row]['N_CONVERGE_'+band] = self.n_converge
+            self.bcatalog[row]['SNR_'+band] = self.bcatalog[row]['RAWFLUX_'+band] / self.noise[row, i]
 
             mag, magerr = self.bcatalog[row]['MAG_'+band], self.bcatalog[row]['MAGERR_'+band]
             flux, fluxerr = self.bcatalog[row]['FLUX_'+band], self.bcatalog[row]['FLUXERR_'+band]
