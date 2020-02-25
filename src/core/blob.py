@@ -192,8 +192,9 @@ class Blob(Subimage):
                     # psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
                     psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
                 if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
-                    self.logger.debug('Normalizing PSF')
-                    psfmodel.img /= psfmodel.img.sum() # HACK -- force normalization to 1
+                    norm = psfmodel.img.sum()
+                    self.logger.debug(f'Normalizing PSF (sum = {norm:4.4f})')
+                    psfmodel.img /= norm # HACK -- force normalization to 1
                 self.logger.debug('Adopting constant PSF.')
 
                 if conf.USE_MOG_PSF:
@@ -223,7 +224,7 @@ class Blob(Subimage):
                     return False
                 hdul = fits.open(path_prffile)
                 from scipy.ndimage.interpolation import rotate
-                img = np.fliplr(np.flipud(hdul[0].data))
+                img = hdul[0].data
                 assert(img.shape[0] == img.shape[1]) # am I square!?
                 self.logger.debug(f'PRF size: {np.shape(img)}')
                 
@@ -240,10 +241,18 @@ class Blob(Subimage):
 
                 psfmodel = PixelizedPSF(img)
 
+                if (conf.PRFMAP_MASKRAD > 0) & (not conf.FORCE_GAUSSIAN_PSF):
+                    self.logger.debug('Clipping outskirts of PRF.')
+                    pw, ph = np.shape(psfmodel.img)
+                    cmask = create_circular_mask(pw, ph, radius=conf.PRFMAP_MASKRAD / conf.PIXEL_SCALE)
+                    bcmask = ~cmask.astype(bool) & (psfmodel.img > 0)
+                    psfmodel.img[bcmask] = 0
+                    psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
+
                 if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
-                    self.logger.debug('Normalizing PRF')
-                    psfmodel.img /= psfmodel.img.sum() # HACK -- force normalization to 1
-                
+                    norm = psfmodel.img.sum()
+                    self.logger.debug(f'Normalizing PRF (sum = {norm:4.4f})')
+                    psfmodel.img /= norm # HACK -- force normalization to 1                
 
             elif (psf is not None):
                 blob_centerx = self.blob_center[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
@@ -258,7 +267,9 @@ class Blob(Subimage):
                     # psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
                     psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
                 if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
-                    psfmodel.img /= psfmodel.img.sum() # HACK -- force normalization to 1
+                    norm = psfmodel.img.sum()
+                    self.logger.debug(f'Normalizing PSF (sum = {norm:4.4f})')
+                    psfmodel.img /= norm # HACK -- force normalization to 1
                 self.logger.debug(f'Adopting varying PSF constant at ({blob_centerx}, {blob_centery}).')
             
 

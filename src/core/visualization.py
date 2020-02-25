@@ -347,7 +347,7 @@ def plot_xsection(blob, band, src, sid):
     #     ax[0, 4].text(1.05, ystart - 0.3, f'  M({band}) = {mag:4.4f}', **topt)
     #     ax[0, 4].text(1.05, ystart - 0.4, f'  $\chi^{2}$ = {chisq:4.4f}', **topt)
     
-    outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{band}_xsection.pdf')
+    outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_S{sid}_{band}_xsection.pdf')
     logger.info(f'Saving figure: {outpath}') 
     fig.savefig(outpath)
     plt.close()
