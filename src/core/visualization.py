@@ -252,16 +252,21 @@ def plot_modprofile(blob, band=None):
         band = band.replace(' ', '_')
         if band == conf.MODELING_NICKNAME:
             zpt = conf.MODELING_ZPT
+        elif band.startswith(conf.MODELING_NICKNAME):
+            band_name = band[len(conf.MODELING_NICKNAME)+1:]
+            zpt = conf.MULTIBAND_ZPT[blob._band2idx(band_name)]
         else:
-            zpt = conf.MULTIBAND_ZPT[idx]
+            zpt = conf.MULTIBAND_ZPT[blob._band2idx(band)]
+            
         mag = zpt - 2.5 * np.log10(flux)
 
         topt = dict(color=colors[j], transform = ax[0, 3].transAxes)
-        ystart = 0.99 - j * 0.4
+        ystart = 0.99 - j * 0.5
         ax[0, 4].text(1.05, ystart - 0.1, f'{j}) {mtype}', **topt)
         ax[0, 4].text(1.05, ystart - 0.2, f'  F({band}) = {flux:4.4f}', **topt)
         ax[0, 4].text(1.05, ystart - 0.3, f'  M({band}) = {mag:4.4f}', **topt)
-        ax[0, 4].text(1.05, ystart - 0.4, f'  $\chi^{2}$ = {chisq:4.4f}', **topt)
+        ax[0, 4].text(1.05, ystart - 0.4, f'  zpt({band}) = {zpt:4.4f}', **topt)
+        ax[0, 4].text(1.05, ystart - 0.5, f'  $\chi^{2}$ = {chisq:4.4f}', **topt)
     
     ax[0, 4].axis('off')
     ax[1, 4].axis('off')
@@ -342,7 +347,7 @@ def plot_xsection(blob, band, src, sid):
     #     ax[0, 4].text(1.05, ystart - 0.3, f'  M({band}) = {mag:4.4f}', **topt)
     #     ax[0, 4].text(1.05, ystart - 0.4, f'  $\chi^{2}$ = {chisq:4.4f}', **topt)
     
-    outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_S{sid}_{band}_xsection.pdf')
+    outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{band}_xsection.pdf')
     logger.info(f'Saving figure: {outpath}') 
     fig.savefig(outpath)
     plt.close()

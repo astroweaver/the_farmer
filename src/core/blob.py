@@ -223,7 +223,7 @@ class Blob(Subimage):
                     return False
                 hdul = fits.open(path_prffile)
                 from scipy.ndimage.interpolation import rotate
-                img = hdul[0].data
+                img = np.fliplr(np.flipud(hdul[0].data))
                 assert(img.shape[0] == img.shape[1]) # am I square!?
                 self.logger.debug(f'PRF size: {np.shape(img)}')
                 
@@ -564,7 +564,8 @@ class Blob(Subimage):
         self.logger.debug(f'Starting final optimization for blob #{self.blob_id}')
         for i, (mid, src) in enumerate(zip(self.mids, self.bcatalog)):
             self.logger.debug(f'Source #{src["source_id"]}: {self.model_catalog[i].name} model at {self.model_catalog[i].pos}')
-            self.logger.debug(f'               Fluxes: {self.bands[0]}={self.model_catalog[i].getBrightness().getFlux(self.bands[0]):3.3f}') 
+            for k, band in enumerate(self.bands):
+                    self.logger.debug(f'               Fluxes: {self.bands[k]}={self.model_catalog[i].getBrightness().getFlux(self.bands[k]):3.3f}') 
             if self.model_catalog[i].name not in ('PointSource', 'SimpleGalaxy'):
                 if self.model_catalog[i].name == 'FixedCompositeGalaxy':
                     self.logger.debug(f'               {self.model_catalog[i].shapeExp}')
