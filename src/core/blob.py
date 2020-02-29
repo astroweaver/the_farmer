@@ -182,15 +182,21 @@ class Blob(Subimage):
 
             if (band_strip in conf.CONSTANT_PSF) & (psf is not None):
                 psfmodel = psf.constantPsfAt(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.) # if not spatially varying psfex model, this won't matter.
+                pw, ph = np.shape(psfmodel.img)
                 if remove_background_psf & (not conf.FORCE_GAUSSIAN_PSF):
                     self.logger.debug('Removing PSF background.')
-                    pw, ph = np.shape(psfmodel.img)
                     cmask = create_circular_mask(pw, ph, radius=conf.PSF_MASKRAD / conf.PIXEL_SCALE)
                     bcmask = ~cmask.astype(bool) & (psfmodel.img > 0)
                     psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
                     # psfmodel.img[np.isnan(psfmodel.img)] = 0
                     # psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
                     psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
+
+                if conf.PSF_RADIUS > 0:
+                    self.logger.debug(f'Clipping PSF ({conf.PSF_RADIUS}px radius)')
+                    psfmodel.img = psfmodel.img[int(pw/2.-conf.PSF_RADIUS):int(pw/2+conf.PSF_RADIUS), int(ph/2.-conf.PSF_RADIUS):int(ph/2+conf.PSF_RADIUS)]
+                    self.logger.debug(f'New shape: {np.shape(psfmodel.img)}')
+
                 if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
                     norm = psfmodel.img.sum()
                     self.logger.debug(f'Normalizing PSF (sum = {norm:4.4f})')
@@ -202,7 +208,7 @@ class Blob(Subimage):
                     psfmodel = HybridPixelizedPSF(pix=psfmodel, N=10).gauss
             
             elif (band_strip in conf.PRFMAP_PSF) & (psf is not None):
-                self.logger.debug('Adopting a PRF.')
+                self.logger.debug('Adopting a PRF from file.')
                 # find nearest prf to blob center
                 prftab_coords, prftab_idx = self.psfmodels[i]
 
@@ -225,6 +231,8 @@ class Blob(Subimage):
                 hdul = fits.open(path_prffile)
                 from scipy.ndimage.interpolation import rotate
                 img = hdul[0].data
+                # img = 1E-31 * np.ones_like(img)
+                # img[50:-50, 50:-50] = hdul[0].data[50:-50, 50:-50]
                 assert(img.shape[0] == img.shape[1]) # am I square!?
                 self.logger.debug(f'PRF size: {np.shape(img)}')
                 
@@ -232,7 +240,7 @@ class Blob(Subimage):
                 if  (conf.PRFMAP_PIXEL_SCALE_ORIG > 0) & (conf.PRFMAP_PIXEL_SCALE_ORIG is not None):
                     
                     factor = conf.PRFMAP_PIXEL_SCALE_ORIG / conf.PIXEL_SCALE
-                    self.logger.debug(f'Resampling PSF with zoom factor: {factor:2.2f}')
+                    self.logger.debug(f'Resampling PRF with zoom factor: {factor:2.2f}')
                     img = zoom(img, factor)
                     if np.shape(img)[0]%2 == 0:
                         shape_factor = np.shape(img)[0] / (np.shape(img)[0] + 1)
@@ -246,13 +254,19 @@ class Blob(Subimage):
                     pw, ph = np.shape(psfmodel.img)
                     cmask = create_circular_mask(pw, ph, radius=conf.PRFMAP_MASKRAD / conf.PIXEL_SCALE)
                     bcmask = ~cmask.astype(bool) & (psfmodel.img > 0)
-                    psfmodel.img[bcmask] = 0
-                    psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
+                    psfmodel.img[bcmask] = 1E-31
+                    psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 1E-31
+
+                if conf.PSF_RADIUS > 0:
+                    self.logger.debug(f'Clipping PRF ({conf.PSF_RADIUS}px radius)')
+                    psfmodel.img = psfmodel.img[int(pw/2.-conf.PSF_RADIUS):int(pw/2+conf.PSF_RADIUS), int(ph/2.-conf.PSF_RADIUS):int(ph/2+conf.PSF_RADIUS)]
+                    self.logger.debug(f'New shape: {np.shape(psfmodel.img)}')
 
                 if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
                     norm = psfmodel.img.sum()
                     self.logger.debug(f'Normalizing PRF (sum = {norm:4.4f})')
-                    psfmodel.img /= norm # HACK -- force normalization to 1                
+                    psfmodel.img /= norm # HACK -- force normalization to 1       
+                    self.logger.debug(f'PRF has been normalized. (sum = {psfmodel.img.sum():4.4f})')         
 
             elif (psf is not None):
                 blob_centerx = self.blob_center[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
@@ -266,6 +280,11 @@ class Blob(Subimage):
                     # psfmodel.img[np.isnan(psfmodel.img)] = 0
                     # psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
                     psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
+                if conf.PSF_RAIDUS > 0:
+                    self.logger.debug(f'Clipping PRF ({conf.PSF_RAIDUS}px radius)')
+                    psfmodel.img = psfmodel.img[int(pw/2.-conf.PSF_RADIUS):int(pw/2+conf.PSF_RADIUS), int(ph/2.-conf.PSF_RADIUS):int(ph/2+conf.PSF_RADIUS)]
+                    self.logger.debug(f'New shape: {np.shape(psfmodel.img)}')
+                    
                 if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
                     norm = psfmodel.img.sum()
                     self.logger.debug(f'Normalizing PSF (sum = {norm:4.4f})')
@@ -290,7 +309,7 @@ class Blob(Subimage):
 
             self.psfimg[band] = psfimg
             
-            if (conf.PLOT > 2):
+            if (conf.PLOT > 1):
                 plot_psf(psfimg, band, show_gaussian=False)
                     
             self.logger.debug('Making image...')
@@ -300,6 +319,9 @@ class Blob(Subimage):
                             wcs=NullWCS(),
                             photocal=FluxesPhotoCal(band),
                             sky=ConstantSky(0))
+            # modelminval = 0.1 * np.nanmedian(1/np.sqrt(tweight[tweight>0]))
+            # timages[i].modelMinval = 1. #modelminval
+            # print(f'Setting minval to {modelminval} in img pixel units.')
 
         self.timages = timages
         return True
@@ -407,6 +429,20 @@ class Blob(Subimage):
                         dlnp_init = dlnp
                 except:
                     self.logger.warning(f'WARNING - Optimization failed on step {i} for blob #{self.blob_id}')
+                    return False
+
+                try:  # HACK -- this sometimes fails!!!
+                    cat = tr.getCatalog()
+                    for k, src in enumerate(cat):
+                        sid = self.bcatalog['source_id'][k]
+                        for j, band in enumerate(self.bands):
+                            p = np.sum(cat[k].getUnitFluxModelPatches(tr.getImage(j))[0].patch)
+                            self.logger.debug(f'Sum of PSF convolved patch for {sid} in {band}: {p:4.4f}')
+                            self.logger.debug(f'Sum of PSF: {np.sum(tr.getImage(j).getPsf().img):4.4f}')
+                            if 1. - p > conf.NORMALIZATION_THRESH:
+                                self.logger.critical(f'The final model for {sid} in {band} is NOT normalized within threshold ({conf.NORMALIZATION_THRESH})')
+                                return False
+                except:
                     return False
 
                 if dlnp < conf.TRACTOR_CONTHRESH:
@@ -742,9 +778,9 @@ class Blob(Subimage):
                 self.noise[i, j] = np.sum(self.background_rms_images[j][self.segmap == src['source_id']])
 
                 if conf.PLOT > 1:
-                    for k, src in enumerate(self.solution_catalog):
+                    for k, ssrc in enumerate(self.solution_catalog):
                         sid = self.bcatalog['source_id'][k]
-                        plot_xsection(self, band, src, sid)
+                        plot_xsection(self, band, ssrc, sid)
 
         # self.rows = np.zeros(len(self.solution_catalog))
         for idx, src in enumerate(self.solution_catalog):

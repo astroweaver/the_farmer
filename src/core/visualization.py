@@ -234,7 +234,7 @@ def plot_modprofile(blob, band=None):
 
     norm = LogNorm(1e-5, 0.1*np.nanmax(psfmodel), clip='True')
     img_opt = dict(cmap='Blues', norm=norm)
-    ax[1,3].imshow(psfmodel, **img_opt, extent=0.15 *np.array([-np.shape(psfmodel)[0]/2,  np.shape(psfmodel)[0]/2, -np.shape(psfmodel)[0]/2,  np.shape(psfmodel)[0]/2,]))
+    ax[1,3].imshow(np.log10(psfmodel), extent=0.15 *np.array([-np.shape(psfmodel)[0]/2,  np.shape(psfmodel)[0]/2, -np.shape(psfmodel)[0]/2,  np.shape(psfmodel)[0]/2,]))
     ax[1,3].set(xlim=xlim, ylim=xlim)
 
     xax = np.arange(-np.shape(psfmodel)[0]/2 + 0.5,  np.shape(psfmodel)[0]/2 + 0.5)
@@ -295,18 +295,24 @@ def plot_xsection(blob, band, src, sid):
     fig, ax = plt.subplots(ncols=2)
 
     posx, posy = src.pos[0], src.pos[1]
+    try:
 
-    # x slice
-    imgx = blob.images[idx][:, int(posx)]
-    errx = 1/np.sqrt(blob.weights[idx][:, int(posx)])
-    modx = blob.solution_model_images[idx][:, int(posx)]
-    resx = imgx - modx
+        # x slice
+        imgx = blob.images[idx][:, int(posx)]
+        errx = 1/np.sqrt(blob.weights[idx][:, int(posx)])
+        modx = blob.solution_model_images[idx][:, int(posx)]
+        resx = imgx - modx
 
-    # y slice
-    imgy = blob.images[idx][int(posy), :]
-    erry = 1/np.sqrt(blob.weights[idx][int(posy), :])
-    mody = blob.solution_model_images[idx][int(posy), :]
-    resy = imgy - mody
+        # y slice
+        imgy = blob.images[idx][int(posy), :]
+        erry = 1/np.sqrt(blob.weights[idx][int(posy), :])
+        mody = blob.solution_model_images[idx][int(posy), :]
+        resy = imgy - mody
+    
+    except:
+        plt.close()
+        logger.warning('Could not make plot -- object may have escaped?')
+        return
 
     # idea: show areas outside segment in grey
 
@@ -636,11 +642,13 @@ def plot_fblob(blob, band, fig=None, ax=None, final_opt=False, debug=False):
     
     return fig, ax
 
-def plot_blobmap(brick, image=None, band=None):
+def plot_blobmap(brick, image=None, band=None, catalog=None):
     if image is None:
         image = brick.images[0]
     if band is None:
         band = brick.bands[0]
+    if catalog is None:
+        catalog = brick.catalog
     fig, ax = plt.subplots(figsize=(20,20))
     # imgs_marked = mark_boundaries(brick.images[0], brick.blobmap, color='red')[:,:,0]
     imgs_marked = find_boundaries(brick.blobmap, mode='thick').astype(int)
@@ -652,7 +660,7 @@ def plot_blobmap(brick, image=None, band=None):
     mycmap = plt.cm.magma
     mycmap.set_under('k', alpha=0)
     ax.imshow(imgs_marked, alpha=0.9, cmap=mycmap, vmin=0, zorder=2, origin='lower')
-    ax.scatter(brick.catalog['x'], brick.catalog['y'], marker='+', color='limegreen', s=0.1)
+    ax.scatter(catalog['x'], catalog['y'], marker='+', color='limegreen', s=0.1)
     ax.add_patch(Rectangle((conf.BRICK_BUFFER, conf.BRICK_BUFFER), conf.BRICK_HEIGHT, conf.BRICK_WIDTH, fill=False, alpha=0.3, edgecolor='purple', linewidth=1))
 
     for i in np.arange(brick.n_blobs):

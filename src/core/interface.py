@@ -1180,6 +1180,11 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
             plot_brick(fbrick, idx, band=plt_band)
             plot_background(fbrick, idx, band=plt_band)
             plot_mask(fbrick, idx, band=plt_band)
+            fcat = fbrick.catalog.copy()
+            fcat['x'] -= fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1
+            fcat['y'] -= fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1
+            plot_blobmap(fbrick, image=fbrick.images[idx], band=plt_band, catalog=fcat)
+
 
     for i, vb_band in enumerate(fband):
         logger.debug(f'Brick #{brick_id} -- Image statistics for {vb_band}')
@@ -1420,6 +1425,7 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, modeling=False):
             prfcoords = SkyCoord(ra=prftab_ra*u.degree, dec=prftab_dec*u.degree)
             prfidx = prftab[conf.PRFMAP_COLUMNS[0]]
             psfmodels[i] = (prfcoords, prfidx)
+            logger.info(f'Adopted PRFMap PSF.')
             continue
 
         path_psffile = os.path.join(conf.PSF_DIR, f'{band}.psf')

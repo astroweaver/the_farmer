@@ -69,6 +69,7 @@ class Brick(Subimage):
                 self.logger.debug(f' Median input weight: {median_wgt:3.6f}, and in RMS: {1./np.sqrt(median_wgt):3.6f}')
                 self.logger.debug(f' Will apply a factor of {median_wrms/median_wgt:6.6f} to scale input weights.')
                 weights[i] *= median_wrms / median_wgt
+
             self.weights = weights
         else:
             self.weights = weights
