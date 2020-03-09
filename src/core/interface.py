@@ -1231,7 +1231,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                 for colname in np.array(output_cat.colnames)[newcols]:
                     #mastercat.add_column(output_cat[colname])
                     if colname not in mastercat.colnames:
-                        if colname.startswith('FLUX_APER'):
+                        if colname.startswith('FLUX_APER') | colname.startswith('MAG_APER'):
                             mastercat.add_column(Column(length=len(mastercat), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
                         else:
                             mastercat.add_column(Column(length=len(mastercat), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
@@ -1249,7 +1249,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
             for colname in output_cat.colnames:
                 if colname not in fbrick.catalog.colnames:
                     
-                    if colname.startswith('FLUX_APER'):
+                    if colname.startswith('FLUX_APER') | colname.startswith('MAG_APER'):
                         fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
                     else:
                         fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
@@ -1311,7 +1311,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                 # make fillers
                 for colname in np.array(output_cat.colnames)[newcols]:
                     if colname not in mastercat.colnames:
-                        if colname.startswith('FLUX_APER'):
+                        if colname.startswith('FLUX_APER') | colname.startswith('MAG_APER'):
                             mastercat.add_column(Column(length=len(mastercat), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
                         else:
                             mastercat.add_column(Column(length=len(mastercat), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
@@ -1334,7 +1334,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                 
             for colname in output_cat.colnames:
                 if colname not in fbrick.catalog.colnames:
-                    if colname.startswith('FLUX_APER'):
+                    if colname.startswith('FLUX_APER') | colname.startswith('MAG_APER'):
                         fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
                     else:
                         fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=output_cat[colname].dtype, shape=(1,), name=colname))

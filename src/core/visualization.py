@@ -23,6 +23,8 @@ from matplotlib.colors import LogNorm, SymLogNorm
 from matplotlib.patches import Ellipse
 from matplotlib.patches import Rectangle
 from skimage.segmentation import find_boundaries
+from astropy.visualization import hist
+from scipy import stats
 
 import config as conf
 import matplotlib.cm as cm
@@ -190,6 +192,164 @@ def plot_blob(myblob, myfblob):
     fig.savefig(os.path.join(conf.PLOT_DIR, f'{myblob.brick_id}_{myblob.blob_id}.pdf'))
     plt.close()
 
+def plot_srcprofile(blob, src, sid, band=None):
+
+    if band is None:
+        band = conf.MODELING_NICKNAME
+        idx = 0
+    else:
+        idx = blob._band2idx(band, bands=blob.bands)
+
+    # information
+    bid = blob.blob_id
+    bsrc = blob.bcatalog[blob.bcatalog['source_id'] == sid]
+    ra, dec = bsrc['RA'][0], bsrc['DEC'][0]
+    xp0, yp0 = bsrc['x'][0] - blob.subvector[1], bsrc['y'][0] - blob.subvector[0]
+    xp, yp = src.pos[0], src.pos[1]
+    flux, flux_err = bsrc[f'FLUX_{band}'][0], bsrc[f'FLUXERR_{band}'][0]
+    mag, mag_err = bsrc[f'MAG_{band}'][0], bsrc[f'MAGERR_{band}'][0]
+    n_blob = bsrc['N_BLOB'][0]
+    chi2 = bsrc[f'CHISQ_{band}'][0]
+
+    is_resolved = False
+    if src.name not in ('PointSource', 'SimpleGalaxy'):
+        is_resolved = True
+        reff, reff_err = bsrc[f'REFF_{band}'][0], bsrc[f'REFF_ERR_{band}'][0]
+        ab, ab_err = bsrc[f'AB_{band}'][0], bsrc[f'AB_ERR_{band}'][0]
+        theta, theta_err = bsrc[f'THETA_{band}'][0], bsrc[f'THETA_ERR_{band}'][0]
+
+    # images
+    img = blob.images[idx]
+    wgt = blob.weights[idx]
+    err = 1. / np.sqrt(wgt)
+    mask = blob.masks[idx]
+    seg = blob.segmap.copy()
+    seg[blob.segmap != sid] == 0
+    mod = blob.solution_model_images[idx]
+    chi = blob.solution_tractor.getChiImage(idx)
+    chi[blob.segmap != sid] == 0
+    res = img - mod
+    rms = np.median(blob.background_rms_images[idx])
+
+    xpix, ypix = np.nonzero(~mask)
+    buff = np.min([conf.BLOB_BUFFER, 10])
+    extent = [np.min(xpix) - buff, np.max(xpix) + 1 + buff, np.min(ypix) - buff, np.max(ypix) + 1 + buff]
+    xp0 -= extent[0] + 2
+    xp -= extent[0] + 2
+    yp0 -= extent[2] + 2
+    yp -= extent[2] + 2
+
+    xsl, ysl = slice(extent[0], extent[1]), slice(extent[2], extent[3])
+    dx = (extent[1] - extent[0]) * conf.PIXEL_SCALE
+    dy = (extent[3] - extent[2]) * conf.PIXEL_SCALE
+    extent = np.array([-dx, dx, -dy, dy])
+
+    xp0 = (xp0 - dx) * conf.PIXEL_SCALE
+    xp = (xp - dx) * conf.PIXEL_SCALE
+    yp0 = (yp0 - dy) * conf.PIXEL_SCALE
+    yp = (yp - dy) * conf.PIXEL_SCALE
+
+    # tests
+    res_seg = res[blob.segmap==sid].flatten()
+    k2, p_norm = stats.normaltest(res_seg)
+    chi_seg = chi[blob.segmap==sid].flatten()
+
+    # plotting
+    fig, ax = plt.subplots(ncols=4, nrows=4, figsize=(15, 15))
+
+    # row 1 -- image, info
+    norm = LogNorm(np.max([rms, 1E-5]), 0.95*np.max(img[xsl, ysl]), clip='True')
+    ax[0,0].imshow(img[xsl, ysl], norm=norm, cmap='Greys', extent=extent)
+    ax[0,0].scatter(xp0, yp0, c='purple', marker='*', alpha=0.5)
+    ax[0,0].scatter(xp, yp, c='r', marker='d', alpha=0.9)
+    ax[0,1].axis('off')
+    ax[0,2].axis('off')
+    ax[0,3].axis('off')
+    ax[0,1].text(0, 0.90,
+                s = f'Source: {sid} | Blob: {bid} | Brick: {blob.brick_id} | RA: {ra:3.3f}, Dec: {dec:3.3f}',
+                transform=ax[0,1].transAxes)
+    if is_resolved:
+        ax[0,1].text(0, 0.70,
+                s = f'{src.name} with Reff: {reff:3.3f}+/-{reff_err:3.3f}, A/B: {ab:3.3f}+/-{ab_err:3.3f}, and Theta: {theta:3.3f}+/-{theta_err:3.3f}',
+                transform=ax[0,1].transAxes)
+    else:
+        ax[0,1].text(0, 0.70,
+                s = f'{src.name}',
+                transform=ax[0,1].transAxes)
+    ax[0,1].text(0, 0.50,
+                s = f'{band} | {flux:3.3f}+/-{flux_err:3.3f} uJy | {mag:3.3f}+/-{mag_err:3.3f} AB',
+                transform=ax[0,1].transAxes)
+    ax[0,1].text(0, 0.30,
+                s = f'Chi2/N: {chi2:3.3f} | {n_blob} neighbor(s) | ADK-test: {k2:3.3f}',
+                transform=ax[0,1].transAxes)
+    
+
+    # row 2 -- image, weights, mask, segment
+    ax[1,0].imshow(img[xsl, ysl], vmin=-3*rms, vmax=3*rms, cmap='RdGy', extent=extent)
+    ax[1,1].imshow(err[xsl, ysl], cmap='RdGy', extent=extent)
+    ax[1,2].imshow(mask[xsl, ysl], cmap='Greys', extent=extent)
+    ax[1,3].imshow(~seg[xsl, ysl], cmap='Greys', extent=extent)
+    ax[1,2].scatter(xp0, yp0, c='purple', marker='*', alpha=0.5)
+    ax[1,2].scatter(xp, yp, c='r', marker='d', alpha=0.9)
+    ax[1,3].scatter(xp0, yp0, c='purple', marker='*', alpha=0.5)
+    ax[1,3].scatter(xp, yp, c='r', marker='d', alpha=0.9)
+
+    # row 3 -- image, model, residual, chi
+    ax[2,0].imshow(img[xsl, ysl], vmin=-3*rms, vmax=3*rms, cmap='RdGy', extent=extent)
+    ax[2,1].imshow(mod[xsl, ysl], vmin=-3*rms, vmax=3*rms, cmap='RdGy', extent=extent)
+    ax[2,2].imshow(res[xsl, ysl], vmin=-3*rms, vmax=3*rms, cmap='RdGy', extent=extent)
+    ax[2,3].imshow(chi[xsl, ysl], vmin=-3, vmax=3, cmap='RdGy', extent=extent)
+
+    # row 4 -- hist, x-slice, y-slice, psf
+    hist(chi_seg, ax=ax[3,0], bins='freedman', histtype='step', density=True)
+    ax[3,0].set(xlim=(-5, 5))
+    ax[3,0].axvline(0, ls='dotted', color='grey')
+
+    # x slice
+    imgx = blob.images[idx][:, int(xp)]
+    errx = 1./np.sqrt(blob.weights[idx][:, int(xp)])
+    modx = blob.solution_model_images[idx][:, int(xp)]
+    resx = imgx - modx
+
+    # y slice
+    imgy = blob.images[idx][int(yp), :]
+    erry = 1./np.sqrt(blob.weights[idx][int(yp), :])
+    mody = blob.solution_model_images[idx][int(yp), :]
+    resy = imgy - mody
+
+    xlim = (-np.shape(blob.images[idx])[1]/2,  np.shape(blob.images[idx])[1]/2)
+    ylim = (0.9*np.min([np.min(imgx), np.min(imgy)]), 1.1*np.max([np.max(imgx), np.max(imgy)]))
+
+    xax = np.arange(-np.shape(blob.images[idx])[0]/2,  np.shape(blob.images[idx])[0]/2) * conf.PIXEL_SCALE
+    ax[3,1].errorbar(xax, imgx, yerr=errx, c='k')
+    ax[3,1].plot(xax, modx, c='r')
+    ax[3,1].plot(xax, resx, c='g')
+    ax[3,1].axvline(0, ls='dotted', c='k')
+    ax[3,1].set(ylim =ylim,  xlabel='arcsec')
+
+    yax = np.arange(-np.shape(blob.images[idx])[1]/2,  np.shape(blob.images[idx])[1]/2) * conf.PIXEL_SCALE
+    ax[3,2].errorbar(yax, imgy, yerr=erry, c='k')
+    ax[3,2].plot(yax, mody, c='r')
+    ax[3,2].plot(yax, resy, c='g')
+    ax[3,2].axvline(0, ls='dotted', c='k')
+    ax[3,2].set(ylim=ylim, xlabel='arcsec')
+
+    psfmodel = blob.psfimg[band]
+    xax = np.arange(-np.shape(psfmodel)[0]/2 + 0.5,  np.shape(psfmodel)[0]/2 + 0.5)
+    [ax[3,3].plot(xax * 0.15, psfmodel[x], c='royalblue', alpha=0.5) for x in np.arange(0, np.shape(psfmodel)[0])]
+    ax[3,3].axvline(0, ls='dotted', c='k')
+    ax[3,3].set(xlim=(-5, 5), yscale='log', ylim=(1E-6, 1E-1), xlabel='arcsec')
+
+    outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{sid}_{band}_srcprofile.pdf')
+    logger.info(f'Saving figure: {outpath}') 
+    fig.savefig(outpath)
+    plt.close()
+
+
+def plot_apertures(blob, band=None):
+    pass
+
+
 def plot_modprofile(blob, band=None):
 
     if band is None:
@@ -234,7 +394,7 @@ def plot_modprofile(blob, band=None):
 
     norm = LogNorm(1e-5, 0.1*np.nanmax(psfmodel), clip='True')
     img_opt = dict(cmap='Blues', norm=norm)
-    ax[1,3].imshow(np.log10(psfmodel), extent=0.15 *np.array([-np.shape(psfmodel)[0]/2,  np.shape(psfmodel)[0]/2, -np.shape(psfmodel)[0]/2,  np.shape(psfmodel)[0]/2,]))
+    ax[1,3].imshow(psfmodel, norm=norm, extent=0.15 *np.array([-np.shape(psfmodel)[0]/2,  np.shape(psfmodel)[0]/2, -np.shape(psfmodel)[0]/2,  np.shape(psfmodel)[0]/2,]))
     ax[1,3].set(xlim=xlim, ylim=xlim)
 
     xax = np.arange(-np.shape(psfmodel)[0]/2 + 0.5,  np.shape(psfmodel)[0]/2 + 0.5)
@@ -289,8 +449,6 @@ def plot_xsection(blob, band, src, sid):
 
     back = blob.backgrounds[idx]
     mean, rms = back[0], back[1]
-    noise = np.random.normal(mean, rms, size=blob.dims)
-    tr = blob.solution_tractor
 
     fig, ax = plt.subplots(ncols=2)
 
@@ -622,12 +780,14 @@ def plot_fblob(blob, band, fig=None, ax=None, final_opt=False, debug=False):
         minx, maxx = 0, 0
         for i, src in enumerate(blob.bcatalog):
             res_seg = residual[blob.segmap==src['source_id']].flatten()
+            k2, p_norm = stats.normaltest(res_seg)
             ax[1,5].hist(res_seg, bins=20, histtype='step', color=colors[i], density=True)
             resmin, resmax = np.nanmin(res_seg), np.nanmax(res_seg)
             if resmin < minx:
                 minx = resmin
             if resmax > maxx:
                 maxx = resmax
+            ax[1,5].text(0.05, 0.9 - 0.1*i, s=f"k={k2:3.3f} (p={p_norm:2.2f})", trasnform=ax[1,5].transAxes)
         ax[1,5].set_xlim(minx, maxx)
         ax[1,5].axvline(0, c='grey', ls='dotted')
         ax[1,5].set_ylim(bottom=0)

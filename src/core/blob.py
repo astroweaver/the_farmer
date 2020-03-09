@@ -40,7 +40,7 @@ import pathos
 
 from .subimage import Subimage
 from .utils import SimpleGalaxy, create_circular_mask
-from .visualization import plot_detblob, plot_fblob, plot_psf, plot_modprofile, plot_mask, plot_xsection
+from .visualization import plot_detblob, plot_fblob, plot_psf, plot_modprofile, plot_mask, plot_xsection, plot_srcprofile
 import config as conf
 
 import logging
@@ -139,6 +139,7 @@ class Blob(Subimage):
         self.rchisq = np.zeros((self.n_sources, 3, 2))
         self.bic = np.zeros((self.n_sources, 3, 2))
         self.noise = np.zeros((self.n_sources, self.n_bands))
+        self.norm = np.zeros((self.n_sources, self.n_bands))
         # self.position_variance = np.zeros((self.n_sources, 2))
         # self.parameter_variance = np.zeros((self.n_sources, 3))
         # self.forced_variance = np.zeros((self.n_sources, self.n_bands))
@@ -248,14 +249,15 @@ class Blob(Subimage):
                     self.logger.debug(f'Final PRF size: {np.shape(img)}')
 
                 psfmodel = PixelizedPSF(img)
+                pw, ph = np.shape(psfmodel.img)
 
                 if (conf.PRFMAP_MASKRAD > 0) & (not conf.FORCE_GAUSSIAN_PSF):
                     self.logger.debug('Clipping outskirts of PRF.')
-                    pw, ph = np.shape(psfmodel.img)
                     cmask = create_circular_mask(pw, ph, radius=conf.PRFMAP_MASKRAD / conf.PIXEL_SCALE)
                     bcmask = ~cmask.astype(bool) & (psfmodel.img > 0)
-                    psfmodel.img[bcmask] = 1E-31
-                    psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 1E-31
+                    psfmodel.img[bcmask] = 0
+                    # psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
+                    psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
 
                 if conf.PSF_RADIUS > 0:
                     self.logger.debug(f'Clipping PRF ({conf.PSF_RADIUS}px radius)')
@@ -280,8 +282,8 @@ class Blob(Subimage):
                     # psfmodel.img[np.isnan(psfmodel.img)] = 0
                     # psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
                     psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
-                if conf.PSF_RAIDUS > 0:
-                    self.logger.debug(f'Clipping PRF ({conf.PSF_RAIDUS}px radius)')
+                if conf.PSF_RADIUS > 0:
+                    self.logger.debug(f'Clipping PRF ({conf.PSF_RADIUS}px radius)')
                     psfmodel.img = psfmodel.img[int(pw/2.-conf.PSF_RADIUS):int(pw/2+conf.PSF_RADIUS), int(ph/2.-conf.PSF_RADIUS):int(ph/2+conf.PSF_RADIUS)]
                     self.logger.debug(f'New shape: {np.shape(psfmodel.img)}')
                     
@@ -311,6 +313,7 @@ class Blob(Subimage):
             
             if (conf.PLOT > 1):
                 plot_psf(psfimg, band, show_gaussian=False)
+                print(np.max(psfimg.flatten()))
                     
             self.logger.debug('Making image...')
             timages[i] = Image(data=image,
@@ -375,6 +378,10 @@ class Blob(Subimage):
             if freeze_position & (conf.FREEZE_POSITION):
                 self.model_catalog[i].freezeParams('pos')
                 self.logger.debug(f'Position parameter frozen at {position}')
+            elif conf.USE_POSITION_PRIOR:
+                self.logger.info(f'Setting position prior. X = {src["x"]:2.2f}+/-{conf.POSITION_PRIOR_SIG}; Y = {src["y"]:2.2f}+/-{conf.POSITION_PRIOR_SIG}')
+                self.model_catalog[i].pos.addGaussianPrior('x', src['x'], conf.POSITION_PRIOR_SIG)
+                self.model_catalog[i].pos.addGaussianPrior('y', src['y'], conf.POSITION_PRIOR_SIG)
 
             self.logger.debug(f'Source #{src["source_id"]}: {self.model_catalog[i].name} model at {position}')
             self.logger.debug(f'               {flux}') 
@@ -414,22 +421,22 @@ class Blob(Subimage):
             tstart = time.time()
 
             # grab inital positions
-            cat = tr.getCatalog()
-            x_orig = np.zeros(self.n_sources)
-            y_orig = np.zeros(self.n_sources)
-            for i, src in enumerate(cat):
-                x_orig[i] = src.pos[0]
-                y_orig[i] = src.pos[1]
+            # cat = tr.getCatalog()
+            # x_orig = np.zeros(self.n_sources)
+            # y_orig = np.zeros(self.n_sources)
+            # for i, src in enumerate(cat):
+            #     x_orig[i] = src.pos[0]
+            #     y_orig[i] = src.pos[1]
 
             for i in range(conf.TRACTOR_MAXSTEPS):
-                try:
-                    dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, variance=True)
-                    self.logger.debug(f'    {i+1}) dlnp = {np.log10(dlnp)}')
-                    if i == 0:
-                        dlnp_init = dlnp
-                except:
-                    self.logger.warning(f'WARNING - Optimization failed on step {i} for blob #{self.blob_id}')
-                    return False
+                # try:
+                dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, variance=True, priors=conf.USE_POSITION_PRIOR)
+                self.logger.debug(f'    {i+1}) dlnp = {np.log10(dlnp)}')
+                if i == 0:
+                    dlnp_init = dlnp
+                # except:
+                #     self.logger.warning(f'WARNING - Optimization failed on step {i} for blob #{self.blob_id}')
+                #     return False
 
                 try:  # HACK -- this sometimes fails!!!
                     cat = tr.getCatalog()
@@ -437,11 +444,17 @@ class Blob(Subimage):
                         sid = self.bcatalog['source_id'][k]
                         for j, band in enumerate(self.bands):
                             p = np.sum(cat[k].getUnitFluxModelPatches(tr.getImage(j))[0].patch)
-                            self.logger.debug(f'Sum of PSF convolved patch for {sid} in {band}: {p:4.4f}')
-                            self.logger.debug(f'Sum of PSF: {np.sum(tr.getImage(j).getPsf().img):4.4f}')
+                            # m = np.max(cat[k].getUnitFluxModelPatches(tr.getImage(j))[0].patch)
+                            # self.logger.debug(f'Max of PSF convolved patch for {sid} in {band}: {m:4.4f}')
+                            # self.logger.debug(f'Max of PSF: {np.max(tr.getImage(j).getPsf().img):4.4f}')
+                            # self.logger.debug(f'Max of Model: {np.max(tr.getModelImage(j)):4.4f}')
+                            # self.logger.debug(f'Sum of PSF convolved patch for {sid} in {band}: {p:4.4f}')
+                            # self.logger.debug(f'Sum of PSF: {np.sum(tr.getImage(j).getPsf().img):4.4f}')
+                            self.norm[k, j] = p
                             if 1. - p > conf.NORMALIZATION_THRESH:
                                 self.logger.critical(f'The final model for {sid} in {band} is NOT normalized within threshold ({conf.NORMALIZATION_THRESH})')
-                                return False
+                                
+
                 except:
                     return False
 
@@ -456,21 +469,41 @@ class Blob(Subimage):
                     for idx, src in enumerate(cat):
                         sid = self.bcatalog['source_id'][idx]
                         xp, yp = src.pos[0], src.pos[1]
+                        xp0, yp0 = self.bcatalog['x'][idx], self.bcatalog['y'][idx]
                         srcseg = self.segmap == sid
-                        maxx, maxy = np.shape(self.segmap)
-
-                        # fig, ax = plt.subplots()
-                        # ax.imshow(srcseg)
-                        # ax.scatter(xp, yp)
-                        # plt.savefig(os.path.join(conf.PLOT_DIR,f'tr_{i}_{idx}.pdf'))
-                        # self.logger.debug('MAKING CORRAL IMAGE!')
+                        maxy, maxx = np.shape(self.segmap)
 
                         if (xp > maxx) | (xp < 0) | (yp < 0) | (yp > maxy):
                             self.logger.warning(f'Source {sid} has escaped the blob!')
-                            cat[idx].pos = PixPos(x_orig[idx], y_orig[idx])
+
+                            # gpriors = src.getLogPrior()
+                            # print('Log(Prior):', gpriors)
+                            src.pos.setParams([xp0, yp0])
+                            # self.logger.info(f'Setting position prior. X = {xp0:2.2f}+/-{POSITION_PRIOR_SIG}; Y = {yp0:2.2f}+/-{1.}')
+                            # src.pos.addGaussianPrior('x', xp0, 1.0)
+                            # src.pos.addGaussianPrior('y', yp0, 1.0)
+
+
                         elif ~srcseg[int(yp), int(xp)]:
+
+                            # fig, ax = plt.subplots()
+                            # ax.imshow(srcseg)
+                            # ax.scatter(xp, yp)
+                            # plt.savefig(os.path.join(conf.PLOT_DIR,f'tr_{i}_{idx}.pdf'))
+                            # self.logger.debug('MAKING CORRAL IMAGE!')
+
+                            # gpriors = src.getLogPrior()
+                            # print('Log(Prior):', gpriors)
+
                             self.logger.warning(f'Source {sid} has escaped its segment!')
-                            cat[idx].pos = PixPos(x_orig[idx], y_orig[idx])
+                            src.pos.setParams([xp0, yp0])
+                            # self.logger.info(f'Setting position prior. X = {xp0:2.2f}+/-{1.}; Y = {yp0:2.2f}+/-{1.}')
+                            # src.pos.addGaussianPrior('x', xp0, 1.0)
+                            # src.pos.addGaussianPrior('y', yp0, 1.0)
+
+                            # gpriors = src.getLogPrior()
+                            # print('Log(Prior):', gpriors)
+
 
                     tr.setCatalog(cat)
 
@@ -481,7 +514,7 @@ class Blob(Subimage):
 
         cat = tr.getCatalog()
         var_catalog = cat.copy()
-        # var_catalog.setParams(var)
+        var_catalog.setParams(var)
         # if (cat != 0).all():
         #     var_catalog = self.solution_catalog.copy()
         #     var_catalog = var_catalog.setParams(var)
@@ -584,7 +617,7 @@ class Blob(Subimage):
                     self.logger.debug(f'Source #{src["source_id"]} with {self.model_catalog[i].name} has rchisq={self.rchisq[i, self._level, self._sublevel]:3.3f} | bic={self.bic[i, self._level, self._sublevel]:3.3f}')
                     self.logger.debug(f'     with {len(self.bands)} bands, {m_param} parameters, {n_data} points in total --> NDOF = {ndof}')
                     for k, band in enumerate(self.bands):
-                        self.logger.debug(f'               Fluxes: {self.bands[k]}={self.model_catalog[i].getBrightness().getFlux(self.bands[k]):3.3f}') 
+                        self.logger.debug(f'               Fluxes: {self.bands[k]}={self.model_catalog[i].getBrightness().getFlux(self.bands[k]):3.3f}+/-{np.sqrt(self.variance[i].brightness.getParams()[k]):3.3f}') 
                     if self.model_catalog[i].name not in ('PointSource', 'SimpleGalaxy'):
                         if self.model_catalog[i].name == 'FixedCompositeGalaxy':
                             self.logger.debug(f'               {self.model_catalog[i].shapeExp}')
@@ -612,7 +645,7 @@ class Blob(Subimage):
         for i, (mid, src) in enumerate(zip(self.mids, self.bcatalog)):
             self.logger.debug(f'Source #{src["source_id"]}: {self.model_catalog[i].name} model at {self.model_catalog[i].pos}')
             for k, band in enumerate(self.bands):
-                    self.logger.debug(f'               Fluxes: {self.bands[k]}={self.model_catalog[i].getBrightness().getFlux(self.bands[k]):3.3f}') 
+                    self.logger.debug(f'               Fluxes: {self.bands[k]}={self.model_catalog[i].getBrightness().getFlux(self.bands[k]):3.3f}+/-{np.sqrt(self.variance[i].brightness.getParams()[k]):3.3f}')
             if self.model_catalog[i].name not in ('PointSource', 'SimpleGalaxy'):
                 if self.model_catalog[i].name == 'FixedCompositeGalaxy':
                     self.logger.debug(f'               {self.model_catalog[i].shapeExp}')
@@ -672,23 +705,26 @@ class Blob(Subimage):
                 else:
                     self.logger.debug(f'               {self.solution_catalog[i].shape}')
 
-        if conf.PLOT > 1:
-            for figi, axi, band in zip(fig, ax, self.bands):
-                plot_detblob(self, figi, axi, band=band, level=self._level, sublevel=self._sublevel, final_opt=True)
-
-                for k, src in enumerate(self.solution_catalog):
-                    sid = self.bcatalog['source_id'][k]
-                    plot_xsection(self, band, src, sid)
-
-        if conf.PLOT > 0:
-            [plot_modprofile(self, band=band) for band in self.bands]
-
         # self.rows = np.zeros(len(self.solution_catalog))
         for idx, src in enumerate(self.solution_catalog):
             # row = np.argwhere(self.brick.catalog['source_id'] == sid)[0][0]
             # self.rows[idx] = row
             # print(f'STASHING {sid} IN ROW {row}')
             self.get_catalog(idx, src, multiband_model=self.multiband_model)
+
+        if conf.PLOT > 1:
+            for figi, axi, band in zip(fig, ax, self.bands):
+                plot_detblob(self, figi, axi, band=band, level=self._level, sublevel=self._sublevel, final_opt=True)
+
+                # for k, src in enumerate(self.solution_catalog):
+                #     sid = self.bcatalog['source_id'][k]
+                #     plot_xsection(self, band, src, sid)
+
+        if conf.PLOT > 0:
+            for k, src in enumerate(self.solution_catalog):
+                for band in self.bands:
+                    sid = self.bcatalog['source_id'][k]
+                    plot_srcprofile(self, src, sid, band)
 
         return self.status
 
@@ -787,9 +823,10 @@ class Blob(Subimage):
             self.get_catalog(idx, src, multiband_only=True)
 
 
-        if conf.PLOT > 0:
-            [plot_fblob(self, band, axlist[idx][0], axlist[idx][1], final_opt=True) for idx, band in enumerate(self.bands)]
-            [plot_modprofile(self, band) for idx, band in enumerate(self.bands)]
+            if conf.PLOT > 0:
+                sid = self.bcatalog['source_id'][idx]
+                for band in self.bands:
+                    plot_srcprofile(self, src, sid, band)
 
         return status
 
@@ -1109,6 +1146,8 @@ class Blob(Subimage):
 
         apflux = np.zeros((len(cat), len(apertures)), np.float32)
         apflux_err = np.zeros((len(cat), len(apertures)), np.float32)
+        apmag = np.zeros((len(cat), len(apertures)), np.float32)
+        apmag_err = np.zeros((len(cat), len(apertures)), np.float32)
 
         H,W = self.images[0].shape
         Iap = np.flatnonzero((apxy[0,:] >= 0)   * (apxy[1,:] >= 0) *
@@ -1152,10 +1191,10 @@ class Blob(Subimage):
                     else:
                         apflux_err[j, i] = p.field('aperture_sum_err') * 10**(-0.4 * (zpt - 23.9))
 
-                apmag = - 2.5 * np.log10( apflux[j,i] ) + zpt
-                apmag_err = 1.09 * apflux_err[j, i] / apflux[j, i]
+                apmag[j, i] = - 2.5 * np.log10( apflux[j,i] ) + 23.9
+                apmag_err[j, i] = 1.09 * apflux_err[j, i] / apflux[j, i]
                 self.logger.debug(f'        Flux({j}, {band}, {apertures_arcsec[i]:2.2f}") = {apflux[j,i]:3.3f}/-{apflux_err[j,i]:3.3f}')
-                self.logger.debug(f'        Mag({j}, {band}, {apertures_arcsec[i]:2.2f}") = {apmag:3.3f}/-{apmag_err:3.3f}')
+                self.logger.debug(f'        Mag({j}, {band}, {apertures_arcsec[i]:2.2f}") = {apmag[j, i]:3.3f}/-{apmag_err[j, i]:3.3f}')
 
         # if image_type == 'image':
             
@@ -1181,12 +1220,20 @@ class Blob(Subimage):
         if f'FLUX_APER_{band}_{image_type}' not in self.bcatalog.colnames:
             self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, shape=len(apertures), name=f'FLUX_APER_{band}_{image_type}'))
             self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, shape=len(apertures), name=f'FLUX_APER_{band}_{image_type}_err'))
+            self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, shape=len(apertures), name=f'MAG_APER_{band}_{image_type}'))
+            self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, shape=len(apertures), name=f'MAG_APER_{band}_{image_type}_err'))
+            self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, name=f'MAG_TOTAL_{band}_{image_type}'))
+            self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, name=f'MAG_TOTAL_{band}_{image_type}_err'))
 
         for idx, src in enumerate(self.solution_catalog):
             sid = self.bcatalog['source_id'][idx]
             row = np.argwhere(self.bcatalog['source_id'] == sid)[0][0]
             self.bcatalog[row][f'FLUX_APER_{band}_{image_type}'] = tuple(apflux[idx])
             self.bcatalog[row][f'FLUX_APER_{band}_{image_type}_err'] = tuple(apflux_err[idx])
+            self.bcatalog[row][f'MAG_APER_{band}_{image_type}'] = tuple(apmag[idx])
+            self.bcatalog[row][f'MAG_APER_{band}_{image_type}_err'] = tuple(apmag_err[idx])
+            self.bcatalog[row][f'MAG_TOTAL_{band}_{image_type}'] = apmag[idx, -1]
+            self.bcatalog[row][f'MAG_TOTAL_{band}_{image_type}_err'] = apmag_err[idx, -1]
 
         self.logger.info(f'Aperture photometry complete ({time.time() - tstart:3.3f}s)')
 
@@ -1273,6 +1320,7 @@ class Blob(Subimage):
             self.bcatalog[row]['BIC_'+band] = self.solution_bic[row, i]
             self.bcatalog[row]['N_CONVERGE_'+band] = self.n_converge
             self.bcatalog[row]['SNR_'+band] = self.bcatalog[row]['RAWFLUX_'+band] / self.noise[row, i]
+            self.bcatalog[row]['NORM_'+band] = self.norm[row, i]
 
             mag, magerr = self.bcatalog[row]['MAG_'+band], self.bcatalog[row]['MAGERR_'+band]
             flux, fluxerr = self.bcatalog[row]['FLUX_'+band], self.bcatalog[row]['FLUXERR_'+band]

@@ -171,6 +171,7 @@ class Brick(Subimage):
                 self.catalog.add_column(Column(filler, name=f'BIC_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'N_CONVERGE_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'SNR_{colname}'))
+                self.catalog.add_column(Column(filler, name=f'NORM_{colname}'))
             except:
                 self.logger.debug(f'Columns already exist for {colname}')
             if modeling & (not multiband_model):
@@ -239,6 +240,21 @@ class Brick(Subimage):
         blob = Blob(self, blob_id)
 
         return blob
+
+    # def make_model_image_prfmap(self, catalog, include_chi=True, include_nopsf=False, save=True):
+        
+    #     # make blank image
+    #     model_img = np.zeros_like(self.images[0])
+
+    #     # loop over blobs
+    #     for i, bid in enumerate(catalog['blob_id']:
+    #     blob = Blob(self.brick_id, i)
+
+        # construct PRF
+        # Make Image
+        # Construct models
+        # Tractorize
+        # inset into blank
 
     def make_model_image(self, catalog, include_chi=True, include_nopsf=False, save=True):
 
