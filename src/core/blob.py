@@ -606,7 +606,7 @@ class Blob(Subimage):
                         for k in np.arange(self.n_bands):
                             try:
                                 wgt = self.psfmodels[k].fwhm**-1
-                            else:
+                            except:
                                 midx = np.shape(self.psfmodels[k].img)[0]
                                 fwhm = 2.355 * np.std(self.psfmodels[k].img[midx, :])
                                 wgt = fwhm**-1
