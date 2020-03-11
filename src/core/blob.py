@@ -607,7 +607,7 @@ class Blob(Subimage):
                             try:
                                 wgt = self.psfmodels[k].fwhm**-1
                             except:
-                                midx = np.shape(self.psfmodels[k].img)[0]
+                                midx = int(np.shape(self.psfmodels[k].img)[0]/2)
                                 fwhm = 2.355 * np.std(self.psfmodels[k].img[midx, :])
                                 wgt = fwhm**-1
 
