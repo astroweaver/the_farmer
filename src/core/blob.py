@@ -609,6 +609,7 @@ class Blob(Subimage):
                             else:
                                 midx = np.shape(self.psfmodels[k])[0]
                                 fwhm = 2.355 * np.std(self.psfmodels[k][midx, :])
+                                wgt = fwhm**-1
 
                             totalchisq += np.sum((self.tr.getChiImage(k)[self.segmap == src['source_id']])**2)
                             chi2 = np.sum((self.tr.getChiImage(k)[self.segmap == src['source_id']])**2)
