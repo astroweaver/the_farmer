@@ -604,7 +604,12 @@ class Blob(Subimage):
                         opttop = 0
                         optbot = 0
                         for k in np.arange(self.n_bands):
-                            wgt = self.psfmodels[k].fwhm**-1
+                            try:
+                                wgt = self.psfmodels[k].fwhm**-1
+                            else:
+                                midx = np.shape(self.psfmodels[k])[0]
+                                fwhm = 2.355 * np.std(self.psfmodels[k][midx, :])
+
                             totalchisq += np.sum((self.tr.getChiImage(k)[self.segmap == src['source_id']])**2)
                             chi2 = np.sum((self.tr.getChiImage(k)[self.segmap == src['source_id']])**2)
                             nparam = self.model_catalog[i].numberOfParams() - (len(self.bands) - 1)
