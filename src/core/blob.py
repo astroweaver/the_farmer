@@ -438,25 +438,25 @@ class Blob(Subimage):
                 #     self.logger.warning(f'WARNING - Optimization failed on step {i} for blob #{self.blob_id}')
                 #     return False
 
-                try:  # HACK -- this sometimes fails!!!
-                    cat = tr.getCatalog()
-                    for k, src in enumerate(cat):
-                        sid = self.bcatalog['source_id'][k]
-                        for j, band in enumerate(self.bands):
-                            p = np.sum(cat[k].getUnitFluxModelPatches(tr.getImage(j))[0].patch)
-                            # m = np.max(cat[k].getUnitFluxModelPatches(tr.getImage(j))[0].patch)
-                            # self.logger.debug(f'Max of PSF convolved patch for {sid} in {band}: {m:4.4f}')
-                            # self.logger.debug(f'Max of PSF: {np.max(tr.getImage(j).getPsf().img):4.4f}')
-                            # self.logger.debug(f'Max of Model: {np.max(tr.getModelImage(j)):4.4f}')
-                            # self.logger.debug(f'Sum of PSF convolved patch for {sid} in {band}: {p:4.4f}')
-                            # self.logger.debug(f'Sum of PSF: {np.sum(tr.getImage(j).getPsf().img):4.4f}')
-                            self.norm[k, j] = p
-                            if 1. - p > conf.NORMALIZATION_THRESH:
-                                self.logger.critical(f'The final model for {sid} in {band} is NOT normalized within threshold ({conf.NORMALIZATION_THRESH})')
+                # try:  # HACK -- this sometimes fails!!!
+                #     cat = tr.getCatalog()
+                #     for k, src in enumerate(cat):
+                #         sid = self.bcatalog['source_id'][k]
+                #         for j, band in enumerate(self.bands):
+                #             p = np.sum(cat[k].getUnitFluxModelPatches(tr.getImage(j))[0].patch)
+                #             # m = np.max(cat[k].getUnitFluxModelPatches(tr.getImage(j))[0].patch)
+                #             # self.logger.debug(f'Max of PSF convolved patch for {sid} in {band}: {m:4.4f}')
+                #             # self.logger.debug(f'Max of PSF: {np.max(tr.getImage(j).getPsf().img):4.4f}')
+                #             # self.logger.debug(f'Max of Model: {np.max(tr.getModelImage(j)):4.4f}')
+                #             # self.logger.debug(f'Sum of PSF convolved patch for {sid} in {band}: {p:4.4f}')
+                #             # self.logger.debug(f'Sum of PSF: {np.sum(tr.getImage(j).getPsf().img):4.4f}')
+                #             self.norm[k, j] = p
+                #             if 1. - p > conf.NORMALIZATION_THRESH:
+                #                 self.logger.critical(f'The final model for {sid} in {band} is NOT normalized within threshold ({conf.NORMALIZATION_THRESH})')
                                 
 
-                except:
-                    return False
+                # except:
+                #     return False
 
                 if dlnp < conf.TRACTOR_CONTHRESH:
                     self.logger.info(f'Blob #{self.blob_id} converged in {i+1} steps ({np.log10(dlnp_init):2.2f} --> {np.log10(dlnp):2.2f}) ({time.time() - tstart:3.3f}s)')
@@ -552,7 +552,7 @@ class Blob(Subimage):
 
         self._level = -1
 
-        if conf.PLOT > 0:
+        if conf.PLOT > 1:
             fig = np.ones(len(self.bands), dtype=object)
             ax = np.ones(len(self.bands), dtype=object)
             for i, band in enumerate(self.bands):
@@ -577,7 +577,7 @@ class Blob(Subimage):
                 # store
                 self.tr = Tractor(self.timages, self.model_catalog)
 
-                if conf.PLOT > 0:
+                if conf.PLOT > 1:
                     for figi, axi, band in zip(fig, ax, self.bands):
                         plot_detblob(self, figi, axi, band=band, level=self._level, sublevel=self._sublevel, init=True)
 
@@ -601,8 +601,16 @@ class Blob(Subimage):
                         continue
                     if self.multiband_model:
                         totalchisq = 0
+                        opttop = 0
+                        optbot = 0
                         for k in np.arange(self.n_bands):
+                            wgt = self.psfmodels[k].fwhm**-1
                             totalchisq += np.sum((self.tr.getChiImage(k)[self.segmap == src['source_id']])**2)
+                            chi2 = np.sum((self.tr.getChiImage(k)[self.segmap == src['source_id']])**2)
+                            nparam = self.model_catalog[i].numberOfParams() - (len(self.bands) - 1)
+                            rchi2 = chi2 / (np.sum(self.segmap == src['source_id']) - nparam)
+                            opttop += rchi2* wgt
+                            optbot += wgt
                     else:
                         totalchisq = np.sum((self.tr.getChiImage(0)[self.segmap == src['source_id']])**2)
                     m_param = self.model_catalog[i].numberOfParams()
@@ -611,7 +619,10 @@ class Blob(Subimage):
                     ndof = (n_data - m_param)
                     if ndof < 1:
                         ndof = 1
-                    self.rchisq[i, self._level, self._sublevel] = totalchisq / ndof
+                    if self.multiband_model:
+                        self.rchisq[i, self._level, self._sublevel] = opttop/optbot
+                    else:
+                        self.rchisq[i, self._level, self._sublevel] = totalchisq / ndof
                     self.bic[i, self._level, self._sublevel] = self.rchisq[i, self._level, self._sublevel] + np.log(n_data) * m_param
  
                     self.logger.debug(f'Source #{src["source_id"]} with {self.model_catalog[i].name} has rchisq={self.rchisq[i, self._level, self._sublevel]:3.3f} | bic={self.bic[i, self._level, self._sublevel]:3.3f}')
@@ -629,7 +640,6 @@ class Blob(Subimage):
                 # Move unsolved to next sublevel
                 if sublevel == 0:
                     self.mids[~self._solved] += 1
-
                 if conf.PLOT > 1:
                     for figi, axi, band in zip(fig, ax, self.bands):
                         plot_detblob(self, figi, axi, band=band, level=self._level, sublevel=self._sublevel)
@@ -722,9 +732,8 @@ class Blob(Subimage):
 
         if conf.PLOT > 0:
             for k, src in enumerate(self.solution_catalog):
-                for band in self.bands:
-                    sid = self.bcatalog['source_id'][k]
-                    plot_srcprofile(self, src, sid, band)
+                sid = self.bcatalog['source_id'][k]
+                plot_srcprofile(self, src, sid, self.bands)
 
         return self.status
 
@@ -761,8 +770,8 @@ class Blob(Subimage):
         self.tr = Tractor(self.timages, self.model_catalog)
         self.stage = 'Forced Photometry'
 
-        if conf.PLOT > 0:
-            axlist = [plot_fblob(self, band=band) for band in self.bands]
+        # if conf.PLOT >1:
+        #     axlist = [plot_fblob(self, band=band) for band in self.bands]
 
         # Optimize
         status = self.optimize_tractor()
@@ -825,8 +834,7 @@ class Blob(Subimage):
 
             if conf.PLOT > 0:
                 sid = self.bcatalog['source_id'][idx]
-                for band in self.bands:
-                    plot_srcprofile(self, src, sid, band)
+                plot_srcprofile(self, src, sid, self.bands)
 
         return status
 

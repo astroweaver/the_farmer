@@ -353,6 +353,9 @@ class Subimage():
                 filter_type=conf.FILTER_TYPE, segmentation_map=True, 
                 deblend_nthresh=conf.DEBLEND_NTHRESH, deblend_cont=conf.DEBLEND_CONT)
         catalog, segmap = sep.extract(image, thresh, **kwargs)
+        # catalog['y'] -= 1. # HACK
+        # catalog['x'] -= 1. #HACK
+
         
         if len(catalog) != 0:
             catalog = Table(catalog)
