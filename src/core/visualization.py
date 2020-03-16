@@ -234,6 +234,7 @@ def plot_srcprofile(blob, src, sid, bands=None):
         else:
             xp0, yp0 = bsrc['x_orig'][0] - blob.subvector[1] - blob.mosaic_origin[1] + conf.BRICK_BUFFER, bsrc['y_orig'][0] - blob.subvector[0] - blob.mosaic_origin[0] + conf.BRICK_BUFFER
         xp, yp = src.pos[0], src.pos[1]
+
         xps, yps = xp, yp
         flux, flux_err = bsrc[f'FLUX_{band}'][0], bsrc[f'FLUXERR_{band}'][0]
         mag, mag_err = bsrc[f'MAG_{band}'][0], bsrc[f'MAGERR_{band}'][0]
@@ -266,22 +267,17 @@ def plot_srcprofile(blob, src, sid, bands=None):
         rms = np.median(blob.background_rms_images[idx])
 
         xpix, ypix = np.nonzero(seg)
-        buff = np.min([conf.BLOB_BUFFER, 10])
-        extent = [np.min(xpix) - buff, np.max(xpix) + buff, np.min(ypix) - buff, np.max(ypix) + buff]
-        xp0 -= extent[0]
-        xp -= extent[0]
-        yp0 -= extent[2]
-        yp -= extent[2]
+        dx, dy = (np.max(xpix) - np.min(xpix)) / 2., (np.max(ypix) - np.min(ypix)) / 2.
+        buff = np.min([conf.BLOB_BUFFER, 10.])
+        xlim, ylim = np.array([-(dx + buff), (dx + buff)]) * conf.PIXEL_SCALE, np.array([-(dy + buff), (dy + buff)]) * conf.PIXEL_SCALE
 
-        xsl, ysl = slice(extent[0], extent[1]), slice(extent[2], extent[3])
-        dx = (extent[1] - extent[0]) * conf.PIXEL_SCALE / 2.
-        dy = (extent[3] - extent[2]) * conf.PIXEL_SCALE / 2.
-        extent = np.array([-dx, dx, -dy, dy])
 
-        xp0 = (xp0 * conf.PIXEL_SCALE - dx) 
-        xp = (xp * conf.PIXEL_SCALE - dx) 
-        yp0 = (yp0 * conf.PIXEL_SCALE - dy)
-        yp = (yp * conf.PIXEL_SCALE - dy)
+        h, w = np.shape(img)
+        dw, dh = w - xp - 1, h - yp - 1
+        extent = np.array([-xp, dw, -yp, dh]) * conf.PIXEL_SCALE
+
+        xp0, yp0 = (xp0 - xp) * conf.PIXEL_SCALE, (yp0 - yp) * conf.PIXEL_SCALE
+        xp, yp = 0., 0.
 
         if is_resolved:
             aeff = reff #* conf.PIXEL_SCALE
@@ -305,11 +301,12 @@ def plot_srcprofile(blob, src, sid, bands=None):
         fig, ax = plt.subplots(ncols=4, nrows=4, figsize=(15, 15))
 
         # row 1 -- image, info
-        norm = LogNorm(np.max([rms, 1E-5]), 0.95*np.max(img[xsl, ysl]), clip='True')
-        ax[0,0].imshow(img[xsl, ysl], norm=norm, cmap='Greys', extent=extent)
+        norm = LogNorm(np.max([rms, 1E-5]), 0.95*np.max(img), clip='True')
+        ax[0,0].imshow(img, norm=norm, cmap='Greys', extent=extent)
         ax[0,0].text(0.05, 1.03, band, transform=ax[0,0].transAxes)
         ax[0,0].scatter(xp0, yp0, c='purple', marker='+', alpha=0.5)
         ax[0,0].scatter(xp, yp, c='royalblue', marker='x', alpha=0.9)
+        ax[0,0].set(xlim=xlim, ylim=ylim)
         ax[0,1].axis('off')
         ax[0,2].axis('off')
         ax[0,3].axis('off')
@@ -333,14 +330,22 @@ def plot_srcprofile(blob, src, sid, bands=None):
         
 
         # row 2 -- image, weights, mask, segment
-        ax[1,0].imshow(img[xsl, ysl], vmin=-3*rms, vmax=3*rms, cmap='RdGy', extent=extent)
+        ax[1,0].imshow(img, vmin=-3*rms, vmax=3*rms, cmap='RdGy', extent=extent)
         ax[1,0].text(0.05, 1.03, 'Image', transform=ax[1,0].transAxes)
-        ax[1,1].imshow(err[xsl, ysl], cmap='RdGy', extent=extent)
-        ax[1,1].text(0.05, 1.03, r'$\sigma$'+f'={rms*10**(-0.4 * (zpt - 23.9)):5.5f} uJy', transform=ax[1,1].transAxes)
-        ax[1,2].imshow(mask[xsl, ysl], cmap='Greys', extent=extent)
+        ax[1,0].set(xlim=xlim, ylim=ylim)
+        ax[1,0].contour(img, levels=np.arange(2*rms, np.min([5*rms, np.max(img)]), rms), colors='royalblue', extent=extent, alpha=0.5)
+        ax[1,1].imshow(err, cmap='Greys', extent=extent)
+        ax[1,1].text(0.05, 1.03, r'med($\sigma$)'+f'={rms*10**(-0.4 * (zpt - 23.9)):5.5f} uJy', transform=ax[1,1].transAxes)
+        ax[1,1].set(xlim=xlim, ylim=ylim)
+        ax[1,1].contour(img, levels=np.arange(2*rms, np.min([5*rms, np.max(img)]), rms), colors='royalblue', extent=extent, alpha=0.5)
+        ax[1,2].imshow(mask, cmap='Greys', extent=extent)
         ax[1,2].text(0.05, 1.03, 'Blob', transform=ax[1,2].transAxes)
-        ax[1,3].imshow(~seg[xsl, ysl], cmap='Greys', extent=extent)
+        ax[1,2].set(xlim=xlim, ylim=ylim)
+        ax[1,2].contour(img, levels=np.arange(2*rms, np.min([5*rms, np.max(img)]), rms), colors='royalblue', extent=extent, alpha=0.5)
+        ax[1,3].imshow(~seg, cmap='Greys', extent=extent)
         ax[1,3].text(0.05, 1.03, 'Segment', transform=ax[1,3].transAxes)
+        ax[1,3].set(xlim=xlim, ylim=ylim)
+        ax[1,3].contour(img, levels=np.arange(2*rms, np.min([5*rms, np.max(img)]), rms), colors='royalblue', extent=extent, alpha=0.5)
 
         ax[1,0].scatter(xp, yp, c='royalblue', marker='x')
         ax[1,2].scatter(xp0, yp0, c='purple', marker='+', alpha=0.5)
@@ -351,14 +356,22 @@ def plot_srcprofile(blob, src, sid, bands=None):
         ax[1,2].plot()
 
         # row 3 -- image, model, residual, chi
-        ax[2,0].imshow(img[xsl, ysl]/err[xsl, ysl], vmin=-3, vmax=3, cmap='RdGy', extent=extent)
+        ax[2,0].imshow(img/err, vmin=-3, vmax=3, cmap='RdGy', extent=extent)
         ax[2,0].text(0.05, 1.03, 'S/N', transform=ax[2,0].transAxes)
-        ax[2,1].imshow(mod[xsl, ysl], vmin=-3*rms, vmax=3*rms, cmap='RdGy', extent=extent)
+        ax[2,0].set(xlim=xlim, ylim=ylim)
+        ax[2,0].contour(img, levels=np.arange(2*rms, np.min([5*rms, np.max(img)]), rms), colors='royalblue', extent=extent, alpha=0.5)
+        ax[2,1].imshow(mod, vmin=-3*rms, vmax=3*rms, cmap='RdGy', extent=extent)
         ax[2,1].text(0.05, 1.03, 'Model', transform=ax[2,1].transAxes)
-        ax[2,2].imshow(res[xsl, ysl], vmin=-3*rms, vmax=3*rms, cmap='RdGy', extent=extent)
+        ax[2,1].set(xlim=xlim, ylim=ylim)
+        ax[2,1].contour(img, levels=np.arange(2*rms, np.min([5*rms, np.max(img)]), rms), colors='royalblue', extent=extent, alpha=0.5)
+        ax[2,2].imshow(res, vmin=-3*rms, vmax=3*rms, cmap='RdGy', extent=extent)
         ax[2,2].text(0.05, 1.03, 'Residual', transform=ax[2,2].transAxes)
-        ax[2,3].imshow(chi[xsl, ysl], vmin=-3, vmax=3, cmap='RdGy', extent=extent)
+        ax[2,2].set(xlim=xlim, ylim=ylim)
+        ax[2,2].contour(img, levels=np.arange(2*rms, np.min([5*rms, np.max(img)]), rms), colors='royalblue', extent=extent, alpha=0.5)
+        ax[2,3].imshow(chi, vmin=-3, vmax=3, cmap='RdGy', extent=extent)
         ax[2,3].text(0.05, 1.03, r'$\chi$', transform=ax[2,3].transAxes)
+        ax[2,3].set(xlim=xlim, ylim=ylim)
+        ax[2,3].contour(img, levels=np.arange(2*rms, np.min([5*rms, np.max(img)]), rms), colors='royalblue', extent=extent, alpha=0.5)
 
         if is_resolved:
             ax[2,0].plot(xa, ya, c='royalblue', alpha=0.7)
@@ -385,33 +398,33 @@ def plot_srcprofile(blob, src, sid, bands=None):
         ax[3,0].text(0.05, 1.03, 'PSF', transform=ax[3,0].transAxes)
 
         # x slice
-        imgx = blob.images[idx][:, int(xps)][xsl]
-        errx = 1./np.sqrt(blob.weights[idx][:, int(xps)][xsl])
-        modx = blob.solution_model_images[idx][:, int(xps)][xsl]
+        imgx = blob.images[idx][:, int(xps)]
+        errx = 1./np.sqrt(blob.weights[idx][:, int(xps)])
+        modx = blob.solution_model_images[idx][:, int(xps)]
         resx = imgx - modx
 
         # y slice
-        imgy = blob.images[idx][int(yps-1), :][ysl]
-        erry = 1./np.sqrt(blob.weights[idx][int(yps-1), :][ysl])
-        mody = blob.solution_model_images[idx][int(yps-1), :][ysl]
+        imgy = blob.images[idx][int(yps), :]
+        erry = 1./np.sqrt(blob.weights[idx][int(yps), :])
+        mody = blob.solution_model_images[idx][int(yps), :]
         resy = imgy - mody
 
         ylim = (0.9*np.min([np.min(imgx), np.min(imgy)]), 1.1*np.max([np.max(imgx), np.max(imgy)]))
 
-        xax = np.arange(-np.shape(blob.images[idx][xsl, ysl])[0]/2,  np.shape(blob.images[idx][xsl, ysl])[0]/2) * conf.PIXEL_SCALE
+        xax = np.linspace(extent[2], extent[3]+conf.PIXEL_SCALE, len(imgx))
         ax[3,2].errorbar(xax, imgx, yerr=errx, c='k')
         ax[3,2].plot(xax, modx, c='r')
         ax[3,2].plot(xax, resx, c='g')
         ax[3,2].axvline(0, ls='dotted', c='k')
-        ax[3,2].set(ylim =ylim,  xlabel='arcsec')
+        ax[3,2].set(ylim =ylim,  xlabel='arcsec', xlim=xlim)
         ax[3,2].text(0.05, 1.03, 'Y', transform=ax[3,2].transAxes)
 
-        yax = np.arange(-np.shape(blob.images[idx][xsl, ysl])[1]/2,  np.shape(blob.images[idx][xsl, ysl])[1]/2) * conf.PIXEL_SCALE
+        yax = np.linspace(extent[0], extent[1]+conf.PIXEL_SCALE, len(imgy))
         ax[3,1].errorbar(yax, imgy, yerr=erry, c='k')
         ax[3,1].plot(yax, mody, c='r')
         ax[3,1].plot(yax, resy, c='g')
         ax[3,1].axvline(0, ls='dotted', c='k')
-        ax[3,1].set(ylim=ylim, xlabel='arcsec')
+        ax[3,1].set(ylim=ylim, xlabel='arcsec', xlim=xlim)
         ax[3,1].text(0.05, 1.03, 'X', transform=ax[3,1].transAxes)
 
         hist(chi_seg, ax=ax[3,3], bins='freedman', histtype='step', density=True)
@@ -433,6 +446,9 @@ def plot_srcprofile(blob, src, sid, bands=None):
 
 
 def plot_apertures(blob, band=None):
+    pass
+
+def plot_iterblob(blob, band=None):
     pass
 
 
