@@ -40,7 +40,7 @@ import pathos
 
 from .subimage import Subimage
 from .utils import SimpleGalaxy, create_circular_mask
-from .visualization import plot_detblob, plot_fblob, plot_psf, plot_modprofile, plot_mask, plot_xsection, plot_srcprofile
+from .visualization import plot_detblob, plot_fblob, plot_psf, plot_modprofile, plot_mask, plot_xsection, plot_srcprofile, plot_iterblob
 import config as conf
 
 import logging
@@ -429,14 +429,14 @@ class Blob(Subimage):
             #     y_orig[i] = src.pos[1]
 
             for i in range(conf.TRACTOR_MAXSTEPS):
-                # try:
-                dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, variance=True, priors=conf.USE_POSITION_PRIOR)
-                self.logger.debug(f'    {i+1}) dlnp = {np.log10(dlnp)}')
-                if i == 0:
-                    dlnp_init = dlnp
-                # except:
-                #     self.logger.warning(f'WARNING - Optimization failed on step {i} for blob #{self.blob_id}')
-                #     return False
+                try:
+                    dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, variance=True, priors=conf.USE_POSITION_PRIOR)
+                    self.logger.debug(f'    {i+1}) dlnp = {np.log10(dlnp)}')
+                    if i == 0:
+                        dlnp_init = dlnp
+                except:
+                    self.logger.warning(f'WARNING - Optimization failed on step {i} for blob #{self.blob_id}')
+                    return False
 
                 # try:  # HACK -- this sometimes fails!!!
                 #     cat = tr.getCatalog()
@@ -457,6 +457,9 @@ class Blob(Subimage):
 
                 # except:
                 #     return False
+
+                if conf.PLOT > 1:
+                    plot_iterblob(self, tr, iteration=i, bands=self.bands)
 
                 if dlnp < conf.TRACTOR_CONTHRESH:
                     self.logger.info(f'Blob #{self.blob_id} converged in {i+1} steps ({np.log10(dlnp_init):2.2f} --> {np.log10(dlnp):2.2f}) ({time.time() - tstart:3.3f}s)')

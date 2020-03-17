@@ -448,9 +448,70 @@ def plot_srcprofile(blob, src, sid, bands=None):
 def plot_apertures(blob, band=None):
     pass
 
-def plot_iterblob(blob, band=None):
-    pass
+def plot_iterblob(blob, tr, iteration, bands=None):
+    if bands is None:
+        band = conf.MODELING_NICKNAME
+        nickname = conf.MODELING_NICKNAME
+        bidx = [0,]
+        bands = [band,]
+        outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{conf.MODELING_NICKNAME}_{blob._level}_{blob._sublevel}_{iteration}_iterblob.pdf')
+    else:
+        bidx = [blob._band2idx(b, bands=blob.bands) for b in bands]
+        if bands[0].startswith(conf.MODELING_NICKNAME):
+            nickname = conf.MODELING_NICKNAME
+        else:
+            nickname = conf.MULTIBAND_NICKNAME
+        if len(bands) > 1:
+            outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{nickname}_{blob._level}_{blob._sublevel}_{iteration}_iterblob.pdf')
+        else:
+            outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{bands[0]}_{blob._level}_{blob._sublevel}_{iteration}_iterblob.pdf')
 
+    import matplotlib.backends.backend_pdf
+    
+    pdf = matplotlib.backends.backend_pdf.PdfPages(outpath)
+    
+    for idx, band in zip(bidx, bands):
+        
+        if band == conf.MODELING_NICKNAME:
+            zpt = conf.MODELING_ZPT
+        elif band.startswith(conf.MODELING_NICKNAME):
+            band_name = band[len(conf.MODELING_NICKNAME)+1:]
+            zpt = conf.MULTIBAND_ZPT[blob._band2idx(band_name)]
+        else:
+            zpt = conf.MULTIBAND_ZPT[blob._band2idx(band)]
+
+        cat = tr.getCatalog()
+        xp, yp = [src.pos[0] for src in cat], [src.pos[1] for src in cat]
+
+        back = blob.backgrounds[0]
+        mean, rms = back[0], back[1]
+        
+        img_opt = dict(cmap='RdGy', vmin=-5*rms, vmax=5*rms)
+
+        # image
+        img = blob.images[idx]
+        # model
+        mod = tr.getModelImage(idx)
+        # residual
+        res = img - mod
+        # chi2
+        chi2 = tr.getChiImage(idx)
+
+        fig, ax = plt.subplots(ncols=4)
+        ax[0].imshow(img, **img_opt)
+        ax[1].imshow(mod, **img_opt)
+        ax[2].imshow(res, **img_opt)
+        ax[3].imshow(chi2, cmap='RdGy', vmin=-5, vmax=5)
+
+        fig.suptitle(f'Blob {blob.blob_id} | {band} | iter: {iteration}')
+
+        [ax[i].scatter(xp, yp, marker='x', c='royalblue') for i in np.arange(4)]
+        [ax[i].set_title(title, fontsize=20) for i, title in enumerate(('Image', 'Model', 'Image-Model', '$\chi^{2}$'))]
+
+        pdf.savefig(fig)
+        plt.close()
+    logger.info(f'Saving figure: {outpath}') 
+    pdf.close()
 
 def plot_modprofile(blob, band=None):
 
