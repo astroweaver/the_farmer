@@ -140,7 +140,7 @@ class Blob(Subimage):
         self.rchisq = np.zeros((self.n_sources, 3, 2))
         self.bic = np.zeros((self.n_sources, 3, 2))
         self.noise = np.zeros((self.n_sources, self.n_bands))
-        self.norm = np.zeros((self.n_sources, self.n_bands))
+        # self.norm = np.zeros((self.n_sources, self.n_bands))
         self.chi_mu = np.zeros((self.n_sources, self.n_bands))
         self.chi_sig = np.zeros((self.n_sources, self.n_bands))
         self.k2 = np.zeros((self.n_sources, self.n_bands))
@@ -317,7 +317,8 @@ class Blob(Subimage):
             
             if (conf.PLOT > 1):
                 plot_psf(psfimg, band, show_gaussian=False)
-                print(np.max(psfimg.flatten()))
+
+            psfmodel.img = psfmodel.img.astype('float32') # This may be redundant, but it's super important!
                     
             self.logger.debug('Making image...')
             timages[i] = Image(data=image,
@@ -433,14 +434,14 @@ class Blob(Subimage):
             #     y_orig[i] = src.pos[1]
 
             for i in range(conf.TRACTOR_MAXSTEPS):
-                try:
-                    dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, damp=0.1, variance=True, priors=conf.USE_POSITION_PRIOR)
-                    self.logger.debug(f'    {i+1}) dlnp = {np.log10(dlnp)}')
-                    if i == 0:
-                        dlnp_init = dlnp
-                except:
-                    self.logger.warning(f'WARNING - Optimization failed on step {i} for blob #{self.blob_id}')
-                    return False
+                # try:
+                dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, damp=0.1, variance=True, priors=conf.USE_POSITION_PRIOR)
+                self.logger.debug(f'    {i+1}) dlnp = {np.log10(dlnp)}')
+                if i == 0:
+                    dlnp_init = dlnp
+                # except:
+                #     self.logger.warning(f'WARNING - Optimization failed on step {i} for blob #{self.blob_id}')
+                #     return False
 
                 # try:  # HACK -- this sometimes fails!!!
                 #     cat = tr.getCatalog()
@@ -1354,7 +1355,7 @@ class Blob(Subimage):
             self.bcatalog[row]['BIC_'+band] = self.solution_bic[row, i]
             self.bcatalog[row]['N_CONVERGE_'+band] = self.n_converge
             self.bcatalog[row]['SNR_'+band] = self.bcatalog[row]['RAWFLUX_'+band] / self.noise[row, i]
-            self.bcatalog[row]['NORM_'+band] = self.norm[row, i]
+            # self.bcatalog[row]['NORM_'+band] = self.norm[row, i]
             self.bcatalog[row]['CHI_MU_'+band] = self.chi_mu[row, i]
             self.bcatalog[row]['CHI_SIG_'+band] = self.chi_sig[row, i]
             self.bcatalog[row]['CHI_K2_'+band] = self.k2[row, i]
