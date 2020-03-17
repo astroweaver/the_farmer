@@ -1360,6 +1360,14 @@ class Blob(Subimage):
             self.bcatalog[row]['CHI_SIG_'+band] = self.chi_sig[row, i]
             self.bcatalog[row]['CHI_K2_'+band] = self.k2[row, i]
 
+            if multiband_only:
+                self.bcatalog[row][f'X_MODEL_{band}'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER
+                self.bcatalog[row][f'Y_MODEL_{band}'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER
+                if self.wcs is not None:
+                    skyc = self.brick_wcs.all_pix2world(self.bcatalog[row][f'X_MODEL_{band}'] - self.mosaic_origin[0] + conf.BRICK_BUFFER, self.bcatalog[row][f'Y_MODEL_{band}'] - self.mosaic_origin[1] + conf.BRICK_BUFFER, 0)
+                    self.bcatalog[row][f'RA_{band}'] = skyc[0]
+                    self.bcatalog[row][f'DEC_{band}'] = skyc[1]
+
             mag, magerr = self.bcatalog[row]['MAG_'+band], self.bcatalog[row]['MAGERR_'+band]
             flux, fluxerr = self.bcatalog[row]['FLUX_'+band], self.bcatalog[row]['FLUXERR_'+band]
             rawflux, rawfluxerr = self.bcatalog[row]['RAWFLUX_'+band], self.bcatalog[row]['RAWFLUXERR_'+band]
@@ -1372,6 +1380,8 @@ class Blob(Subimage):
             self.logger.info(f'    Res. Chi({band}):     {self.chi_mu[row,i]:3.3f}+/-{self.chi_sig[row,i]:3.3f}')
             self.logger.info(f'    DAgostino K2({band}): {self.k2[row,i]:3.3f}')
             self.logger.info(f'    Zpt({band}):          {zpt:3.3f} AB')
+
+            
             
 
         # # Just do the positions again - more straightforward to do it here than in interface.py

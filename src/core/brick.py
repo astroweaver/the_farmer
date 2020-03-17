@@ -175,6 +175,10 @@ class Brick(Subimage):
                 self.catalog.add_column(Column(filler, name=f'CHI_MU_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'CHI_SIG_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'CHI_K2_{colname}'))
+                self.catalog.add_column(Column(filler, name=f'X_MODEL_{colname}'))
+                self.catalog.add_column(Column(filler, name=f'Y_MODEL_{colname}'))
+                self.catalog.add_column(Column(filler, name=f'RA_{colname}'))
+                self.catalog.add_column(Column(filler, name=f'DEC_{colname}'))
             except:
                 self.logger.debug(f'Columns already exist for {colname}')
             if modeling & (not multiband_model):
