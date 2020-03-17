@@ -172,6 +172,9 @@ class Brick(Subimage):
                 self.catalog.add_column(Column(filler, name=f'N_CONVERGE_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'SNR_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'NORM_{colname}'))
+                self.catalog.add_column(Column(filler, name=f'CHI_MU_{colname}'))
+                self.catalog.add_column(Column(filler, name=f'CHI_SIG_{colname}'))
+                self.catalog.add_column(Column(filler, name=f'CHI_K2_{colname}'))
             except:
                 self.logger.debug(f'Columns already exist for {colname}')
             if modeling & (not multiband_model):

@@ -27,6 +27,7 @@ from astropy.table import Table, Column
 from astropy.coordinates import SkyCoord
 import astropy.units as u
 from scipy.ndimage import zoom
+from scipy import stats
 
 from tractor import NCircularGaussianPSF, PixelizedPSF, Image, Tractor, FluxesPhotoCal, NullWCS, ConstantSky, EllipseE, EllipseESoft, Fluxes, PixPos
 from tractor.galaxy import ExpGalaxy, DevGalaxy, FixedCompositeGalaxy, SoftenedFracDev
@@ -140,6 +141,9 @@ class Blob(Subimage):
         self.bic = np.zeros((self.n_sources, 3, 2))
         self.noise = np.zeros((self.n_sources, self.n_bands))
         self.norm = np.zeros((self.n_sources, self.n_bands))
+        self.chi_mu = np.zeros((self.n_sources, self.n_bands))
+        self.chi_sig = np.zeros((self.n_sources, self.n_bands))
+        self.k2 = np.zeros((self.n_sources, self.n_bands))
         # self.position_variance = np.zeros((self.n_sources, 2))
         # self.parameter_variance = np.zeros((self.n_sources, 3))
         # self.forced_variance = np.zeros((self.n_sources, self.n_bands))
@@ -430,7 +434,7 @@ class Blob(Subimage):
 
             for i in range(conf.TRACTOR_MAXSTEPS):
                 try:
-                    dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, variance=True, priors=conf.USE_POSITION_PRIOR)
+                    dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, damp=0.1, variance=True, priors=conf.USE_POSITION_PRIOR)
                     self.logger.debug(f'    {i+1}) dlnp = {np.log10(dlnp)}')
                     if i == 0:
                         dlnp_init = dlnp
@@ -462,7 +466,7 @@ class Blob(Subimage):
                     plot_iterblob(self, tr, iteration=i, bands=self.bands)
 
                 if dlnp < conf.TRACTOR_CONTHRESH:
-                    self.logger.info(f'Blob #{self.blob_id} converged in {i+1} steps ({np.log10(dlnp_init):2.2f} --> {np.log10(dlnp):2.2f}) ({time.time() - tstart:3.3f}s)')
+                    self.logger.info(f'Blob #{self.blob_id} converged in {i+1} steps ({dlnp_init:2.2f} --> {dlnp:2.2f}) ({time.time() - tstart:3.3f}s)')
                     self.n_converge = i
                     break
 
@@ -487,25 +491,25 @@ class Blob(Subimage):
                             # src.pos.addGaussianPrior('y', yp0, 1.0)
 
 
-                        elif ~srcseg[int(yp), int(xp)]:
+                        # elif ~srcseg[int(yp), int(xp)]:
 
-                            # fig, ax = plt.subplots()
-                            # ax.imshow(srcseg)
-                            # ax.scatter(xp, yp)
-                            # plt.savefig(os.path.join(conf.PLOT_DIR,f'tr_{i}_{idx}.pdf'))
-                            # self.logger.debug('MAKING CORRAL IMAGE!')
+                        #     # fig, ax = plt.subplots()
+                        #     # ax.imshow(srcseg)
+                        #     # ax.scatter(xp, yp)
+                        #     # plt.savefig(os.path.join(conf.PLOT_DIR,f'tr_{i}_{idx}.pdf'))
+                        #     # self.logger.debug('MAKING CORRAL IMAGE!')
 
-                            # gpriors = src.getLogPrior()
-                            # print('Log(Prior):', gpriors)
+                        #     # gpriors = src.getLogPrior()
+                        #     # print('Log(Prior):', gpriors)
 
-                            self.logger.warning(f'Source {sid} has escaped its segment!')
-                            src.pos.setParams([xp0, yp0])
-                            # self.logger.info(f'Setting position prior. X = {xp0:2.2f}+/-{1.}; Y = {yp0:2.2f}+/-{1.}')
-                            # src.pos.addGaussianPrior('x', xp0, 1.0)
-                            # src.pos.addGaussianPrior('y', yp0, 1.0)
+                        #     self.logger.warning(f'Source {sid} has escaped its segment!')
+                        #     src.pos.setParams([xp0, yp0])
+                        #     # self.logger.info(f'Setting position prior. X = {xp0:2.2f}+/-{1.}; Y = {yp0:2.2f}+/-{1.}')
+                        #     # src.pos.addGaussianPrior('x', xp0, 1.0)
+                        #     # src.pos.addGaussianPrior('y', yp0, 1.0)
 
-                            # gpriors = src.getLogPrior()
-                            # print('Log(Prior):', gpriors)
+                        #     # gpriors = src.getLogPrior()
+                        #     # print('Log(Prior):', gpriors)
 
 
                     tr.setCatalog(cat)
@@ -714,6 +718,19 @@ class Blob(Subimage):
 
                 # signal-to-noise
                 self.noise[i, j] = np.sum(self.background_rms_images[j][self.segmap == src['source_id']])
+
+                sid = src['source_id']
+                mod = self.solution_model_images[j]
+                chi = self.solution_chi_images[j]
+                res = self.images[j] - mod
+                res_seg = res[self.segmap==sid].flatten()
+                if np.sum(res_seg) < 8:
+                    self.k2[i,j] = -99
+                else:
+                    self.k2[i,j], __ = stats.normaltest(res_seg)
+                chi_seg = chi[self.segmap==sid].flatten()
+                self.chi_sig[i,j] = np.std(chi_seg)
+                self.chi_mu[i,j] = np.mean(chi_seg)
 
             self.logger.debug(f'Source #{src["source_id"]}: {self.solution_catalog[i].name} model at {self.solution_catalog[i].pos}')
             self.logger.debug(f'               Fluxes: {self.bands[0]}={self.solution_catalog[i].getBrightness().getFlux(self.bands[0])}') 
@@ -1338,17 +1355,23 @@ class Blob(Subimage):
             self.bcatalog[row]['N_CONVERGE_'+band] = self.n_converge
             self.bcatalog[row]['SNR_'+band] = self.bcatalog[row]['RAWFLUX_'+band] / self.noise[row, i]
             self.bcatalog[row]['NORM_'+band] = self.norm[row, i]
+            self.bcatalog[row]['CHI_MU_'+band] = self.chi_mu[row, i]
+            self.bcatalog[row]['CHI_SIG_'+band] = self.chi_sig[row, i]
+            self.bcatalog[row]['CHI_K2_'+band] = self.k2[row, i]
 
             mag, magerr = self.bcatalog[row]['MAG_'+band], self.bcatalog[row]['MAGERR_'+band]
             flux, fluxerr = self.bcatalog[row]['FLUX_'+band], self.bcatalog[row]['FLUXERR_'+band]
             rawflux, rawfluxerr = self.bcatalog[row]['RAWFLUX_'+band], self.bcatalog[row]['RAWFLUXERR_'+band]
             chisq, bic = self.bcatalog[row]['CHISQ_'+band], self.bcatalog[row]['BIC_'+band]
-            self.logger.info(f'    Raw Flux({band}):  {rawflux:3.3f} +/- {rawfluxerr:3.3f}')
-            self.logger.info(f'    Flux({band}):       {flux:3.3f} +/- {fluxerr:3.3f} uJy')               
-            self.logger.info(f'    Mag({band}):        {mag:3.3f} +/- {magerr:3.3f} AB')
-            self.logger.info(f'    Chi2({band}):       {chisq:3.3f}')
-            self.logger.info(f'    BIC({band}):        {bic:3.3f}')
-            self.logger.info(f'    Zpt({band}):        {zpt:3.3f} AB')
+            self.logger.info(f'    Raw Flux({band}):     {rawflux:3.3f} +/- {rawfluxerr:3.3f}')
+            self.logger.info(f'    Flux({band}):         {flux:3.3f} +/- {fluxerr:3.3f} uJy')               
+            self.logger.info(f'    Mag({band}):          {mag:3.3f} +/- {magerr:3.3f} AB')
+            self.logger.info(f'    Chi2({band}):         {chisq:3.3f}')
+            self.logger.info(f'    BIC({band}):          {bic:3.3f}')
+            self.logger.info(f'    Res. Chi({band}):     {self.chi_mu[row,i]:3.3f}+/-{self.chi_sig[row,i]:3.3f}')
+            self.logger.info(f'    DAgostino K2({band}): {self.k2[row,i]:3.3f}')
+            self.logger.info(f'    Zpt({band}):          {zpt:3.3f} AB')
+            
 
         # # Just do the positions again - more straightforward to do it here than in interface.py
         # # Why do we need this!? Should we not be adding in extra X/Y if the force_position is turned off?
