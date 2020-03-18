@@ -436,7 +436,7 @@ class Blob(Subimage):
             for i in range(conf.TRACTOR_MAXSTEPS):
                 # try:
                 dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, damp=0.1, variance=True, priors=conf.USE_POSITION_PRIOR)
-                self.logger.debug(f'    {i+1}) dlnp = {np.log10(dlnp)}')
+                self.logger.debug(f'    {i+1}) dlnp = {dlnp}')
                 if i == 0:
                     dlnp_init = dlnp
                 # except:
