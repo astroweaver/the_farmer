@@ -1051,10 +1051,10 @@ def make_models(brick_id, band=conf.MODELING_NICKNAME, source_id=None, blob_id=N
             # If user wants model and/or residual images made:
             if conf.MAKE_RESIDUAL_IMAGE:
                 cleancatalog = outcatalog[outcatalog[f'VALID_SOURCE']]
-                modbrick.make_residual_image(catalog=cleancatalog)
+                modbrick.make_residual_image(catalog=cleancatalog, use_band_position=False, modeling=True)
             elif conf.MAKE_MODEL_IMAGE:
                 cleancatalog = outcatalog[outcatalog[f'VALID_SOURCE']]
-                modbrick.make_model_image(catalog=cleancatalog)
+                modbrick.make_model_image(catalog=cleancatalog, use_band_position=False, modeling=True)
 
         # Reconstuct mosaic positions of invalid sources 
         invalid = ~modbrick.catalog[f'VALID_SOURCE']
@@ -1364,12 +1364,122 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
         # If user wants model and/or residual images made:
 
         if conf.MAKE_RESIDUAL_IMAGE:
-            fbrick.make_residual_image(catalog=outcatalog)
+            fbrick.make_residual_image(catalog=outcatalog, use_band_position=True, modeling=False)
         elif conf.MAKE_MODEL_IMAGE:
-            fbrick.make_model_image(outcatalog)
+            fbrick.make_model_image(outcatalog, use_band_position=True, modeling=False)
         
 
     return 
+
+def make_model_image(brick_id, band, catalog=None, use_single_band_run=False, modeling=False):
+    # USE BAND w/ MODELING NICKNAME FOR MODELING RESULTS!
+
+    if band.startswith(conf.MODELING_NICKNAME):
+        nickname = conf.MULTIBAND_NICKNAME
+        sband = band[len(conf.MODELING_NICKNAME)+1:]
+        modeling=True
+    elif band == conf.MODELING_NICKNAME:
+        nickname = conf.MODELING_NICKNAME
+        sband = conf.MODELING_NICKNAME
+        modeling=True
+    else:
+        nickname = conf.MULTIBAND_NICKNAME
+        sband = band
+        modeling=False
+
+    brick = stage_brickfiles(brick_id, nickname=nickname, band=sband)
+
+    if catalog is not None:
+        brick.catalog = catalog
+        brick.n_sources = len(brick.catalog)
+        brick.n_blobs = brick.catalog['blob_id'].max()
+        if use_single_band_run:
+            use_band_position=True
+        else:
+            use_band_position=False
+    else:
+        search_fn = os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat')
+        search_fn2 = os.path.join(conf.CATALOG_DIR, f'B{brick_id}_{band}.cat') # this means the band was run by itself!
+        if os.path.exists(search_fn) & ~use_single_band_run:
+            brick.logger.info(f'Adopting catalog from {search_fn}')
+            brick.catalog = Table(fits.open(search_fn)[1].data)
+            brick.n_sources = len(brick.catalog)
+            brick.n_blobs = brick.catalog['blob_id'].max()
+            use_band_position=False
+        elif os.path.exists(search_fn2) & use_single_band_run:
+            brick.logger.info(f'Adopting catalog from {search_fn2}')
+            brick.catalog = Table(fits.open(search_fn2)[1].data)
+            brick.n_sources = len(brick.catalog)
+            brick.n_blobs = brick.catalog['blob_id'].max()
+            use_band_position=True
+        else:
+            raise ValueError(f'No valid catalog was found for {brick_id}')
+
+    search_fn = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits')
+    if os.path.exists(search_fn):
+        hdul_seg = fits.open(search_fn)
+        brick.segmap = hdul_seg['SEGMAP'].data
+        brick.blobmap = hdul_seg['BLOBMAP'].data
+    else:
+        raise ValueError(f'No valid segmentation map was found for {brick_id}')
+
+    brick.make_model_image(brick.catalog, use_band_position=use_band_position, modeling=modeling)
+
+
+def make_residual_image(brick_id, band, catalog=None, use_single_band_run=False, modeling=False):
+    # USE BAND w/ MODELING NICKNAME FOR MODELING RESULTS!
+
+    if band.startswith(conf.MODELING_NICKNAME):
+        nickname = conf.MULTIBAND_NICKNAME
+        sband = band[len(conf.MODELING_NICKNAME)+1:]
+        modeling=True
+    elif band == conf.MODELING_NICKNAME:
+        nickname = conf.MODELING_NICKNAME
+        sband = conf.MODELING_NICKNAME
+        modeling=True
+    else:
+        nickname = conf.MULTIBAND_NICKNAME
+        sband = band
+        modeling=False
+
+    brick = stage_brickfiles(brick_id, nickname=nickname, band=sband)
+
+    if catalog is not None:
+        brick.catalog = catalog
+        brick.n_sources = len(brick.catalog)
+        brick.n_blobs = brick.catalog['blob_id'].max()
+        if use_single_band_run:
+            use_band_position=True
+        else:
+            use_band_position=False
+    else:
+        search_fn = os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat')
+        search_fn2 = os.path.join(conf.CATALOG_DIR, f'B{brick_id}_{band}.cat') # this means the band was run by itself!
+        if os.path.exists(search_fn) & ~use_single_band_run:
+            brick.logger.info(f'Adopting catalog from {search_fn}')
+            brick.catalog = Table(fits.open(search_fn)[1].data)
+            brick.n_sources = len(brick.catalog)
+            brick.n_blobs = brick.catalog['blob_id'].max()
+            use_band_position=False
+        elif os.path.exists(search_fn2) & use_single_band_run:
+            brick.logger.info(f'Adopting catalog from {search_fn2}')
+            brick.catalog = Table(fits.open(search_fn2)[1].data)
+            brick.n_sources = len(brick.catalog)
+            brick.n_blobs = brick.catalog['blob_id'].max()
+            use_band_position=True
+        else:
+            raise ValueError(f'No valid catalog was found for {brick_id}')
+
+    search_fn = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits')
+    if os.path.exists(search_fn):
+        hdul_seg = fits.open(search_fn)
+        brick.segmap = hdul_seg['SEGMAP'].data
+        brick.blobmap = hdul_seg['BLOBMAP'].data
+    else:
+        raise ValueError(f'No valid segmentation map was found for {brick_id}')
+
+    brick.make_residual_image(brick.catalog, use_band_position=use_band_position, modeling=modeling)
+
 
 
 def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, modeling=False):
@@ -1379,6 +1489,7 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, modeling=False):
     # THIS ASSUMES YOU HAVE IMG, WGT, and MSK FOR ALL BANDS!
 
     path_brickfile = os.path.join(conf.BRICK_DIR, f'B{brick_id}_N{nickname}_W{conf.BRICK_WIDTH}_H{conf.BRICK_HEIGHT}.fits')
+    logger.info(f'Staging brickfile ({path_brickfile}')
 
     if modeling & (band is None):
         sbands = [nickname,]

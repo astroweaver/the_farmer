@@ -24,10 +24,15 @@ import numpy as np
 from astropy.table import Column
 from astropy.io import fits
 from scipy.ndimage import label, binary_dilation, binary_fill_holes
+from astropy.coordinates import SkyCoord
+import astropy.units as u
+from scipy.ndimage import zoom
+from scipy import stats
 
-from tractor import NCircularGaussianPSF, PixelizedPSF, Image, Tractor, FluxesPhotoCal, NullWCS, ConstantSky, EllipseESoft, Fluxes, PixPos
+from tractor import NCircularGaussianPSF, PixelizedPSF, Image, Tractor, FluxesPhotoCal, NullWCS, ConstantSky, EllipseE, EllipseESoft, Fluxes, PixPos
 from tractor.galaxy import ExpGalaxy, DevGalaxy, FixedCompositeGalaxy, SoftenedFracDev
 from tractor.pointsource import PointSource
+from tractor.psf import HybridPixelizedPSF
 
 from .utils import create_circular_mask, SimpleGalaxy
 from .visualization import plot_blobmap, plot_detblob, plot_fblob
@@ -248,85 +253,342 @@ class Brick(Subimage):
 
         return blob
 
-    # def make_model_image_prfmap(self, catalog, include_chi=True, include_nopsf=False, save=True):
-        
-    #     # make blank image
-    #     model_img = np.zeros_like(self.images[0])
+    def make_model_image(self, catalog, include_chi=True, include_nopsf=False, save=True, use_band_position=False, modeling=False):
 
-    #     # loop over blobs
-    #     for i, bid in enumerate(catalog['blob_id']:
-    #     blob = Blob(self.brick_id, i)
+        self.model_images = np.zeros(shape=(self.n_bands, np.shape(self.images[0])[0], np.shape(self.images[0])[1]))
+        self.chisq_images = np.zeros(shape=(self.n_bands, np.shape(self.images[0])[0], np.shape(self.images[0])[1]))
 
-        # construct PRF
-        # Make Image
-        # Construct models
-        # Tractorize
-        # inset into blank
+        # Figure out which bands are to be run with which setup.
+        # The output should be an attribute containing all the model images, in the right order for self.bands
 
-    def make_model_image(self, catalog, include_chi=True, include_nopsf=False, save=True):
+        if np.in1d(self.bands, conf.BANDS).any() & ~np.in1d(self.bands, conf.PRFMAP_PSF).any():
+            self.make_model_image_psf(catalog, include_chi=include_chi, include_nopsf=include_nopsf, save=save, use_band_position=use_band_position, modeling=modeling)
+        if np.in1d(self.bands, conf.PRFMAP_PSF).any():
+            self.make_model_image_prfmap(catalog, include_chi=include_chi, include_nopsf=include_nopsf, save=save, use_band_position=use_band_position, modeling=modeling)
+
+
+    def make_model_image_prfmap(self, catalog, include_chi=True, include_nopsf=False, save=True, use_band_position=False, modeling=False):
+
+        # Which indices to use?
+        idx = []
+        for i, b in enumerate(self.bands):
+            if b in conf.PRFMAP_PSF:
+                idx.append(i)
+        # # Make Images
+
+        self.logger.info(f'Making model images for {self.bands[idx]}')
+        self.model_mask = np.ones(len(catalog), dtype=bool)
+
+        # loop over blobs
+        for i, bid in enumerate(np.unique(catalog['blob_id'])):
+            blob = Blob(self, bid)
+            
+            self.logger.info(f'Incoporating blob {blob.blob_id}')
+
+            timages = np.zeros(shape=len(self.bands), dtype=object)
+
+            # Loop over bands:
+            for j, band in enumerate(self.bands):
+
+                remove_background_psf = False
+                if band in conf.RMBACK_PSF:
+                    remove_background_psf = True
+
+                ### construct PRFs
+                self.logger.debug('Adopting a PRF from file.')
+                # find nearest prf to blob center
+                prftab_coords, prftab_idx = self.psfmodels[j]
+
+                minsep_idx, minsep, __ = blob.blob_coords.match_to_catalog_sky(prftab_coords)
+                prf_idx = prftab_idx[minsep_idx]
+                self.logger.debug(f'Nearest PRF sample: {prf_idx} ({minsep[0].to(u.arcsec).value:2.2f}")')
+
+                if minsep > conf.PRFMAP_MAXSEP*u.arcsec:
+                    self.logger.error(f'Separation ({minsep.to(u.arcsec)}) exceeds maximum {conf.PRFMAP_MAXSEP}!')
+                    return False
+
+                # open id file
+                pad_prf_idx = ((5 - len(str(prf_idx))) * "0") + str(prf_idx)
+                path_prffile = os.path.join(conf.PRFMAP_DIR, f'{conf.PRFMAP_FILENAME}{pad_prf_idx}.fits')
+                if not os.path.exists(path_prffile):
+                    self.logger.error(f'PRF file has not been found!')
+                    return False
+                hdul = fits.open(path_prffile)
+                from scipy.ndimage.interpolation import rotate
+                img = hdul[0].data
+                # img = 1E-31 * np.ones_like(img)
+                # img[50:-50, 50:-50] = hdul[0].data[50:-50, 50:-50]
+                assert(img.shape[0] == img.shape[1]) # am I square!?
+                self.logger.debug(f'PRF size: {np.shape(img)}')
+                
+                # Do I need to resample?
+                if  (conf.PRFMAP_PIXEL_SCALE_ORIG > 0) & (conf.PRFMAP_PIXEL_SCALE_ORIG is not None):
+                    
+                    factor = conf.PRFMAP_PIXEL_SCALE_ORIG / conf.PIXEL_SCALE
+                    self.logger.debug(f'Resampling PRF with zoom factor: {factor:2.2f}')
+                    img = zoom(img, factor)
+                    if np.shape(img)[0]%2 == 0:
+                        shape_factor = np.shape(img)[0] / (np.shape(img)[0] + 1)
+                        img = zoom(img, shape_factor)
+                    self.logger.debug(f'Final PRF size: {np.shape(img)}')
+
+                psfmodel = PixelizedPSF(img)
+                pw, ph = np.shape(psfmodel.img)
+
+                if (conf.PRFMAP_MASKRAD > 0) & (not conf.FORCE_GAUSSIAN_PSF):
+                    self.logger.debug('Clipping outskirts of PRF.')
+                    cmask = create_circular_mask(pw, ph, radius=conf.PRFMAP_MASKRAD / conf.PIXEL_SCALE)
+                    bcmask = ~cmask.astype(bool) & (psfmodel.img > 0)
+                    psfmodel.img[bcmask] = 0
+                    # psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
+                    psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
+
+                if conf.PSF_RADIUS > 0:
+                    self.logger.debug(f'Clipping PRF ({conf.PSF_RADIUS}px radius)')
+                    psfmodel.img = psfmodel.img[int(pw/2.-conf.PSF_RADIUS):int(pw/2+conf.PSF_RADIUS), int(ph/2.-conf.PSF_RADIUS):int(ph/2+conf.PSF_RADIUS)]
+                    self.logger.debug(f'New shape: {np.shape(psfmodel.img)}')
+
+                if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
+                    norm = psfmodel.img.sum()
+                    self.logger.debug(f'Normalizing PRF (sum = {norm:4.4f})')
+                    psfmodel.img /= norm # HACK -- force normalization to 1       
+                    self.logger.debug(f'PRF has been normalized. (sum = {psfmodel.img.sum():4.4f})') 
+
+
+                # make Image
+                timages[j] = Image(data=np.zeros_like(self.images[0]),
+                            invvar=np.ones_like(self.images[0]),
+                            psf=psfmodel,
+                            wcs=NullWCS(),
+                            photocal=FluxesPhotoCal(band),
+                            sky=ConstantSky(0.),
+                            name=band)
+
+            self.timages = timages
+
+            # Construct models
+            self.model_catalog = np.zeros(len(blob.bcatalog), dtype=object)
+            
+            bad_blob = True
+            for m, src in enumerate(blob.bcatalog):
+
+                mm_idx = np.argwhere(catalog['source_id'] == src['source_id'])[0]
+                
+                if (blob.bcatalog['BEST_MODEL_BAND'] == '').all():
+                    self.logger.debug('No best models chosen yet.')
+                    best_band = self.bands[0]
+                    if not src[f'VALID_SOURCE_{self.bands[0]}']:
+                        self.model_mask[mm_idx] = False
+                        self.logger.debug('Source does not have a valid model.')
+                        continue
+                else:
+                    best_band = src['BEST_MODEL_BAND']
+
+                    if not src[f'VALID_SOURCE_{best_band}']:
+                        self.model_mask[mm_idx] = False
+                        continue
+
+                if modeling:
+                    raw_fluxes = np.array([src[f'RAWFLUX_{conf.MODELING_NICKNAME}_{band}'] for band in self.bands[idx]])
+                else:
+                    raw_fluxes = np.array([src[f'RAWFLUX_{band}'] for band in self.bands[idx]])
+                if conf.RESIDUAL_CHISQ_REJECTION is not None:
+                    for j, band in enumerate(self.bands[idx]):
+                        if modeling:
+                            chisq_band = src[f'CHISQ_MODELING_{band}']
+                        else:
+                            chisq_band = src[f'CHISQ_{band}']
+                        if chisq_band > conf.RESIDUAL_CHISQ_REJECTION:
+                            raw_fluxes[j] = 0.0
+                            self.logger.debug(f'Source has too large chisq in {band}. ({chisq_band:3.3f}) > {conf.RESIDUAL_CHISQ_REJECTION})')
+                    if (raw_fluxes <= 0.0).all():
+                        self.model_mask[mm_idx] = False
+                        self.logger.debug('Source has too large chisq in all bands. Rejecting!')
+                if conf.RESIDUAL_NEGFLUX_REJECTION:
+                    if (raw_fluxes <= 0.0).all():
+                        self.model_mask[mm_idx] = False
+                        self.logger.debug('Source has negative flux in all bands. Rejecting!')
+                    elif (raw_fluxes < 0.0).any():
+                        raw_fluxes[raw_fluxes < 0.0] = 0.0
+                        self.logger.debug('Source has negative flux in some bands.')
+
+                if use_band_position:
+                    bx_model = src[f'X_MODEL_{band}'] - self.mosaic_origin[1] + conf.BRICK_BUFFER 
+                    by_model = src[f'Y_MODEL_{band}'] - self.mosaic_origin[0] + conf.BRICK_BUFFER
+                else:
+                    bx_model = src[f'X_MODEL_{best_band}'] - self.mosaic_origin[1] + conf.BRICK_BUFFER 
+                    by_model = src[f'Y_MODEL_{best_band}'] - self.mosaic_origin[0] + conf.BRICK_BUFFER
+
+                position = PixPos(bx_model, by_model)
+                flux = Fluxes(**dict(zip(conf.PRFMAP_PSF, raw_fluxes))) # IMAGES ARE IN NATIVE ZPT, USE RAWFLUXES!
+
+                if src[f'SOLMODEL_{best_band}'] == "PointSource":
+                    self.model_catalog[m] = PointSource(position, flux)
+                    self.model_catalog[m].name = 'PointSource' # HACK to get around Dustin's HACK.
+                elif src[f'SOLMODEL_{best_band}'] == "SimpleGalaxy":
+                    self.model_catalog[m] = SimpleGalaxy(position, flux)
+                elif src[f'SOLMODEL_{best_band}'] == "ExpGalaxy":
+                    shape = EllipseESoft(src[f'REFF_{best_band}'], src[f'EE1_{best_band}'], src[f'EE2_{best_band}'])
+                    self.model_catalog[m] = ExpGalaxy(position, flux, shape)
+                elif src[f'SOLMODEL_{best_band}'] == "DevGalaxy":
+                    shape = EllipseESoft(src[f'REFF_{best_band}'], src[f'EE1_{best_band}'], src[f'EE2_{best_band}'])
+                    self.model_catalog[m] = DevGalaxy(position, flux, shape)
+                elif src[f'SOLMODEL_{best_band}'] == "FixedCompositeGalaxy":
+                    shape_exp = EllipseESoft(src[f'EXP_REFF_{best_band}'], src[f'EXP_EE1_{best_band}'], src[f'EXP_EE2_{best_band}'])
+                    shape_dev = EllipseESoft(src[f'DEV_REFF_{best_band}'], src[f'DEV_EE1_{best_band}'], src[f'DEV_EE2_{best_band}'])
+                    self.model_catalog[m] = FixedCompositeGalaxy(
+                                                    position, flux,
+                                                    SoftenedFracDev(src[f'FRACDEV_{best_band}']),
+                                                    shape_exp, shape_dev)
+                else:
+                    self.logger.warning(f'Source #{src["source_id"]}: has no solution model at {position}')
+                    self.model_mask[mm_idx] = False
+                    continue
+
+                self.logger.debug(f'Source #{src["source_id"]}: {self.model_catalog[m].name} model at {position}')
+                self.logger.debug(f'               {flux}') 
+
+                bad_blob = False # made it though!
+
+            # Clean
+            if bad_blob:        
+                self.logger.warning(f'No valid models to make model image!')
+                continue
+
+            # Tractorize
+            tr = Tractor(self.timages, self.model_catalog)
+            self.tr = tr
+
+            # Add to existing array! -- this is the trick!
+            self.logger.info(f'Computing model image for blob {blob.blob_id}')
+            self.model_images[idx] += np.array([tr.getModelImage(k) for k in np.arange(len(self.bands))])
+            if include_chi:
+                self.logger.info(f'Computing chi image for blob {blob.blob_id}')
+                self.chisq_images[idx] += np.array([tr.getChiImage(k) for k in np.arange(len(self.bands))])
+
+        mtotal = len(self.model_catalog)
+        nmasked = np.sum(~self.model_mask)
+        msrc = np.sum(self.model_mask)
+        if not self.model_mask.any():        
+            raise RuntimeError(f'No valid models to make model image! (of {mtotal}, {nmasked} masked)')
+        self.logger.info(f'Made model image with {msrc}/{mtotal} sources. ({nmasked} are masked)')
+        self.model_catalog = self.model_catalog[self.model_mask]
+
+        # make mask array
+        self.residual_mask = self.segmap!=0
+        for src in catalog[~self.model_mask]:
+            sid = src['source_id']
+            self.residual_mask[self.segmap == sid] = False
+
+        if save:
+            if os.path.exists(self.auxhdu_path):
+                self.logger.info(f'Saving image(s) to existing file, {self.auxhdu_path}')
+                # Save to file
+                hdul = fits.open(self.auxhdu_path, mode='update')
+                for i, band in zip(idx, conf.PRFMAP_PSF):
+                    hdu_img = fits.ImageHDU(data=self.images[i], name=f'{band}_IMAGE')
+                    hdul.append(hdu_img)
+                    hdu_mod = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL')
+                    hdul.append(hdu_mod)
+                    if include_chi:
+                        hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI')
+                        hdul.append(hdu_chi)
+                    if include_nopsf:
+                        hdu_nopsf = fits.ImageHDU(data=self.nopsf_images[i], name=f'{band}_NOPSF')
+                        hdul.append(hdu_nopsf)
+
+                hdul.flush()
+
+            else:
+                self.logger.info(f'Saving image(s) to new file, {self.auxhdu_path}')
+                # Save to file
+                hdul = fits.HDUList()
+                for i, band in zip(idx, conf.PRFMAP_PSF):
+                    hdu_img = fits.ImageHDU(data=self.images[i], name=f'{band}_IMAGE')
+                    hdul.append(hdu_img)
+                    hdu_mod = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL')
+                    hdul.append(hdu_mod)
+                    if include_chi:
+                        hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI')
+                        hdul.append(hdu_chi)
+                    if include_nopsf:
+                        hdu_nopsf = fits.ImageHDU(data=self.nopsf_images[i], name=f'{band}_NOPSF')
+                        hdul.append(hdu_nopsf)
+                hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'MASK')
+                hdul.append(hdu_mask)
+
+                hdul.writeto(self.auxhdu_path, overwrite=True)
+
+
+    def make_model_image_psf(self, catalog, include_chi=True, include_nopsf=False, save=True, use_band_position=False, modeling=False):
+
+        # Which indices to use?
+        idx = []
+        for i, b in enumerate(self.bands):
+            if b not in conf.PRFMAP_PSF:
+                idx.append(i)
 
         # Make Images
-        self.logger.info('Making a model image...')
-        self.logger.debug('Creating blank image.')
+        self.logger.info(f'Making a model image for {self.bands[idx]}')
 
         timages = np.zeros(self.n_bands, dtype=object)
 
-        for i, (psf, band) in enumerate(zip(self.psfmodels, self.bands)):
+        for i, (psf, band) in enumerate(zip(self.psfmodels[idx], self.bands[idx])):
 
             remove_background_psf = False
             if band in conf.RMBACK_PSF:
                 remove_background_psf = True
 
             if (band in conf.CONSTANT_PSF) & (psf is not None):
-                psfmodel = psf.constantPsfAt(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.)
+                psfmodel = psf.constantPsfAt(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.) # if not spatially varying psfex model, this won't matter.
+                pw, ph = np.shape(psfmodel.img)
                 if remove_background_psf & (not conf.FORCE_GAUSSIAN_PSF):
-                    pw, ph = np.shape(psfmodel.img)
+                    self.logger.debug('Removing PSF background.')
                     cmask = create_circular_mask(pw, ph, radius=conf.PSF_MASKRAD / conf.PIXEL_SCALE)
                     bcmask = ~cmask.astype(bool) & (psfmodel.img > 0)
-                    # psfmodel.img -= np.nanmedian(psfmodel.img[bcmask])
-                    # psfmodel.img[np.isnan(psfmodel.img)] = 0
                     psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
+                    # psfmodel.img[np.isnan(psfmodel.img)] = 0
+                    # psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
                     psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
-                if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
-                    psfmodel.img /= psfmodel.img.sum() # HACK -- force normalization to 1
-                self.logger.debug(f'blob.stage_images :: Adopting constant PSF.')
 
-                if conf.PLOT > 1:
-                    import matplotlib.pyplot as plt
-                    fig, ax = plt.subplots()
-                    ax.imshow(psf.getImage(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.))
-                    fig.savefig(os.path.join(conf.PLOT_DIR, f'{band}_psf.pdf'))
+                if conf.PSF_RADIUS > 0:
+                    self.logger.debug(f'Clipping PSF ({conf.PSF_RADIUS}px radius)')
+                    psfmodel.img = psfmodel.img[int(pw/2.-conf.PSF_RADIUS):int(pw/2+conf.PSF_RADIUS), int(ph/2.-conf.PSF_RADIUS):int(ph/2+conf.PSF_RADIUS)]
+                    self.logger.debug(f'New shape: {np.shape(psfmodel.img)}')
+
+                if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
+                    norm = psfmodel.img.sum()
+                    self.logger.debug(f'Normalizing PSF (sum = {norm:4.4f})')
+                    psfmodel.img /= norm # HACK -- force normalization to 1
+                self.logger.debug('Adopting constant PSF.')
+
+                if conf.USE_MOG_PSF:
+                    self.logger.debug('Making a Gaussian Mixture PSF')
+                    psfmodel = HybridPixelizedPSF(pix=psfmodel, N=10).gauss
 
             elif (psf is not None):
-                # blobmask = np.array(self.blobmap == src['blob_id'], bool)
-                # idx, idy = blobmask.nonzero()
-                # xlo, xhi = np.min(idx), np.max(idx) + 1
-                # ylo, yhi = np.min(idy), np.max(idy) + 1
-                # w = xhi - xlo
-                # h = yhi - ylo
-
-                # left = x0 - conf.BLOB_BUFFER
-                # bottom = y0 - conf.BLOB_BUFFER
-
-                # subvector = (left, bottom)
-
-                # blob_center = (xlo + w/2., ylo + h/2.)
-                # blob_centerx = blob_center[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
-                # blob_centery = blob_center[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
-                blob_centerx = self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
-                blob_centery = self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
-                psfmodel = psf.constantPsfAt(blob_centerx, blob_centery) # init at brick center, for now...
+                blob_centerx = self.blob_center[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
+                blob_centery = self.blob_center[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
+                psfmodel = psf.constantPsfAt(blob_centerx, blob_centery) # init at blob center, may need to swap!
                 if remove_background_psf & (not conf.FORCE_GAUSSIAN_PSF):
                     pw, ph = np.shape(psfmodel.img)
                     cmask = create_circular_mask(pw, ph, radius=conf.PSF_MASKRAD / conf.PIXEL_SCALE)
                     bcmask = ~cmask.astype(bool) & (psfmodel.img > 0)
-                    # psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
-                    # psfmodel.img[np.isnan(psfmodel.img)] = 0
                     psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
+                    # psfmodel.img[np.isnan(psfmodel.img)] = 0
+                    # psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
                     psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
+                if conf.PSF_RADIUS > 0:
+                    self.logger.debug(f'Clipping PRF ({conf.PSF_RADIUS}px radius)')
+                    psfmodel.img = psfmodel.img[int(pw/2.-conf.PSF_RADIUS):int(pw/2+conf.PSF_RADIUS), int(ph/2.-conf.PSF_RADIUS):int(ph/2+conf.PSF_RADIUS)]
+                    self.logger.debug(f'New shape: {np.shape(psfmodel.img)}')
+                    
                 if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
-                    psfmodel.img /= psfmodel.img.sum() # HACK -- force normalization to 1
-                self.logger.debug(f'blob.stage_images :: Adopting varying PSF constant at ({blob_centerx}, {blob_centery})')
+                    norm = psfmodel.img.sum()
+                    self.logger.debug(f'Normalizing PSF (sum = {norm:4.4f})')
+                    psfmodel.img /= norm # HACK -- force normalization to 1
+                self.logger.debug(f'Adopting varying PSF constant at ({blob_centerx}, {blob_centery}).')
+            
 
             elif (psf is None):
                 if conf.USE_GAUSSIAN_PSF:
@@ -364,10 +626,16 @@ class Brick(Subimage):
                     self.model_mask[i] = False
                     continue
 
-            raw_fluxes = np.array([src[f'RAWFLUX_{band}'] for band in self.bands])
+            if modeling:
+                raw_fluxes = np.array([src[f'RAWFLUX_{conf.MODELING_NICKNAME}_{band}'] for band in self.bands[idx]])
+            else:
+                raw_fluxes = np.array([src[f'RAWFLUX_{band}'] for band in self.bands[idx]])
             if conf.RESIDUAL_CHISQ_REJECTION is not None:
-                for j, band in enumerate(self.bands):
-                    chisq_band = src[f'CHISQ_{band}']
+                for j, band in enumerate(self.bands[idx]):
+                    if modeling:
+                        chisq_band = src[f'CHISQ_MODELING_{band}']
+                    else:
+                        chisq_band = src[f'CHISQ_{band}']
                     if chisq_band > conf.RESIDUAL_CHISQ_REJECTION:
                         raw_fluxes[j] = 0.0
                         self.logger.debug(f'Source has too large chisq in {band}. ({chisq_band:3.3f}) > {conf.RESIDUAL_CHISQ_REJECTION})')
@@ -382,11 +650,15 @@ class Brick(Subimage):
                     raw_fluxes[raw_fluxes < 0.0] = 0.0
                     self.logger.debug('Source has negative flux in some bands.')
 
-            bx_model = src[f'X_MODEL_{best_band}'] - self.mosaic_origin[1] + conf.BRICK_BUFFER 
-            by_model = src[f'Y_MODEL_{best_band}'] - self.mosaic_origin[0] + conf.BRICK_BUFFER
+            if use_band_position:
+                bx_model = src[f'X_MODEL_{band}'] - self.mosaic_origin[1] + conf.BRICK_BUFFER 
+                by_model = src[f'Y_MODEL_{band}'] - self.mosaic_origin[0] + conf.BRICK_BUFFER
+            else:
+                bx_model = src[f'X_MODEL_{best_band}'] - self.mosaic_origin[1] + conf.BRICK_BUFFER 
+                by_model = src[f'Y_MODEL_{best_band}'] - self.mosaic_origin[0] + conf.BRICK_BUFFER
 
             position = PixPos(bx_model, by_model)
-            flux = Fluxes(**dict(zip(self.bands, raw_fluxes))) # IMAGES ARE IN NATIVE ZPT, USE RAWFLUXES!
+            flux = Fluxes(**dict(zip(self.bands[idx], raw_fluxes))) # IMAGES ARE IN NATIVE ZPT, USE RAWFLUXES!
 
             if src[f'SOLMODEL_{best_band}'] == "PointSource":
                 self.model_catalog[i] = PointSource(position, flux)
@@ -429,10 +701,11 @@ class Brick(Subimage):
         self.tr = tr
 
         self.logger.info(f'Computing model image...')
-        self.model_images = [tr.getModelImage(k) for k in np.arange(self.n_bands)]
+        self.model_images[idx] = [tr.getModelImage(k) for k in np.arange(len(idx))]
         if include_chi:
             self.logger.info(f'Computing chi image...')
-            self.chisq_images = [tr.getChiImage(k) for k in np.arange(self.n_bands)]
+            self.chisq_images[idx] = [tr.getChiImage(k) for k in np.arange(len(idx))]
+
 
         # If no psf:
         if include_nopsf:
@@ -448,7 +721,7 @@ class Brick(Subimage):
                 self.logger.info(f'Saving image(s) to existing file, {self.auxhdu_path}')
                 # Save to file
                 hdul = fits.open(self.auxhdu_path, mode='update')
-                for i, band in enumerate(self.bands):
+                for i, band in enumerate(self.bands[idx]):
                     hdu_img = fits.ImageHDU(data=self.images[i], name=f'{band}_IMAGE')
                     hdul.append(hdu_img)
                     hdu_mod = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL')
@@ -460,13 +733,22 @@ class Brick(Subimage):
                         hdu_nopsf = fits.ImageHDU(data=self.nopsf_images[i], name=f'{band}_NOPSF')
                         hdul.append(hdu_nopsf)
 
+                # make mask array
+                self.residual_mask = self.masks[i]
+                for src in catalog[~self.model_mask]:
+                    sid = src['source_id']
+                    self.residual_mask[self.segmap == sid] = True
+
+                self.residual_mask = self.residual_mask.astype(int)
+                hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'MASK')
+                hdul.append(hdu_mask)
                 hdul.flush()
 
             else:
                 self.logger.info(f'Saving image(s) to new file, {self.auxhdu_path}')
                 # Save to file
                 hdul = fits.HDUList()
-                for i, band in enumerate(self.bands):
+                for i, band in enumerate(self.bands[idx]):
                     hdu_img = fits.ImageHDU(data=self.images[i], name=f'{band}_IMAGE')
                     hdul.append(hdu_img)
                     hdu_mod = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL')
@@ -478,10 +760,19 @@ class Brick(Subimage):
                         hdu_nopsf = fits.ImageHDU(data=self.nopsf_images[i], name=f'{band}_NOPSF')
                         hdul.append(hdu_nopsf)
 
+                # make mask array
+                self.residual_mask = self.masks[i]
+                for src in catalog[~self.model_mask]:
+                    sid = src['source_id']
+                    self.residual_mask[self.segmap == sid] = True
+
+                self.residual_mask = self.residual_mask.astype(int)
+                hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'MASK')
+                hdul.append(hdu_mask)
                 hdul.writeto(self.auxhdu_path, overwrite=True)
 
 
-    def make_residual_image(self, catalog=None, include_chi=True, include_nopsf=False, save=True):
+    def make_residual_image(self, catalog=None, band=None, include_chi=True, include_nopsf=False, save=True, use_band_position=False, modeling=False):
         # Make model image or load it in
         self.logger.info(f'Making residual image')
 
@@ -492,10 +783,13 @@ class Brick(Subimage):
         if self.model_images is None:
             if catalog is None:
                 raise RuntimeError('ERROR - I need a catalog to make the model image first!')
-            self.make_model_image(catalog, include_chi=include_chi, include_nopsf=include_nopsf, save=False)
+            self.make_model_image(catalog, include_chi=include_chi, include_nopsf=include_nopsf, save=False, use_band_position=use_band_position, modeling=modeling)
         
         # Subtract
+        self.logger.info('Constructing residual image...')
         self.residual_images = self.images - self.model_images
+
+        
 
         # Save to file
         if save:
@@ -518,10 +812,28 @@ class Brick(Subimage):
                     hdu_residual = fits.ImageHDU(data=self.residual_images[i], name=f'{band}_RESIDUAL')
                     hdul.append(hdu_residual)
 
+                    # make mask array
+                    self.residual_mask = self.masks[i]
+                    for src in catalog[~self.model_mask]:
+                        sid = src['source_id']
+                        self.residual_mask[self.segmap == sid] = True
+
+                    self.residual_mask = self.residual_mask.astype(int)
+                    hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'MASK')
+                    hdul.append(hdu_mask)
                 # Save
                 hdul.flush()
 
             else:
+                # make mask array
+                self.logger.info('Construcing effective mask...')
+                self.residual_mask = self.segmap!=0
+                for src in catalog[~self.model_mask]:
+                    sid = src['source_id']
+                    self.residual_mask[self.segmap == sid] = False
+
+                self.residual_mask = self.residual_mask.astype(int)
+
                 self.logger.info(f'brick.make_residual_image :: Saving image(s) to new file, s{self.auxhdu_path}')
                 hdul = fits.HDUList()
                 for i, band in enumerate(self.bands):
@@ -538,6 +850,16 @@ class Brick(Subimage):
 
                     hdu_residual = fits.ImageHDU(data=self.residual_images[i], name=f'{band}_RESIDUAL')
                     hdul.append(hdu_residual)
+                
+                    # make mask array
+                    self.residual_mask = self.masks[i]
+                    for src in catalog[~self.model_mask]:
+                        sid = src['source_id']
+                        self.residual_mask[self.segmap == sid] = True
+
+                    self.residual_mask = self.residual_mask.astype(int)
+                    hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'MASK')
+                    hdul.append(hdu_mask)
 
                 # Save
                 hdul.writeto(self.auxhdu_path, overwrite=True)
