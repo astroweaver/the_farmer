@@ -277,7 +277,7 @@ class Brick(Subimage):
         # # Make Images
 
         self.logger.info(f'Making model images for {self.bands[idx]}')
-        self.model_mask = np.ones(len(catalog), dtype=bool)
+        self.model_mask = np.zeros(len(catalog), dtype=bool)
 
         # loop over blobs
         for i, bid in enumerate(np.unique(catalog['blob_id'])):
@@ -355,6 +355,8 @@ class Brick(Subimage):
                     self.logger.debug(f'PRF has been normalized. (sum = {psfmodel.img.sum():4.4f})') 
 
 
+                psfmodel.img = psfmodel.img.astype('float32') # This may be redundant, but it's super important!
+
                 # make Image
                 timages[j] = Image(data=np.zeros_like(self.images[0]),
                             invvar=np.ones_like(self.images[0]),
@@ -367,7 +369,7 @@ class Brick(Subimage):
             self.timages = timages
 
             # Construct models
-            self.model_catalog = np.zeros(len(blob.bcatalog), dtype=object)
+            self.model_catalog = np.ones(len(blob.bcatalog), dtype=object)
             
             bad_blob = True
             for m, src in enumerate(blob.bcatalog):
@@ -378,14 +380,12 @@ class Brick(Subimage):
                     self.logger.debug('No best models chosen yet.')
                     best_band = self.bands[0]
                     if not src[f'VALID_SOURCE_{self.bands[0]}']:
-                        self.model_mask[mm_idx] = False
                         self.logger.debug('Source does not have a valid model.')
                         continue
                 else:
                     best_band = src['BEST_MODEL_BAND']
 
                     if not src[f'VALID_SOURCE_{best_band}']:
-                        self.model_mask[mm_idx] = False
                         continue
 
                 if modeling:
@@ -402,11 +402,9 @@ class Brick(Subimage):
                             raw_fluxes[j] = 0.0
                             self.logger.debug(f'Source has too large chisq in {band}. ({chisq_band:3.3f}) > {conf.RESIDUAL_CHISQ_REJECTION})')
                     if (raw_fluxes <= 0.0).all():
-                        self.model_mask[mm_idx] = False
                         self.logger.debug('Source has too large chisq in all bands. Rejecting!')
                 if conf.RESIDUAL_NEGFLUX_REJECTION:
                     if (raw_fluxes <= 0.0).all():
-                        self.model_mask[mm_idx] = False
                         self.logger.debug('Source has negative flux in all bands. Rejecting!')
                     elif (raw_fluxes < 0.0).any():
                         raw_fluxes[raw_fluxes < 0.0] = 0.0
@@ -449,6 +447,7 @@ class Brick(Subimage):
                 self.logger.debug(f'               {flux}') 
 
                 bad_blob = False # made it though!
+                self.model_mask[mm_idx] = True
 
             # Clean
             if bad_blob:        
@@ -609,21 +608,21 @@ class Brick(Subimage):
 
         # Make models
         self.model_catalog = np.zeros(len(catalog), dtype=object)
-        self.model_mask = np.ones(len(catalog), dtype=bool)
+        self.model_mask = np.zeros(len(catalog), dtype=bool)
         for i, src in enumerate(catalog):
             
             if (catalog['BEST_MODEL_BAND'] == '').all():
                 self.logger.debug('No best models chosen yet.')
                 best_band = self.bands[0]
                 if not src[f'VALID_SOURCE_{self.bands[0]}']:
-                    self.model_mask[i] = False
+
                     self.logger.debug('Source does not have a valid model.')
                     continue
             else:
                 best_band = src['BEST_MODEL_BAND']
 
                 if not src[f'VALID_SOURCE_{best_band}']:
-                    self.model_mask[i] = False
+
                     continue
 
             if modeling:
@@ -640,11 +639,11 @@ class Brick(Subimage):
                         raw_fluxes[j] = 0.0
                         self.logger.debug(f'Source has too large chisq in {band}. ({chisq_band:3.3f}) > {conf.RESIDUAL_CHISQ_REJECTION})')
                 if (raw_fluxes <= 0.0).all():
-                    self.model_mask[i] = False
+
                     self.logger.debug('Source has too large chisq in all bands. Rejecting!')
             if conf.RESIDUAL_NEGFLUX_REJECTION:
                 if (raw_fluxes <= 0.0).all():
-                    self.model_mask[i] = False
+
                     self.logger.debug('Source has negative flux in all bands. Rejecting!')
                 elif (raw_fluxes < 0.0).any():
                     raw_fluxes[raw_fluxes < 0.0] = 0.0
@@ -680,11 +679,12 @@ class Brick(Subimage):
                                                 shape_exp, shape_dev)
             else:
                 self.logger.warning(f'Source #{src["source_id"]}: has no solution model at {position}')
-                self.model_mask[i] = False
                 continue
 
             self.logger.debug(f'Source #{src["source_id"]}: {self.model_catalog[i].name} model at {position}')
             self.logger.debug(f'               {flux}') 
+
+            self.model_mask[i] = True
 
         # Clean
         mtotal = len(self.model_catalog)
@@ -734,13 +734,16 @@ class Brick(Subimage):
                         hdul.append(hdu_nopsf)
 
                 # make mask array
-                self.residual_mask = self.masks[i]
+                self.residual_mask = np.ones_like(self.masks[i], dtype=bool)
+                self.residual_mask[conf.BRICK_BUFFER:-conf.BRICK_BUFFER, conf.BRICK_BUFFER:-conf.BRICK_BUFFER] = False
+                self.residual_mask[self.masks[i]] = True
+                self.residual_mask[self.segmap != 0] = False
                 for src in catalog[~self.model_mask]:
                     sid = src['source_id']
                     self.residual_mask[self.segmap == sid] = True
 
                 self.residual_mask = self.residual_mask.astype(int)
-                hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'MASK')
+                hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'{band}_MASK')
                 hdul.append(hdu_mask)
                 hdul.flush()
 
@@ -761,13 +764,16 @@ class Brick(Subimage):
                         hdul.append(hdu_nopsf)
 
                 # make mask array
-                self.residual_mask = self.masks[i]
+                self.residual_mask = np.ones_like(self.masks[i], dtype=bool)
+                self.residual_mask[conf.BRICK_BUFFER:-conf.BRICK_BUFFER, conf.BRICK_BUFFER:-conf.BRICK_BUFFER] = False
+                self.residual_mask[self.masks[i]] = True
+                self.residual_mask[self.segmap != 0] = False
                 for src in catalog[~self.model_mask]:
                     sid = src['source_id']
                     self.residual_mask[self.segmap == sid] = True
 
                 self.residual_mask = self.residual_mask.astype(int)
-                hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'MASK')
+                hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'{band}_MASK')
                 hdul.append(hdu_mask)
                 hdul.writeto(self.auxhdu_path, overwrite=True)
 
@@ -813,26 +819,21 @@ class Brick(Subimage):
                     hdul.append(hdu_residual)
 
                     # make mask array
-                    self.residual_mask = self.masks[i]
+                    self.residual_mask = np.ones_like(self.masks[i], dtype=bool)
+                    self.residual_mask[conf.BRICK_BUFFER:-conf.BRICK_BUFFER, conf.BRICK_BUFFER:-conf.BRICK_BUFFER] = False
+                    self.residual_mask[self.masks[i]] = True
+                    self.residual_mask[self.segmap != 0] = False
                     for src in catalog[~self.model_mask]:
                         sid = src['source_id']
                         self.residual_mask[self.segmap == sid] = True
 
                     self.residual_mask = self.residual_mask.astype(int)
-                    hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'MASK')
+                    hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'{band}_MASK')
                     hdul.append(hdu_mask)
                 # Save
                 hdul.flush()
 
             else:
-                # make mask array
-                self.logger.info('Construcing effective mask...')
-                self.residual_mask = self.segmap!=0
-                for src in catalog[~self.model_mask]:
-                    sid = src['source_id']
-                    self.residual_mask[self.segmap == sid] = False
-
-                self.residual_mask = self.residual_mask.astype(int)
 
                 self.logger.info(f'brick.make_residual_image :: Saving image(s) to new file, s{self.auxhdu_path}')
                 hdul = fits.HDUList()
@@ -852,13 +853,19 @@ class Brick(Subimage):
                     hdul.append(hdu_residual)
                 
                     # make mask array
-                    self.residual_mask = self.masks[i]
+                    self.residual_mask = np.ones_like(self.masks[i], dtype=bool)
+                    self.residual_mask[conf.BRICK_BUFFER:-conf.BRICK_BUFFER, conf.BRICK_BUFFER:-conf.BRICK_BUFFER] = False
+                    self.residual_mask[self.masks[i]] = True
+                    self.residual_mask[self.segmap != 0] = False
                     for src in catalog[~self.model_mask]:
                         sid = src['source_id']
                         self.residual_mask[self.segmap == sid] = True
 
+
+                        # WHY ARE SOME MODEL MASKS NOT SHOWING UP?
+
                     self.residual_mask = self.residual_mask.astype(int)
-                    hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'MASK')
+                    hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'{band}_MASK')
                     hdul.append(hdu_mask)
 
                 # Save

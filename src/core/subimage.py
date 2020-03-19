@@ -363,7 +363,7 @@ class Subimage():
             catalog.add_column(Column(catalog['y'], name='y_orig' ))
             
             if self.wcs is not None:
-                skyc = self.wcs.all_pix2world(catalog['y_orig'], catalog['x_orig'], 0)
+                skyc = self.wcs.all_pix2world(catalog['x_orig'], catalog['y_orig'], 0)
                 catalog.add_column(Column(skyc[0], name=f'RA_{conf.DETECTION_NICKNAME}'))
                 catalog.add_column(Column(skyc[1], name=f'DEC_{conf.DETECTION_NICKNAME}'))
 

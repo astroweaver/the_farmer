@@ -450,6 +450,18 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
         fblob.logger = logger
 
         astart = time.time() 
+        status = fblob.stage_images()
+        if not status:
+            # if conf.NTHREADS != 0:
+            #     logger.removeHandler(fh)
+            catout = fblob.bcatalog.copy()
+            del fblob
+            return catout
+            
+        logger.info(f'{len(fblob.bands)} images staged. ({time.time() - astart:3.3f})s')
+
+        
+        astart = time.time() 
         if modblob is not None:
             fblob.model_catalog = modblob.solution_catalog.copy()
             fblob.position_variance = modblob.position_variance.copy()
@@ -510,16 +522,7 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
             return catout
 
         # Forced phot
-        astart = time.time() 
-        status = fblob.stage_images()
-        if not status:
-            # if conf.NTHREADS != 0:
-            #     logger.removeHandler(fh)
-            catout = fblob.bcatalog.copy()
-            del fblob
-            return catout
-            
-        logger.info(f'{len(fblob.bands)} images staged. ({time.time() - astart:3.3f})s')
+        
 
         astart = time.time() 
         logger.info(f'Starting forced photometry...')
@@ -1614,7 +1617,16 @@ def models_from_catalog(catalog, fblob):
             original_zpt = fblob._band2idx(conf.INIT_FLUX_BAND)
             flux_conv = src[f'RAWFLUX_{init_band}'] * 10 ** (0.4 * (target_zpt - original_zpt))
 
-        flux = Fluxes(**dict(zip(band, flux_conv)))
+        # Make initial guess at flux using PSF!
+        qflux = np.zeros(len(fblob.bands))
+        src_seg = fblob.segmap==src['source_id']
+        for j, (img, band) in enumerate(zip(fblob.images, fblob.bands)):
+            max_img = np.nanmax(img * src_seg)
+            max_psf = np.nanmax(fblob.psfimg[band])
+            qflux[j] = max_img / max_psf
+        flux = Fluxes(**dict(zip(fblob.bands, qflux)))
+
+        # flux = Fluxes(**dict(zip(band, flux_conv)))
 
         # Check if valid source
         if not src[f'VALID_SOURCE_{best_band}']:
