@@ -359,7 +359,17 @@ class Blob(Subimage):
             else:
                 position = PixPos(src['x'], src['y'])
             
-            flux = Fluxes(**dict(zip(self.bands, src['flux'] * np.ones(len(self.bands)))))
+            if conf.USE_SEP_INITIAL_FLUX:
+                flux = Fluxes(**dict(zip(self.bands, src['flux'] * np.ones(len(self.bands)))))
+
+            else:
+                qflux = np.zeros(len(self.bands))
+                src_seg = self.segmap==src['source_id']
+                for j, (img, psf) in enumerate(zip(self.images, self.psfmodels)):
+                    max_img = np.nanmax(img * src_seg)
+                    max_psf = np.nanmax(psf.img)
+                    qflux[j] = max_img / max_psf
+                flux = Fluxes(**dict(zip(self.bands, qflux)))
 
             #shape = GalaxyShape(src['a'], src['b'] / src['a'], src['theta'])
             pa = 90 + np.rad2deg(src['theta'])
@@ -434,14 +444,14 @@ class Blob(Subimage):
             #     y_orig[i] = src.pos[1]
 
             for i in range(conf.TRACTOR_MAXSTEPS):
-                # try:
-                dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, damp=0.1, variance=True, priors=conf.USE_POSITION_PRIOR)
-                self.logger.debug(f'    {i+1}) dlnp = {dlnp}')
-                if i == 0:
-                    dlnp_init = dlnp
-                # except:
-                #     self.logger.warning(f'WARNING - Optimization failed on step {i} for blob #{self.blob_id}')
-                #     return False
+                try:
+                    dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, damp=0.1, variance=True, priors=conf.USE_POSITION_PRIOR)
+                    self.logger.debug(f'    {i+1}) dlnp = {dlnp}')
+                    if i == 0:
+                        dlnp_init = dlnp
+                except:
+                    self.logger.warning(f'WARNING - Optimization failed on step {i} for blob #{self.blob_id}')
+                    return False
 
                 # try:  # HACK -- this sometimes fails!!!
                 #     cat = tr.getCatalog()
