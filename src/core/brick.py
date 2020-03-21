@@ -465,13 +465,13 @@ class Brick(Subimage):
                 self.logger.info(f'Computing chi image for blob {blob.blob_id}')
                 self.chisq_images[idx] += np.array([tr.getChiImage(k) for k in np.arange(len(self.bands))])
 
-        mtotal = len(self.model_catalog)
+        mtotal = len(self.model_mask)
         nmasked = np.sum(~self.model_mask)
         msrc = np.sum(self.model_mask)
         if not self.model_mask.any():        
             raise RuntimeError(f'No valid models to make model image! (of {mtotal}, {nmasked} masked)')
         self.logger.info(f'Made model image with {msrc}/{mtotal} sources. ({nmasked} are masked)')
-        self.model_catalog = self.model_catalog[self.model_mask]
+        # self.model_catalog = self.model_catalog[self.model_mask]
 
         # make mask array
         self.residual_mask = self.segmap!=0
