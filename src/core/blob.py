@@ -639,7 +639,7 @@ class Blob(Subimage):
                             opttop += rchi2* wgt
                             optbot += wgt
                     else:
-                        totalchisq = np.sum((self.tr.getChiImage(0)[self.segmap == src['source_id']])**2)
+                        totalchisq = np.sum((self.tr.getChiImage(i)[self.segmap == src['source_id']])**2)
                     m_param = self.model_catalog[i].numberOfParams()
                     n_data = np.sum(self.segmap == src['source_id']) * self.n_bands # 1, or else multimodel!
                     self.chisq[i, self._level, self._sublevel] = totalchisq
