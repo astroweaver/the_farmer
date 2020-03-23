@@ -632,7 +632,10 @@ class Blob(Subimage):
                             totalchisq += np.sum((self.tr.getChiImage(k)[self.segmap == src['source_id']])**2)
                             chi2 = np.sum((self.tr.getChiImage(k)[self.segmap == src['source_id']])**2)
                             nparam = self.model_catalog[i].numberOfParams() - (len(self.bands) - 1)
-                            rchi2 = chi2 / (np.sum(self.segmap == src['source_id']) - nparam)
+                            ndof = (np.sum(self.segmap == src['source_id']) - nparam)
+                            if ndof < 1:
+                                ndof = 1
+                            rchi2 = chi2 / ndof
                             opttop += rchi2* wgt
                             optbot += wgt
                     else:
