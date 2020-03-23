@@ -862,6 +862,19 @@ class Blob(Subimage):
                 # signal-to-noise
                 self.noise[i, j] = np.sum(self.background_rms_images[j][self.segmap == src['source_id']])
 
+                sid = src['source_id']
+                mod = self.solution_model_images[j]
+                chi = self.solution_chi_images[j]
+                res = self.images[j] - mod
+                res_seg = res[self.segmap==sid].flatten()
+                if np.sum(res_seg) < 8:
+                    self.k2[i,j] = -99
+                else:
+                    self.k2[i,j], __ = stats.normaltest(res_seg)
+                chi_seg = chi[self.segmap==sid].flatten()
+                self.chi_sig[i,j] = np.std(chi_seg)
+                self.chi_mu[i,j] = np.mean(chi_seg)
+
                 if conf.PLOT > 1:
                     for k, ssrc in enumerate(self.solution_catalog):
                         sid = self.bcatalog['source_id'][k]
