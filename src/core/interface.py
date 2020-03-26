@@ -564,7 +564,7 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
     return catout
 
 
-def make_models(brick_id, band=conf.MODELING_NICKNAME, source_id=None, blob_id=None, segmap=None, blobmap=None, catalog=None, multiband_model=False, use_mask=True, source_only=False):
+def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, blobmap=None, catalog=None, multiband_model=False, use_mask=True, source_only=False):
     """ Stage 2. Detect your sources and determine the best model parameters for them """
 
     # Create detection brick
@@ -633,9 +633,17 @@ def make_models(brick_id, band=conf.MODELING_NICKNAME, source_id=None, blob_id=N
         return
 
     # Create modbrick
-    if band == conf.MODELING_NICKNAME:
-        img_names = [conf.MODELING_NICKNAME,]
-        mod_nickname = band 
+    if band is None:
+        if not multiband_model:
+            img_names = [conf.MODELING_NICKNAME,]
+            mod_nickname = conf.MODELING_NICKNAME        
+
+        elif multiband_model:
+            img_names = conf.MODELING_BANDS
+            for iname in img_names:
+                if iname not in conf.BANDS:
+                    raise ValueError(f'{iname} is listed as a band to model, but is not found in conf.BANDS!')
+            mod_nickname = conf.MULTIBAND_NICKNAME
 
     else:
         if type(band) == list:
@@ -1048,16 +1056,7 @@ def make_models(brick_id, band=conf.MODELING_NICKNAME, source_id=None, blob_id=N
             # col_ebmv[vs] = ebmv
             # outcatalog.add_column(col_ebmv)
             modbrick.catalog = outcatalog
-
-            # open again and add
-
-            # If user wants model and/or residual images made:
-            if conf.MAKE_RESIDUAL_IMAGE:
-                cleancatalog = outcatalog[outcatalog[f'VALID_SOURCE']]
-                modbrick.make_residual_image(catalog=cleancatalog, use_band_position=False, modeling=True)
-            elif conf.MAKE_MODEL_IMAGE:
-                cleancatalog = outcatalog[outcatalog[f'VALID_SOURCE']]
-                modbrick.make_model_image(catalog=cleancatalog, use_band_position=False, modeling=True)
+           
 
         # Reconstuct mosaic positions of invalid sources 
         invalid = ~modbrick.catalog[f'VALID_SOURCE']
@@ -1127,7 +1126,38 @@ def make_models(brick_id, band=conf.MODELING_NICKNAME, source_id=None, blob_id=N
         logger.info(f'Wrote out catalog to {outpath}')
 
 
-def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True, source_only=False):
+    # If user wants model and/or residual images made:
+    if conf.MAKE_RESIDUAL_IMAGE:
+        cleancatalog = outcatalog[outcatalog[f'VALID_SOURCE']]
+        modbrick.make_residual_image(catalog=cleancatalog, use_band_position=False, modeling=True)
+    elif conf.MAKE_MODEL_IMAGE:
+        cleancatalog = outcatalog[outcatalog[f'VALID_SOURCE']]
+        modbrick.make_model_image(catalog=cleancatalog, use_band_position=False, modeling=True)
+
+
+def force_photometry(brick_id, band=None, source_id=None, blob_id=None, insert=True, source_only=False, unfix_bandwise_positions=False):
+
+    if band is None:
+        fband = conf.BANDS
+    else:
+        if (type(band) == list) | (type(band) == np.ndarray):
+            fband = band
+        elif (type(band) == str) | (type(band) == np.str_):
+            fband = [band,]
+        else:
+            sys.exit('ERROR -- Input band is not a list, array, or string!')
+
+    if unfix_bandwise_positions | len(fband) == 1:
+        force_models(brick_id=brick_id, band=band, source_id=source_id, blob_id=blob_id, insert=insert, source_only=source_only)
+    else:
+        if not conf.FREEZE_FORCED_POSITION:
+            logger.warning('Setting FREEZE_FORCED_POSITION to False!')
+            conf.FREEZE_FORCED_POSITION = False
+       
+        for b in fband:
+            force_models(brick_id=brick_id, band=b, source_id=source_id, blob_id=blob_id, insert=insert, source_only=source_only, force_unfixed_pos=True)
+
+def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True, source_only=False, force_unfixed_pos=False):
     """ Stage 3. Force the models on the other images and solve only for flux. """
 
     # Create and update multiband brick
@@ -1300,7 +1330,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
 
         #output_rows = [x for x in output_rows if x is not None]
 
-        output_cat = vstack(output_rows)
+        output_cat = vstack(output_rows)  # HACK -- at some point this should just UPDATE the bcatalog with the new photoms. IF the user sets NBLOBS > 0, the catalog is truncated!
 
     
         if insert & conf.OVERWRITE & (conf.NBLOBS==0):
@@ -1332,6 +1362,48 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                 logger.info(f'Saving results for brick #{fbrick.brick_id} to existing catalog file.')
 
                 outcatalog = mastercat
+
+        if not insert & force_unfixed_pos:
+            # make a new MULITBAND catalog or add to it!
+            path_mastercat = os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{conf.MULTIBAND_NICKNAME}.cat')
+            if os.path.exists(path_mastercat):
+                mastercat = Table.read(path_mastercat, format='fits')
+
+                # find new columns
+                newcols = np.in1d(output_cat.colnames, mastercat.colnames, invert=True)
+                # add new columns, filled.
+                for colname in np.array(output_cat.colnames)[newcols]:
+                    if colname not in mastercat.colnames:
+                        mastercat.add_column(Column(data=output_cat[colname], name=colname))
+                #         if colname.startswith('FLUX_APER') | colname.startswith('MAG_APER'):
+                #             mastercat.add_column(Column(length=len(mastercat), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
+                #         else:
+                #             mastercat.add_column(Column(length=len(mastercat), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
+                # [print(j) for j in mastercat.colnames]
+                # [print(j) for j in output_cat.colnames]
+                # for row in output_cat:
+                #     mastercat[np.where(mastercat['source_id'] == row['source_id'])[0]] = row
+
+                hdr = header_from_dict(conf.__dict__)
+                hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
+                hdu_table = fits.table_to_hdu(mastercat)
+                hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
+                hdul.writeto(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{conf.MULTIBAND_NICKNAME}.cat'), overwrite=conf.OVERWRITE)
+                logger.info(f'Saving results for brick #{fbrick.brick_id} to existing catalog file.')
+
+            else:
+                mastercat = output_cat
+
+                hdr = header_from_dict(conf.__dict__)
+                hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
+                hdu_table = fits.table_to_hdu(mastercat)
+                hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
+                hdul.writeto(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{conf.MULTIBAND_NICKNAME}.cat'), overwrite=conf.OVERWRITE)
+                logger.info(f'Saving results for brick #{fbrick.brick_id} to new catalog file.')
+            
+
+            outcatalog = mastercat
+
 
         else:
                 
@@ -1592,12 +1664,12 @@ def models_from_catalog(catalog, fblob):
             logger.warning(f'Source #{src["source_id"]}: {src[f"SOLMODEL_{best_band}"]} model at ({src[f"X_MODEL_{best_band}"]}, {src[f"Y_MODEL_{best_band}"]}) is INVALID.')
             continue
 
-        position = [src[f'X_MODEL_{best_band}'], src[f'Y_MODEL_{best_band}']]
+        inpos = [src[f'X_MODEL_{best_band}'], src[f'Y_MODEL_{best_band}']]
 
-        position[0] -= (fblob.subvector[1] + fblob.mosaic_origin[1] - conf.BRICK_BUFFER)
-        position[1] -= (fblob.subvector[0] + fblob.mosaic_origin[0] - conf.BRICK_BUFFER)
+        inpos[0] -= (fblob.subvector[1] + fblob.mosaic_origin[1] - conf.BRICK_BUFFER)
+        inpos[1] -= (fblob.subvector[0] + fblob.mosaic_origin[0] - conf.BRICK_BUFFER)
 
-        position = PixPos(position[0], position[1])
+        position = PixPos(inpos[0], inpos[1])
         
         # src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER
         #     self.bcatalog[row][f'Y_MODEL_{mod_band}'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER
@@ -1633,6 +1705,11 @@ def models_from_catalog(catalog, fblob):
             good_sources[i] = False
             logger.warning(f'Source #{src["source_id"]}: {src[f"SOLMODEL_{best_band}"]} model at {position} is INVALID.')
             continue
+
+        if not conf.FREEZE_FORCED_POSITION & conf.USE_POSITION_PRIOR:
+            logger.info(f'Setting position prior. X = {inpos[0]:2.2f}+/-{conf.FORCE_POSITION_PRIOR_SIG}; Y = {inpos[1]:2.2f}+/-{conf.FORCE_POSITION_PRIOR_SIG}')
+            position.addGaussianPrior('x', inpos[0], conf.FORCE_POSITION_PRIOR_SIG)
+            position.addGaussianPrior('y', inpos[1], conf.FORCE_POSITION_PRIOR_SIG)
 
         #shape = GalaxyShape(src['REFF'], 1./src['AB'], src['theta'])
         if src[f'SOLMODEL_{best_band}'] not in ('PointSource', 'SimpleGalaxy'):

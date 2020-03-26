@@ -444,14 +444,14 @@ class Blob(Subimage):
             #     y_orig[i] = src.pos[1]
 
             for i in range(conf.TRACTOR_MAXSTEPS):
-                # try:
-                dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, damp=1., variance=True, priors=conf.USE_POSITION_PRIOR)
-                self.logger.debug(f'    {i+1}) dlnp = {dlnp}')
-                if i == 0:
-                    dlnp_init = dlnp
-                # except:
-                #     self.logger.warning(f'WARNING - Optimization failed on step {i} for blob #{self.blob_id}')
-                #     return False
+                try:
+                    dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, damp=conf.DAMPING, variance=True, priors=conf.USE_POSITION_PRIOR)
+                    self.logger.debug(f'    {i+1}) dlnp = {dlnp}')
+                    if i == 0:
+                        dlnp_init = dlnp
+                except:
+                    self.logger.warning(f'WARNING - Optimization failed on step {i} for blob #{self.blob_id}')
+                    return False
 
                 # try:  # HACK -- this sometimes fails!!!
                 #     cat = tr.getCatalog()

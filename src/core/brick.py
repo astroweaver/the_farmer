@@ -63,7 +63,7 @@ class Brick(Subimage):
         self.wcs = wcs
         self.images = images
         if use_rms_weights:
-            self.logger.info('Using the RMS image as a weight!')
+            self.logger.info('Converting the RMS image to use as a weight!')
             self.weights = 1./(self.background_rms_images**2)
         elif scale_weights:
             self.logger.info('Using the RMS image to scale the weight!')
@@ -258,20 +258,33 @@ class Brick(Subimage):
         self.model_images = np.zeros(shape=(self.n_bands, np.shape(self.images[0])[0], np.shape(self.images[0])[1]))
         self.chisq_images = np.zeros(shape=(self.n_bands, np.shape(self.images[0])[0], np.shape(self.images[0])[1]))
 
+        if modeling:
+            sbands = [s[len(conf.MODELING_NICKNAME)+1:] for s in self.bands]
+        else:
+            sbands = self.bands
+
+        self.bands = np.array(self.bands) # The bands attribute is being modfified somewhere to make it BACK into a list. Why? Dunno. Just don't change this.
+
         # Figure out which bands are to be run with which setup.
         # The output should be an attribute containing all the model images, in the right order for self.bands
-
-        if np.in1d(self.bands, conf.BANDS).any() & ~np.in1d(self.bands, conf.PRFMAP_PSF).any():
+        self.logger.info(f'Making Model images for {self.bands}')
+        if np.in1d(sbands, conf.BANDS).any() & ~np.in1d(sbands, conf.PRFMAP_PSF).any():
+            self.logger.info('Making Models for PSF images')
             self.make_model_image_psf(catalog, include_chi=include_chi, include_nopsf=include_nopsf, save=save, use_band_position=use_band_position, modeling=modeling)
-        if np.in1d(self.bands, conf.PRFMAP_PSF).any():
+        if np.in1d(sbands, conf.PRFMAP_PSF).any():
+            self.logger.info('Making Models for PRF images')
             self.make_model_image_prfmap(catalog, include_chi=include_chi, include_nopsf=include_nopsf, save=save, use_band_position=use_band_position, modeling=modeling)
 
+        # if not (np.in1d(self.bands, conf.BANDS).any() & ~np.in1d(self.bands, conf.PRFMAP_PSF).any() | np.in1d(self.bands, conf.PRFMAP_PSF).any()):
+        #     raise ValueError('')
 
     def make_model_image_prfmap(self, catalog, include_chi=True, include_nopsf=False, save=True, use_band_position=False, modeling=False):
 
         # Which indices to use?
         idx = []
         for i, b in enumerate(self.bands):
+            if modeling:
+                b = b[len(conf.MODELING_NICKNAME)+1:]
             if b in conf.PRFMAP_PSF:
                 idx.append(i)
         # # Make Images
@@ -285,10 +298,10 @@ class Brick(Subimage):
             
             self.logger.info(f'Incoporating blob {blob.blob_id}')
 
-            timages = np.zeros(shape=len(self.bands), dtype=object)
+            timages = np.zeros(shape=len(self.bands[idx]), dtype=object)
 
             # Loop over bands:
-            for j, band in enumerate(self.bands):
+            for j, band in enumerate(self.bands[idx]):
 
                 remove_background_psf = False
                 if band in conf.RMBACK_PSF:
@@ -524,6 +537,8 @@ class Brick(Subimage):
         # Which indices to use?
         idx = []
         for i, b in enumerate(self.bands):
+            if modeling:
+                b = b[len(conf.MODELING_NICKNAME)+1:]
             if b not in conf.PRFMAP_PSF:
                 idx.append(i)
 
@@ -533,6 +548,9 @@ class Brick(Subimage):
         timages = np.zeros(self.n_bands, dtype=object)
 
         for i, (psf, band) in enumerate(zip(self.psfmodels[idx], self.bands[idx])):
+
+            if modeling:
+                band = band[len(conf.MODELING_NICKNAME)+1:]
 
             remove_background_psf = False
             if band in conf.RMBACK_PSF:
@@ -566,27 +584,28 @@ class Brick(Subimage):
                     psfmodel = HybridPixelizedPSF(pix=psfmodel, N=10).gauss
 
             elif (psf is not None):
-                blob_centerx = self.blob_center[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
-                blob_centery = self.blob_center[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
-                psfmodel = psf.constantPsfAt(blob_centerx, blob_centery) # init at blob center, may need to swap!
-                if remove_background_psf & (not conf.FORCE_GAUSSIAN_PSF):
-                    pw, ph = np.shape(psfmodel.img)
-                    cmask = create_circular_mask(pw, ph, radius=conf.PSF_MASKRAD / conf.PIXEL_SCALE)
-                    bcmask = ~cmask.astype(bool) & (psfmodel.img > 0)
-                    psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
-                    # psfmodel.img[np.isnan(psfmodel.img)] = 0
-                    # psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
-                    psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
-                if conf.PSF_RADIUS > 0:
-                    self.logger.debug(f'Clipping PRF ({conf.PSF_RADIUS}px radius)')
-                    psfmodel.img = psfmodel.img[int(pw/2.-conf.PSF_RADIUS):int(pw/2+conf.PSF_RADIUS), int(ph/2.-conf.PSF_RADIUS):int(ph/2+conf.PSF_RADIUS)]
-                    self.logger.debug(f'New shape: {np.shape(psfmodel.img)}')
+                raise RuntimeError('Position dependent PSFs in brick-scale model images is NOT SUPPORTED YET.')
+                # blob_centerx = self.blob_center[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
+                # blob_centery = self.blob_center[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
+                # psfmodel = psf.constantPsfAt(blob_centerx, blob_centery) # init at blob center, may need to swap!
+                # if remove_background_psf & (not conf.FORCE_GAUSSIAN_PSF):
+                #     pw, ph = np.shape(psfmodel.img)
+                #     cmask = create_circular_mask(pw, ph, radius=conf.PSF_MASKRAD / conf.PIXEL_SCALE)
+                #     bcmask = ~cmask.astype(bool) & (psfmodel.img > 0)
+                #     psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
+                #     # psfmodel.img[np.isnan(psfmodel.img)] = 0
+                #     # psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
+                #     psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
+                # if conf.PSF_RADIUS > 0:
+                #     self.logger.debug(f'Clipping PRF ({conf.PSF_RADIUS}px radius)')
+                #     psfmodel.img = psfmodel.img[int(pw/2.-conf.PSF_RADIUS):int(pw/2+conf.PSF_RADIUS), int(ph/2.-conf.PSF_RADIUS):int(ph/2+conf.PSF_RADIUS)]
+                #     self.logger.debug(f'New shape: {np.shape(psfmodel.img)}')
                     
-                if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
-                    norm = psfmodel.img.sum()
-                    self.logger.debug(f'Normalizing PSF (sum = {norm:4.4f})')
-                    psfmodel.img /= norm # HACK -- force normalization to 1
-                self.logger.debug(f'Adopting varying PSF constant at ({blob_centerx}, {blob_centery}).')
+                # if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
+                #     norm = psfmodel.img.sum()
+                #     self.logger.debug(f'Normalizing PSF (sum = {norm:4.4f})')
+                #     psfmodel.img /= norm # HACK -- force normalization to 1
+                # self.logger.debug(f'Adopting varying PSF constant at ({blob_centerx}, {blob_centery}).')
             
 
             elif (psf is None):
