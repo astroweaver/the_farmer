@@ -1417,8 +1417,6 @@ class Blob(Subimage):
         self.bcatalog[row][f'X_MODEL'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER
         self.bcatalog[row][f'Y_MODEL'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER
         if self.wcs is not None:
-            print(self.brick_wcs)
-            print(self.bcatalog[row][f'X_MODEL_{band}', f'Y_MODEL_{band}'])
             skyc = self.brick_wcs.all_pix2world(self.bcatalog[row][f'X_MODEL'] - self.mosaic_origin[0] + conf.BRICK_BUFFER, self.bcatalog[row][f'Y_MODEL'] - self.mosaic_origin[1] + conf.BRICK_BUFFER, 0)
             self.bcatalog[row][f'RA'] = skyc[0]
             self.bcatalog[row][f'DEC'] = skyc[1]
