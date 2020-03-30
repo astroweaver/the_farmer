@@ -1529,7 +1529,8 @@ def make_residual_image(brick_id, band, catalog=None, use_single_band_run=False,
             use_band_position=False
     else:
         search_fn = os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat')
-        search_fn2 = os.path.join(conf.CATALOG_DIR, f'B{brick_id}_{band}.cat') # this means the band was run by itself!
+        search_fn2 = os.path.join(conf.CATALOG_DIR, f'B{brick_id}_{conf.MULTIBAND_NICKNAME}.cat') # this means the band was run by itself!
+        search_fn3 = os.path.join(conf.CATALOG_DIR, f'B{brick_id}_{band}.cat')
         if os.path.exists(search_fn) & ~use_single_band_run:
             brick.logger.info(f'Adopting catalog from {search_fn}')
             brick.catalog = Table(fits.open(search_fn)[1].data)
@@ -1537,7 +1538,13 @@ def make_residual_image(brick_id, band, catalog=None, use_single_band_run=False,
             brick.n_blobs = brick.catalog['blob_id'].max()
             use_band_position=False
         elif os.path.exists(search_fn2) & use_single_band_run:
-            brick.logger.info(f'Adopting catalog from {search_fn2}')
+            brick.logger.info(f'Adopting catalog from {search_fn2}')   # Tries to find BXXX_MULTIBAND.fits
+            brick.catalog = Table(fits.open(search_fn2)[1].data)
+            brick.n_sources = len(brick.catalog)
+            brick.n_blobs = brick.catalog['blob_id'].max()
+            use_band_position=True
+        elif os.path.exists(search_fn3) & use_single_band_run:
+            brick.logger.info(f'Adopting catalog from {search_fn3}')  # Tries to find BXXX_BAND.fits
             brick.catalog = Table(fits.open(search_fn2)[1].data)
             brick.n_sources = len(brick.catalog)
             brick.n_blobs = brick.catalog['blob_id'].max()
@@ -1693,7 +1700,7 @@ def models_from_catalog(catalog, fblob):
         qflux = np.zeros(len(fblob.bands))
         src_seg = fblob.segmap==src['source_id']
         for j, (img, band) in enumerate(zip(fblob.images, fblob.bands)):
-            max_img = np.nanmax(img * src_seg)
+            max_img = np.nanmax(img * src_seg)                                              # TODO THESE ARENT ALWAYS THE SAME SHAPE!
             max_psf = np.nanmax(fblob.psfimg[band])
             qflux[j] = max_img / max_psf
         flux = Fluxes(**dict(zip(fblob.bands, qflux)))

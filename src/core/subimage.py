@@ -353,7 +353,7 @@ class Subimage():
                 filter_type=conf.FILTER_TYPE, segmentation_map=True, 
                 deblend_nthresh=conf.DEBLEND_NTHRESH, deblend_cont=conf.DEBLEND_CONT)
         catalog, segmap = sep.extract(image, thresh, **kwargs)
-        catalog['y'] -= 0.75 # HACK
+        # catalog['y'] -= 0.75 # HACK
         # catalog['x'] -= 1. #HACK
 
         
@@ -363,7 +363,10 @@ class Subimage():
             catalog.add_column(Column(catalog['y'], name='y_orig' ))
             
             if self.wcs is not None:
-                skyc = self.wcs.all_pix2world(catalog['x_orig'], catalog['y_orig'], 0)
+                wx = catalog['x_orig'] + self.mosaic_origin[1] - conf.BRICK_BUFFER
+                wy = catalog['y_orig'] + self.mosaic_origin[0] - conf.BRICK_BUFFER
+                wwx, wwy = wx - self.mosaic_origin[0] + conf.BRICK_BUFFER, wy - self.mosaic_origin[1] + conf.BRICK_BUFFER
+                skyc = self.wcs.all_pix2world(wwx, wwy, 0)
                 catalog.add_column(Column(skyc[0], name=f'RA_{conf.DETECTION_NICKNAME}'))
                 catalog.add_column(Column(skyc[1], name=f'DEC_{conf.DETECTION_NICKNAME}'))
 
