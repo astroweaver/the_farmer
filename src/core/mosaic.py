@@ -48,17 +48,29 @@ class Mosaic(Subimage):
         if detection:
             self.path_image = os.path.join(conf.IMAGE_DIR, conf.DETECTION_FILENAME.replace('EXT', conf.IMAGE_EXT))
             self.path_weight = os.path.join(conf.IMAGE_DIR, conf.DETECTION_FILENAME.replace('EXT', conf.WEIGHT_EXT))
-            self.path_mask = os.path.join(conf.IMAGE_DIR, conf.DETECTION_FILENAME.replace('EXT', conf.MASK_EXT))
+            if conf.MASTER_MASK is not None:
+                fname_mask = conf.MASTER_MASK
+            else:
+                fname_mask = conf.DETECTION_FILENAME.replace('EXT', conf.MASK_EXT)
+            self.path_mask = os.path.join(conf.IMAGE_DIR, fname_mask)
                 
         elif modeling & (band is conf.MODELING_NICKNAME):
             self.path_image = os.path.join(conf.IMAGE_DIR, conf.MODELING_FILENAME.replace('EXT', conf.IMAGE_EXT))
             self.path_weight = os.path.join(conf.IMAGE_DIR, conf.MODELING_FILENAME.replace('EXT', conf.WEIGHT_EXT))
-            self.path_mask = os.path.join(conf.IMAGE_DIR, conf.MODELING_FILENAME.replace('EXT', conf.MASK_EXT))
+            if conf.MASTER_MASK is not None:
+                fname_mask = conf.MASTER_MASK
+            else:
+                fname_mask = conf.MODELING_FILENAME.replace('EXT', conf.MASK_EXT)
+            self.path_mask = os.path.join(conf.IMAGE_DIR, fname_mask)
         else:
             raw_band = np.array(conf.RAWBANDS)[np.array(conf.BANDS) == band][0] # this should be OK -- bands and rawbands are matched!
             self.path_image = os.path.join(conf.IMAGE_DIR, conf.MULTIBAND_FILENAME.replace('EXT', conf.IMAGE_EXT).replace('BAND', raw_band))
             self.path_weight = os.path.join(conf.IMAGE_DIR, conf.MULTIBAND_FILENAME.replace('EXT', conf.WEIGHT_EXT).replace('BAND', raw_band))
-            self.path_mask = os.path.join(conf.IMAGE_DIR, conf.MULTIBAND_FILENAME.replace('EXT', conf.MASK_EXT).replace('BAND', raw_band))
+            if conf.MASTER_MASK is not None:
+                fname_mask = conf.MASTER_MASK
+            else:
+                fname_mask = conf.MULTIBAND_FILENAME.replace('EXT', conf.MASK_EXT).replace('BAND', raw_band)
+            self.path_mask = os.path.join(conf.IMAGE_DIR, fname_mask)
 
         if skip_build:
             self.logger.warning('Skipping mosaic build!')

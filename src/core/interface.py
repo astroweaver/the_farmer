@@ -1147,7 +1147,7 @@ def force_photometry(brick_id, band=None, source_id=None, blob_id=None, insert=T
         else:
             sys.exit('ERROR -- Input band is not a list, array, or string!')
 
-    if unfix_bandwise_positions | len(fband) == 1:
+    if not unfix_bandwise_positions | len(fband) == 1:
         force_models(brick_id=brick_id, band=band, source_id=source_id, blob_id=blob_id, insert=insert, source_only=source_only)
     else:
         if not conf.FREEZE_FORCED_POSITION:
@@ -1333,7 +1333,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
         output_cat = vstack(output_rows)  # HACK -- at some point this should just UPDATE the bcatalog with the new photoms. IF the user sets NBLOBS > 0, the catalog is truncated!
 
     
-        if insert & conf.OVERWRITE & (conf.NBLOBS==0):
+        if insert & conf.OVERWRITE & (conf.NBLOBS==0) & (not force_unfixed_pos):
             # open old cat
             path_mastercat = os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat')
             if os.path.exists(path_mastercat):
@@ -1363,7 +1363,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
 
                 outcatalog = mastercat
 
-        if not insert & force_unfixed_pos:
+        elif not insert & force_unfixed_pos:
             # make a new MULITBAND catalog or add to it!
             path_mastercat = os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{conf.MULTIBAND_NICKNAME}.cat')
             if os.path.exists(path_mastercat):
