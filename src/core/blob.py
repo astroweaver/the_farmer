@@ -731,7 +731,7 @@ class Blob(Subimage):
                 self.logger.debug(f'Source #{src["source_id"]} ({band}) with {self.model_catalog[i].name} has rchisq={self.solution_chisq[i, j]:3.3f} | bic={self.solution_bic[i, j]:3.3f}')
 
                 # signal-to-noise
-                self.noise[i, j] = np.sum(self.background_rms_images[j][self.segmap == src['source_id']])
+                self.noise[i, j] = np.median(self.background_rms_images[j][self.segmap == src['source_id']])
 
                 sid = src['source_id']
                 mod = self.solution_model_images[j]
@@ -860,7 +860,7 @@ class Blob(Subimage):
                 # self.logger.info(f'    BIC({self.bands[j]}):   {self.solution_bic[i, j]:3.3f}')
 
                 # signal-to-noise
-                self.noise[i, j] = np.sum(self.background_rms_images[j][self.segmap == src['source_id']])
+                self.noise[i, j] = np.median(self.background_rms_images[j][self.segmap == src['source_id']])
 
                 sid = src['source_id']
                 mod = self.solution_model_images[j]

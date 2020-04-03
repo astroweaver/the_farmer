@@ -68,6 +68,7 @@ def create_circular_mask(h, w, center=None, radius=None):
     mask = np.zeros((h, w), dtype=int)
     mask[dist_from_center <= radius] = 1
     return mask
+    
 class SimpleGalaxy(ExpGalaxy):
     '''This defines the 'SIMP' galaxy profile -- an exponential profile
     with a fixed shape of a 0.45 arcsec effective radius and spherical

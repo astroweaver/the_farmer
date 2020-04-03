@@ -1147,7 +1147,7 @@ def force_photometry(brick_id, band=None, source_id=None, blob_id=None, insert=T
         else:
             sys.exit('ERROR -- Input band is not a list, array, or string!')
 
-    if not unfix_bandwise_positions | len(fband) == 1:
+    if (not unfix_bandwise_positions) | (len(fband) == 1):
         force_models(brick_id=brick_id, band=band, source_id=source_id, blob_id=blob_id, insert=insert, source_only=source_only)
     else:
         if not conf.FREEZE_FORCED_POSITION:
@@ -1206,10 +1206,10 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
 
     if conf.PLOT > 2:
         for plt_band in fband:
-            if len(fband) == 1:
+            if (len(fband) == 1) | force_unfixed_pos:
                 idx = 0
             else:
-                idx = np.argwhere(np.array(conf.BANDS)==plt_band)[0][0]
+                idx = np.argwhere(np.array(fband)==plt_band)[0][0]
             plot_brick(fbrick, idx, band=plt_band)
             plot_background(fbrick, idx, band=plt_band)
             plot_mask(fbrick, idx, band=plt_band)
