@@ -1389,6 +1389,7 @@ class Blob(Subimage):
             self.bcatalog[row]['CHI_MU_'+band] = self.chi_mu[row, i]
             self.bcatalog[row]['CHI_SIG_'+band] = self.chi_sig[row, i]
             self.bcatalog[row]['CHI_K2_'+band] = self.k2[row, i]
+            # self.bcatalog[row]['VALID_SOURCE_'+band] = valid_source
 
             if multiband_only:
                 self.bcatalog[row][f'X_MODEL_{band}'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER
@@ -1410,6 +1411,7 @@ class Blob(Subimage):
             self.logger.info(f'    Res. Chi({band}):     {self.chi_mu[row,i]:3.3f}+/-{self.chi_sig[row,i]:3.3f}')
             self.logger.info(f'    DAgostino K2({band}): {self.k2[row,i]:3.3f}')
             self.logger.info(f'    Zpt({band}):          {zpt:3.3f} AB')
+            
 
             
             

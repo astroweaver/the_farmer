@@ -1157,6 +1157,9 @@ def force_photometry(brick_id, band=None, source_id=None, blob_id=None, insert=T
         for b in fband:
             force_models(brick_id=brick_id, band=b, source_id=source_id, blob_id=blob_id, insert=insert, source_only=source_only, force_unfixed_pos=True)
 
+            # TODO -- compare valid source_band and add to catalog!
+
+
 def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True, source_only=False, force_unfixed_pos=False):
     """ Stage 3. Force the models on the other images and solve only for flux. """
 
@@ -1372,17 +1375,26 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                 # find new columns
                 newcols = np.in1d(output_cat.colnames, mastercat.colnames, invert=True)
                 # add new columns, filled.
+                newcolnames = []
                 for colname in np.array(output_cat.colnames)[newcols]:
                     if colname not in mastercat.colnames:
-                        mastercat.add_column(Column(data=output_cat[colname], name=colname))
+                        if colname.startswith('FLUX_APER') | colname.startswith('MAG_APER'):
+                            mastercat.add_column(Column(length=len(mastercat), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
+                        else:
+                            mastercat.add_column(Column(length=len(mastercat), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
+                        newcolnames.append(colname)
                 #         if colname.startswith('FLUX_APER') | colname.startswith('MAG_APER'):
                 #             mastercat.add_column(Column(length=len(mastercat), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
                 #         else:
                 #             mastercat.add_column(Column(length=len(mastercat), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
                 # [print(j) for j in mastercat.colnames]
                 # [print(j) for j in output_cat.colnames]
-                # for row in output_cat:
-                #     mastercat[np.where(mastercat['source_id'] == row['source_id'])[0]] = row
+                for row in output_cat:
+                    # print(mastercat[np.where(mastercat['source_id'] == row['source_id'])[0]][newcolnames])
+                    # print(newcolnames)
+                    # print(row[newcolnames])
+                    # print(np.where(mastercat['source_id'] == row['source_id'])[0])
+                    mastercat[newcolnames][np.where(mastercat['source_id'] == row['source_id'])[0]] = row[newcolnames]
 
                 hdr = header_from_dict(conf.__dict__)
                 hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
