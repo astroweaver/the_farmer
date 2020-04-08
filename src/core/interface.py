@@ -1366,7 +1366,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
 
                 outcatalog = mastercat
 
-        elif not insert & force_unfixed_pos:
+        elif (not insert) & force_unfixed_pos:
             # make a new MULITBAND catalog or add to it!
             path_mastercat = os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{conf.MULTIBAND_NICKNAME}.cat')
             if os.path.exists(path_mastercat):
@@ -1389,19 +1389,24 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                 #             mastercat.add_column(Column(length=len(mastercat), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
                 # [print(j) for j in mastercat.colnames]
                 # [print(j) for j in output_cat.colnames]
+                count = 0
                 for row in output_cat:
                     # print(mastercat[np.where(mastercat['source_id'] == row['source_id'])[0]][newcolnames])
                     # print(newcolnames)
                     # print(row[newcolnames])
                     # print(np.where(mastercat['source_id'] == row['source_id'])[0])
-                    mastercat[newcolnames][np.where(mastercat['source_id'] == row['source_id'])[0]] = row[newcolnames]
+                    idx = np.where(mastercat['source_id'] == row['source_id'])[0]
+                    if len(idx) == 0:
+                        raise RuntimeError('HELP!')
+                    mastercat[newcolnames][idx] = row[newcolnames]
+                    count+=1
 
                 hdr = header_from_dict(conf.__dict__)
                 hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
                 hdu_table = fits.table_to_hdu(mastercat)
                 hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
                 hdul.writeto(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{conf.MULTIBAND_NICKNAME}.cat'), overwrite=conf.OVERWRITE)
-                logger.info(f'Saving results for brick #{fbrick.brick_id} to existing catalog file.')
+                logger.info(f'Saving {count} sources for brick #{fbrick.brick_id} to existing catalog file.')
 
             else:
                 mastercat = output_cat
@@ -1575,7 +1580,6 @@ def make_residual_image(brick_id, band, catalog=None, use_single_band_run=False,
     brick.make_residual_image(brick.catalog, use_band_position=use_band_position, modeling=modeling)
 
 
-
 def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, modeling=False):
     """ Essentially a private function. Pre-processes brick files and relevant catalogs """
 
@@ -1623,17 +1627,20 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, modeling=False):
             continue
 
         if band in conf.PRFMAP_PSF:
-            # read in prfmap table
-            prftab = ascii.read(conf.PRFMAP_GRID_FILENAME)
-            prftab_ra = prftab[conf.PRFMAP_COLUMNS[1]]
-            prftab_dec = prftab[conf.PRFMAP_COLUMNS[2]]
-            prfcoords = SkyCoord(ra=prftab_ra*u.degree, dec=prftab_dec*u.degree)
-            prfidx = prftab[conf.PRFMAP_COLUMNS[0]]
-            psfmodels[i] = (prfcoords, prfidx)
-            logger.info(f'Adopted PRFMap PSF.')
-            continue
+            if band in conf.PRFMAP_GRID_FILENAME.keys():
+                # read in prfmap table
+                prftab = ascii.read(conf.PRFMAP_GRID_FILENAME[band])
+                prftab_ra = prftab[conf.PRFMAP_COLUMNS[1]]
+                prftab_dec = prftab[conf.PRFMAP_COLUMNS[2]]
+                prfcoords = SkyCoord(ra=prftab_ra*u.degree, dec=prftab_dec*u.degree)
+                prfidx = prftab[conf.PRFMAP_COLUMNS[0]]
+                psfmodels[i] = (prfcoords, prfidx)
+                logger.info(f'Adopted PRFMap PSF.')
+                continue    
+            else:
+                raise RuntimeError(f'{band} is in PRFMAP_PS but does NOT have a PRFMAP grid filename!')
 
-        path_psffile = os.path.join(conf.PSF_DIR, f'{band}.psf')
+        path_psffile = os.path.join(conf.PSF_DIR, f'{band}.psf')    
         if os.path.exists(path_psffile) & (not conf.FORCE_GAUSSIAN_PSF):
             try:
                 psfmodels[i] = PixelizedPsfEx(fn=path_psffile)
