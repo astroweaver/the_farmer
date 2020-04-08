@@ -1702,29 +1702,33 @@ def models_from_catalog(catalog, fblob):
        
         idx_bands = [fblob._band2idx(b) for b in fblob.bands]
         target_zpt = np.array(conf.MULTIBAND_ZPT)[idx_bands]
+        
+
         try:
-            original_zpt = conf.MODELING_ZPT
-            logger.info(f'Converting fluxes from zerpoint {original_zpt} to {target_zpt}')
-            flux_conv = src[f'RAWFLUX_{best_band}'] * 10 ** (0.4 * (target_zpt - original_zpt))
+            # Make initial guess at flux using PSF!
+            qflux = np.zeros(len(fblob.bands))
+            src_seg = fblob.segmap==src['source_id']
+            for j, (img, band) in enumerate(zip(fblob.images, fblob.bands)):
+                max_img = np.nanmax(img * src_seg)                                              # TODO THESE ARENT ALWAYS THE SAME SHAPE!
+                max_psf = np.nanmax(fblob.psfimg[band])
+                qflux[j] = max_img / max_psf
+            flux = Fluxes(**dict(zip(fblob.bands, qflux)))
+
         except:
-            # IF I TRIED MULTIBAND MODELING, THEN I STILL NEED AN INITIAL FLUX. START WITH 0 idx!
-            init_band = f'{conf.MODELING_NICKNAME}_{conf.INIT_FLUX_BAND}'
-            if conf.INIT_FLUX_BAND is None:
-                conf.INIT_FLUX_BAND = fblob.bands[0]
-            logger.warning(f'Coming from multiband model, so using flux from {init_band}')
-            original_zpt = fblob._band2idx(conf.INIT_FLUX_BAND)
-            flux_conv = src[f'RAWFLUX_{init_band}'] * 10 ** (0.4 * (target_zpt - original_zpt))
-
-        # Make initial guess at flux using PSF!
-        qflux = np.zeros(len(fblob.bands))
-        src_seg = fblob.segmap==src['source_id']
-        for j, (img, band) in enumerate(zip(fblob.images, fblob.bands)):
-            max_img = np.nanmax(img * src_seg)                                              # TODO THESE ARENT ALWAYS THE SAME SHAPE!
-            max_psf = np.nanmax(fblob.psfimg[band])
-            qflux[j] = max_img / max_psf
-        flux = Fluxes(**dict(zip(fblob.bands, qflux)))
-
-        # flux = Fluxes(**dict(zip(band, flux_conv)))
+            try:
+                original_zpt = conf.MODELING_ZPT
+                logger.info(f'Converting fluxes from zerpoint {original_zpt} to {target_zpt}')
+                flux_conv = src[f'RAWFLUX_{best_band}'] * 10 ** (0.4 * (target_zpt - original_zpt))
+            except:
+                # IF I TRIED MULTIBAND MODELING, THEN I STILL NEED AN INITIAL FLUX. START WITH 0 idx!
+                init_band = f'{conf.MODELING_NICKNAME}_{conf.INIT_FLUX_BAND}'
+                if conf.INIT_FLUX_BAND is None:
+                    conf.INIT_FLUX_BAND = fblob.bands[0]
+                logger.warning(f'Coming from multiband model, so using flux from {init_band}')
+                original_zpt = fblob._band2idx(conf.INIT_FLUX_BAND)
+                flux_conv = src[f'RAWFLUX_{init_band}'] * 10 ** (0.4 * (target_zpt - original_zpt))
+                
+            flux = Fluxes(**dict(zip(band, flux_conv)))
 
         # Check if valid source
         if not src[f'VALID_SOURCE_{best_band}']:
