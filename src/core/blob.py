@@ -741,7 +741,11 @@ class Blob(Subimage):
                 if np.sum(res_seg) < 8:
                     self.k2[i,j] = -99
                 else:
-                    self.k2[i,j], __ = stats.normaltest(res_seg)
+                    try:
+                        self.k2[i,j], __ = stats.normaltest(res_seg)
+                    except:
+                        self.k2[i,j] = -99
+                        self.logger.warning('Normality test FAILED. Setting to -99')
                 chi_seg = chi[self.segmap==sid].flatten()
                 self.chi_sig[i,j] = np.std(chi_seg)
                 self.chi_mu[i,j] = np.mean(chi_seg)
