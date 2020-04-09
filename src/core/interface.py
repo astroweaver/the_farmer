@@ -1247,9 +1247,9 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
             blob_id = blob_id[0]
         fblob = fbrick.make_blob(blob_id)
         if source_only & (source_id not in fbrick.catalog['source_id']):
-            print('Requested source is not in blob!')
+            logger.warning('Requested source is not in blob!')
             for source in fbrick.catalog:
-                print(source['source_id'], source['cflux'])
+                logger.debug(source['source_id'], source['cflux'])
             raise ValueError('Requested source is not in blob!')
         output_rows = runblob(blob_id, fblob, modeling=False, catalog=fbrick.catalog, plotting=conf.PLOT, source_id=source_id)
 
@@ -1374,39 +1374,65 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
 
                 # find new columns
                 newcols = np.in1d(output_cat.colnames, mastercat.colnames, invert=True)
-                # add new columns, filled.
-                newcolnames = []
-                for colname in np.array(output_cat.colnames)[newcols]:
-                    if colname not in mastercat.colnames:
-                        if colname.startswith('FLUX_APER') | colname.startswith('MAG_APER'):
-                            mastercat.add_column(Column(length=len(mastercat), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
-                        else:
-                            mastercat.add_column(Column(length=len(mastercat), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
-                        newcolnames.append(colname)
-                #         if colname.startswith('FLUX_APER') | colname.startswith('MAG_APER'):
-                #             mastercat.add_column(Column(length=len(mastercat), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
-                #         else:
-                #             mastercat.add_column(Column(length=len(mastercat), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
-                # [print(j) for j in mastercat.colnames]
-                # [print(j) for j in output_cat.colnames]
-                count = 0
-                for row in output_cat:
-                    # print(mastercat[np.where(mastercat['source_id'] == row['source_id'])[0]][newcolnames])
-                    # print(newcolnames)
-                    # print(row[newcolnames])
-                    # print(np.where(mastercat['source_id'] == row['source_id'])[0])
-                    idx = np.where(mastercat['source_id'] == row['source_id'])[0]
-                    if len(idx) == 0:
-                        raise RuntimeError('HELP!')
-                    mastercat[newcolnames][idx] = row[newcolnames]
-                    count+=1
 
-                hdr = header_from_dict(conf.__dict__)
-                hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
-                hdu_table = fits.table_to_hdu(mastercat)
-                hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
-                hdul.writeto(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{conf.MULTIBAND_NICKNAME}.cat'), overwrite=conf.OVERWRITE)
-                logger.info(f'Saving {count} sources for brick #{fbrick.brick_id} to existing catalog file.')
+                if np.sum(~newcols) == 0:
+                    logger.warning('Columns exist in catalog -- defaulting to separate file output!')
+                    hdr = header_from_dict(conf.__dict__)
+                    hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
+                    hdu_table = fits.table_to_hdu(mastercat)
+                    hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
+                    hdul.writeto(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{conf.MULTIBAND_NICKNAME}.cat'), overwrite=conf.OVERWRITE)
+                    logger.info(f'Saving results for brick #{fbrick.brick_id} to new catalog file.')
+
+                else:
+
+                    join_cat = output_cat[list(np.array(output_cat.colnames)[newcols])] 
+                    join_cat.add_column(output_cat['source_id'])
+                    mastercat = join(mastercat, join_cat, keys='source_id', join_type='left')
+
+
+                    # # add new columns, filled.
+                    # newcolnames = []
+                    # for colname in np.array(output_cat.colnames)[newcols]:
+                    #     if colname not in mastercat.colnames:
+                    #         if colname.startswith('FLUX_APER') | colname.startswith('MAG_APER'):
+                    #             mastercat.add_column(Column(length=len(mastercat), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
+                    #         else:
+                    #             mastercat.add_column(Column(length=len(mastercat), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
+                    #         newcolnames.append(colname)
+                    # #         if colname.startswith('FLUX_APER') | colname.startswith('MAG_APER'):
+                    # #             mastercat.add_column(Column(length=len(mastercat), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
+                    # #         else:
+                    # #             mastercat.add_column(Column(length=len(mastercat), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
+                    # # [print(j) for j in mastercat.colnames]
+                    # # [print(j) for j in output_cat.colnames]
+
+
+                    # # count = 0
+                    # # for row in output_cat:
+                    # #     idx = np.where(mastercat['source_id'] == row['source_id'])[0]
+                    # for colname in newcolnames:
+                    #     mastercat[colname][idx] = output_cat[colname]
+
+                    #     # print(mastercat[np.where(mastercat['source_id'] == row['source_id'])[0]][newcolnames])
+                    #     # print(newcolnames)
+                    #     # print(row[newcolnames])
+                    #     # print(np.where(mastercat['source_id'] == row['source_id'])[0])
+                        
+
+                    #     mastercat[newcolnames][idx] = row[newcolnames]
+
+                    #     count+=1
+
+                    hdr = header_from_dict(conf.__dict__)
+                    hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
+                    hdu_table = fits.table_to_hdu(mastercat)
+                    hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
+                    hdul.writeto(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{conf.MULTIBAND_NICKNAME}.cat'), overwrite=conf.OVERWRITE)
+                    logger.info(f'Saving results for brick #{fbrick.brick_id} to existing catalog file.')
+
+
+
 
             else:
                 mastercat = output_cat
@@ -1462,6 +1488,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
         
 
     return 
+
 
 def make_model_image(brick_id, band, catalog=None, use_single_band_run=False, modeling=False):
     # USE BAND w/ MODELING NICKNAME FOR MODELING RESULTS!
