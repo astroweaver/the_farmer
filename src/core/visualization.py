@@ -189,7 +189,11 @@ def plot_blob(myblob, myfblob):
         
     #fig.suptitle(f'Solution for {blob_id}')
     fig.subplots_adjust(wspace=0.01, hspace=0, right=0.8)
-    fig.savefig(os.path.join(conf.PLOT_DIR, f'{myblob.brick_id}_{myblob.blob_id}.pdf'))
+    if myblob._is_itemblob:
+        sid = myblob.bcatalog['source_id'][0]
+        fig.savefig(os.path.join(conf.PLOT_DIR, f'{myblob.brick_id}_B{myblob.blob_id}_S{sid}.pdf'))
+    else:
+        fig.savefig(os.path.join(conf.PLOT_DIR, f'{myblob.brick_id}_B{myblob.blob_id}.pdf'))
     plt.close()
 
 def plot_srcprofile(blob, src, sid, bands=None):
@@ -199,7 +203,7 @@ def plot_srcprofile(blob, src, sid, bands=None):
         nickname = conf.MODELING_NICKNAME
         bidx = [0,]
         bands = [band,]
-        outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{sid}_{conf.MODELING_NICKNAME}_srcprofile.pdf')
+        outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_S{sid}_{conf.MODELING_NICKNAME}_srcprofile.pdf')
     else:
         bidx = [blob._band2idx(b, bands=blob.bands) for b in bands]
         if bands[0].startswith(conf.MODELING_NICKNAME):
@@ -207,9 +211,11 @@ def plot_srcprofile(blob, src, sid, bands=None):
         else:
             nickname = conf.MULTIBAND_NICKNAME
         if len(bands) > 1:
-            outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{sid}_{nickname}_srcprofile.pdf')
+            outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_S{sid}_{nickname}_srcprofile.pdf')
         else:
-            outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{sid}_{bands[0]}_srcprofile.pdf')
+            outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_S{sid}_{bands[0]}_srcprofile.pdf')
+        
+
 
     import matplotlib.backends.backend_pdf
     
@@ -449,22 +455,43 @@ def plot_apertures(blob, band=None):
     pass
 
 def plot_iterblob(blob, tr, iteration, bands=None):
-    if bands is None:
-        band = conf.MODELING_NICKNAME
-        nickname = conf.MODELING_NICKNAME
-        bidx = [0,]
-        bands = [band,]
-        outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{conf.MODELING_NICKNAME}_{blob._level}_{blob._sublevel}_{iteration}_iterblob.pdf')
-    else:
-        bidx = [blob._band2idx(b, bands=blob.bands) for b in bands]
-        if bands[0].startswith(conf.MODELING_NICKNAME):
+
+    if blob._is_itemblob:
+        sid = blob.bcatalog['source_id'][0]
+        if bands is None:
+            band = conf.MODELING_NICKNAME
             nickname = conf.MODELING_NICKNAME
+            bidx = [0,]
+            bands = [band,]
+            outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_S{sid}_{conf.MODELING_NICKNAME}_{blob._level}_{blob._sublevel}_{iteration}_iterblob.pdf')
         else:
-            nickname = conf.MULTIBAND_NICKNAME
-        if len(bands) > 1:
-            outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{nickname}_{blob._level}_{blob._sublevel}_{iteration}_iterblob.pdf')
+            bidx = [blob._band2idx(b, bands=blob.bands) for b in bands]
+            if bands[0].startswith(conf.MODELING_NICKNAME):
+                nickname = conf.MODELING_NICKNAME
+            else:
+                nickname = conf.MULTIBAND_NICKNAME
+            if len(bands) > 1:
+                outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_S{sid}_{nickname}_{blob._level}_{blob._sublevel}_{iteration}_iterblob.pdf')
+            else:
+                outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_S{sid}_{bands[0]}_{blob._level}_{blob._sublevel}_{iteration}_iterblob.pdf')
+
+    else:
+        if bands is None:
+            band = conf.MODELING_NICKNAME
+            nickname = conf.MODELING_NICKNAME
+            bidx = [0,]
+            bands = [band,]
+            outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{conf.MODELING_NICKNAME}_{blob._level}_{blob._sublevel}_{iteration}_iterblob.pdf')
         else:
-            outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{bands[0]}_{blob._level}_{blob._sublevel}_{iteration}_iterblob.pdf')
+            bidx = [blob._band2idx(b, bands=blob.bands) for b in bands]
+            if bands[0].startswith(conf.MODELING_NICKNAME):
+                nickname = conf.MODELING_NICKNAME
+            else:
+                nickname = conf.MULTIBAND_NICKNAME
+            if len(bands) > 1:
+                outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{nickname}_{blob._level}_{blob._sublevel}_{iteration}_iterblob.pdf')
+            else:
+                outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{bands[0]}_{blob._level}_{blob._sublevel}_{iteration}_iterblob.pdf')
 
     import matplotlib.backends.backend_pdf
     
@@ -598,7 +625,11 @@ def plot_modprofile(blob, band=None):
         ax[0, i].set(xlim=(0.15*xlim[0], 0.15*xlim[1]), ylim=(np.nanmedian(blob.images[idx]), blob.images[idx].max()))
         # ax[1, i].set(xlim=(-15, 15), ylim=(-15, 15))
     ax[0, 3].set(xlim=(0.15*xlim[0], 0.15*xlim[1]))
-    outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{band}_debugprofile.pdf')
+    if blob._is_itemblob:
+            sid = blob.bcatalog['source_id'][0]
+            outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_S{sid}_{band}_debugprofile.pdf')
+    else:
+        outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{band}_debugprofile.pdf')
     logger.info(f'Saving figure: {outpath}') 
     fig.savefig(outpath)
     plt.close()
@@ -707,22 +738,36 @@ def plot_detblob(blob, fig=None, ax=None, band=None, level=0, sublevel=0, final_
         ax[0,0].imshow(blob.images[idx], **img_opt)
         [ax[0,i].axis('off') for i in np.arange(1, 6)]
 
-        for j, src in enumerate(blob.bcatalog):
-            objects = blob.bcatalog[j]
+        if blob.n_sources == 1:
+            objects = blob.bcatalog
             e = Ellipse(xy=(objects['x'], objects['y']),
                         width=6*objects['a'],
                         height=6*objects['b'],
                         angle=objects['theta'] * 180. / np.pi)
             e.set_facecolor('none')
-            e.set_edgecolor(colors[j])
+            e.set_edgecolor(colors[0])
             ax[0, 0].add_artist(e)
+        else:
+            for j, src in enumerate(blob.bcatalog):
+                objects = blob.bcatalog[j]
+                e = Ellipse(xy=(objects['x'], objects['y']),
+                            width=6*objects['a'],
+                            height=6*objects['b'],
+                            angle=objects['theta'] * 180. / np.pi)
+                e.set_facecolor('none')
+                e.set_edgecolor(colors[j])
+                ax[0, 0].add_artist(e)
 
         ax[0,1].text(0.1, 0.9, f'Blob #{blob.blob_id}', transform=ax[0,1].transAxes)
         ax[0,1].text(0.1, 0.8, f'{blob.n_sources} source(s)', transform=ax[0,1].transAxes)
 
         [ax[1,i+1].set_title(title, fontsize=20) for i, title in enumerate(('Model', 'Model+Noise', 'Image-Model', '$\chi^{2}$', 'Residuals'))]
 
-        outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{conf.MODELING_NICKNAME}_{band}.pdf')
+        if blob._is_itemblob:
+            sid = blob.bcatalog['source_id'][0]
+            outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_S{sid}_{conf.MODELING_NICKNAME}_{band}.pdf')
+        else:
+            outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{conf.MODELING_NICKNAME}_{band}.pdf')
         fig.savefig(outpath)
         logger.info(f'Saving figure: {outpath}')
 
@@ -782,7 +827,11 @@ def plot_detblob(blob, fig=None, ax=None, band=None, level=0, sublevel=0, final_
 
 
         #fig.subplots_adjust(wspace=0, hspace=0)
-        outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{conf.MODELING_NICKNAME}_{band}.pdf')
+        if blob._is_itemblob:
+            sid = blob.bcatalog['source_id'][0]
+            outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_S{sid}_{conf.MODELING_NICKNAME}_{band}.pdf')
+        else:
+            outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{conf.MODELING_NICKNAME}_{band}.pdf')
         fig.savefig(outpath)
         plt.close()
         logger.info(f'Saving figure: {outpath}')
@@ -838,7 +887,11 @@ def plot_detblob(blob, fig=None, ax=None, band=None, level=0, sublevel=0, final_
                 ax[nrow,1].plot([x, x], [y - 10, y - 5], c=color)
                 ax[nrow,1].plot([x - 10, x - 5], [y, y], c=color)
 
-        outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{conf.MODELING_NICKNAME}_{band}.pdf')
+        if blob._is_itemblob:
+            sid = blob.bcatalog['source_id'][0]
+            outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_S{sid}_{conf.MODELING_NICKNAME}_{band}.pdf')
+        else:
+            outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_{conf.MODELING_NICKNAME}_{band}.pdf')
         fig.savefig(outpath)
         logger.info(f'Saving figure: {outpath}')
 

@@ -84,7 +84,7 @@ class Blob(Subimage):
         h = yhi - ylo
 
         
-
+        self._is_itemblob = False
 
         # Make cutout
         blob_comps = brick._get_subimage(xlo, ylo, w, h, buffer=conf.BLOB_BUFFER)

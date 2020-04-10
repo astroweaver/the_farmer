@@ -401,27 +401,105 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
             return catout
 
         # Run models
-        astart = time.time()
-        logger.debug(f'Staging images for {conf.MODELING_NICKNAME}')
-        modblob.stage_images()
-        logger.debug(f'Images staged. ({time.time() - astart:3.3f})s')
+        if modblob.n_sources >= conf.ITERATIVE_SUBTRACTION_THRESH:
+            logger.debug(f'Performing iterative subtraction for {conf.MODELING_NICKNAME}')
+            astart = time.time()
 
-        astart = time.time()
-        logger.debug(f'Modeling images for {conf.MODELING_NICKNAME}')
-        status = modblob.tractor_phot()
+            for i, band in enumerate(modblob.bands):
+                band_name = band[len(conf.MODELING_NICKNAME)+1:]
+                zpt = conf.MULTIBAND_ZPT[modblob._band2idx(band_name)]
 
-        if not status:
-            logger.warning(f'Morphology failed! ({time.time() - astart:3.3f})s')
+            # sorting order
+            avg_flux = np.zeros(modblob.n_sources)
+            for i, item in enumerate(modblob.bcatalog):
+                rawfluxes = np.array([np.sum(img[modblob.segmap == item['source_id']]) for img in modblob.images])
+                fluxes = rawfluxes * 10**(-0.4 * (zpt - 23.9))
+                avg_flux[i] = np.mean(fluxes, 0)
 
-            # if conf.NTHREADS != 0:
-            #     logger.removeHandler(fh)
-            catout = modblob.bcatalog.copy()
-            catout['x'] += modblob.subvector[1]
-            catout['y'] += modblob.subvector[0]
-            del modblob
-            return catout
+            index = np.argsort(avg_flux)[::-1] # sort by brightness
 
-        logger.debug(f'Morphology determined. ({time.time() - astart:3.3f})s')
+            copy_images = modblob.images.copy()
+            import copy
+
+            modblob.solution_model_images = np.zeros_like(modblob.images)
+
+        
+            for i, idx in enumerate(index):
+                logger.debug(f" ({i+1}/{modblob.n_sources}) Attemping to model source #{item['source_id']}")
+                itemblob = copy.deepcopy(modblob)
+                itemblob.bcatalog = Table(modblob.bcatalog[idx])
+                itemblob.n_sources = 1
+                itemblob.mids = np.ones(itemblob.n_sources, dtype=int)
+                itemblob.model_catalog = np.zeros(itemblob.n_sources, dtype=object)
+                itemblob.solution_catalog = np.zeros(itemblob.n_sources, dtype=object)
+                itemblob.solved_chisq = np.zeros(itemblob.n_sources)
+                itemblob.solved_bic = np.zeros(itemblob.n_sources)
+                itemblob.solution_chisq = np.zeros(itemblob.n_sources)
+                itemblob.tr_catalogs = np.zeros((itemblob.n_sources, 3, 2), dtype=object)
+                itemblob.chisq = np.zeros((itemblob.n_sources, 3, 2))
+                itemblob.rchisq = np.zeros((itemblob.n_sources, 3, 2))
+                itemblob.bic = np.zeros((itemblob.n_sources, 3, 2))
+
+                itemblob.images = copy_images
+
+                itemblob._is_itemblob = True
+
+                
+            
+                logger.debug(f'Staging images for {conf.MODELING_NICKNAME} -- blob #{modblob.blob_id}')
+                itemblob.stage_images()
+                logger.debug(f'Images staged. ({time.time() - astart:3.3f})s')
+
+                astart = time.time()
+                logger.debug(f'Modeling images for {conf.MODELING_NICKNAME} -- blob #{modblob.blob_id}')
+                status = itemblob.tractor_phot()
+
+                if status:
+
+                    logger.debug(f'Morphology determined. ({time.time() - astart:3.3f})s')
+
+                    logger.debug(f'Transferring results back to parent blob...')
+                    #transfer back
+                    modblob.bcatalog[idx] = itemblob.bcatalog[0]
+                    modblob.solution_model_images += itemblob.solution_model_images
+                    
+                    # subtract model from image
+                    copy_images -= itemblob.solution_model_images
+
+                else:
+                    logger.warning(f'Morphology failed! ({time.time() - astart:3.3f})s')
+
+                    # # if conf.NTHREADS != 0:
+                    # #     logger.removeHandler(fh)
+                    # catout = modblob.bcatalog.copy()
+                    # catout['x'] += modblob.subvector[1]
+                    # catout['y'] += modblob.subvector[0]
+                    # del modblob
+                    # return catout
+
+
+        else:
+            astart = time.time()
+            logger.debug(f'Staging images for {conf.MODELING_NICKNAME}')
+            modblob.stage_images()
+            logger.debug(f'Images staged. ({time.time() - astart:3.3f})s')
+
+            astart = time.time()
+            logger.debug(f'Modeling images for {conf.MODELING_NICKNAME}')
+            status = modblob.tractor_phot()
+
+            if not status:
+                logger.warning(f'Morphology failed! ({time.time() - astart:3.3f})s')
+
+                # if conf.NTHREADS != 0:
+                #     logger.removeHandler(fh)
+                catout = modblob.bcatalog.copy()
+                catout['x'] += modblob.subvector[1]
+                catout['y'] += modblob.subvector[0]
+                del modblob
+                return catout
+
+            logger.debug(f'Morphology determined. ({time.time() - astart:3.3f})s')
 
 
         # Run follow-up phot
@@ -444,6 +522,8 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
         catout = modblob.bcatalog.copy()
         del modblob
 
+
+    #################### FORCED PHOTOMETRY ################################
     if fblob is not None:
         # make new blob with band information
         logger.debug(f'Making blob with {conf.MULTIBAND_NICKNAME}')
