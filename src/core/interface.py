@@ -1725,6 +1725,9 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, modeling=False):
                 images[i] = hdul_brick[f"{tband}_IMAGE"].data
                 weights[i] = hdul_brick[f"{tband}_WEIGHT"].data
                 masks[i] = hdul_brick[f"{tband}_MASK"].data
+
+                if (images[i] == 0).all():
+                    raise RuntimeError('HACK: All-zero image found. Cannot perform modelling. Skipping brick!')
     else:
         raise ValueError(f'Brick file not found for {path_brickfile}')
 
