@@ -183,7 +183,8 @@ class Subimage():
     @masks.setter
     def masks(self, array):
         if array is None:
-            self._masks = np.zeros_like(self._images, dtype=bool)
+            # self._masks = np.zeros_like(self._images, dtype=bool)
+            self.masks = self.weights == 0
         else:
             try:
                 ndim = np.ndim(array)
@@ -192,10 +193,10 @@ class Subimage():
                 raise TypeError('Not a valid image array.')
 
             if ndim == 2:
-                self._masks = array[None, :, :]
+                self._masks = array[None, :, :] | (self.weights == 0)
 
             elif ndim == 3:
-                self._masks = array
+                self._masks = array | (self.weights == 0)
 
             else:
                 raise ValueError(f'Masks found with invalid dimensions (ndim = {ndim})')
