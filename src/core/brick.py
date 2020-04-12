@@ -64,7 +64,8 @@ class Brick(Subimage):
         self.images = images
         if use_rms_weights:
             self.logger.info('Converting the RMS image to use as a weight!')
-            self.weights = 1./(self.background_rms_images**2)
+            ok_weights = (self.background_rms_images > 0) & (self.weights > 0)
+            self.weights[ok_weights] = 1./(self.background_rms_images[ok_weights]**2)
         elif scale_weights:
             self.logger.info('Using the RMS image to scale the weight!')
             for i, (rms, wgt) in enumerate(zip(self.background_rms_images, weights)):
