@@ -303,6 +303,8 @@ class Brick(Subimage):
             timages = np.zeros(shape=len(self.bands[idx]), dtype=object)
 
             # Loop over bands:
+            prf_notfound = 0
+            nband_added = 0
             for j, band in enumerate(self.bands[idx]):
 
                 remove_background_psf = False
@@ -314,20 +316,30 @@ class Brick(Subimage):
                 # find nearest prf to blob center
                 prftab_coords, prftab_idx = self.psfmodels[j]
 
-                minsep_idx, minsep, __ = blob.blob_coords.match_to_catalog_sky(prftab_coords)
-                prf_idx = prftab_idx[minsep_idx]
-                self.logger.debug(f'Nearest PRF sample: {prf_idx} ({minsep[0].to(u.arcsec).value:2.2f}")')
+                if conf.USE_BLOB_IDGRID:
+                    prf_idx = bid
+                else:
+                    minsep_idx, minsep, __ = self.blob_coords.match_to_catalog_sky(prftab_coords)
+                    prf_idx = prftab_idx[minsep_idx]
+                    self.logger.debug(f'Nearest PRF sample: {prf_idx} ({minsep[0].to(u.arcsec).value:2.2f}")')
 
-                if minsep > conf.PRFMAP_MAXSEP*u.arcsec:
-                    self.logger.error(f'Separation ({minsep.to(u.arcsec)}) exceeds maximum {conf.PRFMAP_MAXSEP}!')
-                    return False
+                    if minsep > conf.PRFMAP_MAXSEP*u.arcsec:
+                        self.logger.error(f'Separation ({minsep.to(u.arcsec)}) exceeds maximum {conf.PRFMAP_MAXSEP}!')
+                        continue
+
 
                 # open id file
-                pad_prf_idx = ((5 - len(str(prf_idx))) * "0") + str(prf_idx)
+                pad_prf_idx = ((6 - len(str(prf_idx))) * "0") + str(prf_idx)
                 path_prffile = os.path.join(conf.PRFMAP_DIR, f'{conf.PRFMAP_FILENAME}{pad_prf_idx}.fits')
                 if not os.path.exists(path_prffile):
-                    self.logger.error(f'PRF file has not been found!')
-                    return False
+                    self.logger.error(f'PRF file has not been found! ({path_prffile}')
+                    prf_notfound += 1
+                    if prf_notfound == len(self.bands[idx]):
+                        self.logger.error(f'No PRF files found for any bands in selection!')
+                        break
+                    else:
+                        continue
+
                 hdul = fits.open(path_prffile)
                 from scipy.ndimage.interpolation import rotate
                 img = hdul[0].data
@@ -381,12 +393,19 @@ class Brick(Subimage):
                             sky=ConstantSky(0.),
                             name=band)
 
+                nband_added += 1
+
+            if nband_added != len(self.bands[idx]):
+                self.logger.error(f'Not all bands added for blob #{bid}! Skipping!')
+                continue
+
             self.timages = timages
 
             # Construct models
             self.model_catalog = np.ones(len(blob.bcatalog), dtype=object)
             
             bad_blob = True
+            oksource = np.zeros(blob.n_sources, dtype=bool)
             for m, src in enumerate(blob.bcatalog):
 
                 mm_idx = np.argwhere(catalog['source_id'] == src['source_id'])[0]
@@ -401,6 +420,7 @@ class Brick(Subimage):
                     best_band = src['BEST_MODEL_BAND']
 
                     if not src[f'VALID_SOURCE_{best_band}']:
+                        self.logger.debug('Source does not have a valid model.')
                         continue
 
                 if modeling:
@@ -416,11 +436,13 @@ class Brick(Subimage):
                         if chisq_band > conf.RESIDUAL_CHISQ_REJECTION:
                             raw_fluxes[j] = 0.0
                             self.logger.debug(f'Source has too large chisq in {band}. ({chisq_band:3.3f}) > {conf.RESIDUAL_CHISQ_REJECTION})')
-                    if (raw_fluxes <= 0.0).all():
+                    if (raw_fluxes < 0.0).all():
                         self.logger.debug('Source has too large chisq in all bands. Rejecting!')
+                        continue
                 if conf.RESIDUAL_NEGFLUX_REJECTION:
-                    if (raw_fluxes <= 0.0).all():
+                    if (raw_fluxes < 0.0).all():
                         self.logger.debug('Source has negative flux in all bands. Rejecting!')
+                        continue
                     elif (raw_fluxes < 0.0).any():
                         raw_fluxes[raw_fluxes < 0.0] = 0.0
                         self.logger.debug('Source has negative flux in some bands.')
@@ -463,6 +485,7 @@ class Brick(Subimage):
 
                 bad_blob = False # made it though!
                 self.model_mask[mm_idx] = True
+                oksource[m] = True
 
             # Clean
             if bad_blob:        
@@ -470,7 +493,7 @@ class Brick(Subimage):
                 continue
 
             # Tractorize
-            tr = Tractor(self.timages, self.model_catalog)
+            tr = Tractor(self.timages, self.model_catalog[oksource])
             self.tr = tr
 
             # Add to existing array! -- this is the trick!
@@ -488,11 +511,11 @@ class Brick(Subimage):
         self.logger.info(f'Made model image with {msrc}/{mtotal} sources. ({nmasked} are masked)')
         # self.model_catalog = self.model_catalog[self.model_mask]
 
-        # make mask array
-        self.residual_mask = self.segmap!=0
-        for src in catalog[~self.model_mask]:
-            sid = src['source_id']
-            self.residual_mask[self.segmap == sid] = False
+        # # make mask array
+        # self.residual_mask = self.segmap!=0
+        # for src in catalog[~self.model_mask]:
+        #     sid = src['source_id']
+        #     self.residual_mask[self.segmap == sid] = False
 
         if save:
             if os.path.exists(self.auxhdu_path):
@@ -511,6 +534,18 @@ class Brick(Subimage):
                         hdu_nopsf = fits.ImageHDU(data=self.nopsf_images[i], name=f'{band}_NOPSF')
                         hdul.append(hdu_nopsf)
 
+                # make mask array
+                self.residual_mask = np.ones_like(self.masks[i], dtype=bool)
+                self.residual_mask[conf.BRICK_BUFFER:-conf.BRICK_BUFFER, conf.BRICK_BUFFER:-conf.BRICK_BUFFER] = False
+                self.residual_mask[self.masks[i]] = True
+                self.residual_mask[self.segmap != 0] = False
+                for src in catalog[~self.model_mask]:
+                    sid = src['source_id']
+                    self.residual_mask[self.segmap == sid] = True
+
+                self.residual_mask = self.residual_mask.astype(int)
+                hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'{band}_MASK')
+                hdul.append(hdu_mask)
                 hdul.flush()
 
             else:
@@ -528,7 +563,18 @@ class Brick(Subimage):
                     if include_nopsf:
                         hdu_nopsf = fits.ImageHDU(data=self.nopsf_images[i], name=f'{band}_NOPSF')
                         hdul.append(hdu_nopsf)
-                hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'MASK')
+
+                # make mask array
+                self.residual_mask = np.ones_like(self.masks[i], dtype=bool)
+                self.residual_mask[conf.BRICK_BUFFER:-conf.BRICK_BUFFER, conf.BRICK_BUFFER:-conf.BRICK_BUFFER] = False
+                self.residual_mask[self.masks[i]] = True
+                self.residual_mask[self.segmap != 0] = False
+                for src in catalog[~self.model_mask]:
+                    sid = src['source_id']
+                    self.residual_mask[self.segmap == sid] = True
+
+                self.residual_mask = self.residual_mask.astype(int)
+                hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'{band}_MASK')
                 hdul.append(hdu_mask)
 
                 hdul.writeto(self.auxhdu_path, overwrite=True)

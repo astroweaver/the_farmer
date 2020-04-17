@@ -217,21 +217,24 @@ class Blob(Subimage):
                 # find nearest prf to blob center
                 prftab_coords, prftab_idx = self.psfmodels[i]
 
-                minsep_idx, minsep, __ = self.blob_coords.match_to_catalog_sky(prftab_coords)
-                prf_idx = prftab_idx[minsep_idx]
-                self.logger.debug(f'Nearest PRF sample: {prf_idx} ({minsep[0].to(u.arcsec).value:2.2f}")')
+                if conf.USE_BLOB_IDGRID:
+                    prf_idx = self.blob_id
+                else:
+                    minsep_idx, minsep, __ = self.blob_coords.match_to_catalog_sky(prftab_coords)
+                    prf_idx = prftab_idx[minsep_idx]
+                    self.logger.debug(f'Nearest PRF sample: {prf_idx} ({minsep[0].to(u.arcsec).value:2.2f}")')
 
-                if minsep > conf.PRFMAP_MAXSEP*u.arcsec:
-                    self.logger.error(f'Separation ({minsep.to(u.arcsec)}) exceeds maximum {conf.PRFMAP_MAXSEP}!')
-                    return False
+                    if minsep > conf.PRFMAP_MAXSEP*u.arcsec:
+                        self.logger.error(f'Separation ({minsep.to(u.arcsec)}) exceeds maximum {conf.PRFMAP_MAXSEP}!')
+                        return False
 
-                self.minsep[band] = minsep # record it, and add it to the output catalog!
+                    self.minsep[band] = minsep # record it, and add it to the output catalog!
 
                 # open id file
-                pad_prf_idx = ((5 - len(str(prf_idx))) * "0") + str(prf_idx)
+                pad_prf_idx = ((6 - len(str(prf_idx))) * "0") + str(prf_idx)
                 path_prffile = os.path.join(conf.PRFMAP_DIR, f'{conf.PRFMAP_FILENAME}{pad_prf_idx}.fits')
                 if not os.path.exists(path_prffile):
-                    self.logger.error(f'PRF file has not been found!')
+                    self.logger.error(f'PRF file has not been found! ({path_prffile}')
                     return False
                 hdul = fits.open(path_prffile)
                 from scipy.ndimage.interpolation import rotate
@@ -744,7 +747,7 @@ class Blob(Subimage):
                 chi = self.solution_chi_images[j]
                 res = self.images[j] - mod
                 res_seg = res[self.segmap==sid].flatten()
-                if np.sum(res_seg) < 8:
+                if len(res_seg) < 8:
                     self.k2[i,j] = -99
                 else:
                     try:

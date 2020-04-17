@@ -795,6 +795,11 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
                 hdul.append(fits.PrimaryHDU())
                 hdul.append(fits.ImageHDU(data=modbrick.segmap, name='SEGMAP'))
                 hdul.append(fits.ImageHDU(data=modbrick.blobmap, name='BLOBMAP'))
+                if conf.SAVE_BACKGROUND:
+                    logger.info('Saving background and RMS maps...')
+                    for m, mband in enumerate(modbrick.bands):
+                        hdul.append(fits.ImageHDU(data=modbrick.background_images[m], name=f'BACKGROUND_{band}'))
+                        hdul.append(fits.ImageHDU(data=modbrick.background_rms_images[m], name=f'RMS_{band}'))
                 outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits')
                 hdul.writeto(outpath, overwrite=conf.OVERWRITE)
                 hdul.close()
@@ -1007,6 +1012,12 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
             hdul.append(fits.PrimaryHDU())
             hdul.append(fits.ImageHDU(data=modbrick.segmap, name='SEGMAP'))
             hdul.append(fits.ImageHDU(data=modbrick.blobmap, name='BLOBMAP'))
+            if conf.SAVE_BACKGROUND:
+                logger.info('Saving background and RMS maps...')
+                for m, mband in enumerate(modbrick.bands):
+                    hdul.append(fits.ImageHDU(data=modbrick.background_images[m], name=f'BACKGROUND_{mband}'))
+                    hdul.append(fits.ImageHDU(data=modbrick.background_rms_images[m], name=f'RMS_{mband}'))
+                    hdul.append(fits.ImageHDU(data=1/np.sqrt(modbrick.weights[m]), name=f'UNC_{mband}'))
             outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits')
             hdul.writeto(outpath, overwrite=conf.OVERWRITE)
             hdul.close()
@@ -1669,7 +1680,7 @@ def make_residual_image(brick_id, band, catalog=None, use_single_band_run=False,
             use_band_position=True
         elif os.path.exists(search_fn3) & use_single_band_run:
             brick.logger.info(f'Adopting catalog from {search_fn3}')  # Tries to find BXXX_BAND.fits
-            brick.catalog = Table(fits.open(search_fn2)[1].data)
+            brick.catalog = Table(fits.open(search_fn3)[1].data)
             brick.n_sources = len(brick.catalog)
             brick.n_blobs = brick.catalog['blob_id'].max()
             use_band_position=True
