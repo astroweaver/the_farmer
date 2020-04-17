@@ -800,6 +800,7 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
                     for m, mband in enumerate(modbrick.bands):
                         hdul.append(fits.ImageHDU(data=modbrick.background_images[m], name=f'BACKGROUND_{band}'))
                         hdul.append(fits.ImageHDU(data=modbrick.background_rms_images[m], name=f'RMS_{band}'))
+                        hdul.append(fits.ImageHDU(data=1/np.sqrt(modbrick.weights[m]), name=f'UNC_{mband}'))
                 outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits')
                 hdul.writeto(outpath, overwrite=conf.OVERWRITE)
                 hdul.close()
