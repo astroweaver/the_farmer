@@ -1242,7 +1242,7 @@ def force_photometry(brick_id, band=None, source_id=None, blob_id=None, insert=T
     if (not unfix_bandwise_positions) | (len(fband) == 1):
         force_models(brick_id=brick_id, band=band, source_id=source_id, blob_id=blob_id, insert=insert, source_only=source_only)
     else:
-        if not conf.FREEZE_FORCED_POSITION:
+        if conf.FREEZE_FORCED_POSITION:
             logger.warning('Setting FREEZE_FORCED_POSITION to False!')
             conf.FREEZE_FORCED_POSITION = False
        
@@ -1640,9 +1640,12 @@ def make_model_image(brick_id, band, catalog=None, use_single_band_run=False, mo
 def make_residual_image(brick_id, band, catalog=None, use_single_band_run=False, modeling=False):
     # USE BAND w/ MODELING NICKNAME FOR MODELING RESULTS!
 
-    if band.startswith(conf.MODELING_NICKNAME):
+    if band.startswith(conf.MODELING_NICKNAME) | ((modeling==True) & (band != conf.MODELING_NICKNAME)):
         nickname = conf.MULTIBAND_NICKNAME
-        sband = band[len(conf.MODELING_NICKNAME)+1:]
+        if band.startswith(conf.MODELING_NICKNAME):
+            sband = band[len(conf.MODELING_NICKNAME)+1:]
+        else:
+            sband = band
         modeling=True
     elif band == conf.MODELING_NICKNAME:
         nickname = conf.MODELING_NICKNAME
@@ -1834,13 +1837,14 @@ def models_from_catalog(catalog, fblob):
                 max_img = np.nanmax(img * src_seg)                                              # TODO THESE ARENT ALWAYS THE SAME SHAPE!
                 max_psf = np.nanmax(fblob.psfimg[band])
                 qflux[j] = max_img / max_psf
+                # print(max_img, max_psf, qflux[j])
             flux = Fluxes(**dict(zip(fblob.bands, qflux)))
 
         except:
             try:
                 original_zpt = conf.MODELING_ZPT
                 logger.info(f'Converting fluxes from zerpoint {original_zpt} to {target_zpt}')
-                flux_conv = src[f'RAWFLUX_{best_band}'] * 10 ** (0.4 * (target_zpt - original_zpt))
+                qflux = src[f'RAWFLUX_{best_band}'] * 10 ** (0.4 * (target_zpt - original_zpt))
             except:
                 # IF I TRIED MULTIBAND MODELING, THEN I STILL NEED AN INITIAL FLUX. START WITH 0 idx!
                 init_band = f'{conf.MODELING_NICKNAME}_{conf.INIT_FLUX_BAND}'
@@ -1848,9 +1852,9 @@ def models_from_catalog(catalog, fblob):
                     conf.INIT_FLUX_BAND = fblob.bands[0]
                 logger.warning(f'Coming from multiband model, so using flux from {init_band}')
                 original_zpt = fblob._band2idx(conf.INIT_FLUX_BAND)
-                flux_conv = src[f'RAWFLUX_{init_band}'] * 10 ** (0.4 * (target_zpt - original_zpt))
+                qflux = src[f'RAWFLUX_{init_band}'] * 10 ** (0.4 * (target_zpt - original_zpt))
                 
-            flux = Fluxes(**dict(zip(band, flux_conv)))
+            flux = Fluxes(**dict(zip(band, qflux)))
 
         # Check if valid source
         if not src[f'VALID_SOURCE_{best_band}']:
@@ -1859,9 +1863,20 @@ def models_from_catalog(catalog, fblob):
             continue
 
         if not conf.FREEZE_FORCED_POSITION & conf.USE_POSITION_PRIOR:
-            logger.info(f'Setting position prior. X = {inpos[0]:2.2f}+/-{conf.FORCE_POSITION_PRIOR_SIG}; Y = {inpos[1]:2.2f}+/-{conf.FORCE_POSITION_PRIOR_SIG}')
-            position.addGaussianPrior('x', inpos[0], conf.FORCE_POSITION_PRIOR_SIG)
-            position.addGaussianPrior('y', inpos[1], conf.FORCE_POSITION_PRIOR_SIG)
+            ffps = conf.FORCE_POSITION_PRIOR_SIG
+            if conf.FORCE_POSITION_PRIOR_SIG in ('auto', 'AUTO'):
+                snr = np.nanmedian(qflux / fblob.backgrounds[:,1])
+                snr_thresh = 5
+                pos_sig_under = 0.1
+                if snr < snr_thresh:
+                    ffps = pos_sig_under
+                else:
+                    ffps = snr/(snr_thresh/pos_sig_under) 
+                print(snr, ffps)
+                # conf.FORCE_POSITION_PRIOR_SIG = 1 - np.exp(-0.5*src[f'CHISQ_{conf.MODELING_NICKNAME}_{conf.INIT_FLUX_BAND}'])
+            logger.info(f'Setting position prior. X = {inpos[0]:2.2f}+/-{ffps}; Y = {inpos[1]:2.2f}+/-{ffps}')
+            position.addGaussianPrior('x', inpos[0], ffps)
+            position.addGaussianPrior('y', inpos[1], ffps)
 
         #shape = GalaxyShape(src['REFF'], 1./src['AB'], src['theta'])
         if src[f'SOLMODEL_{best_band}'] not in ('PointSource', 'SimpleGalaxy'):

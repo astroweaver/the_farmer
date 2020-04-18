@@ -260,11 +260,11 @@ class Brick(Subimage):
         self.model_images = np.zeros(shape=(self.n_bands, np.shape(self.images[0])[0], np.shape(self.images[0])[1]))
         self.chisq_images = np.zeros(shape=(self.n_bands, np.shape(self.images[0])[0], np.shape(self.images[0])[1]))
 
-        if modeling:
-            sbands = [s[len(conf.MODELING_NICKNAME)+1:] for s in self.bands]
-        else:
-            sbands = self.bands
-
+        # if modeling:
+        #     sbands = [s[len(conf.MODELING_NICKNAME)+1:] for s in self.bands]
+        # else:
+        #     sbands = self.bands
+        sbands = self.bands
         self.bands = np.array(self.bands) # The bands attribute is being modfified somewhere to make it BACK into a list. Why? Dunno. Just don't change this.
 
         # Figure out which bands are to be run with which setup.
@@ -597,8 +597,8 @@ class Brick(Subimage):
 
         for i, (psf, band) in enumerate(zip(self.psfmodels[idx], self.bands[idx])):
 
-            if modeling:
-                band = band[len(conf.MODELING_NICKNAME)+1:]
+            # if modeling:
+            #     band = band[len(conf.MODELING_NICKNAME)+1:]
 
             remove_background_psf = False
             if band in conf.RMBACK_PSF:

@@ -238,6 +238,7 @@ class Blob(Subimage):
                     return False
                 hdul = fits.open(path_prffile)
                 from scipy.ndimage.interpolation import rotate
+                # img = rotate(hdul[0].data, 270)
                 img = hdul[0].data
                 # img = 1E-31 * np.ones_like(img)
                 # img[50:-50, 50:-50] = hdul[0].data[50:-50, 50:-50]
@@ -446,11 +447,30 @@ class Blob(Subimage):
             #     x_orig[i] = src.pos[0]
             #     y_orig[i] = src.pos[1]
 
+
+            if conf.PLOT > 1:
+                plot_iterblob(self, tr, iteration=0, bands=self.bands)
+
             for i in range(conf.TRACTOR_MAXSTEPS):
+
+                # if i == 0:
+                #     pos = PixPos(13, 30)
+                #     pos.addGaussianPrior('x', 13, 2)
+                #     pos.addGaussianPrior('y', 30, 2)
+                #     tr.addSource(PointSource(pos, Fluxes(**dict(zip(self.bands, 0.1 * np.ones(len(self.bands)))))))
+
                 if conf.TRY_OPTIMIZATION:
                     try:
+                        [print(m.getPosition()) for m in tr.getCatalog()]
                         dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, damp=conf.DAMPING, variance=True, priors=conf.USE_POSITION_PRIOR)
                         self.logger.debug(f'    {i+1}) dlnp = {dlnp}')
+                        [print(m.getPosition()) for m in tr.getCatalog()]
+                        [print(m.getThawedParams()) for m in tr.getCatalog()]
+                        [print(m.getFrozenParams()) for m in tr.getCatalog()]
+
+                        
+
+
                         if i == 0:
                             dlnp_init = dlnp
                     except:
@@ -483,7 +503,7 @@ class Blob(Subimage):
                 #     return False
 
                 if conf.PLOT > 1:
-                    plot_iterblob(self, tr, iteration=i, bands=self.bands)
+                    plot_iterblob(self, tr, iteration=i+1, bands=self.bands)
 
                 if dlnp < conf.TRACTOR_CONTHRESH:
                     self.logger.info(f'Blob #{self.blob_id} converged in {i+1} steps ({dlnp_init:2.2f} --> {dlnp:2.2f}) ({time.time() - tstart:3.3f}s)')
@@ -492,7 +512,8 @@ class Blob(Subimage):
 
                 if conf.CORRAL_SOURCES:
                     # check if any sources have left their segment
-                    cat = tr.getCatalog()
+                    cat = tr.getCatalog()[:len(self.bcatalog)]
+                    trip = False
                     for idx, src in enumerate(cat):
                         sid = self.bcatalog['source_id'][idx]
                         xp, yp = src.pos[0], src.pos[1]
@@ -502,6 +523,7 @@ class Blob(Subimage):
 
                         if (xp > maxx) | (xp < 0) | (yp < 0) | (yp > maxy):
                             self.logger.warning(f'Source {sid} has escaped the blob!')
+                            trip = True
 
                             # gpriors = src.getLogPrior()
                             # print('Log(Prior):', gpriors)
@@ -531,8 +553,8 @@ class Blob(Subimage):
                         #     # gpriors = src.getLogPrior()
                         #     # print('Log(Prior):', gpriors)
 
-
-                    tr.setCatalog(cat)
+                    if trip:
+                        tr.setCatalog(cat)
 
                 
         if var is None:
@@ -664,7 +686,9 @@ class Blob(Subimage):
                     self.logger.debug(f'Source #{src["source_id"]} with {self.model_catalog[i].name} has rchisq={self.rchisq[i, self._level, self._sublevel]:3.3f} | bic={self.bic[i, self._level, self._sublevel]:3.3f}')
                     self.logger.debug(f'     with {len(self.bands)} bands, {m_param} parameters, {n_data} points in total --> NDOF = {ndof}')
                     for k, band in enumerate(self.bands):
+                        self.logger.debug(f'               Positions: {self.bands[k]}={self.model_catalog[i].getPosition()}') 
                         self.logger.debug(f'               Fluxes: {self.bands[k]}={self.model_catalog[i].getBrightness().getFlux(self.bands[k]):3.3f}+/-{np.sqrt(self.variance[i].brightness.getParams()[k]):3.3f}') 
+
                     if self.model_catalog[i].name not in ('PointSource', 'SimpleGalaxy'):
                         if self.model_catalog[i].name == 'FixedCompositeGalaxy':
                             self.logger.debug(f'               {self.model_catalog[i].shapeExp}')
@@ -1412,10 +1436,12 @@ class Blob(Subimage):
                     self.bcatalog[row][f'RA_{band}'] = skyc[0]
                     self.bcatalog[row][f'DEC_{band}'] = skyc[1]
 
+            pos = 0000
             mag, magerr = self.bcatalog[row]['MAG_'+band], self.bcatalog[row]['MAGERR_'+band]
             flux, fluxerr = self.bcatalog[row]['FLUX_'+band], self.bcatalog[row]['FLUXERR_'+band]
             rawflux, rawfluxerr = self.bcatalog[row]['RAWFLUX_'+band], self.bcatalog[row]['RAWFLUXERR_'+band]
             chisq, bic = self.bcatalog[row]['CHISQ_'+band], self.bcatalog[row]['BIC_'+band]
+            self.logger.info(f'    Position({band}):     {pos}')
             self.logger.info(f'    Raw Flux({band}):     {rawflux:3.3f} +/- {rawfluxerr:3.3f}')
             self.logger.info(f'    Flux({band}):         {flux:3.3f} +/- {fluxerr:3.3f} uJy')               
             self.logger.info(f'    Mag({band}):          {mag:3.3f} +/- {magerr:3.3f} AB')
