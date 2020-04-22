@@ -449,14 +449,15 @@ class Blob(Subimage):
 
 
             if conf.PLOT > 1:
+                # [print(m.getBrightness()) for m in tr.getCatalog()]
                 plot_iterblob(self, tr, iteration=0, bands=self.bands)
 
             for i in range(conf.TRACTOR_MAXSTEPS):
 
-                for mod in self.tr.getCatalog():
-                    print(mod)
-                    print(mod.pos.getGaussianPriors())
-                    print(mod.getThawedParams())
+                # for mod in self.tr.getCatalog():
+                #     print(mod)
+                #     print(mod.pos.getGaussianPriors())
+                #     print(mod.getThawedParams())
 
                 # if i == 0:
                 #     pos = PixPos(13, 30)
@@ -466,13 +467,28 @@ class Blob(Subimage):
 
                 if conf.TRY_OPTIMIZATION:
                     try:
-                        [print(m.getPosition()) for m in tr.getCatalog()]
-                        dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, damp=conf.DAMPING, variance=True, priors=conf.USE_POSITION_PRIOR)
-                        self.logger.debug(f'    {i+1}) dlnp = {dlnp}')
-                        [print(m.getPosition()) for m in tr.getCatalog()]
-                        [print(m.getThawedParams()) for m in tr.getCatalog()]
-                        [print(m.getFrozenParams()) for m in tr.getCatalog()]
+                        # print()
+                        # print(i)
+                        # [print(m.getPosition()) for m in tr.getCatalog()]
+                        # [print(m.getBrightness().getFlux(self.bands[0])) for m in tr.getCatalog()]
+                        # [print(m.getThawedParams()) for m in tr.getCatalog()]
+                        # [print(m.getFrozenParams()) for m in tr.getCatalog()]
+                        # print('...')
 
+                        # dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, damp=conf.DAMPING, variance=True, priors=conf.USE_POSITION_PRIOR)
+                        dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, damp=conf.DAMPING, 
+                                                    variance=True, priors=conf.USE_POSITION_PRIOR)
+
+                        self.logger.debug(f'    {i+1}) dlnp = {dlnp}')
+                        # print(dlnp)
+                        # print(X)
+                        # print(alpha)
+                        # print(var)
+                        # [print(m.getShape()) for m in tr.getCatalog()]
+                        # [print(m.getBrightness().getFlux(self.bands[0])) for m in tr.getCatalog()]
+                        # [print(m.getThawedParams()) for m in tr.getCatalog()]
+                        # [print(m.getFrozenParams()) for m in tr.getCatalog()]
+                        # print()
                         
 
 
@@ -482,7 +498,8 @@ class Blob(Subimage):
                         self.logger.warning(f'WARNING - Optimization failed on step {i} for blob #{self.blob_id}')
                         return False
                 else:
-                    dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, damp=conf.DAMPING, variance=True, priors=conf.USE_POSITION_PRIOR)
+                    dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, damp=conf.DAMPING, 
+                                                    variance=True, priors=conf.USE_POSITION_PRIOR)
                     self.logger.debug(f'    {i+1}) dlnp = {dlnp}')
                     if i == 0:
                         dlnp_init = dlnp
@@ -830,12 +847,17 @@ class Blob(Subimage):
             #     if conf.VERBOSE: print(f"FAILED -- Source #{self.bcatalog[i]['source_id']} does not have a valid model!")
             #     return False
 
-            self.model_catalog[i].brightness = Fluxes(**dict(zip(self.bands, model.brightness[0] * np.ones(self.n_bands))))
+            ############ self.model_catalog[i].brightness = Fluxes(**dict(zip(self.bands, model.brightness[0] * np.ones(self.n_bands))))
             self.model_catalog[i].freezeAllBut('brightness')
-            # self.model_catalog[i].thawParams('sky')
+            # # self.model_catalog[i].thawParams('sky')
             if not conf.FREEZE_FORCED_POSITION:
-                print('THAWING POSITION!')
+                self.logger.debug('Thawing position...')
                 self.model_catalog[i].thawParams('pos')
+            if (not conf.FREEZE_FORCED_SHAPE) & (model.name not in ('PointSource', 'SimpleGalaxy', 'FixedCompositeGalaxy')):
+                self.model_catalog[i].thawParams('shape')
+            elif (not conf.FREEZE_FORCED_SHAPE) & (model.name == 'FixedCompositeGalaxy'):
+                self.model_catalog[i].thawParams('shapeExp')
+                self.model_catalog[i].thawParams('shapeDev')
 
             best_band = f"{self.bcatalog[i]['BEST_MODEL_BAND']}"
 
@@ -855,11 +877,6 @@ class Blob(Subimage):
 
         # if conf.PLOT >1:
         #     axlist = [plot_fblob(self, band=band) for band in self.bands]
-
-        for mod in self.tr.getCatalog():
-            print(mod)
-            print(mod.pos.getGaussianPriors())
-            print(mod.getThawedParams())
 
 
         # Optimize

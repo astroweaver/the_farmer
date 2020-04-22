@@ -1831,14 +1831,16 @@ def models_from_catalog(catalog, fblob):
 
         try:
             # Make initial guess at flux using PSF!
+            # This will UNDERESTIMATE for exp/dev models!
             qflux = np.zeros(len(fblob.bands))
             src_seg = fblob.segmap==src['source_id']
             for j, (img, band) in enumerate(zip(fblob.images, fblob.bands)):
                 max_img = np.nanmax(img * src_seg)                                              # TODO THESE ARENT ALWAYS THE SAME SHAPE!
                 max_psf = np.nanmax(fblob.psfimg[band])
                 qflux[j] = max_img / max_psf
-                # print(max_img, max_psf, qflux[j])
+
             flux = Fluxes(**dict(zip(fblob.bands, qflux)))
+
 
         except:
             try:
@@ -1869,7 +1871,6 @@ def models_from_catalog(catalog, fblob):
 
                 # find position of peak in segment... OR just make a gaussian hit the edge of the segment at 5sigma
                 npix = src['npix']
-                print(qflux, npix, qflux/npix, fblob.backgrounds[:, 1])
                 snr = np.nanmedian((qflux / npix) / fblob.backgrounds[:,1])
                 snr_thresh = 1.
                 pos_sig_under = 0.1
@@ -1879,7 +1880,6 @@ def models_from_catalog(catalog, fblob):
                     seg = fblob.segmap == src['source_id']
                     xpix, ypix = np.nonzero(seg)
                     dx, dy = (np.max(xpix) - np.min(xpix)) / 2., (np.max(ypix) - np.min(ypix)) / 2.
-                    print(dx, dy)
                     ffps_x, ffps_y = dx / 1, dy / 1
                 # print(snr, ffps)
                 # conf.FORCE_POSITION_PRIOR_SIG = 1 - np.exp(-0.5*src[f'CHISQ_{conf.MODELING_NICKNAME}_{conf.INIT_FLUX_BAND}'])
@@ -1891,6 +1891,11 @@ def models_from_catalog(catalog, fblob):
         if src[f'SOLMODEL_{best_band}'] not in ('PointSource', 'SimpleGalaxy'):
             #shape = EllipseESoft.fromRAbPhi(src['REFF'], 1./src['AB'], -src['THETA'])  # Reff, b/a, phi
             shape = EllipseESoft(src[f'REFF_{best_band}'], src[f'EE1_{best_band}'], src[f'EE2_{best_band}'])
+
+            if conf.USE_FORCE_SHAPE_PRIOR:
+                shape.addGaussianPrior('logre', src[f'REFF_{best_band}'], conf.FORCE_REFF_PRIOR_SIG )
+                shape.addGaussianPrior('ee1', src[f'EE1_{best_band}'], conf.FORCE_EE_PRIOR_SIG )
+                shape.addGaussianPrior('ee2', src[f'EE2_{best_band}'], conf.FORCE_EE_PRIOR_SIG )
 
         if src[f'SOLMODEL_{best_band}'] == 'PointSource':
             model_catalog[i] = PointSource(position, flux)
