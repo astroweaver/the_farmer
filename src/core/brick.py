@@ -319,7 +319,7 @@ class Brick(Subimage):
                 if conf.USE_BLOB_IDGRID:
                     prf_idx = bid
                 else:
-                    minsep_idx, minsep, __ = blob.match_to_catalog_sky(prftab_coords)
+                    minsep_idx, minsep, __ = blob.blob_coords.match_to_catalog_sky(prftab_coords)
                     prf_idx = prftab_idx[minsep_idx]
                     self.logger.debug(f'Nearest PRF sample: {prf_idx} ({minsep[0].to(u.arcsec).value:2.2f}")')
 
