@@ -232,7 +232,7 @@ class Blob(Subimage):
 
                 # open id file
                 pad_prf_idx = ((6 - len(str(prf_idx))) * "0") + str(prf_idx)
-                path_prffile = os.path.join(conf.PRFMAP_DIR, f'{conf.PRFMAP_FILENAME}{pad_prf_idx}.fits')
+                path_prffile = os.path.join(conf.PRFMAP_DIR[band_strip], f'{conf.PRFMAP_FILENAME}{pad_prf_idx}.fits')
                 if not os.path.exists(path_prffile):
                     self.logger.error(f'PRF file has not been found! ({path_prffile}')
                     return False
@@ -452,6 +452,11 @@ class Blob(Subimage):
                 plot_iterblob(self, tr, iteration=0, bands=self.bands)
 
             for i in range(conf.TRACTOR_MAXSTEPS):
+
+                for mod in self.tr.getCatalog():
+                    print(mod)
+                    print(mod.pos.getGaussianPriors())
+                    print(mod.getThawedParams())
 
                 # if i == 0:
                 #     pos = PixPos(13, 30)
@@ -829,6 +834,7 @@ class Blob(Subimage):
             self.model_catalog[i].freezeAllBut('brightness')
             # self.model_catalog[i].thawParams('sky')
             if not conf.FREEZE_FORCED_POSITION:
+                print('THAWING POSITION!')
                 self.model_catalog[i].thawParams('pos')
 
             best_band = f"{self.bcatalog[i]['BEST_MODEL_BAND']}"
@@ -849,6 +855,12 @@ class Blob(Subimage):
 
         # if conf.PLOT >1:
         #     axlist = [plot_fblob(self, band=band) for band in self.bands]
+
+        for mod in self.tr.getCatalog():
+            print(mod)
+            print(mod.pos.getGaussianPriors())
+            print(mod.getThawedParams())
+
 
         # Optimize
         status = self.optimize_tractor()
@@ -1421,7 +1433,7 @@ class Blob(Subimage):
             self.bcatalog[row]['CHISQ_'+band] = self.solution_chisq[row, i]
             self.bcatalog[row]['BIC_'+band] = self.solution_bic[row, i]
             self.bcatalog[row]['N_CONVERGE_'+band] = self.n_converge
-            self.bcatalog[row]['SNR_'+band] = self.bcatalog[row]['RAWFLUX_'+band] / self.noise[row, i]
+            self.bcatalog[row]['SNR_'+band] = self.bcatalog[row]['RAWFLUX_'+band] / self.bcatalog[row]['npix'] / self.noise[row, i]
             # self.bcatalog[row]['NORM_'+band] = self.norm[row, i]
             self.bcatalog[row]['CHI_MU_'+band] = self.chi_mu[row, i]
             self.bcatalog[row]['CHI_SIG_'+band] = self.chi_sig[row, i]

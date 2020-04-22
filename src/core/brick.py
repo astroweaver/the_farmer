@@ -330,7 +330,7 @@ class Brick(Subimage):
 
                 # open id file
                 pad_prf_idx = ((6 - len(str(prf_idx))) * "0") + str(prf_idx)
-                path_prffile = os.path.join(conf.PRFMAP_DIR, f'{conf.PRFMAP_FILENAME}{pad_prf_idx}.fits')
+                path_prffile = os.path.join(conf.PRFMAP_DIR[band], f'{conf.PRFMAP_FILENAME}{pad_prf_idx}.fits')
                 if not os.path.exists(path_prffile):
                     self.logger.error(f'PRF file has not been found! ({path_prffile}')
                     prf_notfound += 1

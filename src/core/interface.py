@@ -1862,21 +1862,30 @@ def models_from_catalog(catalog, fblob):
             logger.warning(f'Source #{src["source_id"]}: {src[f"SOLMODEL_{best_band}"]} model at {position} is INVALID.')
             continue
 
-        if not conf.FREEZE_FORCED_POSITION & conf.USE_POSITION_PRIOR:
-            ffps = conf.FORCE_POSITION_PRIOR_SIG
+        if (not conf.FREEZE_FORCED_POSITION) & conf.USE_POSITION_PRIOR:
+            ffps_x = conf.FORCE_POSITION_PRIOR_SIG
+            ffps_y = conf.FORCE_POSITION_PRIOR_SIG
             if conf.FORCE_POSITION_PRIOR_SIG in ('auto', 'AUTO'):
-                snr = np.nanmedian(qflux / fblob.backgrounds[:,1])
-                snr_thresh = 5
+
+                # find position of peak in segment... OR just make a gaussian hit the edge of the segment at 5sigma
+                npix = src['npix']
+                print(qflux, npix, qflux/npix, fblob.backgrounds[:, 1])
+                snr = np.nanmedian((qflux / npix) / fblob.backgrounds[:,1])
+                snr_thresh = 1.
                 pos_sig_under = 0.1
                 if snr < snr_thresh:
-                    ffps = pos_sig_under
+                    ffps_x, ffps_y = pos_sig_under, pos_sig_under
                 else:
-                    ffps = snr/(snr_thresh/pos_sig_under) 
-                print(snr, ffps)
+                    seg = fblob.segmap == src['source_id']
+                    xpix, ypix = np.nonzero(seg)
+                    dx, dy = (np.max(xpix) - np.min(xpix)) / 2., (np.max(ypix) - np.min(ypix)) / 2.
+                    print(dx, dy)
+                    ffps_x, ffps_y = dx / 1, dy / 1
+                # print(snr, ffps)
                 # conf.FORCE_POSITION_PRIOR_SIG = 1 - np.exp(-0.5*src[f'CHISQ_{conf.MODELING_NICKNAME}_{conf.INIT_FLUX_BAND}'])
-            logger.info(f'Setting position prior. X = {inpos[0]:2.2f}+/-{ffps}; Y = {inpos[1]:2.2f}+/-{ffps}')
-            position.addGaussianPrior('x', inpos[0], ffps)
-            position.addGaussianPrior('y', inpos[1], ffps)
+            logger.info(f'Setting position prior. X = {inpos[0]:2.2f}+/-{ffps_x}; Y = {inpos[1]:2.2f}+/-{ffps_y}')
+            position.addGaussianPrior('x', inpos[0], ffps_x)
+            position.addGaussianPrior('y', inpos[1], ffps_y)
 
         #shape = GalaxyShape(src['REFF'], 1./src['AB'], src['theta'])
         if src[f'SOLMODEL_{best_band}'] not in ('PointSource', 'SimpleGalaxy'):
