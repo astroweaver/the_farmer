@@ -184,16 +184,19 @@ class Brick(Subimage):
                 self.catalog.add_column(Column(filler, name=f'CHI_K2_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'X_MODEL_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'Y_MODEL_{colname}'))
+                self.catalog.add_column(Column(filler, name=f'XERR_MODEL_{colname}'))
+                self.catalog.add_column(Column(filler, name=f'YERR_MODEL_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'RA_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'DEC_{colname}'))
             except:
                 self.logger.debug(f'Columns already exist for {colname}')
-            if modeling & (not multiband_model):
+            if (modeling & (not multiband_model)) | (not conf.FREEZE_FORCED_SHAPE):
                 try:
-                    self.logger.debug(f'Adding model columns to catalog.')
-                    for colname_fill in [f'{colext}_{colname}' for colext in ('X_MODEL', 'Y_MODEL', 'XERR_MODEL', 'YERR_MODEL', 'RA', 'DEC')]:
-                        self.catalog.add_column(Column(filler, name=colname_fill))
-                    self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype='S20'), name=f'SOLMODEL_{colname}'))
+                    if modeling:
+                        self.logger.debug(f'Adding model columns to catalog.')
+                        for colname_fill in [f'{colext}_{colname}' for colext in ('X_MODEL', 'Y_MODEL', 'XERR_MODEL', 'YERR_MODEL', 'RA', 'DEC')]:
+                            self.catalog.add_column(Column(filler, name=colname_fill))
+                        self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype='S20'), name=f'SOLMODEL_{colname}'))
                     self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=bool), name=f'VALID_SOURCE_{colname}'))
                     
                     for colname_fill in [f'{colext}_{colname}' for colext in ('REFF', 'REFF_ERR', 'EE1', 'EE2', 'AB', 'AB_ERR', 'THETA', 'THETA_ERR',
@@ -255,7 +258,7 @@ class Brick(Subimage):
 
         return blob
 
-    def make_model_image(self, catalog, include_chi=True, include_nopsf=False, save=True, use_band_position=False, modeling=False):
+    def make_model_image(self, catalog, include_chi=True, include_nopsf=False, save=True, use_band_position=False, use_band_shape=False, modeling=False):
 
         self.model_images = np.zeros(shape=(self.n_bands, np.shape(self.images[0])[0], np.shape(self.images[0])[1]))
         self.chisq_images = np.zeros(shape=(self.n_bands, np.shape(self.images[0])[0], np.shape(self.images[0])[1]))
@@ -272,15 +275,15 @@ class Brick(Subimage):
         self.logger.info(f'Making Model images for {self.bands}')
         if np.in1d(sbands, conf.BANDS).any() & ~np.in1d(sbands, conf.PRFMAP_PSF).any():
             self.logger.info('Making Models for PSF images')
-            self.make_model_image_psf(catalog, include_chi=include_chi, include_nopsf=include_nopsf, save=save, use_band_position=use_band_position, modeling=modeling)
+            self.make_model_image_psf(catalog, include_chi=include_chi, include_nopsf=include_nopsf, save=save, use_band_position=use_band_position, use_band_shape=use_band_shape, modeling=modeling)
         if np.in1d(sbands, conf.PRFMAP_PSF).any():
             self.logger.info('Making Models for PRF images')
-            self.make_model_image_prfmap(catalog, include_chi=include_chi, include_nopsf=include_nopsf, save=save, use_band_position=use_band_position, modeling=modeling)
+            self.make_model_image_prfmap(catalog, include_chi=include_chi, include_nopsf=include_nopsf, save=save, use_band_position=use_band_position, use_band_shape=use_band_shape, modeling=modeling)
 
         # if not (np.in1d(self.bands, conf.BANDS).any() & ~np.in1d(self.bands, conf.PRFMAP_PSF).any() | np.in1d(self.bands, conf.PRFMAP_PSF).any()):
         #     raise ValueError('')
 
-    def make_model_image_prfmap(self, catalog, include_chi=True, include_nopsf=False, save=True, use_band_position=False, modeling=False):
+    def make_model_image_prfmap(self, catalog, include_chi=True, include_nopsf=False, save=True, use_band_position=False, use_band_shape=False, modeling=False):
 
         # Which indices to use?
         idx = []
@@ -463,21 +466,31 @@ class Brick(Subimage):
                 elif src[f'SOLMODEL_{best_band}'] == "SimpleGalaxy":
                     self.model_catalog[m] = SimpleGalaxy(position, flux)
                 elif src[f'SOLMODEL_{best_band}'] == "ExpGalaxy":
-                    shape = EllipseESoft(src[f'REFF_{best_band}'], src[f'EE1_{best_band}'], src[f'EE2_{best_band}'])
+                    if use_band_shape:
+                        shape = EllipseESoft(src[f'REFF_{band}'], src[f'EE1_{band}'], src[f'EE2_{band}'])
+                    else:
+                        shape = EllipseESoft(src[f'REFF_{best_band}'], src[f'EE1_{best_band}'], src[f'EE2_{best_band}'])
                     self.model_catalog[m] = ExpGalaxy(position, flux, shape)
                 elif src[f'SOLMODEL_{best_band}'] == "DevGalaxy":
-                    shape = EllipseESoft(src[f'REFF_{best_band}'], src[f'EE1_{best_band}'], src[f'EE2_{best_band}'])
+                    if use_band_shape:
+                        shape = EllipseESoft(src[f'REFF_{band}'], src[f'EE1_{band}'], src[f'EE2_{band}'])
+                    else:
+                        shape = EllipseESoft(src[f'REFF_{best_band}'], src[f'EE1_{best_band}'], src[f'EE2_{best_band}'])                
                     self.model_catalog[m] = DevGalaxy(position, flux, shape)
                 elif src[f'SOLMODEL_{best_band}'] == "FixedCompositeGalaxy":
-                    shape_exp = EllipseESoft(src[f'EXP_REFF_{best_band}'], src[f'EXP_EE1_{best_band}'], src[f'EXP_EE2_{best_band}'])
-                    shape_dev = EllipseESoft(src[f'DEV_REFF_{best_band}'], src[f'DEV_EE1_{best_band}'], src[f'DEV_EE2_{best_band}'])
+                    if use_band_shape:
+                        shape_exp = EllipseESoft(src[f'EXP_REFF_{band}'], src[f'EXP_EE1_{band}'], src[f'EXP_EE2_{band}'])
+                        shape_dev = EllipseESoft(src[f'DEV_REFF_{band}'], src[f'DEV_EE1_{band}'], src[f'DEV_EE2_{band}'])
+                    else:
+                        shape_exp = EllipseESoft(src[f'EXP_REFF_{best_band}'], src[f'EXP_EE1_{best_band}'], src[f'EXP_EE2_{best_band}'])
+                        shape_dev = EllipseESoft(src[f'DEV_REFF_{best_band}'], src[f'DEV_EE1_{best_band}'], src[f'DEV_EE2_{best_band}'])
+                    
                     self.model_catalog[m] = FixedCompositeGalaxy(
                                                     position, flux,
                                                     SoftenedFracDev(src[f'FRACDEV_{best_band}']),
                                                     shape_exp, shape_dev)
                 else:
                     self.logger.warning(f'Source #{src["source_id"]}: has no solution model at {position}')
-                    self.model_mask[mm_idx] = False
                     continue
 
                 self.logger.debug(f'Source #{src["source_id"]}: {self.model_catalog[m].name} model at {position}')
@@ -580,7 +593,7 @@ class Brick(Subimage):
                 hdul.writeto(self.auxhdu_path, overwrite=True)
 
 
-    def make_model_image_psf(self, catalog, include_chi=True, include_nopsf=False, save=True, use_band_position=False, modeling=False):
+    def make_model_image_psf(self, catalog, include_chi=True, include_nopsf=False, save=True, use_band_position=False, use_band_shape=False, modeling=False):
 
         # Which indices to use?
         idx = []
@@ -732,14 +745,25 @@ class Brick(Subimage):
             elif src[f'SOLMODEL_{best_band}'] == "SimpleGalaxy":
                 self.model_catalog[i] = SimpleGalaxy(position, flux)
             elif src[f'SOLMODEL_{best_band}'] == "ExpGalaxy":
-                shape = EllipseESoft(src[f'REFF_{best_band}'], src[f'EE1_{best_band}'], src[f'EE2_{best_band}'])
+                if use_band_shape:
+                    shape = EllipseESoft(src[f'REFF_{band}'], src[f'EE1_{band}'], src[f'EE2_{band}'])
+                else:
+                    shape = EllipseESoft(src[f'REFF_{best_band}'], src[f'EE1_{best_band}'], src[f'EE2_{best_band}'])
                 self.model_catalog[i] = ExpGalaxy(position, flux, shape)
             elif src[f'SOLMODEL_{best_band}'] == "DevGalaxy":
-                shape = EllipseESoft(src[f'REFF_{best_band}'], src[f'EE1_{best_band}'], src[f'EE2_{best_band}'])
+                if use_band_shape:
+                    shape = EllipseESoft(src[f'REFF_{band}'], src[f'EE1_{band}'], src[f'EE2_{band}'])
+                else:
+                    shape = EllipseESoft(src[f'REFF_{best_band}'], src[f'EE1_{best_band}'], src[f'EE2_{best_band}'])                
                 self.model_catalog[i] = DevGalaxy(position, flux, shape)
             elif src[f'SOLMODEL_{best_band}'] == "FixedCompositeGalaxy":
-                shape_exp = EllipseESoft(src[f'EXP_REFF_{best_band}'], src[f'EXP_EE1_{best_band}'], src[f'EXP_EE2_{best_band}'])
-                shape_dev = EllipseESoft(src[f'DEV_REFF_{best_band}'], src[f'DEV_EE1_{best_band}'], src[f'DEV_EE2_{best_band}'])
+                if use_band_shape:
+                    shape_exp = EllipseESoft(src[f'EXP_REFF_{band}'], src[f'EXP_EE1_{band}'], src[f'EXP_EE2_{band}'])
+                    shape_dev = EllipseESoft(src[f'DEV_REFF_{band}'], src[f'DEV_EE1_{band}'], src[f'DEV_EE2_{band}'])
+                else:
+                    shape_exp = EllipseESoft(src[f'EXP_REFF_{best_band}'], src[f'EXP_EE1_{best_band}'], src[f'EXP_EE2_{best_band}'])
+                    shape_dev = EllipseESoft(src[f'DEV_REFF_{best_band}'], src[f'DEV_EE1_{best_band}'], src[f'DEV_EE2_{best_band}'])
+                
                 self.model_catalog[i] = FixedCompositeGalaxy(
                                                 position, flux,
                                                 SoftenedFracDev(src[f'FRACDEV_{best_band}']),
@@ -845,7 +869,7 @@ class Brick(Subimage):
                 hdul.writeto(self.auxhdu_path, overwrite=True)
 
 
-    def make_residual_image(self, catalog=None, band=None, include_chi=True, include_nopsf=False, save=True, use_band_position=False, modeling=False):
+    def make_residual_image(self, catalog=None, band=None, include_chi=True, include_nopsf=False, save=True, use_band_position=False, use_band_shape=False, modeling=False):
         # Make model image or load it in
         self.logger.info(f'Making residual image')
 
@@ -856,7 +880,7 @@ class Brick(Subimage):
         if self.model_images is None:
             if catalog is None:
                 raise RuntimeError('ERROR - I need a catalog to make the model image first!')
-            self.make_model_image(catalog, include_chi=include_chi, include_nopsf=include_nopsf, save=False, use_band_position=use_band_position, modeling=modeling)
+            self.make_model_image(catalog, include_chi=include_chi, include_nopsf=include_nopsf, save=False, use_band_position=use_band_position, use_band_shape=use_band_shape, modeling=modeling)
         
         # Subtract
         self.logger.info('Constructing residual image...')

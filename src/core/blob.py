@@ -106,8 +106,8 @@ class Blob(Subimage):
         # Clean
         blob_sourcemask = np.in1d(brick.catalog['source_id'], blob_sources)
         self.bcatalog = brick.catalog[blob_sourcemask].copy() # working copy
-        if brick.catalog['VALID_SOURCE'].any(): # Then modeling completed (???) and we are good to check this stuff.
-            valid_arr = self.bcatalog['VALID_SOURCE']
+        if brick.catalog['VALID_SOURCE_MODELING'].any(): # Then modeling completed (???) and we are good to check this stuff.
+            valid_arr = self.bcatalog['VALID_SOURCE_MODELING']
             if len(valid_arr) > 1:
                 if (valid_arr == False).all():
                     self.logger.warning('Blob is rejected as no sources are valid!')
@@ -367,13 +367,18 @@ class Blob(Subimage):
                 flux = Fluxes(**dict(zip(self.bands, src['flux'] * np.ones(len(self.bands)))))
 
             else:
-                qflux = np.zeros(len(self.bands))
-                src_seg = self.segmap==src['source_id']
-                for j, (img, psf) in enumerate(zip(self.images, self.psfmodels)):
-                    max_img = np.nanmax(img * src_seg)
-                    max_psf = np.nanmax(psf.img)
-                    qflux[j] = max_img / max_psf
-                flux = Fluxes(**dict(zip(self.bands, qflux)))
+                try:
+                    qflux = np.zeros(len(self.bands))
+                    src_seg = self.segmap==src['source_id']
+                    for j, (img, psf) in enumerate(zip(self.images, self.psfmodels)):
+                        max_img = np.nanmax(img * src_seg)
+                        max_psf = np.nanmax(psf.img)
+                        qflux[j] = max_img / max_psf
+                    flux = Fluxes(**dict(zip(self.bands, qflux)))
+                except:
+                    self.logger.warning('Failed to estimate inital flux a priori. Falling back on SEP...')
+                    flux = Fluxes(**dict(zip(self.bands, src['flux'] * np.ones(len(self.bands)))))
+                
 
             #shape = GalaxyShape(src['a'], src['b'] / src['a'], src['theta'])
             pa = 90 + np.rad2deg(src['theta'])
@@ -945,7 +950,7 @@ class Blob(Subimage):
                 self.chi_sig[i,j] = np.std(chi_seg)
                 self.chi_mu[i,j] = np.mean(chi_seg)
 
-                if conf.PLOT > 1:
+                if conf.PLOT > 2:
                     for k, ssrc in enumerate(self.solution_catalog):
                         sid = self.bcatalog['source_id'][k]
                         plot_xsection(self, band, ssrc, sid)
@@ -1432,21 +1437,21 @@ class Blob(Subimage):
             band = band.replace(' ', '_')
             if band == conf.MODELING_NICKNAME:
                 zpt = conf.MODELING_ZPT
-                flux_var = self.parameter_variance
+                param_var = self.parameter_variance
             elif band.startswith(conf.MODELING_NICKNAME):
                 band_name = band[len(conf.MODELING_NICKNAME)+1:]
                 zpt = conf.MULTIBAND_ZPT[self._band2idx(band_name)]
-                flux_var = self.parameter_variance
+                param_var = self.parameter_variance
             else:
                 zpt = conf.MULTIBAND_ZPT[self._band2idx(band)]
-                flux_var = self.forced_variance
+                param_var = self.forced_variance
 
             self.bcatalog[row]['MAG_'+band] = -2.5 * np.log10(src.getBrightness().getFlux(band)) + zpt
-            self.bcatalog[row]['MAGERR_'+band] = 1.09 * np.sqrt(flux_var[row].brightness.getParams()[i]) / src.getBrightness().getFlux(band)
+            self.bcatalog[row]['MAGERR_'+band] = 1.09 * np.sqrt(param_var[row].brightness.getParams()[i]) / src.getBrightness().getFlux(band)
             self.bcatalog[row]['RAWFLUX_'+band] = src.getBrightness().getFlux(band)
-            self.bcatalog[row]['RAWFLUXERR_'+band] = np.sqrt(flux_var[row].brightness.getParams()[i])
+            self.bcatalog[row]['RAWFLUXERR_'+band] = np.sqrt(param_var[row].brightness.getParams()[i])
             self.bcatalog[row]['FLUX_'+band] = src.getBrightness().getFlux(band) * 10**(-0.4 * (zpt - 23.9))  # Force fluxes to be in uJy!
-            self.bcatalog[row]['FLUXERR_'+band] = np.sqrt(flux_var[row].brightness.getParams()[i]) * 10**(-0.4 * (zpt - 23.9))
+            self.bcatalog[row]['FLUXERR_'+band] = np.sqrt(param_var[row].brightness.getParams()[i]) * 10**(-0.4 * (zpt - 23.9))
             self.bcatalog[row]['CHISQ_'+band] = self.solution_chisq[row, i]
             self.bcatalog[row]['BIC_'+band] = self.solution_bic[row, i]
             self.bcatalog[row]['N_CONVERGE_'+band] = self.n_converge
@@ -1457,13 +1462,96 @@ class Blob(Subimage):
             self.bcatalog[row]['CHI_K2_'+band] = self.k2[row, i]
             # self.bcatalog[row]['VALID_SOURCE_'+band] = valid_source
 
-            if multiband_only:
+            if not conf.FREEZE_FORCED_POSITION:
                 self.bcatalog[row][f'X_MODEL_{band}'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER
                 self.bcatalog[row][f'Y_MODEL_{band}'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER
+                self.bcatalog[row][f'XERR_MODEL_{band}'] = np.sqrt(param_var[row].pos.getParams()[0])
+                self.bcatalog[row][f'YERR_MODEL_{band}'] = np.sqrt(param_var[row].pos.getParams()[1])
                 if self.wcs is not None:
                     skyc = self.brick_wcs.all_pix2world(self.bcatalog[row][f'X_MODEL_{band}'] - self.mosaic_origin[0] + conf.BRICK_BUFFER, self.bcatalog[row][f'Y_MODEL_{band}'] - self.mosaic_origin[1] + conf.BRICK_BUFFER, 0)
                     self.bcatalog[row][f'RA_{band}'] = skyc[0]
                     self.bcatalog[row][f'DEC_{band}'] = skyc[1]
+
+            if not conf.FREEZE_FORCED_SHAPE:
+                # Model Parameters
+                self.bcatalog[row][f'VALID_SOURCE_{band}'] = valid_source
+
+
+                if src.name in ('ExpGalaxy', 'DevGalaxy'):
+                    self.bcatalog[row][f'REFF_{band}'] = src.shape.logre
+                    self.bcatalog[row][f'REFF_ERR_{band}'] = np.sqrt(param_var[row].shape.getParams()[0])
+                    self.bcatalog[row][f'EE1_{band}'] = src.shape.ee1
+                    self.bcatalog[row][f'EE2_{band}'] = src.shape.ee2
+                    if (src.shape.e >= 1) | (src.shape.e <= -1):
+                        # self.bcatalog[row][f'VALID_SOURCE'] = False
+                        self.bcatalog[row][f'AB_{band}'] = -99.0
+                        self.logger.warning(f'Source has invalid ellipticity! (e = {src.shape.e:3.3f})')
+                    else:
+                        self.bcatalog[row][f'AB_{band}'] = (src.shape.e + 1) / (1 - src.shape.e)
+                    self.bcatalog[row][f'AB_ERR_{band}'] = np.sqrt(param_var[row].shape.getParams()[1])
+                    self.bcatalog[row][f'THETA_{band}'] = np.rad2deg(src.shape.theta)
+                    self.bcatalog[row][f'THETA_ERR_{band}'] = np.sqrt(param_var[row].shape.getParams()[2])
+
+                    self.logger.info(f"    Reff:               {self.bcatalog[row][f'REFF_{band}']:3.3f} +/- {self.bcatalog[row][f'REFF_ERR_{band}']:3.3f}")
+                    self.logger.info(f"    a/b:                {self.bcatalog[row][f'AB_{band}']:3.3f} +/- {self.bcatalog[row][f'AB_ERR_{band}']:3.3f}")
+                    self.logger.info(f"    pa:                 {self.bcatalog[row][f'THETA_{band}']:3.3f} +/- {self.bcatalog[row][f'THETA_ERR_{band}']:3.3f}")
+
+                elif src.name == 'FixedCompositeGalaxy':
+                    self.bcatalog[row][f'FRACDEV_{band}'] = src.fracDev.getValue()
+                    self.bcatalog[row][f'EXP_REFF_{band}'] = src.shapeExp.logre
+                    self.bcatalog[row][f'EXP_REFF_ERR_{band}'] = np.sqrt(param_var[row].shapeExp.getParams()[0])
+                    if (src.shapeExp.e >= 1) | (src.shapeExp.e <= -1):
+                        # self.bcatalog[row][f'VALID_SOURCE'] = False
+                        self.bcatalog[row][f'EXP_AB_{band}'] = -99.0
+                        self.logger.warning(f'Source has invalid ellipticity! (e = {src.shapeExp.e:3.3f})')
+                    else:
+                        self.bcatalog[row][f'EXP_AB_{band}'] = (src.shapeExp.e + 1) / (1 - src.shapeExp.e)
+                    self.bcatalog[row][f'EXP_AB_ERR_{band}'] = np.sqrt(param_var[row].shapeExp.getParams()[1])
+                    self.bcatalog[row][f'EXP_THETA_{band}'] = np.rad2deg(src.shapeExp.theta)
+                    self.bcatalog[row][f'EXP_THETA_ERR_{band}'] = np.sqrt(param_var[row].shapeExp.getParams()[2])
+                    self.bcatalog[row][f'DEV_REFF_{band}'] = src.shapeDev.logre
+                    self.bcatalog[row][f'DEV_REFF_ERR_{band}'] = np.sqrt(param_var[row].shapeDev.getParams()[0])
+                    if (src.shapeDev.e >= 1) | (src.shapeDev.e <= -1):
+                        # self.bcatalog[row][f'VALID_SOURCE'] = False
+                        self.bcatalog[row][f'DEV_AB_{band}'] = -99.0
+                        self.logger.warning(f'Source has invalid ellipticity! (e = {src.shapeDev.e:3.3f})')
+                    else:
+                        self.bcatalog[row][f'DEV_AB_{band}'] = (src.shapeDev.e + 1) / (1 - src.shapeDev.e)
+                    self.bcatalog[row][f'DEV_AB_ERR_{band}'] = np.sqrt(param_var[row].shapeDev.getParams()[1])
+                    self.bcatalog[row][f'DEV_THETA_{band}'] = np.rad2deg(src.shapeDev.theta)
+                    self.bcatalog[row][f'DEV_THETA_ERR_{band}'] = np.sqrt(param_var[row].shapeDev.getParams()[2])
+                    # self.bcatalog[row][f'reff_err'] = np.sqrt(self.parameter_variance[row][0])
+                    # self.bcatalog[row][f'ab_err'] = np.sqrt(self.parameter_variance[row][1])
+                    # self.bcatalog[row][f'phi_err'] = np.sqrt(self.parameter_variance[row][2])
+
+                    self.bcatalog[row][f'EXP_EE1_{band}'] = src.shapeExp.ee1
+                    self.bcatalog[row][f'EXP_EE2_{band}'] = src.shapeExp.ee2
+                    self.bcatalog[row][f'DEV_EE1_{band}'] = src.shapeDev.ee1
+                    self.bcatalog[row][f'DEV_EE2_{band}'] = src.shapeDev.ee2
+
+
+                    if (src.shapeExp.e >= 1) | (src.shapeExp.e <= -1):
+                        # self.bcatalog[row]['VALID_SOURCE'] = False
+                        self.logger.warning(f'Source has invalid ellipticity! (e = {src.shapeExp.e:3.3f})')
+
+
+                    if (src.shapeDev.e >= 1) | (src.shapeDev.e <= -1):
+                        # self.bcatalog[row]['VALID_SOURCE'] = False
+                        self.logger.warning(f'Source has invalid ellipticity! (e = {src.shapeDev.e:3.3f})')
+
+
+                    self.logger.info(f"    Reff(Exp):          {self.bcatalog[row][f'EXP_REFF_{band}']:3.3f} +/- {self.bcatalog[row][f'EXP_REFF_ERR_{band}']:3.3f}")
+                    self.logger.info(f"    a/b (Exp):          {self.bcatalog[row][f'EXP_AB_{band}']:3.3f} +/- {self.bcatalog[row][f'EXP_AB_ERR_{band}']:3.3f}")
+                    self.logger.info(f"    pa  (Exp):          {self.bcatalog[row][f'EXP_THETA_{band}']:3.3f} +/- {self.bcatalog[row][f'EXP_THETA_ERR_{band}']:3.3f}")
+                    self.logger.info(f"    Reff(Dev):          {self.bcatalog[row][f'DEV_REFF_{band}']:3.3f} +/- {self.bcatalog[row][f'DEV_REFF_ERR_{band}']:3.3f}")
+                    self.logger.info(f"    a/b (Dev):          {self.bcatalog[row][f'DEV_AB_{band}']:3.3f} +/- {self.bcatalog[row][f'DEV_AB_ERR_{band}']:3.3f}")
+                    self.logger.info(f"    pa  (Dev):          {self.bcatalog[row][f'DEV_THETA_{band}']:3.3f} +/- {self.bcatalog[row][f'DEV_THETA_ERR_{band}']:3.3f}")
+
+                elif src.name not in ('PointSource', 'SimpleGalaxy'): # last resort
+                    self.logger.warning(f"Source does not have a valid solution model!")
+                    valid_source = False
+                    self.bcatalog[row]['VALID_SOURCE'] = valid_source
+
 
             pos = 0000
             mag, magerr = self.bcatalog[row]['MAG_'+band], self.bcatalog[row]['MAGERR_'+band]
@@ -1503,7 +1591,7 @@ class Blob(Subimage):
             self.logger.warning('Source is located outwith blob limits!')
             valid_source = False
 
-        if not multiband_only:
+        if (not multiband_only):
             # Position information
             if multiband_model:
                 mod_band = conf.MODELING_NICKNAME

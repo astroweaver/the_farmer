@@ -22,7 +22,9 @@ import os
 import sys
 import time
 from functools import partial
+import shutil
 sys.path.insert(0, os.path.join(os.getcwd(), 'config'))
+import shutil
 
 # Tractor imports
 from tractor import NCircularGaussianPSF, PixelizedPSF, Image, Tractor, FluxesPhotoCal, NullWCS, ConstantSky, EllipseESoft, Fluxes, PixPos
@@ -529,6 +531,14 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
         logger.debug(f'Making blob with {conf.MULTIBAND_NICKNAME}')
         fblob.logger = logger
 
+        if fblob.rejected:
+            logger.info('Blob has been rejected!')
+            # if conf.NTHREADS != 0:
+            #     logger.removeHandler(fh)
+            catout = fblob.bcatalog.copy()
+            del fblob
+            return catout
+
         astart = time.time() 
         status = fblob.stage_images()
         if not status:
@@ -646,6 +656,26 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
 
 def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, blobmap=None, catalog=None, multiband_model=False, use_mask=True, source_only=False):
     """ Stage 2. Detect your sources and determine the best model parameters for them """
+
+    brick_logging_path = os.path.join(conf.LOGGING_DIR, f"B{brick_id}_logfile.log")
+    logging.info(f'Logging information will be streamed to console and to {brick_logging_path}\n')
+    # If overwrite is on, remove old logger                                                                                                                                                                                 
+    if conf.OVERWRITE & os.path.exists(brick_logging_path):
+        logging.warning('Existing logfile will be overwritten.')
+        os.remove(brick_logging_path)
+
+    # close and remove the old file handler
+    #fh.close()
+    #logger.removeHandler(fh)
+
+    # we will add an additional file handler to keep track of brick_id specific information
+    # set up the new file handler
+    shutil.copy(logging_path, brick_logging_path)
+    new_fh = logging.FileHandler(brick_logging_path,mode='a')
+    new_fh.setLevel(logging.getLevelName(conf.LOGFILE_LOGGING_LEVEL))
+    new_fh.setFormatter(formatter)
+        
+    logger.addHandler(new_fh)
 
     # Create detection brick
     tstart = time.time()
@@ -1226,11 +1256,16 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
         cleancatalog = outcatalog[outcatalog[f'VALID_SOURCE']]
         modbrick.make_model_image(catalog=cleancatalog, use_band_position=False, modeling=True)
 
+    # close the brick_id specific file handlers                                                                                         
+    new_fh.close()
+    logger.removeHandler(new_fh)
+
 
 def force_photometry(brick_id, band=None, source_id=None, blob_id=None, insert=True, source_only=False, unfix_bandwise_positions=False):
 
     if band is None:
         fband = conf.BANDS
+        addName = conf.MULTIBAND_NICKNAME
     else:
         if (type(band) == list) | (type(band) == np.ndarray):
             fband = band
@@ -1238,6 +1273,27 @@ def force_photometry(brick_id, band=None, source_id=None, blob_id=None, insert=T
             fband = [band,]
         else:
             sys.exit('ERROR -- Input band is not a list, array, or string!')
+        
+        addName = '_'.join(fband)
+
+    # create new logging file
+    brick_logging_path = os.path.join(conf.LOGGING_DIR, f"B{brick_id}_{addName}_logfile.log")
+    logger.info(f'Logging information will be streamed to console and to {brick_logging_path}\n')
+    # If overwrite is on, remove old logger                                                                                           
+    if conf.OVERWRITE & os.path.exists(brick_logging_path):
+        logger.warning('Existing logfile will be overwritten.')
+        os.remove(brick_logging_path)
+    # close and remove the old file handler                                                                                           
+    #fh.close()                                                                                                         
+    #logger.removeHandler(fh)                                                                                                  
+    
+    # we will add an additional file handler to keep track of brick_id specific information                                                                   
+    # set up the new file handler                                                                                                
+    shutil.copy(logging_path, brick_logging_path)
+    new_fh = logging.FileHandler(brick_logging_path,mode='a')
+    new_fh.setLevel(logging.getLevelName(conf.LOGFILE_LOGGING_LEVEL))
+    new_fh.setFormatter(formatter)
+    logger.addHandler(new_fh)
 
     if (not unfix_bandwise_positions) | (len(fband) == 1):
         force_models(brick_id=brick_id, band=band, source_id=source_id, blob_id=blob_id, insert=insert, source_only=source_only)
@@ -1294,6 +1350,9 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
         fbrick.blobmap = hdul_seg['BLOBMAP'].data
     else:
         raise ValueError(f'No valid segmentation map was found for {brick_id}')
+
+    if (~fbrick.catalog['VALID_SOURCE_MODELING']).all():
+        raise RuntimeError(f'All sources in brick #{brick_id} are invalid. Quitting!')
 
     fbrick.add_columns(modeling=False)
 
@@ -1458,6 +1517,9 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
 
                 outcatalog = mastercat
 
+            else:
+                raise RuntimeError(f'Catalog file for brick #{fbrick.brick_id} could not be found!')
+
         elif (not insert) & force_unfixed_pos:
             # make a new MULITBAND catalog or add to it!
             path_mastercat = os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{conf.MULTIBAND_NICKNAME}.cat')
@@ -1582,7 +1644,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
     return 
 
 
-def make_model_image(brick_id, band, catalog=None, use_single_band_run=False, modeling=False):
+def make_model_image(brick_id, band, catalog=None, use_band_position=False, use_band_shape=False, modeling=False):
     # USE BAND w/ MODELING NICKNAME FOR MODELING RESULTS!
 
     if band.startswith(conf.MODELING_NICKNAME):
@@ -1637,7 +1699,7 @@ def make_model_image(brick_id, band, catalog=None, use_single_band_run=False, mo
     brick.make_model_image(brick.catalog, use_band_position=use_band_position, modeling=modeling)
 
 
-def make_residual_image(brick_id, band, catalog=None, use_single_band_run=False, modeling=False):
+def make_residual_image(brick_id, band, catalog=None, use_band_position=False, use_band_shape=False, modeling=False):
     # USE BAND w/ MODELING NICKNAME FOR MODELING RESULTS!
 
     if band.startswith(conf.MODELING_NICKNAME) | ((modeling==True) & (band != conf.MODELING_NICKNAME)):
@@ -1662,27 +1724,24 @@ def make_residual_image(brick_id, band, catalog=None, use_single_band_run=False,
         brick.catalog = catalog
         brick.n_sources = len(brick.catalog)
         brick.n_blobs = brick.catalog['blob_id'].max()
-        if use_single_band_run:
-            use_band_position=True
-        else:
-            use_band_position=False
+  
     else:
         search_fn = os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat')
         search_fn2 = os.path.join(conf.CATALOG_DIR, f'B{brick_id}_{conf.MULTIBAND_NICKNAME}.cat') # this means the band was run by itself!
         search_fn3 = os.path.join(conf.CATALOG_DIR, f'B{brick_id}_{band}.cat')
-        if os.path.exists(search_fn) & ~use_single_band_run:
+        if os.path.exists(search_fn) & ~(use_band_position | use_band_shape):
             brick.logger.info(f'Adopting catalog from {search_fn}')
             brick.catalog = Table(fits.open(search_fn)[1].data)
             brick.n_sources = len(brick.catalog)
             brick.n_blobs = brick.catalog['blob_id'].max()
             use_band_position=False
-        elif os.path.exists(search_fn2) & use_single_band_run:
+        elif os.path.exists(search_fn2) & (use_band_position | use_band_shape):
             brick.logger.info(f'Adopting catalog from {search_fn2}')   # Tries to find BXXX_MULTIBAND.fits
             brick.catalog = Table(fits.open(search_fn2)[1].data)
             brick.n_sources = len(brick.catalog)
             brick.n_blobs = brick.catalog['blob_id'].max()
             use_band_position=True
-        elif os.path.exists(search_fn3) & use_single_band_run:
+        elif os.path.exists(search_fn3) & (use_band_position | use_band_shape):
             brick.logger.info(f'Adopting catalog from {search_fn3}')  # Tries to find BXXX_BAND.fits
             brick.catalog = Table(fits.open(search_fn3)[1].data)
             brick.n_sources = len(brick.catalog)
@@ -1699,7 +1758,7 @@ def make_residual_image(brick_id, band, catalog=None, use_single_band_run=False,
     else:
         raise ValueError(f'No valid segmentation map was found for {brick_id}')
 
-    brick.make_residual_image(brick.catalog, use_band_position=use_band_position, modeling=modeling)
+    brick.make_residual_image(brick.catalog, use_band_position=use_band_position, use_band_shape=use_band_shape, modeling=modeling)
 
 
 def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, modeling=False):
@@ -1817,6 +1876,12 @@ def models_from_catalog(catalog, fblob):
 
         inpos = [src[f'X_MODEL_{best_band}'], src[f'Y_MODEL_{best_band}']]
 
+        # for col in src.colnames:
+        #     print(f"  {col} :: {src[col]}")
+        # print(inpos)
+        # print(fblob.subvector)
+        # print(fblob.mosaic_origin)
+
         inpos[0] -= (fblob.subvector[1] + fblob.mosaic_origin[1] - conf.BRICK_BUFFER)
         inpos[1] -= (fblob.subvector[0] + fblob.mosaic_origin[0] - conf.BRICK_BUFFER)
 
@@ -1861,7 +1926,7 @@ def models_from_catalog(catalog, fblob):
         # Check if valid source
         if not src[f'VALID_SOURCE_{best_band}']:
             good_sources[i] = False
-            logger.warning(f'Source #{src["source_id"]}: {src[f"SOLMODEL_{best_band}"]} model at {position} is INVALID.')
+            logger.warning(f'Source #{src["source_id"]}: {src[f"SOLMODEL_{best_band}"]} is INVALID.')
             continue
 
         if (not conf.FREEZE_FORCED_POSITION) & conf.USE_POSITION_PRIOR:
