@@ -1529,7 +1529,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                 # find new columns
                 newcols = np.in1d(output_cat.colnames, mastercat.colnames, invert=True)
 
-                if np.sum(~newcols) == 0:
+                if np.sum(newcols) == 0:
                     logger.warning('Columns exist in catalog -- defaulting to separate file output!')
                     hdr = header_from_dict(conf.__dict__)
                     hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
