@@ -657,25 +657,26 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
 def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, blobmap=None, catalog=None, multiband_model=False, use_mask=True, source_only=False):
     """ Stage 2. Detect your sources and determine the best model parameters for them """
 
-    brick_logging_path = os.path.join(conf.LOGGING_DIR, f"B{brick_id}_logfile.log")
-    logging.info(f'Logging information will be streamed to console and to {brick_logging_path}\n')
-    # If overwrite is on, remove old logger                                                                                                                                                                                 
-    if conf.OVERWRITE & os.path.exists(brick_logging_path):
-        logging.warning('Existing logfile will be overwritten.')
-        os.remove(brick_logging_path)
+    if conf.LOGFILE_LOGGING_LEVEL is None:
+        brick_logging_path = os.path.join(conf.LOGGING_DIR, f"B{brick_id}_logfile.log")
+        logging.info(f'Logging information will be streamed to console and to {brick_logging_path}\n')
+        # If overwrite is on, remove old logger                                                                                                                                                                                 
+        if conf.OVERWRITE & os.path.exists(brick_logging_path):
+            logging.warning('Existing logfile will be overwritten.')
+            os.remove(brick_logging_path)
 
-    # close and remove the old file handler
-    #fh.close()
-    #logger.removeHandler(fh)
+        # close and remove the old file handler
+        #fh.close()
+        #logger.removeHandler(fh)
 
-    # we will add an additional file handler to keep track of brick_id specific information
-    # set up the new file handler
-    shutil.copy(logging_path, brick_logging_path)
-    new_fh = logging.FileHandler(brick_logging_path,mode='a')
-    new_fh.setLevel(logging.getLevelName(conf.LOGFILE_LOGGING_LEVEL))
-    new_fh.setFormatter(formatter)
-        
-    logger.addHandler(new_fh)
+        # we will add an additional file handler to keep track of brick_id specific information
+        # set up the new file handler
+        shutil.copy(logging_path, brick_logging_path)
+        new_fh = logging.FileHandler(brick_logging_path,mode='a')
+        new_fh.setLevel(logging.getLevelName(conf.LOGFILE_LOGGING_LEVEL))
+        new_fh.setFormatter(formatter)
+            
+        logger.addHandler(new_fh)
 
     # Create detection brick
     tstart = time.time()
@@ -969,10 +970,10 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
                 # If user wants model and/or residual images made:
                 if conf.MAKE_RESIDUAL_IMAGE:
                     cleancatalog = outcatalog[outcatalog[f'VALID_SOURCE_{modbrick.bands[0]}']]
-                    modbrick.make_residual_image(catalog=cleancatalog)
+                    modbrick.make_residual_image(catalog=cleancatalog, use_band_position=False, modeling=True)
                 elif conf.MAKE_MODEL_IMAGE:
                     cleancatalog = outcatalog[outcatalog[f'VALID_SOURCE_{modbrick.bands[0]}']]
-                    modbrick.make_model_image(catalog=cleancatalog)
+                    modbrick.make_model_image(catalog=cleancatalog, use_band_position=False, modeling=True)
 
             # Reconstuct mosaic positions of invalid sources 
             invalid = ~modbrick.catalog[f'VALID_SOURCE_{modbrick.bands[0]}']
@@ -1162,6 +1163,7 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
                 logger.info('Serial processing initalized.')
                 output_rows = [runblob(kblob_id+1, kblob, modeling=True, plotting=conf.PLOT, source_only=source_only) for kblob_id, kblob in enumerate(modblobs)]
 
+            
             output_cat = vstack(output_rows)
 
             ttotal = time.time() - tstart
@@ -1268,7 +1270,7 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
     logger.removeHandler(new_fh)
 
 
-def force_photometry(brick_id, band=None, source_id=None, blob_id=None, insert=True, source_only=False, unfix_bandwise_positions=False):
+def force_photometry(brick_id, band=None, source_id=None, blob_id=None, insert=True, source_only=False, unfix_bandwise_positions=(not conf.FREEZE_FORCED_POSITION), unfix_bandwise_shapes=(not conf.FREEZE_FORCED_SHAPE)):
 
     if band is None:
         fband = conf.BANDS
@@ -1284,38 +1286,82 @@ def force_photometry(brick_id, band=None, source_id=None, blob_id=None, insert=T
         addName = '_'.join(fband)
 
     # create new logging file
-    brick_logging_path = os.path.join(conf.LOGGING_DIR, f"B{brick_id}_{addName}_logfile.log")
-    logger.info(f'Logging information will be streamed to console and to {brick_logging_path}\n')
-    # If overwrite is on, remove old logger                                                                                           
-    if conf.OVERWRITE & os.path.exists(brick_logging_path):
-        logger.warning('Existing logfile will be overwritten.')
-        os.remove(brick_logging_path)
-    # close and remove the old file handler                                                                                           
-    #fh.close()                                                                                                         
-    #logger.removeHandler(fh)                                                                                                  
-    
-    # we will add an additional file handler to keep track of brick_id specific information                                                                   
-    # set up the new file handler                                                                                                
-    shutil.copy(logging_path, brick_logging_path)
-    new_fh = logging.FileHandler(brick_logging_path,mode='a')
-    new_fh.setLevel(logging.getLevelName(conf.LOGFILE_LOGGING_LEVEL))
-    new_fh.setFormatter(formatter)
-    logger.addHandler(new_fh)
+    if conf.LOGFILE_LOGGING_LEVEL is None:
+        brick_logging_path = os.path.join(conf.LOGGING_DIR, f"B{brick_id}_{addName}_logfile.log")
+        logger.info(f'Logging information will be streamed to console and to {brick_logging_path}\n')
+        # If overwrite is on, remove old logger                                                                                           
+        if conf.OVERWRITE & os.path.exists(brick_logging_path):
+            logger.warning('Existing logfile will be overwritten.')
+            os.remove(brick_logging_path)
+        # close and remove the old file handler                                                                                           
+        #fh.close()                                                                                                         
+        #logger.removeHandler(fh)                                                                                                  
+        
+        # we will add an additional file handler to keep track of brick_id specific information                                                                   
+        # set up the new file handler                                                                                                
+        shutil.copy(logging_path, brick_logging_path)
+        new_fh = logging.FileHandler(brick_logging_path,mode='a')
+        new_fh.setLevel(logging.getLevelName(conf.LOGFILE_LOGGING_LEVEL))
+        new_fh.setFormatter(formatter)
+        logger.addHandler(new_fh)
 
-    if (not unfix_bandwise_positions) | (len(fband) == 1):
-        force_models(brick_id=brick_id, band=band, source_id=source_id, blob_id=blob_id, insert=insert, source_only=source_only)
+    if ((not unfix_bandwise_positions) & (not unfix_bandwise_shapes)) | (len(fband) == 1):
+        force_models(brick_id=brick_id, band=band, source_id=source_id, blob_id=blob_id, insert=insert, source_only=source_only, force_unfixed_pos=False, use_band_shape=unfix_bandwise_shapes)
+    
     else:
         if conf.FREEZE_FORCED_POSITION:
             logger.warning('Setting FREEZE_FORCED_POSITION to False!')
             conf.FREEZE_FORCED_POSITION = False
        
         for b in fband:
-            force_models(brick_id=brick_id, band=b, source_id=source_id, blob_id=blob_id, insert=insert, source_only=source_only, force_unfixed_pos=True)
+            pass
+            force_models(brick_id=brick_id, band=b, source_id=source_id, blob_id=blob_id, insert=insert, source_only=source_only, force_unfixed_pos=True, use_band_shape=unfix_bandwise_shapes)
 
             # TODO -- compare valid source_band and add to catalog!
 
+        if conf.PLOT >  0: # COLLECT SRCPROFILES
+            logger.info('Collecting srcprofile diagnostic plots...')
+            import glob
+            # find sids
+            files = glob.glob(os.path.join(conf.PLOT_DIR, f'T{brick_id}_B*_S*_*_srcprofile.pdf'))
+            sids= []
+            for f in files:
+                tsid = int(f[len(conf.PLOT_DIR):].split('S')[1].split('_')[0])
+                if tsid not in sids:
+                    sids.append(tsid)
+            for sid in sids:
+                logger.debug(f' * source {sid}')
+                fnames = []
+                files = glob.glob(os.path.join(conf.PLOT_DIR, f'T{brick_id}_B*_S{sid}_*_srcprofile.pdf'))
+                if len(files) == 0:
+                    logger.error('Source {source_id} does not have any srcprofile plots to collect!')
+                    return
+                bid = int(files[0][len(conf.PLOT_DIR):].split('B')[1].split('_')[0])
+                for b in fband:
+                    logger.debug(f' *** adding {b}')
+                    fname = os.path.join(conf.PLOT_DIR, f'T{brick_id}_B{bid}_S{sid}_{b}_srcprofile.pdf')
+                    if os.path.exists(fname):
+                        fnames.append(fname)
+                    else:
+                        logger.warning(f' *** {b} does not exist!')
 
-def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True, source_only=False, force_unfixed_pos=False):
+                # collect
+                from PyPDF2 import PdfFileMerger
+                merger = PdfFileMerger()
+
+                for pdf in fnames:
+                    merger.append(pdf)
+
+                logger.debug(f'Writing out combined srcprofile...')
+                merger.write(os.path.join(conf.PLOT_DIR, f'T{brick_id}_B{bid}_S{sid}_srcprofile.pdf'))
+                merger.close()
+
+                # remove
+                logger.debug(f'Removing individual srcprofiles...')
+                [os.system(f'rm {fname}') for fname in fnames]
+
+
+def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True, source_only=False, force_unfixed_pos=(not conf.FREEZE_FORCED_POSITION), use_band_shape=(not conf.FREEZE_FORCED_SHAPE)):
     """ Stage 3. Force the models on the other images and solve only for flux. """
 
     # Create and update multiband brick
@@ -1415,60 +1461,63 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
             raise ValueError('Requested source is not in blob!')
         output_rows = runblob(blob_id, fblob, modeling=False, catalog=fbrick.catalog, plotting=conf.PLOT, source_id=source_id)
 
-        output_cat = vstack(output_rows)
-    
-        if insert & conf.OVERWRITE & (conf.NBLOBS==0):
-            # open old cat
-            path_mastercat = os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat')
-            if os.path.exists(path_mastercat):
-                mastercat = Table.read(path_mastercat, format='fits')
+        if not conf.OUTPUT:
+            logging.warning('OUTPUT is DISABLED! Quitting...')
+        else:
+            output_cat = vstack(output_rows)
 
-                # find new columns
-                newcols = np.in1d(output_cat.colnames, mastercat.colnames, invert=True)
-                # make fillers
-                for colname in np.array(output_cat.colnames)[newcols]:
-                    #mastercat.add_column(output_cat[colname])
-                    if colname not in mastercat.colnames:
+            if insert & conf.OVERWRITE & (conf.NBLOBS==0):
+                # open old cat
+                path_mastercat = os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat')
+                if os.path.exists(path_mastercat):
+                    mastercat = Table.read(path_mastercat, format='fits')
+
+                    # find new columns
+                    newcols = np.in1d(output_cat.colnames, mastercat.colnames, invert=True)
+                    # make fillers
+                    for colname in np.array(output_cat.colnames)[newcols]:
+                        #mastercat.add_column(output_cat[colname])
+                        if colname not in mastercat.colnames:
+                            if colname.startswith('FLUX_APER') | colname.startswith('MAG_APER'):
+                                mastercat.add_column(Column(length=len(mastercat), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
+                            else:
+                                mastercat.add_column(Column(length=len(mastercat), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
+
+                    for row in output_cat:
+                        mastercat[np.where(mastercat['source_id'] == row['source_id'])[0]] = row
+                    # coordinate correction
+                    # fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
+                    # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
+                    # save
+                    mastercat.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat'), format='fits', overwrite=conf.OVERWRITE)
+                    logger.info(f'Saving results for brick #{fbrick.brick_id} to existing catalog file.')
+            else:
+                    
+                for colname in output_cat.colnames:
+                    if colname not in fbrick.catalog.colnames:
+                        
                         if colname.startswith('FLUX_APER') | colname.startswith('MAG_APER'):
-                            mastercat.add_column(Column(length=len(mastercat), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
+                            fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
                         else:
-                            mastercat.add_column(Column(length=len(mastercat), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
+                            fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
 
+                #fbrick.catalog = join(fbrick.catalog, output_cat, join_type='left', )
                 for row in output_cat:
-                    mastercat[np.where(mastercat['source_id'] == row['source_id'])[0]] = row
-                # coordinate correction
+                    fbrick.catalog[np.where(fbrick.catalog['source_id'] == row['source_id'])[0]] = row
+
+                mode_ext = conf.MULTIBAND_NICKNAME
+                if fband is not None:
+                    if len(fband) == 1:
+                        mode_ext = fband[0].replace(' ', '_')
+                    else:
+                        mode_ext = conf.MULTIBAND_NICKNAME
+
+                # write out cat
                 # fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
                 # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
-                # save
-                mastercat.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat'), format='fits', overwrite=conf.OVERWRITE)
-                logger.info(f'Saving results for brick #{fbrick.brick_id} to existing catalog file.')
-        else:
-                
-            for colname in output_cat.colnames:
-                if colname not in fbrick.catalog.colnames:
-                    
-                    if colname.startswith('FLUX_APER') | colname.startswith('MAG_APER'):
-                        fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
-                    else:
-                        fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
-
-            #fbrick.catalog = join(fbrick.catalog, output_cat, join_type='left', )
-            for row in output_cat:
-                fbrick.catalog[np.where(fbrick.catalog['source_id'] == row['source_id'])[0]] = row
-
-            mode_ext = conf.MULTIBAND_NICKNAME
-            if fband is not None:
-                if len(fband) == 1:
-                    mode_ext = fband[0].replace(' ', '_')
-                else:
-                    mode_ext = conf.MULTIBAND_NICKNAME
-
-            # write out cat
-            # fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
-            # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
-            if conf.OUTPUT:
-                fbrick.catalog.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{mode_ext}.cat'), format='fits', overwrite=conf.OVERWRITE)
-                logger.info(f'Saving results for brick #{fbrick.brick_id} to new {mode_ext} catalog file.')
+                if conf.OUTPUT:
+                    fbrick.catalog.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{mode_ext}.cat'), format='fits', overwrite=conf.OVERWRITE)
+                    logger.info(f'Saving results for brick #{fbrick.brick_id} to new {mode_ext} catalog file.')
 
 
     else:
@@ -1497,166 +1546,168 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
 
         output_cat = vstack(output_rows)  # HACK -- at some point this should just UPDATE the bcatalog with the new photoms. IF the user sets NBLOBS > 0, the catalog is truncated!
 
-    
-        if insert & conf.OVERWRITE & (conf.NBLOBS==0) & (not force_unfixed_pos):
-            # open old cat
-            path_mastercat = os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat')
-            if os.path.exists(path_mastercat):
-                mastercat = Table.read(path_mastercat, format='fits')
 
-                # find new columns
-                newcols = np.in1d(output_cat.colnames, mastercat.colnames, invert=True)
-                # make fillers
-                for colname in np.array(output_cat.colnames)[newcols]:
-                    if colname not in mastercat.colnames:
-                        if colname.startswith('FLUX_APER') | colname.startswith('MAG_APER'):
-                            mastercat.add_column(Column(length=len(mastercat), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
-                        else:
-                            mastercat.add_column(Column(length=len(mastercat), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
-                for row in output_cat:
-                    mastercat[np.where(mastercat['source_id'] == row['source_id'])[0]] = row
-                # coordinate correction
-                # fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
-                # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
-                # save
-                hdr = header_from_dict(conf.__dict__)
-                hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
-                hdu_table = fits.table_to_hdu(mastercat)
-                hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
-                hdul.writeto(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat'), overwrite=conf.OVERWRITE)
-                logger.info(f'Saving results for brick #{fbrick.brick_id} to existing catalog file.')
+        if not conf.OUTPUT:
+            logging.warning('OUTPUT is DISABLED! Quitting...')
+        else:
+            if insert & conf.OVERWRITE & (conf.NBLOBS==0) & (not force_unfixed_pos):
+                # open old cat
+                path_mastercat = os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat')
+                if os.path.exists(path_mastercat):
+                    mastercat = Table.read(path_mastercat, format='fits')
 
-                outcatalog = mastercat
+                    # find new columns
+                    newcols = np.in1d(output_cat.colnames, mastercat.colnames, invert=True)
+                    # make fillers
+                    for colname in np.array(output_cat.colnames)[newcols]:
+                        if colname not in mastercat.colnames:
+                            if colname.startswith('FLUX_APER') | colname.startswith('MAG_APER'):
+                                mastercat.add_column(Column(length=len(mastercat), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
+                            else:
+                                mastercat.add_column(Column(length=len(mastercat), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
+                    for row in output_cat:
+                        mastercat[np.where(mastercat['source_id'] == row['source_id'])[0]] = row
+                    # coordinate correction
+                    # fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
+                    # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
+                    # save
+                    hdr = header_from_dict(conf.__dict__)
+                    hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
+                    hdu_table = fits.table_to_hdu(mastercat)
+                    hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
+                    hdul.writeto(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat'), overwrite=conf.OVERWRITE)
+                    logger.info(f'Saving results for brick #{fbrick.brick_id} to existing catalog file.')
 
-            else:
-                logger.critical(f'Catalog file for brick #{fbrick.brick_id} could not be found!')
-                return
+                    outcatalog = mastercat
 
-        elif (not insert) & force_unfixed_pos:
-            # make a new MULITBAND catalog or add to it!
-            path_mastercat = os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{conf.MULTIBAND_NICKNAME}.cat')
-            if os.path.exists(path_mastercat):
-                mastercat = Table.read(path_mastercat, format='fits')
+                else:
+                    logger.critical(f'Catalog file for brick #{fbrick.brick_id} could not be found!')
+                    return
 
-                # find new columns
-                newcols = np.in1d(output_cat.colnames, mastercat.colnames, invert=True)
+            elif (not insert) & force_unfixed_pos:
+                # make a new MULITBAND catalog or add to it!
+                path_mastercat = os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{conf.MULTIBAND_NICKNAME}.cat')
+                if os.path.exists(path_mastercat):
+                    mastercat = Table.read(path_mastercat, format='fits')
 
-                if np.sum(newcols) == 0:
-                    logger.warning('Columns exist in catalog -- defaulting to separate file output!')
+                    # find new columns
+                    newcols = np.in1d(output_cat.colnames, mastercat.colnames, invert=True)
+
+                    if np.sum(newcols) == 0:
+                        logger.warning('Columns exist in catalog -- defaulting to separate file output!')
+                        hdr = header_from_dict(conf.__dict__)
+                        hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
+                        hdu_table = fits.table_to_hdu(mastercat)
+                        hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
+                        hdul.writeto(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{conf.MULTIBAND_NICKNAME}.cat'), overwrite=conf.OVERWRITE)
+                        logger.info(f'Saving results for brick #{fbrick.brick_id} to new catalog file.')
+
+                    else:
+
+                        join_cat = output_cat[list(np.array(output_cat.colnames)[newcols])] 
+                        join_cat.add_column(output_cat['source_id'])
+                        mastercat = join(mastercat, join_cat, keys='source_id', join_type='left')
+
+
+                        # # add new columns, filled.
+                        # newcolnames = []
+                        # for colname in np.array(output_cat.colnames)[newcols]:
+                        #     if colname not in mastercat.colnames:
+                        #         if colname.startswith('FLUX_APER') | colname.startswith('MAG_APER'):
+                        #             mastercat.add_column(Column(length=len(mastercat), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
+                        #         else:
+                        #             mastercat.add_column(Column(length=len(mastercat), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
+                        #         newcolnames.append(colname)
+                        # #         if colname.startswith('FLUX_APER') | colname.startswith('MAG_APER'):
+                        # #             mastercat.add_column(Column(length=len(mastercat), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
+                        # #         else:
+                        # #             mastercat.add_column(Column(length=len(mastercat), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
+                        # # [print(j) for j in mastercat.colnames]
+                        # # [print(j) for j in output_cat.colnames]
+
+
+                        # # count = 0
+                        # # for row in output_cat:
+                        # #     idx = np.where(mastercat['source_id'] == row['source_id'])[0]
+                        # for colname in newcolnames:
+                        #     mastercat[colname][idx] = output_cat[colname]
+
+                        #     # print(mastercat[np.where(mastercat['source_id'] == row['source_id'])[0]][newcolnames])
+                        #     # print(newcolnames)
+                        #     # print(row[newcolnames])
+                        #     # print(np.where(mastercat['source_id'] == row['source_id'])[0])
+                            
+
+                        #     mastercat[newcolnames][idx] = row[newcolnames]
+
+                        #     count+=1
+
+                        hdr = header_from_dict(conf.__dict__)
+                        hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
+                        hdu_table = fits.table_to_hdu(mastercat)
+                        hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
+                        hdul.writeto(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{conf.MULTIBAND_NICKNAME}.cat'), overwrite=conf.OVERWRITE)
+                        logger.info(f'Saving results for brick #{fbrick.brick_id} to existing catalog file.')
+
+
+
+
+                else:
+                    mastercat = output_cat
+
                     hdr = header_from_dict(conf.__dict__)
                     hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
                     hdu_table = fits.table_to_hdu(mastercat)
                     hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
                     hdul.writeto(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{conf.MULTIBAND_NICKNAME}.cat'), overwrite=conf.OVERWRITE)
                     logger.info(f'Saving results for brick #{fbrick.brick_id} to new catalog file.')
+                
 
-                else:
-
-                    join_cat = output_cat[list(np.array(output_cat.colnames)[newcols])] 
-                    join_cat.add_column(output_cat['source_id'])
-                    mastercat = join(mastercat, join_cat, keys='source_id', join_type='left')
-
-
-                    # # add new columns, filled.
-                    # newcolnames = []
-                    # for colname in np.array(output_cat.colnames)[newcols]:
-                    #     if colname not in mastercat.colnames:
-                    #         if colname.startswith('FLUX_APER') | colname.startswith('MAG_APER'):
-                    #             mastercat.add_column(Column(length=len(mastercat), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
-                    #         else:
-                    #             mastercat.add_column(Column(length=len(mastercat), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
-                    #         newcolnames.append(colname)
-                    # #         if colname.startswith('FLUX_APER') | colname.startswith('MAG_APER'):
-                    # #             mastercat.add_column(Column(length=len(mastercat), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
-                    # #         else:
-                    # #             mastercat.add_column(Column(length=len(mastercat), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
-                    # # [print(j) for j in mastercat.colnames]
-                    # # [print(j) for j in output_cat.colnames]
-
-
-                    # # count = 0
-                    # # for row in output_cat:
-                    # #     idx = np.where(mastercat['source_id'] == row['source_id'])[0]
-                    # for colname in newcolnames:
-                    #     mastercat[colname][idx] = output_cat[colname]
-
-                    #     # print(mastercat[np.where(mastercat['source_id'] == row['source_id'])[0]][newcolnames])
-                    #     # print(newcolnames)
-                    #     # print(row[newcolnames])
-                    #     # print(np.where(mastercat['source_id'] == row['source_id'])[0])
-                        
-
-                    #     mastercat[newcolnames][idx] = row[newcolnames]
-
-                    #     count+=1
-
-                    hdr = header_from_dict(conf.__dict__)
-                    hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
-                    hdu_table = fits.table_to_hdu(mastercat)
-                    hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
-                    hdul.writeto(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{conf.MULTIBAND_NICKNAME}.cat'), overwrite=conf.OVERWRITE)
-                    logger.info(f'Saving results for brick #{fbrick.brick_id} to existing catalog file.')
-
-
+                outcatalog = mastercat
 
 
             else:
-                mastercat = output_cat
+                    
+                for colname in output_cat.colnames:
+                    if colname not in fbrick.catalog.colnames:
+                        if colname.startswith('FLUX_APER') | colname.startswith('MAG_APER'):
+                            fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
+                        else:
+                            fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
+                #fbrick.catalog = join(fbrick.catalog, output_cat, join_type='left', )
+                for row in output_cat:
+                    fbrick.catalog[np.where(fbrick.catalog['source_id'] == row['source_id'])[0]] = row
 
+                mode_ext = conf.MULTIBAND_NICKNAME
+                if fband is not None:
+                    if len(fband) == 1:
+                        mode_ext = fband[0].replace(' ', '_')
+
+                # write out cat
+                mastercat = fbrick.catalog
+                # fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
+                # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
                 hdr = header_from_dict(conf.__dict__)
                 hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
-                hdu_table = fits.table_to_hdu(mastercat)
+                hdu_table = fits.table_to_hdu(fbrick.catalog)
                 hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
-                hdul.writeto(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{conf.MULTIBAND_NICKNAME}.cat'), overwrite=conf.OVERWRITE)
-                logger.info(f'Saving results for brick #{fbrick.brick_id} to new catalog file.')
+                hdul.writeto(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{mode_ext}.cat'), overwrite=conf.OVERWRITE)
+                logger.info(f'Saving results for brick #{fbrick.brick_id} to new {mode_ext} catalog file.')
+
+                outcatalog = fbrick.catalog
+
+
+            # If user wants model and/or residual images made:
+            if conf.MAKE_RESIDUAL_IMAGE:
+                fbrick.make_residual_image(catalog=outcatalog, use_band_position=force_unfixed_pos, use_band_shape=use_band_shape, modeling=False)
+            elif conf.MAKE_MODEL_IMAGE:
+                fbrick.make_model_image(catalog=outcatalog, use_band_position=force_unfixed_pos, use_band_shape=use_band_shape, modeling=False)
             
-
-            outcatalog = mastercat
-
-
-        else:
-                
-            for colname in output_cat.colnames:
-                if colname not in fbrick.catalog.colnames:
-                    if colname.startswith('FLUX_APER') | colname.startswith('MAG_APER'):
-                        fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
-                    else:
-                        fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
-            #fbrick.catalog = join(fbrick.catalog, output_cat, join_type='left', )
-            for row in output_cat:
-                fbrick.catalog[np.where(fbrick.catalog['source_id'] == row['source_id'])[0]] = row
-
-            mode_ext = conf.MULTIBAND_NICKNAME
-            if fband is not None:
-                if len(fband) == 1:
-                    mode_ext = fband[0].replace(' ', '_')
-
-            # write out cat
-            mastercat = fbrick.catalog
-            # fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
-            # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
-            hdr = header_from_dict(conf.__dict__)
-            hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
-            hdu_table = fits.table_to_hdu(fbrick.catalog)
-            hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
-            hdul.writeto(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{mode_ext}.cat'), overwrite=conf.OVERWRITE)
-            logger.info(f'Saving results for brick #{fbrick.brick_id} to new {mode_ext} catalog file.')
-
-            outcatalog = fbrick.catalog
-
-
-        # If user wants model and/or residual images made:
-
-        if conf.MAKE_RESIDUAL_IMAGE:
-            fbrick.make_residual_image(catalog=outcatalog, use_band_position=force_unfixed_pos, modeling=False)
-        elif conf.MAKE_MODEL_IMAGE:
-            fbrick.make_model_image(outcatalog, use_band_position=force_unfixed_pos, modeling=False)
-        
 
     return 
 
 
-def make_model_image(brick_id, band, catalog=None, use_band_position=False, use_band_shape=False, modeling=False):
+def make_model_image(brick_id, band, catalog=None, use_band_position=(not conf.FREEZE_FORCED_POSITION), use_band_shape=(not conf.FREEZE_FORCED_SHAPE), modeling=False):
     # USE BAND w/ MODELING NICKNAME FOR MODELING RESULTS!
 
     if band.startswith(conf.MODELING_NICKNAME):
@@ -1711,7 +1762,7 @@ def make_model_image(brick_id, band, catalog=None, use_band_position=False, use_
     brick.make_model_image(brick.catalog, use_band_position=use_band_position, modeling=modeling)
 
 
-def make_residual_image(brick_id, band, catalog=None, use_band_position=False, use_band_shape=False, modeling=False):
+def make_residual_image(brick_id, band, catalog=None, use_band_position=(not conf.FREEZE_FORCED_POSITION), use_band_shape=(not conf.FREEZE_FORCED_SHAPE), modeling=False):
     # USE BAND w/ MODELING NICKNAME FOR MODELING RESULTS!
 
     if band.startswith(conf.MODELING_NICKNAME) | ((modeling==True) & (band != conf.MODELING_NICKNAME)):

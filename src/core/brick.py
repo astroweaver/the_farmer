@@ -430,6 +430,8 @@ class Brick(Subimage):
                     raw_fluxes = np.array([src[f'RAWFLUX_{conf.MODELING_NICKNAME}_{band}'] for band in self.bands[idx]])
                 else:
                     raw_fluxes = np.array([src[f'RAWFLUX_{band}'] for band in self.bands[idx]])
+
+                rejected = False
                 if conf.RESIDUAL_CHISQ_REJECTION is not None:
                     for j, band in enumerate(self.bands[idx]):
                         if modeling:
@@ -739,6 +741,8 @@ class Brick(Subimage):
                 raw_fluxes = np.array([src[f'RAWFLUX_{conf.MODELING_NICKNAME}_{band}'] for band in self.bands[idx]])
             else:
                 raw_fluxes = np.array([src[f'RAWFLUX_{band}'] for band in self.bands[idx]])
+            
+            rejected = False
             if conf.RESIDUAL_CHISQ_REJECTION is not None:
                 for j, band in enumerate(self.bands[idx]):
                     if modeling:
@@ -751,10 +755,17 @@ class Brick(Subimage):
                 if (raw_fluxes <= 0.0).all():
 
                     self.logger.debug('Source has too large chisq in all bands. Rejecting!')
+                    rejected=True
+                
+                elif (raw_fluxes < 0.0).any():
+                    raw_fluxes[raw_fluxes < 0.0] = 0.0
+                    self.logger.debug('Source has too large in some bands.')
+
             if conf.RESIDUAL_NEGFLUX_REJECTION:
                 if (raw_fluxes <= 0.0).all():
 
                     self.logger.debug('Source has negative flux in all bands. Rejecting!')
+                    rejected=True
                 elif (raw_fluxes < 0.0).any():
                     raw_fluxes[raw_fluxes < 0.0] = 0.0
                     self.logger.debug('Source has negative flux in some bands.')
@@ -766,28 +777,32 @@ class Brick(Subimage):
                     if (ab > conf.RESIDUAL_AB_REJECTION).all() | (ab <= 0).all():
 
                         self.logger.debug('Source has exessive a/b in all bands. Rejecting!')
+                        rejected=True
                     elif (ab > conf.RESIDUAL_AB_REJECTION).any() | (ab <= 0).any():
                         raw_fluxes[ab > conf.RESIDUAL_AB_REJECTION] = 0.0
                         raw_fluxes[ab <= 0] = 0.0
-                        self.logger.debug('Source has exessive a/b  in some bands.')
+                        self.logger.debug('Source has exessive a/b in some bands.')
                 else:
                     ab_exp = np.array([src[f'EXP_AB_{conf.MODELING_NICKNAME}'] for band in self.bands[idx]])
                     if (ab_exp > conf.RESIDUAL_AB_REJECTION).all() | (ab_exp <= 0).all():
 
                         self.logger.debug('Source has exessive exp a/b in all bands. Rejecting!')
+                        rejected=True
                     elif (ab_exp > conf.RESIDUAL_AB_REJECTION).any() | (ab_exp <= 0).any():
                         raw_fluxes[ab_exp > conf.RESIDUAL_AB_REJECTION] = 0.0
                         raw_fluxes[ab_exp <= 0] = 0.0
-                        self.logger.debug('Source has exessive exp a/b  in some bands.')
+                        self.logger.debug('Source has exessive exp a/b in some bands.')
 
                     ab_dev = np.array([src[f'DEV_AB_{conf.MODELING_NICKNAME}'] for band in self.bands[idx]])
                     if (ab_dev > conf.RESIDUAL_AB_REJECTION).all() | (ab_dev <= 0).all():
 
                         self.logger.debug('Source has exessive dev a/b in all bands. Rejecting!')
+                        rejected=True
                     elif (ab_dev > conf.RESIDUAL_AB_REJECTION).any() | (ab_dev <= 0).any():
                         raw_fluxes[ab_dev > conf.RESIDUAL_AB_REJECTION] = 0.0
                         raw_fluxes[ab_dev <= 0] = 0.0
-                        self.logger.debug('Source has exessive dev a/b  in some bands.')
+                        self.logger.debug('Source has exessive dev a/b in some bands.')
+                        # dont specify rejection here -- if there is only one band then the elif wont trigger anyways.
 
             if use_band_position:
                 bx_model = src[f'X_MODEL_{band}'] - self.mosaic_origin[1] + conf.BRICK_BUFFER 
@@ -835,7 +850,8 @@ class Brick(Subimage):
             self.logger.debug(f'Source #{src["source_id"]}: {self.model_catalog[i].name} model at {position}')
             self.logger.debug(f'               {flux}') 
 
-            self.model_mask[i] = True
+            if not rejected:
+                self.model_mask[i] = True   # TODO: This should really include all bands in a 2d mask, otherwise simul fphot and series fphot return different effective masks...
 
         # Clean
         mtotal = len(self.model_catalog)
@@ -939,7 +955,7 @@ class Brick(Subimage):
 
         if self.model_images is None:
             if catalog is None:
-                raise RuntimeError('ERROR - I need a catalog to make the model image first!')
+                raise RuntimeError('ERROR - I need a catalog to make the model image first!') # save here is false, since we want to save later on.
             self.make_model_image(catalog, include_chi=include_chi, include_nopsf=include_nopsf, save=False, use_band_position=use_band_position, use_band_shape=use_band_shape, modeling=modeling)
         
         # Subtract
