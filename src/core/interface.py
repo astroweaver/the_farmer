@@ -1636,9 +1636,9 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
         # If user wants model and/or residual images made:
 
         if conf.MAKE_RESIDUAL_IMAGE:
-            fbrick.make_residual_image(catalog=outcatalog, use_band_position=True, modeling=False)
+            fbrick.make_residual_image(catalog=outcatalog, use_band_position=force_unfixed_pos, modeling=False)
         elif conf.MAKE_MODEL_IMAGE:
-            fbrick.make_model_image(outcatalog, use_band_position=True, modeling=False)
+            fbrick.make_model_image(outcatalog, use_band_position=force_unfixed_pos, modeling=False)
         
 
     return 

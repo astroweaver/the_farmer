@@ -450,31 +450,34 @@ class Brick(Subimage):
                         raw_fluxes[raw_fluxes < 0.0] = 0.0
                         self.logger.debug('Source has negative flux in some bands.')
 
-                if (conf.RESIDUAL_AB_REJECTION is not None) & (src[f'SOLMODEL_{conf.MODELING_NICKNAME}'] in ('PointSource', 'SimpleGalaxy')):  # HACK -- does NOT apply to unfixed shapes!
+                if (conf.RESIDUAL_AB_REJECTION is not None) & (src[f'SOLMODEL_{conf.MODELING_NICKNAME}'] not in ('PointSource', 'SimpleGalaxy')):  # HACK -- does NOT apply to unfixed shapes!
                 
                     if src[f'SOLMODEL_{conf.MODELING_NICKNAME}'] in ('ExpGalaxy', 'DevGalaxy'):
                         ab = np.array([src[f'AB_{conf.MODELING_NICKNAME}'] for band in self.bands[idx]])
-                        if (ab > conf.RESIDUAL_AB_REJECTION).all():
+                        if (ab > conf.RESIDUAL_AB_REJECTION).all() | (ab <= 0).all():
 
                             self.logger.debug('Source has exessive a/b in all bands. Rejecting!')
-                        elif (ab > conf.RESIDUAL_AB_REJECTION).any():
+                        elif (ab > conf.RESIDUAL_AB_REJECTION).any() | (ab <= 0).any():
                             raw_fluxes[ab > conf.RESIDUAL_AB_REJECTION] = 0.0
+                            raw_fluxes[ab <= 0] = 0.0
                             self.logger.debug('Source has exessive a/b  in some bands.')
                     else:
                         ab_exp = np.array([src[f'EXP_AB_{conf.MODELING_NICKNAME}'] for band in self.bands[idx]])
-                        if (ab_exp > conf.RESIDUAL_AB_REJECTION).all():
+                        if (ab_exp > conf.RESIDUAL_AB_REJECTION).all() | (ab_exp <= 0).all():
 
                             self.logger.debug('Source has exessive exp a/b in all bands. Rejecting!')
-                        elif (ab_exp > conf.RESIDUAL_AB_REJECTION).any():
+                        elif (ab_exp > conf.RESIDUAL_AB_REJECTION).any() | (ab_exp <= 0).any():
                             raw_fluxes[ab_exp > conf.RESIDUAL_AB_REJECTION] = 0.0
+                            raw_fluxes[ab_exp <= 0] = 0.0
                             self.logger.debug('Source has exessive exp a/b  in some bands.')
 
                         ab_dev = np.array([src[f'DEV_AB_{conf.MODELING_NICKNAME}'] for band in self.bands[idx]])
-                        if (ab_dev > conf.RESIDUAL_DEV_REJECTION).all():
+                        if (ab_dev > conf.RESIDUAL_AB_REJECTION).all() | (ab_dev <= 0).all():
 
                             self.logger.debug('Source has exessive dev a/b in all bands. Rejecting!')
-                        elif (ab_dev > conf.RESIDUAL_DEV_REJECTION).any():
+                        elif (ab_dev > conf.RESIDUAL_AB_REJECTION).any() | (ab_dev <= 0).any():
                             raw_fluxes[ab_dev > conf.RESIDUAL_AB_REJECTION] = 0.0
+                            raw_fluxes[ab_dev <= 0] = 0.0
                             self.logger.debug('Source has exessive dev a/b  in some bands.')
 
                 if use_band_position:
@@ -756,31 +759,34 @@ class Brick(Subimage):
                     raw_fluxes[raw_fluxes < 0.0] = 0.0
                     self.logger.debug('Source has negative flux in some bands.')
 
-            if (conf.RESIDUAL_AB_REJECTION is not None) & (src[f'SOLMODEL_{conf.MODELING_NICKNAME}'] in ('PointSource', 'SimpleGalaxy')):  # HACK -- does NOT apply to unfixed shapes!
+            if (conf.RESIDUAL_AB_REJECTION is not None) & (src[f'SOLMODEL_{conf.MODELING_NICKNAME}'] not in ('PointSource', 'SimpleGalaxy')):  # HACK -- does NOT apply to unfixed shapes!
                 
                 if src[f'SOLMODEL_{conf.MODELING_NICKNAME}'] in ('ExpGalaxy', 'DevGalaxy'):
                     ab = np.array([src[f'AB_{conf.MODELING_NICKNAME}'] for band in self.bands[idx]])
-                    if (ab > conf.RESIDUAL_AB_REJECTION).all():
+                    if (ab > conf.RESIDUAL_AB_REJECTION).all() | (ab <= 0).all():
 
                         self.logger.debug('Source has exessive a/b in all bands. Rejecting!')
-                    elif (ab > conf.RESIDUAL_AB_REJECTION).any():
+                    elif (ab > conf.RESIDUAL_AB_REJECTION).any() | (ab <= 0).any():
                         raw_fluxes[ab > conf.RESIDUAL_AB_REJECTION] = 0.0
+                        raw_fluxes[ab <= 0] = 0.0
                         self.logger.debug('Source has exessive a/b  in some bands.')
                 else:
                     ab_exp = np.array([src[f'EXP_AB_{conf.MODELING_NICKNAME}'] for band in self.bands[idx]])
-                    if (ab_exp > conf.RESIDUAL_AB_REJECTION).all():
+                    if (ab_exp > conf.RESIDUAL_AB_REJECTION).all() | (ab_exp <= 0).all():
 
                         self.logger.debug('Source has exessive exp a/b in all bands. Rejecting!')
-                    elif (ab_exp > conf.RESIDUAL_AB_REJECTION).any():
+                    elif (ab_exp > conf.RESIDUAL_AB_REJECTION).any() | (ab_exp <= 0).any():
                         raw_fluxes[ab_exp > conf.RESIDUAL_AB_REJECTION] = 0.0
+                        raw_fluxes[ab_exp <= 0] = 0.0
                         self.logger.debug('Source has exessive exp a/b  in some bands.')
 
                     ab_dev = np.array([src[f'DEV_AB_{conf.MODELING_NICKNAME}'] for band in self.bands[idx]])
-                    if (ab_dev > conf.RESIDUAL_DEV_REJECTION).all():
+                    if (ab_dev > conf.RESIDUAL_AB_REJECTION).all() | (ab_dev <= 0).all():
 
                         self.logger.debug('Source has exessive dev a/b in all bands. Rejecting!')
-                    elif (ab_dev > conf.RESIDUAL_DEV_REJECTION).any():
+                    elif (ab_dev > conf.RESIDUAL_AB_REJECTION).any() | (ab_dev <= 0).any():
                         raw_fluxes[ab_dev > conf.RESIDUAL_AB_REJECTION] = 0.0
+                        raw_fluxes[ab_dev <= 0] = 0.0
                         self.logger.debug('Source has exessive dev a/b  in some bands.')
 
             if use_band_position:
