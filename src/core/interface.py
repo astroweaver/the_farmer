@@ -1349,17 +1349,21 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
         fbrick.n_sources = len(fbrick.catalog)
         fbrick.n_blobs = fbrick.catalog['blob_id'].max()
     else:
-        raise ValueError(f'No valid catalog was found for {brick_id}')
+        logger.critical(f'No valid catalog was found for {brick_id}')
+        return
+
     search_fn = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits')
     if os.path.exists(search_fn):
         hdul_seg = fits.open(search_fn)
         fbrick.segmap = hdul_seg['SEGMAP'].data
         fbrick.blobmap = hdul_seg['BLOBMAP'].data
     else:
-        raise ValueError(f'No valid segmentation map was found for {brick_id}')
+        logger.critical(f'No valid segmentation map was found for {brick_id}')
+        return
 
     if (~fbrick.catalog['VALID_SOURCE_MODELING']).all():
-        raise RuntimeError(f'All sources in brick #{brick_id} are invalid. Quitting!')
+        logger.critical(f'All sources in brick #{brick_id} are invalid. Quitting!')
+        return
 
     fbrick.add_columns(modeling=False)
 
@@ -1525,7 +1529,8 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                 outcatalog = mastercat
 
             else:
-                raise RuntimeError(f'Catalog file for brick #{fbrick.brick_id} could not be found!')
+                logger.critical(f'Catalog file for brick #{fbrick.brick_id} could not be found!')
+                return
 
         elif (not insert) & force_unfixed_pos:
             # make a new MULITBAND catalog or add to it!
