@@ -810,6 +810,10 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
                 modbrick.cleanup()
             if band_num > 0:
                 modbrick.n_blobs, modbrick.n_sources, modbrick.segmap, modbrick.segmask, modbrick.blobmap, modbrick.catalog = n_blobs, n_sources, segmap, segmask, blobmap, catalog
+            if modbrick.n_blobs <= 0:
+                logger.critical('Modeling brick #{brick_id} gained {modbrick.n_blobs} blobs! Quiting.')
+                return
+            
             modbrick.add_columns(modbrick_name=mod_band, multiband_model = False) # doing on detbrick gets column names wrong
             logger.info(f'Modeling brick #{brick_id} gained {modbrick.n_blobs} blobs with {modbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
 
@@ -1027,6 +1031,9 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
         if is_borrowed:
             if 'VALID_SOURCE' in modbrick.catalog.colnames:
                     modbrick.catalog['VALID_SOURCE'] = np.zeros(len(modbrick.catalog), dtype=bool)
+        if modbrick.n_blobs <= 0:
+            logger.critical('Modeling brick #{brick_id} gained {modbrick.n_blobs} blobs! Quiting.')
+            return
         modbrick.shared_params = True ## CRITICAL THING TO DO HERE!
         modbrick.add_columns(multiband_model=True) # doing on detbrick gets column names wrong
         logger.info(f'Modeling brick #{brick_id} gained {modbrick.n_blobs} blobs with {modbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
