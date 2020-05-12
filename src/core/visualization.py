@@ -298,7 +298,10 @@ def plot_srcprofile(blob, src, sid, bands=None):
 
         # tests
         res_seg = res[blob.segmap==sid].flatten()
-        k2, p_norm = stats.normaltest(res_seg)
+        try:
+            k2, p_norm = stats.normaltest(res_seg)
+        except:
+            k2, p_norm = -99, -99
         chi_seg = chi[blob.segmap==sid].flatten()
         chi_sig = np.std(chi_seg)
         chi_mu = np.mean(chi_seg)
@@ -996,7 +999,10 @@ def plot_fblob(blob, band, fig=None, ax=None, final_opt=False, debug=False):
         minx, maxx = 0, 0
         for i, src in enumerate(blob.bcatalog):
             res_seg = residual[blob.segmap==src['source_id']].flatten()
-            k2, p_norm = stats.normaltest(res_seg)
+            try:
+                k2, p_norm = stats.normaltest(res_seg)
+            except:
+                k2, p_norm = -99, -99
             ax[1,5].hist(res_seg, bins=20, histtype='step', color=colors[i], density=True)
             resmin, resmax = np.nanmin(res_seg), np.nanmax(res_seg)
             if resmin < minx:
