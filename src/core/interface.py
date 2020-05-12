@@ -764,6 +764,7 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
         mod_nickname = conf.MULTIBAND_NICKNAME
 
     # Loop over bands to do the modelling on -- if model in series!
+    eff_area = None
     if not multiband_model:
         for band_num, mod_band in enumerate(img_names):
             tstart = time.time()
@@ -942,6 +943,11 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
                     output_rows = [runblob(kblob_id+1, kblob, modeling=True, plotting=conf.PLOT, source_only=source_only) for kblob_id, kblob in enumerate(modblobs)]
 
                 output_cat = vstack(output_rows)
+
+                # estimate effective area
+                eff_area = np.zeros(len(img_names))
+                for b, bname in enumerate(img_names):
+                    eff_area[b] = fbrick.estimate_effective_area(output_cat, bname, modeling=False)[0]
 
                 ttotal = time.time() - tstart
                 logger.info(f'Completed {run_n_blobs} blobs with {len(output_cat)} sources in {ttotal:3.3f}s (avg. {ttotal/len(output_cat):2.2f}s per source)')
@@ -1168,7 +1174,12 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
 
             ttotal = time.time() - tstart
             logger.info(f'Completed {run_n_blobs} blobs with {len(output_cat)} sources in {ttotal:3.3f}s (avg. {ttotal/len(output_cat):2.2f}s per source)')
-                    
+
+            # estimate effective area
+            eff_area = np.zeros(len(img_names))
+            for b, bname in enumerate(img_names):
+                eff_area[b] = fbrick.estimate_effective_area(output_cat, bname, modeling=False)[0]
+                        
             for colname in output_cat.colnames:
                 if colname not in outcatalog.colnames:
                     colshape = output_cat[colname].shape
@@ -1249,6 +1260,10 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
     # write out cat
     if conf.OUTPUT:
         hdr = header_from_dict(conf.__dict__)
+        if eff_area is not None:
+            for b, band in enumerate(img_names):
+                eff_area_deg = eff_area[b,0] * (conf.PIXEL_SCALE / 3600)**2
+                hdr.set(f'AREA{b}', eff_area_deg, f'{band} EFF_AREA (deg2)')
         hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
         hdu_table = fits.table_to_hdu(modbrick.catalog)
         hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
@@ -1371,6 +1386,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
 
     # Create and update multiband brick
     tstart = time.time()
+    eff_area = None
 
     if source_only:
             if source_id is None:
@@ -1551,6 +1567,10 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
 
         output_cat = vstack(output_rows)  # HACK -- at some point this should just UPDATE the bcatalog with the new photoms. IF the user sets NBLOBS > 0, the catalog is truncated!
 
+        # estimate effective area
+        eff_area = np.zeros(len(fband))
+        for b, bname in enumerate(fband):
+            eff_area[b] = fbrick.estimate_effective_area(output_cat, bname, modeling=False)[0]
 
         if not conf.OUTPUT:
             logging.warning('OUTPUT is DISABLED! Quitting...')
@@ -1577,6 +1597,10 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                     # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
                     # save
                     hdr = header_from_dict(conf.__dict__)
+                    if eff_area is not None:
+                        for b, band in enumerate(fband):
+                            eff_area_deg = eff_area[b,0] * (conf.PIXEL_SCALE / 3600)**2
+                            hdr.set(f'AREA{b}', eff_area_deg, f'{band} EFF_AREA (deg2)')
                     hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
                     hdu_table = fits.table_to_hdu(mastercat)
                     hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
@@ -1601,6 +1625,10 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                     if np.sum(newcols) == 0:
                         logger.warning('Columns exist in catalog -- defaulting to separate file output!')
                         hdr = header_from_dict(conf.__dict__)
+                        if eff_area is not None:
+                            for b, band in enumerate(fband):
+                                eff_area_deg = eff_area[b,0] * (conf.PIXEL_SCALE / 3600)**2
+                                hdr.set(f'AREA{b}', eff_area_deg, f'{band} EFF_AREA (deg2)')
                         hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
                         hdu_table = fits.table_to_hdu(mastercat)
                         hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
@@ -1647,6 +1675,10 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                         #     count+=1
 
                         hdr = header_from_dict(conf.__dict__)
+                        if eff_area is not None:
+                            for b, band in enumerate(fband):
+                                eff_area_deg = eff_area[b,0] * (conf.PIXEL_SCALE / 3600)**2
+                                hdr.set(f'AREA{b}', eff_area_deg, f'{band} EFF_AREA (deg2)')
                         hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
                         hdu_table = fits.table_to_hdu(mastercat)
                         hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
@@ -1660,6 +1692,10 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                     mastercat = output_cat
 
                     hdr = header_from_dict(conf.__dict__)
+                    if eff_area is not None:
+                        for b, band in enumerate(fband):
+                            eff_area_deg = eff_area[b,0] * (conf.PIXEL_SCALE / 3600)**2
+                            hdr.set(f'AREA{b}', eff_area_deg, f'{band} EFF_AREA (deg2)')
                     hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
                     hdu_table = fits.table_to_hdu(mastercat)
                     hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
@@ -1692,6 +1728,10 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                 # fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
                 # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
                 hdr = header_from_dict(conf.__dict__)
+                if eff_area is not None:
+                    for b, band in enumerate(fband):
+                        eff_area_deg = eff_area[b,0] * (conf.PIXEL_SCALE / 3600)**2
+                        hdr.set(f'AREA{b}', eff_area_deg, f'{band} EFF_AREA (deg2)')
                 hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
                 hdu_table = fits.table_to_hdu(fbrick.catalog)
                 hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
@@ -1826,6 +1866,67 @@ def make_residual_image(brick_id, band, catalog=None, use_band_position=(not con
         raise ValueError(f'No valid segmentation map was found for {brick_id}')
 
     brick.make_residual_image(brick.catalog, use_band_position=use_band_position, use_band_shape=use_band_shape, modeling=modeling)
+
+
+def estimate_effective_area(brick_id, band, catalog=None, use_band_position=(not conf.FREEZE_FORCED_POSITION), use_band_shape=(not conf.FREEZE_FORCED_SHAPE), modeling=False):
+    if band.startswith(conf.MODELING_NICKNAME) | ((modeling==True) & (band != conf.MODELING_NICKNAME)):
+        nickname = conf.MULTIBAND_NICKNAME
+        if band.startswith(conf.MODELING_NICKNAME):
+            sband = band[len(conf.MODELING_NICKNAME)+1:]
+        else:
+            sband = band
+        modeling=True
+    elif band == conf.MODELING_NICKNAME:
+        nickname = conf.MODELING_NICKNAME
+        sband = conf.MODELING_NICKNAME
+        modeling=True
+    else:
+        nickname = conf.MULTIBAND_NICKNAME
+        sband = band
+        modeling=False
+
+    brick = stage_brickfiles(brick_id, nickname=nickname, band=sband)
+
+    if catalog is not None:
+        brick.catalog = catalog
+        brick.n_sources = len(brick.catalog)
+        brick.n_blobs = brick.catalog['blob_id'].max()
+  
+    else:
+        search_fn = os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat')
+        search_fn2 = os.path.join(conf.CATALOG_DIR, f'B{brick_id}_{conf.MULTIBAND_NICKNAME}.cat') # this means the band was run by itself!
+        search_fn3 = os.path.join(conf.CATALOG_DIR, f'B{brick_id}_{band}.cat')
+        if os.path.exists(search_fn) & ~(use_band_position | use_band_shape):
+            brick.logger.info(f'Adopting catalog from {search_fn}')
+            brick.catalog = Table(fits.open(search_fn)[1].data)
+            brick.n_sources = len(brick.catalog)
+            brick.n_blobs = brick.catalog['blob_id'].max()
+            use_band_position=False
+        elif os.path.exists(search_fn2) & (use_band_position | use_band_shape):
+            brick.logger.info(f'Adopting catalog from {search_fn2}')   # Tries to find BXXX_MULTIBAND.fits
+            brick.catalog = Table(fits.open(search_fn2)[1].data)
+            brick.n_sources = len(brick.catalog)
+            brick.n_blobs = brick.catalog['blob_id'].max()
+            use_band_position=True
+        elif os.path.exists(search_fn3) & (use_band_position | use_band_shape):
+            brick.logger.info(f'Adopting catalog from {search_fn3}')  # Tries to find BXXX_BAND.fits
+            brick.catalog = Table(fits.open(search_fn3)[1].data)
+            brick.n_sources = len(brick.catalog)
+            brick.n_blobs = brick.catalog['blob_id'].max()
+            use_band_position=True
+        else:
+            raise ValueError(f'No valid catalog was found for {brick_id}')
+
+    search_fn = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits')
+    if os.path.exists(search_fn):
+        hdul_seg = fits.open(search_fn)
+        brick.segmap = hdul_seg['SEGMAP'].data
+        brick.blobmap = hdul_seg['BLOBMAP'].data
+    else:
+        raise ValueError(f'No valid segmentation map was found for {brick_id}')
+
+    brick.estimate_effective_area(brick.catalog, sband, modeling=modeling)
+    # TODO: write this out somewhere!
 
 
 def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, modeling=False):

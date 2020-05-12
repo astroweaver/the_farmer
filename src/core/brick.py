@@ -1173,7 +1173,7 @@ class Brick(Subimage):
             self.logger.debug(f'               {flux}') 
 
             if not rejected:
-                self.model_mask[i] = True   # TODO: This should really include all bands in a 2d mask, otherwise simul fphot and series fphot return different effective masks...
+                self.model_mask[i] = True  
 
         # Clean
         mtotal = len(self.model_catalog)
@@ -1359,6 +1359,74 @@ class Brick(Subimage):
                 # Save
                 hdul.writeto(self.auxhdu_path, overwrite=True)
 
+    def estimate_effective_area(self, catalog, band, modeling=False):
+        self.logger.info(f'Calculating the effective area for {band}')
+        if len(self.masks > 0):  # bit of an assumption, but OK
+            mask = self.masks[0]
+        else:
+            # make mask array
+            if band == conf.MODELING_NICKNAME:
+                idx = 0
+            elif band.startswith(conf.MODELING_NICKNAME):
+                band_name = band[len(conf.MODELING_NICKNAME)+1:]
+                idx = self._band2idx(band_name)
+            else:
+                idx = self._band2idx(band)
 
+            mask = self.masks[idx]
+        residual_mask = np.ones_like(mask, dtype=bool)
+        residual_mask[conf.BRICK_BUFFER:-conf.BRICK_BUFFER, conf.BRICK_BUFFER:-conf.BRICK_BUFFER] = False
+        residual_mask[mask] = True
+        residual_mask[self.segmap != 0] = False
+        for src in catalog:
 
+            if modeling:
+                raw_fluxes = src[f'RAWFLUX_{conf.MODELING_NICKNAME}_{band}']
+            else:
+                raw_fluxes = src[f'RAWFLUX_{band}']
 
+            if conf.RESIDUAL_CHISQ_REJECTION is not None:
+                if modeling:
+                    chisq_band = src[f'CHISQ_MODELING_{band}']
+                else:
+                    chisq_band = src[f'CHISQ_{band}']
+                if chisq_band > conf.RESIDUAL_CHISQ_REJECTION:
+                    raw_fluxes = 0.0
+                    self.logger.debug(f'Source has too large chisq. ({chisq_band:3.3f}) > {conf.RESIDUAL_CHISQ_REJECTION})') 
+                    continue
+
+            if conf.RESIDUAL_NEGFLUX_REJECTION:
+                if raw_fluxes <= 0.0:
+                    self.logger.debug('Source has negative flux. Rejecting!')
+                    continue
+
+            if (conf.RESIDUAL_AB_REJECTION is not None) & (src[f'SOLMODEL_{conf.MODELING_NICKNAME}'] not in ('PointSource', 'SimpleGalaxy')):  # HACK -- does NOT apply to unfixed shapes!
+                
+                if src[f'SOLMODEL_{conf.MODELING_NICKNAME}'] in ('ExpGalaxy', 'DevGalaxy'):
+                    ab = src[f'AB_{conf.MODELING_NICKNAME}']
+                    if (ab > conf.RESIDUAL_AB_REJECTION) | (ab <= 0):
+                        self.logger.debug('Source has exessive a/b. Rejecting!')
+                        continue
+                else:
+                    ab_exp = src[f'EXP_AB_{conf.MODELING_NICKNAME}']
+                    if (ab_exp > conf.RESIDUAL_AB_REJECTION) | (ab_exp <= 0):
+                        self.logger.debug('Source has exessive exp a/b. Rejecting!')
+                        continue
+
+                    ab_dev = src[f'DEV_AB_{conf.MODELING_NICKNAME}']
+                    if (ab_dev > conf.RESIDUAL_AB_REJECTION) | (ab_dev <= 0):
+                        self.logger.debug('Source has exessive dev a/b. Rejecting!')
+                        continue
+
+            sid = src['source_id']
+            residual_mask[self.segmap == sid] = True
+
+        # HACK -- this is a slight estimationf in the case that a source bleeds into the buffer, but it is EXACT for the good area!
+        inner_area_pix = (conf.BRICK_WIDTH - 2 * conf.BRICK_BUFFER) * (conf.BRICK_HEIGHT - 2 * conf.BRICK_BUFFER)
+        good_area_pix = np.sum(residual_mask)
+        bad_area_pix = inner_area_pix - good_area_pix
+        self.logger.info(f'Total effective area for brick #{self.brick_id}: {good_area_pix*(conf.PIXEL_SCALE/3600)**2:4.4f} deg2 ({good_area_pix/inner_area_pix*100:3.3f}%)')
+        self.logger.debug(f'Total masked area for brick #{self.brick_id}: {bad_area_pix*(conf.PIXEL_SCALE/3600)**2:4.4f} deg2 ({bad_area_pix/inner_area_pix*100:3.3f}%)')
+        
+
+        return good_area_pix, inner_area_pix
