@@ -29,7 +29,7 @@ import astropy.units as u
 from scipy.ndimage import zoom
 from scipy import stats
 
-from tractor import NCircularGaussianPSF, PixelizedPSF, Image, Tractor, FluxesPhotoCal, NullWCS, ConstantSky, EllipseE, EllipseESoft, Fluxes, PixPos
+from tractor import NCircularGaussianPSF, PixelizedPSF, PixelizedPsfEx, Image, Tractor, FluxesPhotoCal, NullWCS, ConstantSky, EllipseE, EllipseESoft, Fluxes, PixPos
 from tractor.galaxy import ExpGalaxy, DevGalaxy, FixedCompositeGalaxy, SoftenedFracDev
 from tractor.pointsource import PointSource
 from tractor.psf import HybridPixelizedPSF
@@ -185,6 +185,8 @@ class Blob(Subimage):
             if band_strip in conf.RMBACK_PSF:
                 remove_background_psf = True
 
+            psfplotband = band
+
             if (band_strip in conf.CONSTANT_PSF) & (psf is not None):
                 psfmodel = psf.constantPsfAt(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.) # if not spatially varying psfex model, this won't matter.
                 pw, ph = np.shape(psfmodel.img)
@@ -212,6 +214,68 @@ class Blob(Subimage):
                     self.logger.debug('Making a Gaussian Mixture PSF')
                     psfmodel = HybridPixelizedPSF(pix=psfmodel, N=10).gauss
             
+            elif (band_strip in conf.PSFGRID) & (psf is not None):
+                self.logger.debug('Adopting a GRIDPSF from file.')
+                # find nearest prf to blob center
+                psftab_coords, psftab_fname = self.psfmodels[i]
+
+                minsep_idx, minsep, __ = self.blob_coords.match_to_catalog_sky(psftab_coords)
+                psf_fname = psftab_fname[minsep_idx]
+                self.logger.debug(f'Nearest PSF sample: {psf_fname} ({minsep[0].to(u.arcsec).value:2.2f}")')
+
+                if minsep > conf.PSFGRID_MAXSEP*u.arcsec:
+                    self.logger.error(f'Separation ({minsep.to(u.arcsec)}) exceeds maximum {conf.PSFGRID_MAXSEP}!')
+                    return False
+
+                self.minsep[band_strip] = minsep # record it, and add it to the output catalog!
+
+                # open id file
+                path_psffile = os.path.join(conf.PSFGRID_OUT_DIR, f'{band_strip}_OUT/{psf_fname}.psf')
+                if not os.path.exists(path_psffile):
+                    self.logger.error(f'PSF file has not been found! ({path_psffile}')
+                    return False
+                self.logger.debug(f'Adopting GRID PSF: {psf_fname}')
+                
+                # # Do I need to resample?
+                # if  (conf.PRFMAP_PIXEL_SCALE_ORIG > 0) & (conf.PRFMAP_PIXEL_SCALE_ORIG is not None):
+                    
+                #     factor = conf.PRFMAP_PIXEL_SCALE_ORIG / conf.PIXEL_SCALE
+                #     self.logger.debug(f'Resampling PRF with zoom factor: {factor:2.2f}')
+                #     img = zoom(img, factor)
+                #     if np.shape(img)[0]%2 == 0:
+                #         shape_factor = np.shape(img)[0] / (np.shape(img)[0] + 1)
+                #         img = zoom(img, shape_factor)
+                #     self.logger.debug(f'Final PRF size: {np.shape(img)}')
+                # blob_centerx = self.blob_center[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
+                # blob_centery = self.blob_center[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
+                # psfmodel = psf.) # init at blob center, may need to swap!
+                psfmodel = PixelizedPsfEx(fn=path_psffile)
+                pw, ph = np.shape(psfmodel.img)
+
+                psfplotband = psf_fname
+
+                if remove_background_psf & (not conf.FORCE_GAUSSIAN_PSF):
+                    
+                    cmask = create_circular_mask(pw, ph, radius=conf.PSF_MASKRAD / conf.PIXEL_SCALE)
+                    bcmask = ~cmask.astype(bool) & (psfmodel.img > 0)
+                    psf_bkg = np.nanmax(psfmodel.img[bcmask])
+                    psfmodel.img -= psf_bkg
+                    self.logger.debug(f'Removing PSF background. {psf_bkg:e}')
+                    # psfmodel.img[np.isnan(psfmodel.img)] = 0
+                    # psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
+                    psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
+
+                if conf.PSF_RADIUS > 0:
+                    self.logger.debug(f'Clipping PRF ({conf.PSF_RADIUS}px radius)')
+                    psfmodel.img = psfmodel.img[int(pw/2.-conf.PSF_RADIUS):int(pw/2+conf.PSF_RADIUS), int(ph/2.-conf.PSF_RADIUS):int(ph/2+conf.PSF_RADIUS)]
+                    self.logger.debug(f'New shape: {np.shape(psfmodel.img)}')
+
+                if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
+                    norm = psfmodel.img.sum()
+                    self.logger.debug(f'Normalizing PSF (sum = {norm:4.4f})')
+                    psfmodel.img /= norm # HACK -- force normalization to 1       
+                    self.logger.debug(f'PSF has been normalized. (sum = {psfmodel.img.sum():4.4f})') 
+
             elif (band_strip in conf.PRFMAP_PSF) & (psf is not None):
                 self.logger.debug('Adopting a PRF from file.')
                 # find nearest prf to blob center
@@ -320,7 +384,7 @@ class Blob(Subimage):
             self.psfimg[band] = psfimg
             
             if (conf.PLOT > 1):
-                plot_psf(psfimg, band, show_gaussian=False)
+                plot_psf(psfimg, psfplotband, show_gaussian=False)
 
             psfmodel.img = psfmodel.img.astype('float32') # This may be redundant, but it's super important!
                     
@@ -453,7 +517,7 @@ class Blob(Subimage):
             #     y_orig[i] = src.pos[1]
 
 
-            if conf.PLOT > 1:
+            if conf.PLOT > 2:
                 # [print(m.getBrightness()) for m in tr.getCatalog()]
                 plot_iterblob(self, tr, iteration=0, bands=self.bands)
 
@@ -529,7 +593,7 @@ class Blob(Subimage):
                 # except:
                 #     return False
 
-                if conf.PLOT > 1:
+                if conf.PLOT > 2:
                     plot_iterblob(self, tr, iteration=i+1, bands=self.bands)
 
                 if dlnp < conf.TRACTOR_CONTHRESH:
@@ -1358,8 +1422,8 @@ class Blob(Subimage):
             self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, shape=len(apertures), name=f'FLUX_APER_{band}_{image_type}_err'))
             self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, shape=len(apertures), name=f'MAG_APER_{band}_{image_type}'))
             self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, shape=len(apertures), name=f'MAG_APER_{band}_{image_type}_err'))
-            self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, name=f'MAG_TOTAL_{band}_{image_type}'))
-            self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, name=f'MAG_TOTAL_{band}_{image_type}_err'))
+            # self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, name=f'MAG_TOTAL_{band}_{image_type}'))
+            # self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, name=f'MAG_TOTAL_{band}_{image_type}_err'))
 
         for idx, src in enumerate(self.solution_catalog):
             sid = self.bcatalog['source_id'][idx]
@@ -1368,8 +1432,8 @@ class Blob(Subimage):
             self.bcatalog[row][f'FLUX_APER_{band}_{image_type}_err'] = tuple(apflux_err[idx])
             self.bcatalog[row][f'MAG_APER_{band}_{image_type}'] = tuple(apmag[idx])
             self.bcatalog[row][f'MAG_APER_{band}_{image_type}_err'] = tuple(apmag_err[idx])
-            self.bcatalog[row][f'MAG_TOTAL_{band}_{image_type}'] = apmag[idx, -1]
-            self.bcatalog[row][f'MAG_TOTAL_{band}_{image_type}_err'] = apmag_err[idx, -1]
+            # self.bcatalog[row][f'MAG_TOTAL_{band}_{image_type}'] = apmag[idx, -1]
+            # self.bcatalog[row][f'MAG_TOTAL_{band}_{image_type}_err'] = apmag_err[idx, -1]
 
         self.logger.info(f'Aperture photometry complete ({time.time() - tstart:3.3f}s)')
 
@@ -1454,7 +1518,7 @@ class Blob(Subimage):
             self.bcatalog[row]['FLUXERR_'+band] = np.sqrt(param_var[row].brightness.getParams()[i]) * 10**(-0.4 * (zpt - 23.9))
             self.bcatalog[row]['CHISQ_'+band] = self.solution_chisq[row, i]
             self.bcatalog[row]['BIC_'+band] = self.solution_bic[row, i]
-            self.bcatalog[row]['N_CONVERGE_'+band] = self.n_converge
+            # self.bcatalog[row]['N_CONVERGE_'+band] = self.n_converge
             self.bcatalog[row]['SNR_'+band] = self.bcatalog[row]['RAWFLUX_'+band] / self.bcatalog[row]['npix'] / self.noise[row, i]
             # self.bcatalog[row]['NORM_'+band] = self.norm[row, i]
             self.bcatalog[row]['CHI_MU_'+band] = self.chi_mu[row, i]

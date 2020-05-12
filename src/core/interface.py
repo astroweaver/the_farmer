@@ -333,7 +333,7 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, insert=False, ski
 
     return
 
-        
+  
 def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=None, source_only=False):
     """ Essentially a private function. Runs each individual blob and handles the bulk of the work. """
 
@@ -403,7 +403,7 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
             return catout
 
         # Run models
-        if modblob.n_sources >= conf.ITERATIVE_SUBTRACTION_THRESH:
+        if (conf.ITERATIVE_SUBTRACTION_THRESH is not None) & (modblob.n_sources >= conf.ITERATIVE_SUBTRACTION_THRESH):
             logger.debug(f'Performing iterative subtraction for {conf.MODELING_NICKNAME}')
             astart = time.time()
 
@@ -657,7 +657,7 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
 def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, blobmap=None, catalog=None, multiband_model=False, use_mask=True, source_only=False):
     """ Stage 2. Detect your sources and determine the best model parameters for them """
 
-    if conf.LOGFILE_LOGGING_LEVEL is None:
+    if conf.LOGFILE_LOGGING_LEVEL is not None:
         brick_logging_path = os.path.join(conf.LOGGING_DIR, f"B{brick_id}_logfile.log")
         logging.info(f'Logging information will be streamed to console and to {brick_logging_path}\n')
         # If overwrite is on, remove old logger                                                                                                                                                                                 
@@ -1286,7 +1286,7 @@ def force_photometry(brick_id, band=None, source_id=None, blob_id=None, insert=T
         addName = '_'.join(fband)
 
     # create new logging file
-    if conf.LOGFILE_LOGGING_LEVEL is None:
+    if conf.LOGFILE_LOGGING_LEVEL is not None:
         brick_logging_path = os.path.join(conf.LOGGING_DIR, f"B{brick_id}_{addName}_logfile.log")
         logger.info(f'Logging information will be streamed to console and to {brick_logging_path}\n')
         # If overwrite is on, remove old logger                                                                                           
@@ -1305,18 +1305,23 @@ def force_photometry(brick_id, band=None, source_id=None, blob_id=None, insert=T
         new_fh.setFormatter(formatter)
         logger.addHandler(new_fh)
 
+    # TODO Check if the catalog will be too big...
+
+
     if ((not unfix_bandwise_positions) & (not unfix_bandwise_shapes)) | (len(fband) == 1):
+        
         force_models(brick_id=brick_id, band=band, source_id=source_id, blob_id=blob_id, insert=insert, source_only=source_only, force_unfixed_pos=False, use_band_shape=unfix_bandwise_shapes)
-    
+
     else:
         if conf.FREEZE_FORCED_POSITION:
             logger.warning('Setting FREEZE_FORCED_POSITION to False!')
             conf.FREEZE_FORCED_POSITION = False
        
         for b in fband:
-            pass
+            tstart = time.time()
+            logger.critical(f'Running Forced Photometry on {b}')
             force_models(brick_id=brick_id, band=b, source_id=source_id, blob_id=blob_id, insert=insert, source_only=source_only, force_unfixed_pos=True, use_band_shape=unfix_bandwise_shapes)
-
+            logger.critical(f'Forced Photometry for {b} finished in {time.time() - tstart:3.3f}s')
             # TODO -- compare valid source_band and add to catalog!
 
         if conf.PLOT >  0: # COLLECT SRCPROFILES
@@ -1608,7 +1613,6 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                         join_cat.add_column(output_cat['source_id'])
                         mastercat = join(mastercat, join_cat, keys='source_id', join_type='left')
 
-
                         # # add new columns, filled.
                         # newcolnames = []
                         # for colname in np.array(output_cat.colnames)[newcols]:
@@ -1703,7 +1707,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
             elif conf.MAKE_MODEL_IMAGE:
                 fbrick.make_model_image(catalog=outcatalog, use_band_position=force_unfixed_pos, use_band_shape=use_band_shape, modeling=False)
             
-
+    del fbrick
     return 
 
 
@@ -1872,6 +1876,25 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, modeling=False):
     for i, band in enumerate(sbands):
         if band == conf.DETECTION_NICKNAME:
             continue
+
+        if band in conf.PSFGRID:
+            # open up gridpnt file
+            trypath = os.path.join(conf.PSFGRID_OUT_DIR, f'{band}_OUT')
+            if os.path.exists(trypath):
+                pathgrid = os.path.join(trypath, f'{band}_GRIDPT.dat')
+                if os.path.exists(pathgrid):
+                    psftab_grid = ascii.read(pathgrid)
+                    psftab_ra = psftab_grid['RA']
+                    psftab_dec = psftab_grid['Dec']
+                    psfcoords = SkyCoord(ra=psftab_ra*u.degree, dec=psftab_dec*u.degree)
+                    psffname = psftab_grid['FILE_ID']
+                    psfmodels[i] = (psfcoords, psffname)
+                    logger.info(f'Adopted PSFGRID PSF.')
+                    continue    
+                else:
+                    raise RuntimeError(f'{band} is in PRFGRID but does NOT have an gridpoint file!')
+            else:
+                raise RuntimeError(f'{band} is in PRFGRID but does NOT have an output directory!')
 
         if band in conf.PRFMAP_PSF:
             if band in conf.PRFMAP_GRID_FILENAME.keys():
@@ -2048,10 +2071,17 @@ def models_from_catalog(catalog, fblob):
         logger.debug(f'               {flux}') 
         if src[f'SOLMODEL_{best_band}'] not in ('PointSource', 'SimpleGalaxy'):
             if src[f'SOLMODEL_{best_band}'] != 'FixedCompositeGalaxy':
-                logger.debug(f'               {shape}')
+                logger.debug(f"    Reff:               {src[f'REFF_{best_band}']:3.3f}")
+                logger.debug(f"    a/b:                {src[f'AB_{best_band}']:3.3f}")
+                logger.debug(f"    pa:                 {src[f'THETA_{best_band}']:3.3f}")
+
             else:
-                logger.debug(f'               {expshape}')
-                logger.debug(f'               {devshape}')
+                logger.debug(f"EXP|Reff:               {src[f'EXP_REFF_{best_band}']:3.3f}")
+                logger.debug(f"    a/b:                {src[f'EXP_AB_{best_band}']:3.3f}")
+                logger.debug(f"    pa:                 {src[f'EXP_THETA_{best_band}']:3.3f}")
+                logger.debug(f"DEV|Reff:               {src[f'DEV_REFF_{best_band}']:3.3f}")
+                logger.debug(f"    a/b:                {src[f'DEV_AB_{best_band}']:3.3f}")
+                logger.debug(f"    pa:                 {src[f'DEV_THETA_{best_band}']:3.3f}")
 
 
     if (conf.FORCED_PHOT_MAX_NBLOB > 0) & (np.sum(good_sources) > conf.FORCED_PHOT_MAX_NBLOB):
