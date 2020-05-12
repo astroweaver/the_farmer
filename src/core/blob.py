@@ -1002,7 +1002,7 @@ class Blob(Subimage):
                 chi = self.solution_chi_images[j]
                 res = self.images[j] - mod
                 res_seg = res[self.segmap==sid].flatten()
-                if np.sum(res_seg) < 8:
+                if len(res_seg) < 8:
                     self.k2[i,j] = -99
                 else:
                     try:
