@@ -999,7 +999,8 @@ class Brick(Subimage):
                     psfmodel = HybridPixelizedPSF(pix=psfmodel, N=10).gauss
 
             elif (psf is not None):
-                raise RuntimeError('Position dependent PSFs in brick-scale model images is NOT SUPPORTED YET.')
+                self.logger.error('Position dependent PSFs in brick-scale model images is NOT SUPPORTED YET.')
+                continue
                 # blob_centerx = self.blob_center[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
                 # blob_centery = self.blob_center[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
                 # psfmodel = psf.constantPsfAt(blob_centerx, blob_centery) # init at blob center, may need to swap!
