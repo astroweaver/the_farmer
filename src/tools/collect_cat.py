@@ -34,7 +34,7 @@ from astropy.io import ascii, fits
 out_dir = sys.argv[1]
 
 cat_prefix = 'B'
-cat_suffix = 'cat'
+cat_suffix = '_MULTIBAND_CONST.cat'
 overwrite = True
 
 import logging
@@ -67,7 +67,7 @@ for i, fname in enumerate(walk_through_files(out_dir, cat_prefix, cat_suffix)):
     if i == 0:
         hdu_info = fits.open(fname)['CONFIG']
 
-    if (cat['SOLMODEL']=='').all():
+    if (cat['SOLMODEL_MODELING']=='').all():
         print('BAD SOL MODEL. SKIPPING.')
         skip_count += 1
         continue

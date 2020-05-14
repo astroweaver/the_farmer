@@ -97,10 +97,10 @@ class Blob(Subimage):
         self._sublevel = 0
 
         # coordinates
-        self.blob_center = (xlo + w/2., ylo + h/2.)
-        center_x = self.blob_center[0] + self.subvector[1] + 1
-        center_y = self.blob_center[1] + self.subvector[0] + 1
-        ra, dec = self.brick_wcs.all_pix2world(center_x, center_y, 0)
+        self.blob_center = (xlo + h/2., ylo + w/2.)
+        center_x = self.blob_center[1] - self.subvector[0] + self.mosaic_origin[1] - self.mosaic_origin[0] + 1
+        center_y = self.blob_center[0] - self.subvector[1] + self.mosaic_origin[0] - self.mosaic_origin[1] + 1
+        ra, dec = self.wcs.all_pix2world(center_x, center_y, 0)
         self.blob_coords = SkyCoord(ra=ra*u.degree, dec=dec*u.degree)
 
         # Clean
@@ -221,6 +221,14 @@ class Blob(Subimage):
 
                 minsep_idx, minsep, __ = self.blob_coords.match_to_catalog_sky(psftab_coords)
                 psf_fname = psftab_fname[minsep_idx]
+                # print(self.blob_coords[minsep_idx])
+                print()
+                print(self.blob_id)
+                print(self.blob_coords)
+                print(psftab_coords[minsep_idx])
+                print(minsep_idx)
+                print(minsep)
+                print(psf_fname)
                 self.logger.debug(f'Nearest PSF sample: {psf_fname} ({minsep[0].to(u.arcsec).value:2.2f}")')
 
                 if minsep > conf.PSFGRID_MAXSEP*u.arcsec:
