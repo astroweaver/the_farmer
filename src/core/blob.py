@@ -222,13 +222,6 @@ class Blob(Subimage):
                 minsep_idx, minsep, __ = self.blob_coords.match_to_catalog_sky(psftab_coords)
                 psf_fname = psftab_fname[minsep_idx]
                 # print(self.blob_coords[minsep_idx])
-                print()
-                print(self.blob_id)
-                print(self.blob_coords)
-                print(psftab_coords[minsep_idx])
-                print(minsep_idx)
-                print(minsep)
-                print(psf_fname)
                 self.logger.debug(f'Nearest PSF sample: {psf_fname} ({minsep[0].to(u.arcsec).value:2.2f}")')
 
                 if minsep > conf.PSFGRID_MAXSEP*u.arcsec:
