@@ -951,7 +951,7 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
                 # estimate effective area
                 eff_area = np.zeros(len(img_names))
                 for b, bname in enumerate(img_names):
-                    eff_area[b] = fbrick.estimate_effective_area(output_cat, bname, modeling=False)[0]
+                    eff_area[b] = fbrick.estimate_effective_area(output_cat, bname, modeling=True)[0]
 
                 ttotal = time.time() - tstart
                 logger.info(f'Completed {run_n_blobs} blobs with {len(output_cat)} sources in {ttotal:3.3f}s (avg. {ttotal/len(output_cat):2.2f}s per source)')
