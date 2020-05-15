@@ -310,6 +310,7 @@ def plot_srcprofile(blob, src, sid, bands=None):
         fig, ax = plt.subplots(ncols=4, nrows=4, figsize=(15, 15))
 
         # row 1 -- image, info
+        print(np.nanmax([rms, 1E-5]), 0.95*np.nanmax(img))
         norm = LogNorm(np.nanmax([rms, 1E-5]), 0.95*np.nanmax(img), clip='True')
         ax[0,0].imshow(img, norm=norm, cmap='Greys', extent=extent)
         ax[0,0].text(0.05, 1.03, band, transform=ax[0,0].transAxes)
