@@ -829,7 +829,7 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
                 logger.info('Saving segmentation and blob maps...')
                 outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits')
                 if os.path.exists(outpath) & (~conf.OVERWRITE):
-                    logger.warning('Segmap file exists and I will not overwrite it!')
+                    logger.warning('Segmentation file exists and I will not overwrite it!')
                 else:
                     hdul = fits.HDUList()
                     hdul.append(fits.PrimaryHDU())
@@ -1182,7 +1182,7 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
             # estimate effective area
             eff_area = np.zeros(len(img_names))
             for b, bname in enumerate(img_names):
-                eff_area[b] = fbrick.estimate_effective_area(output_cat, bname, modeling=False)[0]
+                eff_area[b] = modbrick.estimate_effective_area(output_cat, bname, modeling=False)[0]
                         
             for colname in output_cat.colnames:
                 if colname not in outcatalog.colnames:
