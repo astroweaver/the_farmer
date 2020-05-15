@@ -1182,7 +1182,7 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
             # estimate effective area
             eff_area = np.zeros(len(img_names))
             for b, bname in enumerate(img_names):
-                eff_area[b] = modbrick.estimate_effective_area(output_cat, bname, modeling=False)[0]
+                eff_area[b] = modbrick.estimate_effective_area(output_cat, bname, modeling=True)[0]
                         
             for colname in output_cat.colnames:
                 if colname not in outcatalog.colnames:
