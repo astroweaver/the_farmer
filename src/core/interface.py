@@ -1955,8 +1955,8 @@ def estimate_effective_area(brick_id, band, catalog=None, use_band_position=(not
     else:
         raise ValueError(f'No valid segmentation map was found for {brick_id}')
 
-    brick.estimate_effective_area(brick.catalog, sband, modeling=modeling)
-    # TODO: write this out somewhere!
+    good_area_pix, inner_area_pix = brick.estimate_effective_area(brick.catalog, sband, modeling=modeling)
+    return good_area_pix, inner_area_pix
 
 
 def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, modeling=False):
