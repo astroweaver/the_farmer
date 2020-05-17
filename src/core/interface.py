@@ -1750,6 +1750,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                 # fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
                 # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
                 hdr = fits.open(path_mastercat)['CONFIG'].header
+                
                 lastb = 0
                 for b in np.arange(99):
                     if 'AREA{b}' not in hdr.keys():
@@ -1757,6 +1758,10 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                 if eff_area is not None:
                     for b, band in enumerate(conf.BANDS):
                         if band in fband:
+                            print(eff_area)
+                            print(fband)
+                            print(band)
+                            print(eff_area[fband==band])
                             eff_area_deg = eff_area[fband==band][0] * (conf.PIXEL_SCALE / 3600)**2
                             hdr.set(f'AREA{b+lastb}', eff_area_deg, f'{band} EFF_AREA (deg2)')
                 hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
