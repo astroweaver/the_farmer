@@ -1710,7 +1710,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
 
                 else:
                     mastercat = output_cat
-
+                    hdr = header_from_dict(conf.__dict__)
                     # hdr = fits.open(path_mastercat)['CONFIG'].header
                     # lastb = 0
                     # for b in np.arange(99):
