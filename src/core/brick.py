@@ -1375,9 +1375,9 @@ class Brick(Subimage):
                 idx = self._band2idx(band)
 
             mask = self.masks[idx]
-        residual_mask = np.ones_like(mask, dtype=bool)
-        residual_mask[conf.BRICK_BUFFER:-conf.BRICK_BUFFER, conf.BRICK_BUFFER:-conf.BRICK_BUFFER] = False
-        residual_mask[mask] = True
+        residual_mask = np.zeros_like(mask, dtype=bool)
+        residual_mask[conf.BRICK_BUFFER:-conf.BRICK_BUFFER, conf.BRICK_BUFFER:-conf.BRICK_BUFFER] = True
+        residual_mask[mask] = False
         residual_mask[self.segmap != 0] = False
         for src in catalog:
 
