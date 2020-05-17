@@ -1720,7 +1720,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                                 print(fband)
                                 print(band)
                                 print(eff_area[fband==band])
-                                eff_area_deg = eff_area[fband==band] * (conf.PIXEL_SCALE / 3600)**2
+                                eff_area_deg = eff_area[np.array(band)==band] * (conf.PIXEL_SCALE / 3600)**2
                                 hdr.set(f'AREA{b+lastb}', eff_area_deg, f'{band} EFF_AREA (deg2)')
                     hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
                     hdu_table = fits.table_to_hdu(mastercat)
