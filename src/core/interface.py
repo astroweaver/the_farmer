@@ -951,7 +951,7 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
                 # estimate effective area
                 eff_area = np.zeros(len(img_names))
                 for b, bname in enumerate(img_names):
-                    eff_area[b] = fbrick.estimate_effective_area(output_cat, bname, modeling=True)[0]
+                    eff_area[bname] = fbrick.estimate_effective_area(output_cat, bname, modeling=True)[0]
 
                 ttotal = time.time() - tstart
                 logger.info(f'Completed {run_n_blobs} blobs with {len(output_cat)} sources in {ttotal:3.3f}s (avg. {ttotal/len(output_cat):2.2f}s per source)')
@@ -1180,9 +1180,9 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
             logger.info(f'Completed {run_n_blobs} blobs with {len(output_cat)} sources in {ttotal:3.3f}s (avg. {ttotal/len(output_cat):2.2f}s per source)')
 
             # estimate effective area
-            eff_area = np.zeros(len(img_names))
+            eff_area = dict(zip(img_names, np.zeros(len(img_names))))
             for b, bname in enumerate(img_names):
-                eff_area[b] = modbrick.estimate_effective_area(output_cat, bname, modeling=True)[0]
+                eff_area[bname] = modbrick.estimate_effective_area(output_cat, bname, modeling=True)[0]
                         
             for colname in output_cat.colnames:
                 if colname not in outcatalog.colnames:
@@ -1267,8 +1267,8 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
         if eff_area is not None:
             for b, band in enumerate(conf.BANDS):
                 if band in img_names:
-                    eff_area_deg = eff_area[b] * (conf.PIXEL_SCALE / 3600)**2
-                    hdr.set(f'AREA{b}', eff_area_deg, f'{band} EFF_AREA (deg2)')
+                    eff_area_deg = eff_area[band] * (conf.PIXEL_SCALE / 3600)**2
+                    hdr.set(f'AREA{b}', eff_area_deg, f'{conf.MODELING_NICKNAME} {band} EFF_AREA (deg2)')
         hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
         hdu_table = fits.table_to_hdu(modbrick.catalog)
         hdul = fits.HDUList([fits.PrimaryHDU(), hdu_table, hdu_info])
@@ -1573,11 +1573,9 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
         output_cat = vstack(output_rows)  # HACK -- at some point this should just UPDATE the bcatalog with the new photoms. IF the user sets NBLOBS > 0, the catalog is truncated!
 
         # estimate effective area
-        eff_area = np.zeros(len(fband))
+        eff_area = dict(zip(fband, np.zeros(len(fband))))
         for b, bname in enumerate(fband):
-            eff_area[b] = fbrick.estimate_effective_area(output_cat, bname, modeling=False)[0]
-
-        print(eff_area)
+            eff_area[bname] = fbrick.estimate_effective_area(output_cat, bname, modeling=False)[0]
 
         if not conf.OUTPUT:
             logging.warning('OUTPUT is DISABLED! Quitting...')
@@ -1611,7 +1609,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                     if eff_area is not None:
                         for b, band in enumerate(conf.BANDS):
                             if band in fband:
-                                eff_area_deg = eff_area[np.array(fband)==band][0]  * (conf.PIXEL_SCALE / 3600)**2
+                                eff_area_deg = eff_area[band]  * (conf.PIXEL_SCALE / 3600)**2
                                 hdr.set(f'AREA{b+lastb}', eff_area_deg, f'{band} EFF_AREA (deg2)')
                     hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
                     hdu_table = fits.table_to_hdu(mastercat)
@@ -1644,7 +1642,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                         if eff_area is not None:
                             for b, band in enumerate(conf.BANDS):
                                 if band in fband:
-                                    eff_area_deg = eff_area[np.array(fband)==band][0] * (conf.PIXEL_SCALE / 3600)**2
+                                    eff_area_deg = eff_area[band] * (conf.PIXEL_SCALE / 3600)**2
                                     hdr.set(f'AREA{b+lastb}', eff_area_deg, f'{band} EFF_AREA (deg2)')
                         hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
                         hdu_table = fits.table_to_hdu(mastercat)
@@ -1699,7 +1697,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                         if eff_area is not None:
                             for b, band in enumerate(conf.BANDS):
                                 if band in fband:
-                                    eff_area_deg = eff_area[np.array(fband)==band][0]  * (conf.PIXEL_SCALE / 3600)**2
+                                    eff_area_deg = eff_area[band]  * (conf.PIXEL_SCALE / 3600)**2
                                     hdr.set(f'AREA{b+lastb}', eff_area_deg, f'{band} EFF_AREA (deg2)')
                         hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
                         hdu_table = fits.table_to_hdu(mastercat)
@@ -1718,7 +1716,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                     if eff_area is not None:
                         for b, band in enumerate(conf.BANDS):
                             if band in fband:
-                                eff_area_deg = eff_area[np.array(band)==band][0] * (conf.PIXEL_SCALE / 3600)**2
+                                eff_area_deg = eff_area[band] * (conf.PIXEL_SCALE / 3600)**2
                                 hdr.set(f'AREA{b+lastb}', eff_area_deg, f'{band} EFF_AREA (deg2)')
                     hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
                     hdu_table = fits.table_to_hdu(mastercat)
@@ -1760,7 +1758,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                 if eff_area is not None:
                     for b, band in enumerate(conf.BANDS):
                         if band in fband:
-                            eff_area_deg = eff_area[np.array(fband)==band][0] * (conf.PIXEL_SCALE / 3600)**2
+                            eff_area_deg = eff_area[band] * (conf.PIXEL_SCALE / 3600)**2
                             hdr.set(f'AREA{b+lastb}', eff_area_deg, f'{band} EFF_AREA (deg2)')
                 hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
                 hdu_table = fits.table_to_hdu(fbrick.catalog)
