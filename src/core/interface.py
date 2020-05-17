@@ -1577,6 +1577,8 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
         for b, bname in enumerate(fband):
             eff_area[b] = fbrick.estimate_effective_area(output_cat, bname, modeling=False)[0]
 
+        print(eff_area)
+
         if not conf.OUTPUT:
             logging.warning('OUTPUT is DISABLED! Quitting...')
         else:
