@@ -1637,7 +1637,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                         hdr = fits.open(path_mastercat)['CONFIG'].header
                         lastb = 0
                         for b in np.arange(99):
-                            if 'AREA{b}' not in hdr.keys():
+                            if 'AREA{b}' in hdr.keys():
                                 lastb = b
                         if eff_area is not None:
                             for b, band in enumerate(conf.BANDS):
