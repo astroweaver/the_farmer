@@ -662,7 +662,7 @@ class Brick(Subimage):
                 ### construct PSFs
                 self.logger.debug('Adopting a GRIDPSF from file.')
                 # find nearest prf to blob center
-                psftab_coords, psftab_fname = self.psfmodels[i]
+                psftab_coords, psftab_fname = self.psfmodels[j]
 
                 minsep_idx, minsep, __ = blob.blob_coords.match_to_catalog_sky(psftab_coords)
                 psf_fname = psftab_fname[minsep_idx]
