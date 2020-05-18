@@ -1749,7 +1749,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                 mastercat = fbrick.catalog
                 # fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
                 # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
-                hdr = fits.open(path_mastercat)['CONFIG'].header
+                hdr = header_from_dict(conf.__dict__)
                 
                 lastb = 0
                 for b in np.arange(99):

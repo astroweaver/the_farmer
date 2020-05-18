@@ -1188,7 +1188,6 @@ class Brick(Subimage):
         self.logger.info(f'Making model image with {msrc}/{mtotal} sources. ({nmasked} are masked)')
         self.model_catalog = self.model_catalog[self.model_mask]
 
-
         # Tractorize
         tr = Tractor(self.timages, self.model_catalog)
         self.tr = tr
