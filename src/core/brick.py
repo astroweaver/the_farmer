@@ -273,7 +273,7 @@ class Brick(Subimage):
         # Figure out which bands are to be run with which setup.
         # The output should be an attribute containing all the model images, in the right order for self.bands
         self.logger.info(f'Making Model images for {self.bands}')
-        if np.in1d(sbands, conf.BANDS).any() & ~np.in1d(sbands, conf.PRFMAP_PSF).any():
+        if np.in1d(sbands, conf.BANDS).any() & ~np.in1d(sbands, conf.PRFMAP_PSF).any() & ~np.in1d(sbands, conf.PSFGRID).any():
             self.logger.info('Making Models for PSF images')
             self.make_model_image_psf(catalog, include_chi=include_chi, include_nopsf=include_nopsf, save=save, use_band_position=use_band_position, use_band_shape=use_band_shape, modeling=modeling)
         if np.in1d(sbands, conf.PSFGRID).any():
