@@ -2,7 +2,7 @@ import numpy as np
 import sys
 import os
 from astropy.table import Table, Column
-sys.path.insert(0, os.path.join('/Volumes/WD4/Current/COSMOS2020/config'))
+sys.path.insert(0, os.path.join('/n07data/weaver/COSMOS2020/config'))
 import config as conf
 
 from src.core import interface
