@@ -19,13 +19,16 @@ def walk_through_files(path, file_prefix = 'B', file_extension='.fits'):
     return output
 
 
-MODELING = False
-if MODELING:
-    bands = conf.MODELING_BANDS
-    MULTIBAND=''
-else:
-    bands = conf.BANDS
-    MULTIBAND = 'MULTIBAND'
+try:
+    bands = [sys.argv[2]]
+    MODELING = False
+
+except:
+    MODELING = False
+    if MODELING:
+        bands = conf.MODELING_BANDS
+    else:
+        bands = conf.BANDS
 
 catalog = Table.read(sys.argv[1])
 brick_id = np.unique(catalog['brick_id'])
