@@ -757,6 +757,7 @@ class Brick(Subimage):
                 rejected = False
                 if conf.RESIDUAL_NEGFLUX_REJECTION:
                     if (raw_fluxes < 0.0).all():
+                        print(raw_fluxes)
                         self.logger.debug('Source has negative flux in all bands. Rejecting!')
                         continue
                     elif (raw_fluxes < 0.0).any():
