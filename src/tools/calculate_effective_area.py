@@ -49,7 +49,9 @@ masked_area = dict(zip(bands, [np.zeros(len(brick_id)) for i in np.arange(len(ba
 for band in bands:
     if MODELING:
         band = f'{conf.MODELING_NICKNAME}_{band}'
-    for bid in brick_id:
-        good_area[band, bid], masked_area[band, bid] = interface.estimate_effective_area(brick_id=bid,  band=band)
+    for i, bid in enumerate(brick_id):
+        good_area[band][i], masked_area[band][i] = interface.estimate_effective_area(brick_id=bid,  band=band)
 
-    print(f'Total area for {band} over {len(brick_id)} bricks: {good_area[band].sum():4.4f} deg2')
+    good_area_deg = good_area[band].sum() * (conf.PIXEL_SCALE/3600)**2
+    masked_area_deg = masked_area[band].sum() * (conf.PIXEL_SCALE/3600)**2
+    print(f'Total area for {band} over {len(brick_id)} bricks: {good_area_deg:4.4f} deg2')
