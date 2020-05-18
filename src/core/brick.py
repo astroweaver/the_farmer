@@ -638,6 +638,7 @@ class Brick(Subimage):
                 idx.append(i)
         # # Make Images
 
+
         self.logger.info(f'Making model images for {self.bands[idx]}')
         self.model_mask = np.zeros(len(catalog), dtype=bool)
 
@@ -671,10 +672,10 @@ class Brick(Subimage):
                     self.logger.error(f'Separation ({minsep.to(u.arcsec)}) exceeds maximum {conf.PSFGRID_MAXSEP}!')
                     return False
 
-                blob.minsep[band_strip] = minsep # record it, and add it to the output catalog!
+                blob.minsep[band] = minsep # record it, and add it to the output catalog!
 
                 # open id file
-                path_psffile = os.path.join(conf.PSFGRID_OUT_DIR, f'{band_strip}_OUT/{psf_fname}.psf')
+                path_psffile = os.path.join(conf.PSFGRID_OUT_DIR, f'{band}_OUT/{psf_fname}.psf')
                 if not os.path.exists(path_psffile):
                     self.logger.error(f'PSF file has not been found! ({path_psffile}')
                     return False
