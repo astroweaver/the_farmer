@@ -663,7 +663,7 @@ class Brick(Subimage):
                 # find nearest prf to blob center
                 psftab_coords, psftab_fname = self.psfmodels[i]
 
-                minsep_idx, minsep, __ = self.blob_coords.match_to_catalog_sky(psftab_coords)
+                minsep_idx, minsep, __ = blob.blob_coords.match_to_catalog_sky(psftab_coords)
                 psf_fname = psftab_fname[minsep_idx]
                 self.logger.debug(f'Nearest PSF sample: {psf_fname} ({minsep[0].to(u.arcsec).value:2.2f}")')
 
@@ -671,7 +671,7 @@ class Brick(Subimage):
                     self.logger.error(f'Separation ({minsep.to(u.arcsec)}) exceeds maximum {conf.PSFGRID_MAXSEP}!')
                     return False
 
-                self.minsep[band_strip] = minsep # record it, and add it to the output catalog!
+                blob.minsep[band_strip] = minsep # record it, and add it to the output catalog!
 
                 # open id file
                 path_psffile = os.path.join(conf.PSFGRID_OUT_DIR, f'{band_strip}_OUT/{psf_fname}.psf')
