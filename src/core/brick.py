@@ -755,6 +755,14 @@ class Brick(Subimage):
                     raw_fluxes = np.array([src[f'RAWFLUX_{band}'] for band in self.bands[idx]])
 
                 rejected = False
+                if conf.RESIDUAL_NEGFLUX_REJECTION:
+                    if (raw_fluxes < 0.0).all():
+                        self.logger.debug('Source has negative flux in all bands. Rejecting!')
+                        continue
+                    elif (raw_fluxes < 0.0).any():
+                        raw_fluxes[raw_fluxes < 0.0] = 0.0
+                        self.logger.debug('Source has negative flux in some bands.')
+
                 if conf.RESIDUAL_CHISQ_REJECTION is not None:
                     for j, band in enumerate(self.bands[idx]):
                         if modeling:
@@ -767,14 +775,7 @@ class Brick(Subimage):
                     if (raw_fluxes < 0.0).all():
                         self.logger.debug('Source has too large chisq in all bands. Rejecting!')
                         continue
-                if conf.RESIDUAL_NEGFLUX_REJECTION:
-                    if (raw_fluxes < 0.0).all():
-                        self.logger.debug('Source has negative flux in all bands. Rejecting!')
-                        continue
-                    elif (raw_fluxes < 0.0).any():
-                        raw_fluxes[raw_fluxes < 0.0] = 0.0
-                        self.logger.debug('Source has negative flux in some bands.')
-
+                
                 if (conf.RESIDUAL_AB_REJECTION is not None) & (src[f'SOLMODEL_{conf.MODELING_NICKNAME}'] not in ('PointSource', 'SimpleGalaxy')):  # HACK -- does NOT apply to unfixed shapes!
                 
                     if src[f'SOLMODEL_{conf.MODELING_NICKNAME}'] in ('ExpGalaxy', 'DevGalaxy'):
