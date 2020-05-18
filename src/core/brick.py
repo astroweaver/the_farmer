@@ -29,10 +29,10 @@ import astropy.units as u
 from scipy.ndimage import zoom
 from scipy import stats
 
-from tractor import NCircularGaussianPSF, PixelizedPSF, Image, Tractor, FluxesPhotoCal, NullWCS, ConstantSky, EllipseE, EllipseESoft, Fluxes, PixPos
+from tractor import NCircularGaussianPSF, PixelizedPSF, PixelizedPsfEx, Image, Tractor, FluxesPhotoCal, NullWCS, ConstantSky, EllipseE, EllipseESoft, Fluxes, PixPos
 from tractor.galaxy import ExpGalaxy, DevGalaxy, FixedCompositeGalaxy, SoftenedFracDev
 from tractor.pointsource import PointSource
-from tractor.psf import HybridPixelizedPSF, PixelizedPsfEx
+from tractor.psf import HybridPixelizedPSF
 
 from .utils import create_circular_mask, SimpleGalaxy
 from .visualization import plot_blobmap, plot_detblob, plot_fblob
