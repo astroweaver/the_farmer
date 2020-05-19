@@ -122,10 +122,8 @@ for i, fname in enumerate(walk_through_files(out_dir, cat_prefix, cat_suffix)):
         try:
             tab = vstack((tab, cat))
             print('stack successful!')
-            continue
         except:
             print('Failed to stack!')
-            continue
         
     del cat
     
