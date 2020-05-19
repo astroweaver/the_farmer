@@ -34,7 +34,7 @@ from astropy.io import ascii, fits
 out_dir = sys.argv[1]
 
 cat_prefix = 'B'
-cat_suffix = '_MULTIBAND_CONST.cat'
+cat_suffix = '_MULTIBAND_GRID.cat'
 overwrite = True
 
 import logging
@@ -71,6 +71,12 @@ for i, fname in enumerate(walk_through_files(out_dir, cat_prefix, cat_suffix)):
         print('BAD SOL MODEL. SKIPPING.')
         skip_count += 1
         continue
+
+    id = np.array([f'{bid}_{sid}' for bid, sid in zip(cat['brick_id'], cat['source_id'])])
+    uniq, idx_unique, counts = np.unique(id,  return_index=True, return_counts=True)
+    print(f'Found {len(uniq)} unique entires. ({len(uniq)/len(cat)*100:3.3f}%)')
+    print(f'removing {np.sum(counts>1)} non-unique sources. ({np.sum(np.isin(id, uniq[counts>1]))} entires!)')
+    cat = cat[idx_unique]
 
     # for band in conf.BANDS:
 
