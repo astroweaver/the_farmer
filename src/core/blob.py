@@ -597,11 +597,7 @@ class Blob(Subimage):
                 if conf.PLOT > 2:
                     plot_iterblob(self, tr, iteration=i+1, bands=self.bands)
 
-                if dlnp < conf.TRACTOR_CONTHRESH:
-                    self.logger.info(f'Blob #{self.blob_id} converged in {i+1} steps ({dlnp_init:2.2f} --> {dlnp:2.2f}) ({time.time() - tstart:3.3f}s)')
-                    self.n_converge = i
-                    break
-
+                
                 if conf.CORRAL_SOURCES:
                     # check if any sources have left their segment
                     cat = tr.getCatalog()[:len(self.bcatalog)]
@@ -612,7 +608,6 @@ class Blob(Subimage):
                         xp0, yp0 = self.bcatalog['x'][idx], self.bcatalog['y'][idx]
                         srcseg = self.segmap == sid
                         maxy, maxx = np.shape(self.segmap)
-
                         if (xp > maxx) | (xp < 0) | (yp < 0) | (yp > maxy):
                             self.logger.warning(f'Source {sid} has escaped the blob!')
                             trip = True
@@ -625,28 +620,33 @@ class Blob(Subimage):
                             # src.pos.addGaussianPrior('y', yp0, 1.0)
 
 
-                        # elif ~srcseg[int(yp), int(xp)]:
+                        elif ~srcseg[int(yp), int(xp)]:
 
-                        #     # fig, ax = plt.subplots()
-                        #     # ax.imshow(srcseg)
-                        #     # ax.scatter(xp, yp)
-                        #     # plt.savefig(os.path.join(conf.PLOT_DIR,f'tr_{i}_{idx}.pdf'))
-                        #     # self.logger.debug('MAKING CORRAL IMAGE!')
+                            # fig, ax = plt.subplots()
+                            # ax.imshow(srcseg)
+                            # ax.scatter(xp, yp)
+                            # plt.savefig(os.path.join(conf.PLOT_DIR,f'tr_{i}_{idx}.pdf'))
+                            # self.logger.debug('MAKING CORRAL IMAGE!')
 
-                        #     # gpriors = src.getLogPrior()
-                        #     # print('Log(Prior):', gpriors)
+                            # gpriors = src.getLogPrior()
+                            # print('Log(Prior):', gpriors)
 
-                        #     self.logger.warning(f'Source {sid} has escaped its segment!')
-                        #     src.pos.setParams([xp0, yp0])
-                        #     # self.logger.info(f'Setting position prior. X = {xp0:2.2f}+/-{1.}; Y = {yp0:2.2f}+/-{1.}')
-                        #     # src.pos.addGaussianPrior('x', xp0, 1.0)
-                        #     # src.pos.addGaussianPrior('y', yp0, 1.0)
+                            self.logger.warning(f'Source {sid} has escaped its segment!')
+                            src.pos.setParams([xp0, yp0])
+                            # self.logger.info(f'Setting position prior. X = {xp0:2.2f}+/-{1.}; Y = {yp0:2.2f}+/-{1.}')
+                            # src.pos.addGaussianPrior('x', xp0, 1.0)
+                            # src.pos.addGaussianPrior('y', yp0, 1.0)
 
                         #     # gpriors = src.getLogPrior()
                         #     # print('Log(Prior):', gpriors)
 
                     if trip:
                         tr.setCatalog(cat)
+
+                if (dlnp < conf.TRACTOR_CONTHRESH) & (~trip):
+                    self.logger.info(f'Blob #{self.blob_id} converged in {i+1} steps ({dlnp_init:2.2f} --> {dlnp:2.2f}) ({time.time() - tstart:3.3f}s)')
+                    self.n_converge = i
+                    break
 
                 
         if var is None:

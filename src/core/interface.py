@@ -788,15 +788,15 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
 
             logger.debug(f'Brick #{brick_id} -- Image statistics for {mod_band}')
             shape, minmax, mean, var = stats.describe(modbrick.images[0], axis=None)[:4]
-            logger.debug(f'    Limits: {minmax[0]:3.3f} - {minmax[1]:3.3f}')
-            logger.debug(f'    Mean: {mean:3.3f}+/-{np.sqrt(var):3.3f}\n')
+            logger.debug(f'    Limits: {minmax[0]:6.6f} - {minmax[1]:6.6f}')
+            logger.debug(f'    Mean: {mean:6.6f}+/-{np.sqrt(var):6.6f}\n')
             logger.debug(f'Brick #{brick_id} -- Weight statistics for {mod_band}')
             shape, minmax, mean, var = stats.describe(modbrick.weights[0], axis=None)[:4]
-            logger.debug(f'    Limits: {minmax[0]:3.3f} - {minmax[1]:3.3f}')
-            logger.debug(f'    Mean: {mean:3.3f}+/-{np.sqrt(var):3.3f}\n')
+            logger.debug(f'    Limits: {minmax[0]:6.6f} - {minmax[1]:6.6f}')
+            logger.debug(f'    Mean: {mean:6.6f}+/-{np.sqrt(var):6.6f}\n')
             logger.debug(f'Brick #{brick_id} -- Background statistics for {mod_band}')
-            logger.debug(f'    Global: {modbrick.backgrounds[0, 0]:3.3f}')
-            logger.debug(f'    RMS: {modbrick.backgrounds[0, 1]:3.3f}\n')
+            logger.debug(f'    Global: {modbrick.backgrounds[0, 0]:6.6f}')
+            logger.debug(f'    RMS: {modbrick.backgrounds[0, 1]:6.6f}\n')
 
             modbrick.catalog = detbrick.catalog.copy()
             modbrick.segmap = detbrick.segmap
@@ -1026,15 +1026,15 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
 
             logger.debug(f'Brick #{brick_id} -- Image statistics for {mod_band}')
             shape, minmax, mean, var = stats.describe(modbrick.images[i], axis=None)[:4]
-            logger.debug(f'    Limits: {minmax[0]:3.3f} - {minmax[1]:3.3f}')
-            logger.debug(f'    Mean: {mean:3.3f}+/-{np.sqrt(var):3.3f}\n')
+            logger.debug(f'    Limits: {minmax[0]:6.6f} - {minmax[1]:6.6f}')
+            logger.debug(f'    Mean: {mean:6.6f}+/-{np.sqrt(var):6.6f}\n')
             logger.debug(f'Brick #{brick_id} -- Weight statistics for {mod_band}')
             shape, minmax, mean, var = stats.describe(modbrick.weights[i], axis=None)[:4]
-            logger.debug(f'    Limits: {minmax[0]:3.3f} - {minmax[1]:3.3f}')
-            logger.debug(f'    Mean: {mean:3.3f}+/-{np.sqrt(var):3.3f}\n')
+            logger.debug(f'    Limits: {minmax[0]:6.6f} - {minmax[1]:6.6f}')
+            logger.debug(f'    Mean: {mean:6.6f}+/-{np.sqrt(var):6.6f}\n')
             logger.debug(f'Brick #{brick_id} -- Background statistics for {mod_band}')
-            logger.debug(f'    Global: {modbrick.backgrounds[i, 0]:3.3f}')
-            logger.debug(f'    RMS: {modbrick.backgrounds[i, 1]:3.3f}\n')
+            logger.debug(f'    Global: {modbrick.backgrounds[i, 0]:6.6f}')
+            logger.debug(f'    RMS: {modbrick.backgrounds[i, 1]:6.6f}\n')
 
         modbrick.catalog = catalog.copy()
         modbrick.segmap = segmap
@@ -1479,15 +1479,15 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
     for i, vb_band in enumerate(fband):
         logger.debug(f'Brick #{brick_id} -- Image statistics for {vb_band}')
         shape, minmax, mean, var = stats.describe(fbrick.images[i], axis=None)[:4]
-        logger.debug(f'    Limits: {minmax[0]:3.3f} - {minmax[1]:3.3f}')
-        logger.debug(f'    Mean: {mean:3.3f}+/-{np.sqrt(var):3.3f}\n')
+        logger.debug(f'    Limits: {minmax[0]:6.6f} - {minmax[1]:6.6f}')
+        logger.debug(f'    Mean: {mean:6.6f}+/-{np.sqrt(var):6.6f}\n')
         logger.debug(f'Brick #{brick_id} -- Weight statistics for {vb_band}')
         shape, minmax, mean, var = stats.describe(fbrick.weights[i], axis=None)[:4]
-        logger.debug(f'    Limits: {minmax[0]:3.3f} - {minmax[1]:3.3f}')
-        logger.debug(f'    Mean: {mean:3.3f}+/-{np.sqrt(var):3.3f}\n')
+        logger.debug(f'    Limits: {minmax[0]:6.6f} - {minmax[1]:6.6f}')
+        logger.debug(f'    Mean: {mean:6.6f}+/-{np.sqrt(var):6.6f}\n')
         logger.debug(f'Brick #{brick_id} -- Background statistics for {vb_band}')
-        logger.debug(f'    Global: {fbrick.backgrounds[i, 0]:3.3f}')
-        logger.debug(f'    RMS: {fbrick.backgrounds[i, 1]:3.3f}')
+        logger.debug(f'    Global: {fbrick.backgrounds[i, 0]:6.6f}')
+        logger.debug(f'    RMS: {fbrick.backgrounds[i, 1]:6.6f}')
 
     if conf.SAVE_BACKGROUND:
         outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_BACKGROUNDS.fits')

@@ -1282,6 +1282,10 @@ class Brick(Subimage):
                 raise RuntimeError('ERROR - I need a catalog to make the model image first!') # save here is false, since we want to save later on.
             self.make_model_image(catalog, include_chi=include_chi, include_nopsf=include_nopsf, save=False, use_band_position=use_band_position, use_band_shape=use_band_shape, modeling=modeling)
         
+        # Background
+        self.subtract_background(flat=conf.USE_FLAT)
+        self.logger.debug(f'Subtracted background (flat={conf.USE_FLAT})')
+
         # Subtract
         self.logger.info('Constructing residual image...')
         self.residual_images = self.images - self.model_images
