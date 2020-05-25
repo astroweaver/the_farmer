@@ -571,15 +571,15 @@ class Brick(Subimage):
                 # Save to file
                 hdul = fits.open(self.auxhdu_path, mode='update')
                 for i, band in zip(idx, conf.PRFMAP_PSF):
-                    hdu_img = fits.ImageHDU(data=self.images[i], name=f'{band}_IMAGE')
+                    hdu_img = fits.ImageHDU(data=self.images[i], name=f'{band}_IMAGE', header=self.wcs.to_header())
                     hdul.append(hdu_img)
-                    hdu_mod = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL')
+                    hdu_mod = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL', header=self.wcs.to_header())
                     hdul.append(hdu_mod)
                     if include_chi:
-                        hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI')
+                        hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI', header=self.wcs.to_header())
                         hdul.append(hdu_chi)
                     if include_nopsf:
-                        hdu_nopsf = fits.ImageHDU(data=self.nopsf_images[i], name=f'{band}_NOPSF')
+                        hdu_nopsf = fits.ImageHDU(data=self.nopsf_images[i], name=f'{band}_NOPSF', header=self.wcs.to_header())
                         hdul.append(hdu_nopsf)
 
                 # make mask array
@@ -592,7 +592,7 @@ class Brick(Subimage):
                     self.residual_mask[self.segmap == sid] = True
 
                 self.residual_mask = self.residual_mask.astype(int)
-                hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'{band}_MASK')
+                hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'{band}_MASK', header=self.wcs.to_header())
                 hdul.append(hdu_mask)
                 hdul.flush()
 
@@ -601,15 +601,15 @@ class Brick(Subimage):
                 # Save to file
                 hdul = fits.HDUList()
                 for i, band in zip(idx, conf.PRFMAP_PSF):
-                    hdu_img = fits.ImageHDU(data=self.images[i], name=f'{band}_IMAGE')
+                    hdu_img = fits.ImageHDU(data=self.images[i], name=f'{band}_IMAGE', header=self.wcs.to_header())
                     hdul.append(hdu_img)
-                    hdu_mod = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL')
+                    hdu_mod = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL', header=self.wcs.to_header())
                     hdul.append(hdu_mod)
                     if include_chi:
-                        hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI')
+                        hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI', header=self.wcs.to_header())
                         hdul.append(hdu_chi)
                     if include_nopsf:
-                        hdu_nopsf = fits.ImageHDU(data=self.nopsf_images[i], name=f'{band}_NOPSF')
+                        hdu_nopsf = fits.ImageHDU(data=self.nopsf_images[i], name=f'{band}_NOPSF', header=self.wcs.to_header())
                         hdul.append(hdu_nopsf)
 
                 # make mask array
@@ -622,7 +622,7 @@ class Brick(Subimage):
                     self.residual_mask[self.segmap == sid] = True
 
                 self.residual_mask = self.residual_mask.astype(int)
-                hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'{band}_MASK')
+                hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'{band}_MASK', header=self.wcs.to_header())
                 hdul.append(hdu_mask)
 
                 hdul.writeto(self.auxhdu_path, overwrite=True)
@@ -894,15 +894,15 @@ class Brick(Subimage):
                 # Save to file
                 hdul = fits.open(self.auxhdu_path, mode='update')
                 for i, band in zip(idx, conf.PRFMAP_PSF):
-                    hdu_img = fits.ImageHDU(data=self.images[i], name=f'{band}_IMAGE')
+                    hdu_img = fits.ImageHDU(data=self.images[i], name=f'{band}_IMAGE', header=self.wcs.to_header())
                     hdul.append(hdu_img)
-                    hdu_mod = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL')
+                    hdu_mod = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL', header=self.wcs.to_header())
                     hdul.append(hdu_mod)
                     if include_chi:
-                        hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI')
+                        hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI', header=self.wcs.to_header())
                         hdul.append(hdu_chi)
                     if include_nopsf:
-                        hdu_nopsf = fits.ImageHDU(data=self.nopsf_images[i], name=f'{band}_NOPSF')
+                        hdu_nopsf = fits.ImageHDU(data=self.nopsf_images[i], name=f'{band}_NOPSF', header=self.wcs.to_header())
                         hdul.append(hdu_nopsf)
 
                 # make mask array
@@ -915,7 +915,7 @@ class Brick(Subimage):
                     self.residual_mask[self.segmap == sid] = True
 
                 self.residual_mask = self.residual_mask.astype(int)
-                hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'{band}_MASK')
+                hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'{band}_MASK', header=self.wcs.to_header())
                 hdul.append(hdu_mask)
                 hdul.flush()
 
@@ -924,15 +924,15 @@ class Brick(Subimage):
                 # Save to file
                 hdul = fits.HDUList()
                 for i, band in zip(idx, conf.PRFMAP_PSF):
-                    hdu_img = fits.ImageHDU(data=self.images[i], name=f'{band}_IMAGE')
+                    hdu_img = fits.ImageHDU(data=self.images[i], name=f'{band}_IMAGE', header=self.wcs.to_header())
                     hdul.append(hdu_img)
-                    hdu_mod = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL')
+                    hdu_mod = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL', header=self.wcs.to_header())
                     hdul.append(hdu_mod)
                     if include_chi:
-                        hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI')
+                        hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI', header=self.wcs.to_header())
                         hdul.append(hdu_chi)
                     if include_nopsf:
-                        hdu_nopsf = fits.ImageHDU(data=self.nopsf_images[i], name=f'{band}_NOPSF')
+                        hdu_nopsf = fits.ImageHDU(data=self.nopsf_images[i], name=f'{band}_NOPSF', header=self.wcs.to_header())
                         hdul.append(hdu_nopsf)
 
                 # make mask array
@@ -945,7 +945,7 @@ class Brick(Subimage):
                     self.residual_mask[self.segmap == sid] = True
 
                 self.residual_mask = self.residual_mask.astype(int)
-                hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'{band}_MASK')
+                hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'{band}_MASK', header=self.wcs.to_header())
                 hdul.append(hdu_mask)
 
                 hdul.writeto(self.auxhdu_path, overwrite=True)
@@ -1214,15 +1214,15 @@ class Brick(Subimage):
                 # Save to file
                 hdul = fits.open(self.auxhdu_path, mode='update')
                 for i, band in enumerate(self.bands[idx]):
-                    hdu_img = fits.ImageHDU(data=self.images[i], name=f'{band}_IMAGE')
+                    hdu_img = fits.ImageHDU(data=self.images[i], name=f'{band}_IMAGE', header=self.wcs.to_header())
                     hdul.append(hdu_img)
-                    hdu_mod = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL')
+                    hdu_mod = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL', header=self.wcs.to_header())
                     hdul.append(hdu_mod)
                     if include_chi:
-                        hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI')
+                        hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI', header=self.wcs.to_header())
                         hdul.append(hdu_chi)
                     if include_nopsf:
-                        hdu_nopsf = fits.ImageHDU(data=self.nopsf_images[i], name=f'{band}_NOPSF')
+                        hdu_nopsf = fits.ImageHDU(data=self.nopsf_images[i], name=f'{band}_NOPSF', header=self.wcs.to_header())
                         hdul.append(hdu_nopsf)
 
                 # make mask array
@@ -1235,7 +1235,7 @@ class Brick(Subimage):
                     self.residual_mask[self.segmap == sid] = True
 
                 self.residual_mask = self.residual_mask.astype(int)
-                hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'{band}_MASK')
+                hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'{band}_MASK', header=self.wcs.to_header())
                 hdul.append(hdu_mask)
                 hdul.flush()
 
@@ -1244,15 +1244,15 @@ class Brick(Subimage):
                 # Save to file
                 hdul = fits.HDUList()
                 for i, band in enumerate(self.bands[idx]):
-                    hdu_img = fits.ImageHDU(data=self.images[i], name=f'{band}_IMAGE')
+                    hdu_img = fits.ImageHDU(data=self.images[i], name=f'{band}_IMAGE', header=self.wcs.to_header())
                     hdul.append(hdu_img)
-                    hdu_mod = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL')
+                    hdu_mod = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL', header=self.wcs.to_header())
                     hdul.append(hdu_mod)
                     if include_chi:
-                        hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI')
+                        hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI', header=self.wcs.to_header())
                         hdul.append(hdu_chi)
                     if include_nopsf:
-                        hdu_nopsf = fits.ImageHDU(data=self.nopsf_images[i], name=f'{band}_NOPSF')
+                        hdu_nopsf = fits.ImageHDU(data=self.nopsf_images[i], name=f'{band}_NOPSF', header=self.wcs.to_header())
                         hdul.append(hdu_nopsf)
 
                 # make mask array
@@ -1265,7 +1265,7 @@ class Brick(Subimage):
                     self.residual_mask[self.segmap == sid] = True
 
                 self.residual_mask = self.residual_mask.astype(int)
-                hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'{band}_MASK')
+                hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'{band}_MASK', header=self.wcs.to_header())
                 hdul.append(hdu_mask)
                 hdul.writeto(self.auxhdu_path, overwrite=True)
 
@@ -1295,18 +1295,18 @@ class Brick(Subimage):
                 self.logger.info(f'Saving image(s) to existing file, {self.auxhdu_path}')
                 hdul = fits.open(self.auxhdu_path, mode='update')
                 for i, band in enumerate(self.bands):
-                    hdu_img = fits.ImageHDU(data=self.images[i], name=f'{band}_IMAGE')
+                    hdu_img = fits.ImageHDU(data=self.images[i], name=f'{band}_IMAGE', header=self.wcs.to_header())
                     hdul.append(hdu_img)
-                    hdu_mod = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL')
+                    hdu_mod = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL', header=self.wcs.to_header())
                     hdul.append(hdu_mod)
                     if include_chi:
-                        hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI')
+                        hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI', header=self.wcs.to_header())
                         hdul.append(hdu_chi)
                     if include_nopsf:
-                        hdu_nopsf = fits.ImageHDU(data=self.nopsf_images[i], name=f'{band}_NOPSF')
+                        hdu_nopsf = fits.ImageHDU(data=self.nopsf_images[i], name=f'{band}_NOPSF', header=self.wcs.to_header())
                         hdul.append(hdu_nopsf)
 
-                    hdu_residual = fits.ImageHDU(data=self.residual_images[i], name=f'{band}_RESIDUAL')
+                    hdu_residual = fits.ImageHDU(data=self.residual_images[i], name=f'{band}_RESIDUAL', header=self.wcs.to_header())
                     hdul.append(hdu_residual)
 
                     # make mask array
@@ -1319,7 +1319,7 @@ class Brick(Subimage):
                         self.residual_mask[self.segmap == sid] = True
 
                     self.residual_mask = self.residual_mask.astype(int)
-                    hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'{band}_MASK')
+                    hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'{band}_MASK', header=self.wcs.to_header())
                     hdul.append(hdu_mask)
                 # Save
                 hdul.flush()
@@ -1329,18 +1329,18 @@ class Brick(Subimage):
                 self.logger.info(f'brick.make_residual_image :: Saving image(s) to new file, s{self.auxhdu_path}')
                 hdul = fits.HDUList()
                 for i, band in enumerate(self.bands):
-                    hdu_img = fits.ImageHDU(data=self.images[i], name=f'{band}_IMAGE')
+                    hdu_img = fits.ImageHDU(data=self.images[i], name=f'{band}_IMAGE', header=self.wcs.to_header())
                     hdul.append(hdu_img)
-                    hdu_mod = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL')
+                    hdu_mod = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL', header=self.wcs.to_header())
                     hdul.append(hdu_mod)
                     if include_chi:
-                        hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI')
+                        hdu_chi = fits.ImageHDU(data=self.chisq_images[i], name=f'{band}_CHI', header=self.wcs.to_header())
                         hdul.append(hdu_chi)
                     if include_nopsf:
-                        hdu_nopsf = fits.ImageHDU(data=self.nopsf_images[i], name=f'{band}_NOPSF')
+                        hdu_nopsf = fits.ImageHDU(data=self.nopsf_images[i], name=f'{band}_NOPSF', header=self.wcs.to_header())
                         hdul.append(hdu_nopsf)
 
-                    hdu_residual = fits.ImageHDU(data=self.residual_images[i], name=f'{band}_RESIDUAL')
+                    hdu_residual = fits.ImageHDU(data=self.residual_images[i], name=f'{band}_RESIDUAL', header=self.wcs.to_header())
                     hdul.append(hdu_residual)
                 
                     # make mask array
@@ -1356,7 +1356,7 @@ class Brick(Subimage):
                         # WHY ARE SOME MODEL MASKS NOT SHOWING UP?
 
                     self.residual_mask = self.residual_mask.astype(int)
-                    hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'{band}_MASK')
+                    hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'{band}_MASK', header=self.wcs.to_header())
                     hdul.append(hdu_mask)
 
                 # Save

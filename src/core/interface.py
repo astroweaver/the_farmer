@@ -833,20 +833,30 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
                 else:
                     hdul = fits.HDUList()
                     hdul.append(fits.PrimaryHDU())
-                    hdul.append(fits.ImageHDU(data=modbrick.segmap, name='SEGMAP'))
-                    hdul.append(fits.ImageHDU(data=modbrick.blobmap, name='BLOBMAP'))
-                    if conf.SAVE_BACKGROUND:
-                        logger.info('Saving background and RMS maps...')
-                        for m, mband in enumerate(modbrick.bands):
-                            hdul.append(fits.ImageHDU(data=modbrick.background_images[m], name=f'BACKGROUND_{band}'))
-                            hdul.append(fits.ImageHDU(data=modbrick.background_rms_images[m], name=f'RMS_{band}'))
-                            hdul.append(fits.ImageHDU(data=1/np.sqrt(modbrick.weights[m]), name=f'UNC_{mband}'))
+                    hdul.append(fits.ImageHDU(data=modbrick.segmap, name='SEGMAP', header=modbrick.wcs.to_header()))
+                    hdul.append(fits.ImageHDU(data=modbrick.blobmap, name='BLOBMAP', header=modbrick.wcs.to_header()))
                     outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits')
                     hdul.writeto(outpath, overwrite=conf.OVERWRITE)
                     hdul.close()
                     logger.info(f'Saved to {outpath} ({time.time() - tstart:3.3f}s)')
 
                     tstart = time.time()
+                
+                if conf.SAVE_BACKGROUND:
+                    outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_BACKGROUNDS.fits')
+                    logger.info('Saving background and RMS maps...')
+                    if os.path.exists(outpath):
+                        hdul = fits.open(outpath)
+                    else:
+                        hdul = fits.HDUList()
+                        hdul.append(fits.PrimaryHDU())
+                    for m, mband in enumerate(modbrick.bands):
+                        hdul.append(fits.ImageHDU(data=modbrick.background_images[m], name=f'BACKGROUND_{band}', header=modbrick.wcs.to_header()))
+                        hdul.append(fits.ImageHDU(data=modbrick.background_rms_images[m], name=f'RMS_{band}', header=modbrick.wcs.to_header()))
+                        hdul.append(fits.ImageHDU(data=1/np.sqrt(modbrick.weights[m]), name=f'UNC_{mband}', header=modbrick.wcs.to_header()))
+                    hdul.writeto(outpath, overwrite=conf.OVERWRITE)
+                    hdul.close()
+                    logger.info(f'Saved to {outpath} ({time.time() - tstart:3.3f}s)')
             else:
                 logger.info(f'You gave me a catalog and segmap, so I am not saving it again.')
 
@@ -1059,18 +1069,28 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
             logger.info('Saving segmentation and blob maps...')
             hdul = fits.HDUList()
             hdul.append(fits.PrimaryHDU())
-            hdul.append(fits.ImageHDU(data=modbrick.segmap, name='SEGMAP'))
-            hdul.append(fits.ImageHDU(data=modbrick.blobmap, name='BLOBMAP'))
-            if conf.SAVE_BACKGROUND:
-                logger.info('Saving background and RMS maps...')
-                for m, mband in enumerate(modbrick.bands):
-                    hdul.append(fits.ImageHDU(data=modbrick.background_images[m], name=f'BACKGROUND_{mband}'))
-                    hdul.append(fits.ImageHDU(data=modbrick.background_rms_images[m], name=f'RMS_{mband}'))
-                    hdul.append(fits.ImageHDU(data=1/np.sqrt(modbrick.weights[m]), name=f'UNC_{mband}'))
+            hdul.append(fits.ImageHDU(data=modbrick.segmap, name='SEGMAP', header=modbrick.wcs.to_header()))
+            hdul.append(fits.ImageHDU(data=modbrick.blobmap, name='BLOBMAP', header=modbrick.wcs.to_header()))
             outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits')
             hdul.writeto(outpath, overwrite=conf.OVERWRITE)
             hdul.close()
             logger.info(f'Saved to {outpath} ({time.time() - tstart:3.3f}s)')
+
+            if conf.SAVE_BACKGROUND:
+                outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_BACKGROUNDS.fits')
+                logger.info('Saving background and RMS maps...')
+                if os.path.exists(outpath):
+                    hdul = fits.open(outpath)
+                else:
+                    hdul = fits.HDUList()
+                    hdul.append(fits.PrimaryHDU())
+                for m, mband in enumerate(modbrick.bands):
+                    hdul.append(fits.ImageHDU(data=modbrick.background_images[m], name=f'BACKGROUND_{band}', header=modbrick.wcs.to_header()))
+                    hdul.append(fits.ImageHDU(data=modbrick.background_rms_images[m], name=f'RMS_{band}', header=modbrick.wcs.to_header()))
+                    hdul.append(fits.ImageHDU(data=1/np.sqrt(modbrick.weights[m]), name=f'UNC_{mband}', header=modbrick.wcs.to_header()))
+                hdul.writeto(outpath, overwrite=conf.OVERWRITE)
+                hdul.close()
+                logger.info(f'Saved to {outpath} ({time.time() - tstart:3.3f}s)')
 
             tstart = time.time()
         else:
@@ -1468,6 +1488,22 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
         logger.debug(f'Brick #{brick_id} -- Background statistics for {vb_band}')
         logger.debug(f'    Global: {fbrick.backgrounds[i, 0]:3.3f}')
         logger.debug(f'    RMS: {fbrick.backgrounds[i, 1]:3.3f}')
+
+    if conf.SAVE_BACKGROUND:
+        outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_BACKGROUNDS.fits')
+        logger.info('Saving background and RMS maps...')
+        if os.path.exists(outpath):
+            hdul = fits.open(outpath)
+        else:
+            hdul = fits.HDUList()
+            hdul.append(fits.PrimaryHDU())
+        for m, mband in enumerate(fbrick.bands):
+            hdul.append(fits.ImageHDU(data=fbrick.background_images[m], name=f'BACKGROUND_{band}', header=fbrick.wcs.to_header()))
+            hdul.append(fits.ImageHDU(data=fbrick.background_rms_images[m], name=f'RMS_{band}', header=fbrick.wcs.to_header()))
+            hdul.append(fits.ImageHDU(data=1/np.sqrt(fbrick.weights[m]), name=f'UNC_{mband}', header=fbrick.wcs.to_header()))
+        hdul.writeto(outpath, overwrite=conf.OVERWRITE)
+        hdul.close()
+        logger.info(f'Saved to {outpath} ({time.time() - tstart:3.3f}s)')
             
 
     logger.info(f'Forcing models on {len(fband)} {conf.MULTIBAND_NICKNAME} bands')
