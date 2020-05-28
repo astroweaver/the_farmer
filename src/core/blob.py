@@ -29,7 +29,7 @@ import astropy.units as u
 from scipy.ndimage import zoom
 from scipy import stats
 
-from tractor import NCircularGaussianPSF, PixelizedPSF, PixelizedPsfEx, Image, Tractor, FluxesPhotoCal, NullWCS, ConstantSky, EllipseE, EllipseESoft, Fluxes, PixPos
+from tractor import NCircularGaussianPSF, PixelizedPSF, PixelizedPsfEx, Image, Tractor, FluxesPhotoCal, NullWCS, ConstantSky, EllipseE, EllipseESoft, Fluxes, PixPos, Catalog
 from tractor.galaxy import ExpGalaxy, DevGalaxy, FixedCompositeGalaxy, SoftenedFracDev
 from tractor.pointsource import PointSource
 from tractor.psf import HybridPixelizedPSF
@@ -181,6 +181,10 @@ class Blob(Subimage):
             if conf.APPLY_SEGMASK:
                 tweight[mask] = 0
 
+            if band in conf.MANUAL_BACKGROUND.keys():
+                image -= conf.MANUAL_BACKGROUND[band]
+                self.logger.debug(f'Subtracted background manually ({conf.MANUAL_BACKGROUND[band]})')
+
             remove_background_psf = False
             if band_strip in conf.RMBACK_PSF:
                 remove_background_psf = True
@@ -303,7 +307,7 @@ class Blob(Subimage):
                     return False
                 hdul = fits.open(path_prffile)
                 from scipy.ndimage.interpolation import rotate
-                # img = rotate(hdul[0].data, 270)
+                # img = rotate(hdul[0].data, )
                 img = hdul[0].data
                 # img = 1E-31 * np.ones_like(img)
                 # img[50:-50, 50:-50] = hdul[0].data[50:-50, 50:-50]
@@ -510,12 +514,12 @@ class Blob(Subimage):
             tstart = time.time()
 
             # grab inital positions
-            # cat = tr.getCatalog()
-            # x_orig = np.zeros(self.n_sources)
-            # y_orig = np.zeros(self.n_sources)
-            # for i, src in enumerate(cat):
-            #     x_orig[i] = src.pos[0]
-            #     y_orig[i] = src.pos[1]
+            cat = tr.getCatalog()
+            x_orig = np.zeros(self.n_sources)
+            y_orig = np.zeros(self.n_sources)
+            for i, src in enumerate(cat):
+                x_orig[i] = src.pos[0]
+                y_orig[i] = src.pos[1]
 
 
             if conf.PLOT > 2:
@@ -605,7 +609,7 @@ class Blob(Subimage):
                     for idx, src in enumerate(cat):
                         sid = self.bcatalog['source_id'][idx]
                         xp, yp = src.pos[0], src.pos[1]
-                        xp0, yp0 = self.bcatalog['x'][idx], self.bcatalog['y'][idx]
+                        xp0, yp0 = x_orig[idx], y_orig[idx]
                         srcseg = self.segmap == sid
                         maxy, maxx = np.shape(self.segmap)
                         if (xp > maxx) | (xp < 0) | (yp < 0) | (yp > maxy):
@@ -615,12 +619,15 @@ class Blob(Subimage):
                             # gpriors = src.getLogPrior()
                             # print('Log(Prior):', gpriors)
                             src.pos.setParams([xp0, yp0])
-                            # self.logger.info(f'Setting position prior. X = {xp0:2.2f}+/-{POSITION_PRIOR_SIG}; Y = {yp0:2.2f}+/-{1.}')
-                            # src.pos.addGaussianPrior('x', xp0, 1.0)
-                            # src.pos.addGaussianPrior('y', yp0, 1.0)
+                            if conf.USE_POSITION_PRIOR:
+                                gpxy = 0.1 * conf.POSITION_PRIOR_SIG
+                                self.logger.info(f'Setting position prior. X = {xp0:2.2f}+/-{gpxy}; Y = {yp0:2.2f}+/-{gpxy}')
+                                src.pos.addGaussianPrior('x', xp0, gpxy)
+                                src.pos.addGaussianPrior('y', yp0, gpxy)
 
 
                         elif ~srcseg[int(yp), int(xp)]:
+                            trip = True
 
                             # fig, ax = plt.subplots()
                             # ax.imshow(srcseg)
@@ -633,15 +640,17 @@ class Blob(Subimage):
 
                             self.logger.warning(f'Source {sid} has escaped its segment!')
                             src.pos.setParams([xp0, yp0])
-                            # self.logger.info(f'Setting position prior. X = {xp0:2.2f}+/-{1.}; Y = {yp0:2.2f}+/-{1.}')
-                            # src.pos.addGaussianPrior('x', xp0, 1.0)
-                            # src.pos.addGaussianPrior('y', yp0, 1.0)
+                            if conf.USE_POSITION_PRIOR:
+                                gpxy = 0.1 * conf.POSITION_PRIOR_SIG
+                                self.logger.info(f'Setting position prior. X = {xp0:2.2f}+/-{gpxy}; Y = {yp0:2.2f}+/-{gpxy}')
+                                src.pos.addGaussianPrior('x', xp0, gpxy)
+                                src.pos.addGaussianPrior('y', yp0, gpxy)
 
                         #     # gpriors = src.getLogPrior()
                         #     # print('Log(Prior):', gpriors)
 
                     if trip:
-                        tr.setCatalog(cat)
+                        tr.setCatalog(Catalog(*cat))
 
                 if (dlnp < conf.TRACTOR_CONTHRESH) & (~trip):
                     self.logger.info(f'Blob #{self.blob_id} converged in {i+1} steps ({dlnp_init:2.2f} --> {dlnp:2.2f}) ({time.time() - tstart:3.3f}s)')
