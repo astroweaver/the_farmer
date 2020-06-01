@@ -1257,11 +1257,11 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
         modbrick.catalog['X_MODEL'][~argmin_zero] = [modband_opt[k] for modband_opt, k in zip(xmodel_arr[~argmin_zero], argmin_score[~argmin_zero])]
         modbrick.catalog['Y_MODEL'][~argmin_zero] = [modband_opt[k] for modband_opt, k in zip(ymodel_arr[~argmin_zero], argmin_score[~argmin_zero])]
         modbrick.catalog['VALID_SOURCE'][~argmin_zero] = [modband_opt[k] for modband_opt, k in zip(valid_arr[~argmin_zero], argmin_score[~argmin_zero])]
-        if modbrick.wcs is not None:
-                skyc = self.brick_wcs.all_pix2world(modbrick.catalog[f'X_MODEL'] - modbrick.mosaic_origin[0] + conf.BRICK_BUFFER, modbrick.catalog[f'Y_MODEL'] - modbrick.mosaic_origin[1] + conf.BRICK_BUFFER, 0)
-                modbrick.bcatalog[row][f'RA'] = skyc[0]
-                modbrick.bcatalog[row][f'DEC'] = skyc[1]
-                logger.info(f"    Sky Model RA, Dec:   {skyc[0]:6.6f} deg, {skyc[1]:6.6f} deg")
+        # if modbrick.wcs is not None:
+        #         skyc = self.brick_wcs.all_pix2world(modbrick.catalog[f'X_MODEL'] - modbrick.mosaic_origin[0] + conf.BRICK_BUFFER, modbrick.catalog[f'Y_MODEL'] - modbrick.mosaic_origin[1] + conf.BRICK_BUFFER, 0)
+        #         modbrick.bcatalog[row][f'RA'] = skyc[0]
+        #         modbrick.bcatalog[row][f'DEC'] = skyc[1]
+        #         logger.info(f"    Sky Model RA, Dec:   {skyc[0]:6.6f} deg, {skyc[1]:6.6f} deg")
 
     elif (len(img_names) > 1) & multiband_model:
         modbrick.catalog['BEST_MODEL_BAND'] = conf.MODELING_NICKNAME

@@ -98,8 +98,8 @@ class Blob(Subimage):
 
         # coordinates
         self.blob_center = (xlo + h/2., ylo + w/2.)
-        center_x = self.blob_center[1] - self.subvector[0] + self.mosaic_origin[1] - self.mosaic_origin[0] + 1
-        center_y = self.blob_center[0] - self.subvector[1] + self.mosaic_origin[0] - self.mosaic_origin[1] + 1
+        center_x = self.blob_center[1] - self.subvector[0] + 1
+        center_y = self.blob_center[0] - self.subvector[1] + 1
         ra, dec = self.wcs.all_pix2world(center_x, center_y, 0)
         self.blob_coords = SkyCoord(ra=ra*u.degree, dec=dec*u.degree)
 
@@ -1542,7 +1542,8 @@ class Blob(Subimage):
                 self.bcatalog[row][f'XERR_MODEL_{band}'] = np.sqrt(param_var[row].pos.getParams()[0])
                 self.bcatalog[row][f'YERR_MODEL_{band}'] = np.sqrt(param_var[row].pos.getParams()[1])
                 if self.wcs is not None:
-                    skyc = self.brick_wcs.all_pix2world(self.bcatalog[row][f'X_MODEL_{band}'] - self.mosaic_origin[0] + conf.BRICK_BUFFER, self.bcatalog[row][f'Y_MODEL_{band}'] - self.mosaic_origin[1] + conf.BRICK_BUFFER, 0)
+                    # skyc = self.brick_wcs.all_pix2world(self.bcatalog[row][f'X_MODEL_{band}'] - self.mosaic_origin[0] + conf.BRICK_BUFFER, self.bcatalog[row][f'Y_MODEL_{band}'] - self.mosaic_origin[1] + conf.BRICK_BUFFER, 0)
+                    skyc = self.brick_wcs.all_pix2world(src.pos[0] + self.subvector[1], src.pos[1] + self.subvector[0] , 0)
                     self.bcatalog[row][f'RA_{band}'] = skyc[0]
                     self.bcatalog[row][f'DEC_{band}'] = skyc[1]
 
@@ -1653,7 +1654,7 @@ class Blob(Subimage):
         self.bcatalog[row][f'X_MODEL'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER
         self.bcatalog[row][f'Y_MODEL'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER
         if self.wcs is not None:
-            skyc = self.brick_wcs.all_pix2world(self.bcatalog[row][f'X_MODEL'] - self.mosaic_origin[0] + conf.BRICK_BUFFER, self.bcatalog[row][f'Y_MODEL'] - self.mosaic_origin[1] + conf.BRICK_BUFFER, 0)
+            skyc = self.brick_wcs.all_pix2world(src.pos[0] + self.subvector[1], src.pos[1] + self.subvector[0], 0)
             self.bcatalog[row][f'RA'] = skyc[0]
             self.bcatalog[row][f'DEC'] = skyc[1]
             self.logger.info(f"    Model position:      {src.pos[0]:6.6f}, {src.pos[1]:6.6f}")
@@ -1683,7 +1684,7 @@ class Blob(Subimage):
             self.bcatalog[row][f'XERR_MODEL_{mod_band}'] = np.sqrt(self.position_variance[row].pos.getParams()[0])
             self.bcatalog[row][f'YERR_MODEL_{mod_band}'] = np.sqrt(self.position_variance[row].pos.getParams()[1])
             if self.brick_wcs is not None:
-                skyc = self.brick_wcs.all_pix2world(self.bcatalog[row][f'X_MODEL_{mod_band}'] - self.mosaic_origin[0] + conf.BRICK_BUFFER, self.bcatalog[row][f'Y_MODEL_{mod_band}'] - self.mosaic_origin[1] + conf.BRICK_BUFFER, 0)
+                skyc = self.brick_wcs.all_pix2world(src.pos[0] + self.subvector[1], src.pos[1] + self.subvector[0], 0)
                 self.bcatalog[row][f'RA_{mod_band}'] = skyc[0]
                 self.bcatalog[row][f'DEC_{mod_band}'] = skyc[1]
                 self.logger.info(f"    Sky Model RA, Dec:   {skyc[0]:6.6f} deg, {skyc[1]:6.6f} deg")
