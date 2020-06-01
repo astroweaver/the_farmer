@@ -273,7 +273,8 @@ class Subimage():
         submasks[self.slicepix]= self.masks[self.slicepos]
 
         if self.wcs is not None:
-            subwcs = self.wcs.slice(self.slice[::-1])
+            # subwcs = self.wcs.slice(self.slice[::-1])
+            subwcs = self.wcs.slice(self.slice)
 
             # subwcs.wcs.crpix -= (left, bottom)
             # subwcs.array_shape = subshape[1:]
