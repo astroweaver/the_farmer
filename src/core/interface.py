@@ -292,7 +292,13 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, brick_id=None, in
 
         # One variable list
         if band is not None:
-            sbands = [band,]
+            try:
+                if len(band) > 0:
+                    sbands = band
+                else:
+                    sbands = conf.BANDS
+            except:
+                sbands = [band,]
         else:
             sbands = conf.BANDS
 
