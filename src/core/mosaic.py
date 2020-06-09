@@ -267,6 +267,7 @@ class Mosaic(Subimage):
         
         # if overwrite, make it
         if overwrite:
+            self.logger.debug('*** Creating new file...')
             hdu_prim = fits.PrimaryHDU()
             hdul_new = fits.HDUList([hdu_prim, hdu_image, hdu_weight, hdu_mask])
             hdul_new.writeto(path_fitsname, overwrite=True)
@@ -275,12 +276,12 @@ class Mosaic(Subimage):
             exist_hdul = fits.open(path_fitsname)
             ext_names = [ehdul.name for ehdul in exist_hdul]
             if hdu_image.name in ext_names:
-                self.logger.debug(f'Extensions already exist for {sbands}! Replacing...')
+                self.logger.debug(f'*** Extensions already exist for {sbands}! Replacing...')
                 exist_hdul[hdul_image.name] = hdu_image
                 exist_hdul[hdul_weight.name] = hdu_weight
                 exist_hdul[hdul_mask.name] = hdu_mask
             else:
-                self.logger.debug('Appending new extensions...')
+                self.logger.debug('*** Appending new extensions...')
                 exist_hdul.append(hdu_image)
                 exist_hdul.append(hdu_weight)
                 exist_hdul.append(hdu_mask)
