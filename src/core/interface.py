@@ -307,9 +307,12 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, brick_id=None, in
 
             # Assume we can overwrite files unless insertion is explicit
             # First image w/o insertion will make new file anyways
-            overwrite = conf.OVERWRITE
-            if insert | (i > 0):
-                overwrite = False
+            if conf.OVERWRITE:
+                overwrite = True
+                if insert | (i > 0):
+                    overwrite = False
+            else:
+                overwrite=False
 
             # Build the mosaic
             logger.info(f'Making mosaic for image {sband}...')
