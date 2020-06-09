@@ -231,7 +231,7 @@ def make_psf(image_type=conf.MULTIBAND_NICKNAME, band=None, sextractor_only=Fals
     return
 
 
-def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, insert=False, skip_psf=True):
+def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, brick_id=None, insert=False, skip_psf=True):
     """ Stage 1. Here we collect the detection, modelling, and multiband images for processing. We may also cut them up! 
     
     NB: PSFs can be automatically made at this stage too, assuming you've determined your PSF selection a priori.
@@ -270,7 +270,7 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, insert=False, ski
             modmosaic._make_psf(xlims=mod_xlims, ylims=mod_ylims)
 
         # Make bricks in parallel
-        if conf.NTHREADS > 0:
+        if (conf.NTHREADS > 0) & (brick_id is None):
             logger.warning('Parallelization of brick making is currently disabled')
             # BUGGY DUE TO MEM ALLOC
             # if conf.VERBOSE: print('Making bricks for detection (in parallel)')
@@ -279,9 +279,13 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, insert=False, ski
 
         # Make bricks in serial
         else:
-            logger.info('Making bricks for modeling (in serial)')
-            for brick_id in np.arange(1, modmosaic.n_bricks()+1):
+            if brick_id is not None:
+                logger.info(f'Making brick #{brick_id} for modeling (in serial)')
                 modmosaic._make_brick(brick_id, modeling=True, overwrite=True)
+            else:
+                logger.info('Making bricks for modeling (in serial)')
+                for brick_id in np.arange(1, modmosaic.n_bricks()+1):
+                    modmosaic._make_brick(brick_id, modeling=True, overwrite=True)
     
     # Make bricks for one or more multiband images
     elif (image_type==conf.MULTIBAND_NICKNAME) | (image_type is None):
@@ -315,7 +319,7 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, insert=False, ski
                 bandmosaic._make_psf(xlims=multi_xlims, ylims=multi_ylims)
 
             # Make bricks in parallel
-            if conf.NTHREADS > 0:
+            if (conf.NTHREADS > 0)  & (brick_id is None)::
                 logger.info(f'Making bricks for band {sband} (in parallel)')
                 with pa.pools.ProcessPool(ncpus=conf.NTHREADS) as pool:
                     logger.info(f'Parallel processing pool initalized with {conf.NTHREADS} threads.')
@@ -323,9 +327,14 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, insert=False, ski
                     logger.info('Parallel processing complete.')
             # Make bricks in serial
             else:
-                logger.info(f'Making bricks for band {sband} (in serial)')
-                for brick_id in np.arange(1, bandmosaic.n_bricks()+1):
+                if brick_id is not None:
+                    logger.info(f'Making brick #{brick_id} for multiband (in serial)')
                     bandmosaic._make_brick(brick_id, detection=False, overwrite=overwrite)
+                else:
+                    logger.info(f'Making bricks for band {sband} (in serial)')
+                    for brick_id in np.arange(1, bandmosaic.n_bricks()+1):
+                        bandmosaic._make_brick(brick_id, detection=False, overwrite=overwrite)
+
 
     # image type is invalid
     else:
