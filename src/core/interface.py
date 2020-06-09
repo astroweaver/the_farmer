@@ -231,7 +231,7 @@ def make_psf(image_type=conf.MULTIBAND_NICKNAME, band=None, sextractor_only=Fals
     return
 
 
-def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, brick_id=None, insert=False, skip_psf=True):
+def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, brick_id=None, insert=False, skip_psf=True, max_bricks=None):
     """ Stage 1. Here we collect the detection, modelling, and multiband images for processing. We may also cut them up! 
     
     NB: PSFs can be automatically made at this stage too, assuming you've determined your PSF selection a priori.
@@ -284,7 +284,9 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, brick_id=None, in
                 modmosaic._make_brick(brick_id, modeling=True, overwrite=True)
             else:
                 logger.info('Making bricks for modeling (in serial)')
-                for brick_id in np.arange(1, modmosaic.n_bricks()+1):
+                if max_bricks is None:
+                    max_bricks = modmosaic.n_bricks()
+                for brick_id in np.arange(1, max_bricks+1):
                     modmosaic._make_brick(brick_id, modeling=True, overwrite=True)
     
     # Make bricks for one or more multiband images
@@ -341,7 +343,9 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, brick_id=None, in
                     bandmosaic._make_brick(brick_id, detection=False, overwrite=overwrite)
                 else:
                     logger.info(f'Making bricks for band {sband} (in serial)')
-                    for brick_id in np.arange(1, bandmosaic.n_bricks()+1):
+                    if max_bricks is None:
+                        max_bricks = bandmosaic.n_bricks()
+                    for brick_id in np.arange(1, max_bricks+1):
                         bandmosaic._make_brick(brick_id, detection=False, overwrite=overwrite)
 
 
