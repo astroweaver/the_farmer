@@ -281,12 +281,12 @@ class Mosaic(Subimage):
                 try:
                     exist_hdul[hdu_weight.name] = hdu_weight
                 except:
-                    idx = exist_hdul.index_of(hdul_image.name) + 1
+                    idx = exist_hdul.index_of(hdu_image.name) + 1
                     exist_hdul.insert(idx, hdu_weight)
                 try:
                     exist_hdul[hdu_mask.name] = hdu_mask
                 except:
-                    idx = exist_hdul.index_of(hdul_image.name) + 2
+                    idx = exist_hdul.index_of(hdu_image.name) + 2
                     exist_hdul.insert(idx, hdu_mask)
             else:
                 self.logger.debug('*** Appending new extensions...')
