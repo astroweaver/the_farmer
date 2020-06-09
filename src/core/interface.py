@@ -319,7 +319,7 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, brick_id=None, in
                 bandmosaic._make_psf(xlims=multi_xlims, ylims=multi_ylims)
 
             # Make bricks in parallel
-            if (conf.NTHREADS > 0)  & (brick_id is None)::
+            if (conf.NTHREADS > 0)  & (brick_id is None):
                 logger.info(f'Making bricks for band {sband} (in parallel)')
                 with pa.pools.ProcessPool(ncpus=conf.NTHREADS) as pool:
                     logger.info(f'Parallel processing pool initalized with {conf.NTHREADS} threads.')

@@ -272,10 +272,18 @@ class Mosaic(Subimage):
             hdul_new.writeto(path_fitsname, overwrite=True)
         else:
         # otherwise add to it
-            exist_hdul = fits.open(path_fitsname, mode='append')
-            exist_hdul.append(hdu_image)
-            exist_hdul.append(hdu_weight)
-            exist_hdul.append(hdu_mask)
+            exist_hdul = fits.open(path_fitsname)
+            ext_names = [ehdul.name for ehdul in exist_hdul]
+            if hdu_image.name in ext_names:
+                self.logger.debug(f'Extensions already exist for {sbands}! Replacing...')
+                exist_hdul[hdul_image.name] = hdu_image
+                exist_hdul[hdul_weight.name] = hdu_weight
+                exist_hdul[hdul_mask.name] = hdu_mask
+            else:
+                self.logger.debug('Appending new extensions...')
+                exist_hdul.append(hdu_image)
+                exist_hdul.append(hdu_weight)
+                exist_hdul.append(hdu_mask)
             exist_hdul.flush()
             exist_hdul.close()
 
