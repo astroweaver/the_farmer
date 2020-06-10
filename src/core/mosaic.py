@@ -266,7 +266,7 @@ class Mosaic(Subimage):
         hdu_mask = fits.ImageHDU(submask.astype(int), head_image, f'{sbands}_MASK')
         
         # if overwrite, make it
-        if overwrite | (not path.exists(path_fitsname)):
+        if overwrite | (not os.path.exists(path_fitsname)):
             self.logger.debug('*** Creating new file...')
             hdu_prim = fits.PrimaryHDU()
             hdul_new = fits.HDUList([hdu_prim, hdu_image, hdu_weight, hdu_mask])
