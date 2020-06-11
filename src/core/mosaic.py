@@ -273,7 +273,7 @@ class Mosaic(Subimage):
             hdul_new.writeto(path_fitsname, overwrite=True)
         else:
         # otherwise add to it
-            exist_hdul = fits.open(path_fitsname)
+            exist_hdul = fits.open(path_fitsname, mode='update')
             ext_names = [ehdul.name for ehdul in exist_hdul]
             if hdu_image.name in ext_names:
                 self.logger.debug(f'*** Extensions already exist for {sbands}! Replacing...')
