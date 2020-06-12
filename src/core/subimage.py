@@ -120,7 +120,9 @@ class Subimage():
         if (self.shape[1] * self.shape[2]) < 1E8:
             self.backgrounds = np.zeros((self.n_bands, 2), dtype=float)
             self.background_images = np.zeros_like(self._images) 
-            self.background_rms_images = np.zeros_like(self._images) 
+            self.background_rms_images = np.zeros_like(self._images)
+            self.masked_median = np.zeros_like(self._images)
+            self.masked_std = np.zeros_like(self._images)
             for i, img in enumerate(self._images):
                 background = sep.Background(img, bw = conf.SUBTRACT_BW, bh = conf.SUBTRACT_BH, fw = conf.SUBTRACT_FW, fh = conf.SUBTRACT_FH)
                 self.backgrounds[i] = background.globalback, background.globalrms
@@ -131,6 +133,8 @@ class Subimage():
             self.backgrounds = None
             self.background_images = None
             self.background_rms_images = None
+            self.masked_median = None
+            self.masked_std = None
 
         # if conf.VERBOSE2:
         #     print('--- Image Details ---')
@@ -399,24 +403,70 @@ class Subimage():
         else:
             raise ValueError('No objects found by SExtractor.')
 
-    def subtract_background(self, idx=None, flat=False):
-        self.logger.info(f'Subtracting background. (flat={flat})')
-        if idx is None:
-            if flat:
-                self.images -= self.backgrounds[0][0]
+    def subtract_background(self, idx=None, flat=False, use_masked=False, use_direct_median=False, apply=True):
+        self.logger.info(f'Subtracting background. (flat={flat}, use_masked={use_masked}, use_direct_median={use_direct_median})')
+
+        if use_masked: # need to redo everything!
+            # apply segmap
+            if idx is None:
+                for i, (img, mask) in enumerate(zip(self.images, self.masks)):
+                    img_masked = img.copy()
+                    # fill with 1st pass background median
+                    img_masked[self.segmask | mask] = self.backgrounds[i][0] 
+                    # get direct median
+                    self.masked_median[i] = np.nanmedian(img_masked)
+                    self.masked_std[i] = np.nanstd(img_masked)
+                    # re-derive
+                    background = sep.Background(img_masked, bw = conf.SUBTRACT_BW, bh = conf.SUBTRACT_BH, fw = conf.SUBTRACT_FW, fh = conf.SUBTRACT_FH)
+                    # re-assign!
+                    self.backgrounds[i] = background.globalback, background.globalrms
+                    self.background_images[i] = background.back()
+                    self.background_rms_images[i] = background.rms()             
+
             else:
-                self.images -= self.background_images
-        else:
-            if flat:
-                self.images[idx] -= self.backgrounds[idx][0]
+                img, mask = self.images[idx], self.masks[idx]
+                img_masked = img.copy()
+                # fill with 1st pass background median
+                img_masked[self.segmask | mask] = self.backgrounds[idx][0] 
+                self.masked_median[idx] = np.nanmedian(img_masked)
+                self.masked_std[idx] = np.nanstd(img_masked)
+                # re-derive
+                background = sep.Background(img_masked, bw = conf.SUBTRACT_BW, bh = conf.SUBTRACT_BH, fw = conf.SUBTRACT_FW, fh = conf.SUBTRACT_FH)
+                # re-assign!
+                self.backgrounds[idx] = background.globalback, background.globalrms
+                self.background_images[idx] = background.back()
+                self.background_rms_images[idx] = background.rms()  
+
+        if apply:
+
+            if use_direct_median:
+                if idx is None:
+                    self.images -= self.masked_median
+                else:
+                    self.images[idx] -= self.masked_median[idx]
+
             else:
-                self.images[idx] -= self.background_images[idx]
+
+                if idx is None:
+                    if flat:
+                        self.images -= self.backgrounds[:,0]
+                    else:
+                        self.images -= self.background_images
+                else:
+                    if flat:
+                        self.images[idx] -= self.backgrounds[idx][0]
+                    else:
+                        self.images[idx] -= self.background_images[idx]
 
         self.logger.debug(f'    Mesh size = ({conf.SUBTRACT_BW}, {conf.SUBTRACT_BH})')
-        self.logger.debug(f'    Mean = {np.mean(self.background_images, (1,2))}')
-        self.logger.debug(f'    Std = {np.std(self.background_images, (1,2))}')
-        self.logger.debug(f'    Global = {self.backgrounds[:,0]}')
-        self.logger.debug(f'    RMS = {self.backgrounds[:,1]}')
+        self.logger.debug(f'    Back Mean = {np.mean(self.background_images, (1,2))}')
+        self.logger.debug(f'    Back Std = {np.std(self.background_images, (1,2))}')
+        self.logger.debug(f'    Back Global = {self.backgrounds[:,0]}')
+        self.logger.debug(f'    RMS Global = {self.backgrounds[:,1]}')
+
+        if use_direct_median:
+            self.logger.debug(f'    Direct Median = {self.backgrounds[:,0]}')
+            self.logger.debug(f'    Direct RMS = {self.backgrounds[:,1]}')
 
 
 

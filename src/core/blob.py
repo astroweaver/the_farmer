@@ -165,9 +165,7 @@ class Blob(Subimage):
 
         timages = np.zeros(self.n_bands, dtype=object)
 
-        if conf.SUBTRACT_BACKGROUND:
-            self.subtract_background(flat=conf.USE_FLAT)
-            self.logger.debug(f'Subtracted background (flat={conf.USE_FLAT})')
+        
 
         # TODO: try to simplify this. particularly the zip...
         for i, (image, weight, mask, psf, band) in enumerate(zip(self.images, self.weights, self.masks, self.psfmodels, self.bands)):
@@ -181,7 +179,11 @@ class Blob(Subimage):
             if conf.APPLY_SEGMASK:
                 tweight[mask] = 0
 
-            if band in conf.MANUAL_BACKGROUND.keys():
+            if band in conf.SUBTRACT_BACKGROUND:
+                self.subtract_background(flat=conf.USE_FLAT, use_masked=(conf.SUBTRACT_BACKGROUND_WITH_MASK|conf.SUBTRACT_BACKGROUND_WITH_DIRECT_MEDIAN), use_direct_median=conf.SUBTRACT_BACKGROUND_WITH_DIRECT_MEDIAN)
+                self.logger.debug(f'Subtracted background (flat={conf.USE_FLAT}, masked={conf.MASKED})')
+
+            elif band in conf.MANUAL_BACKGROUND.keys():
                 image -= conf.MANUAL_BACKGROUND[band]
                 self.logger.debug(f'Subtracted background manually ({conf.MANUAL_BACKGROUND[band]})')
 

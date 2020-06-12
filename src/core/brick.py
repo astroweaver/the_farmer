@@ -64,15 +64,20 @@ class Brick(Subimage):
         self.images = images
         self.weights = weights
         for i, band in enumerate(bands):
+            rms = self.background_rms_images[i]
+            if conf.USE_MASKED_SEP_RMS | conf.USE_MASKED_DIRECT_RMS:
+                self.subtract_background(idx=i, use_masked=conf.USE_MASKED_SEP_RMS, apply=False) # generates advanced RMS even if its not applied!
+                # So now the background_rms_images are updated
+                if conf.USE_MASKED_DIRECT_RMS:
+                    rms = self.masked_std[i]
             if band in use_rms_weights:
                 self.logger.info('Converting the RMS image to use as a weight!')
-                rms = self.background_rms_images[i]
                 ok_weights = rms > 0
                 self.weights[i] = np.zeros_like(rms)
                 self.weights[i][ok_weights] = 1./(rms[ok_weights]**2)
             elif band in scale_weights:
                 self.logger.info('Using the RMS image to scale the weight!')
-                rms, wgt = self.background_rms_images[i], weights[i]
+                wgt = weights[i]
                 median_wrms = np.median(1/rms**2)
                 median_wgt = np.median(wgt)
                 self.logger.debug(f' Median rms weight: {median_wrms:3.6f}, and in RMS: {1./np.sqrt(median_wrms):3.6f}')
