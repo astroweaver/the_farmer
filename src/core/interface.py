@@ -709,7 +709,7 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
             logger.warning('Plotting not supported while modeling in parallel!')
 
 
-    detbrick = stage_brickfiles(brick_id, nickname=conf.DETECTION_NICKNAME, modeling=True)
+    detbrick = stage_brickfiles(brick_id, nickname=conf.DETECTION_NICKNAME, modeling=True, is_detection=True)
 
     logger.info(f'Detection brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
 
@@ -827,6 +827,8 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
                 modbrick.blobmap = detbrick.blobmap
                 modbrick.n_blobs = detbrick.n_blobs
                 modbrick.segmask = detbrick.segmask
+            
+            modbrick.run_weights()
 
             # Cleanup on MODBRICK
             tstart = time.time()
@@ -873,8 +875,13 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
                         hdul = fits.HDUList()
                         hdul.append(fits.PrimaryHDU())
                     for m, mband in enumerate(modbrick.bands):
-                        hdul.append(fits.ImageHDU(data=modbrick.background_images[m], name=f'BACKGROUND_{band}', header=modbrick.wcs.to_header()))
-                        hdul.append(fits.ImageHDU(data=modbrick.background_rms_images[m], name=f'RMS_{band}', header=modbrick.wcs.to_header()))
+                        hdul.append(fits.ImageHDU(data=modbrick.background_images[m], name=f'BACKGROUND_{mband}', header=modbrick.wcs.to_header()))
+                        hdul[f'BACKGROUND_{mband}'].header['BACK_GLOBAL'] = self.backgrounds[m,0]
+                        hdul[f'BACKGROUND_{mband}'].header['BACK_RMS'] = self.backgrounds[m,1]
+                        if (conf.SUBTRACT_BACKGROUND_WITH_MASK|conf.SUBTRACT_BACKGROUND_WITH_DIRECT_MEDIAN):
+                            hdul[f'BACKGROUND_{mband}'].header['MASKEDIMAGE_GLOBAL'] = self.masked_median[m]
+                            hdul[f'BACKGROUND_{mband}'].header['MASKEDIMAGE_RMS'] = self.masked_std[m]
+                        hdul.append(fits.ImageHDU(data=modbrick.background_rms_images[m], name=f'RMS_{mband}', header=modbrick.wcs.to_header()))
                         hdul.append(fits.ImageHDU(data=1/np.sqrt(modbrick.weights[m]), name=f'UNC_{mband}', header=modbrick.wcs.to_header()))
                     hdul.writeto(outpath, overwrite=conf.OVERWRITE)
                     hdul.close()
@@ -1066,6 +1073,8 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
             modbrick.n_blobs = detbrick.n_blobs
             modbrick.segmask = detbrick.segmask
 
+        modbrick.run_weights()
+
         # Cleanup on MODBRICK
         tstart = time.time()
         if not is_borrowed:
@@ -1107,8 +1116,13 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
                     hdul = fits.HDUList()
                     hdul.append(fits.PrimaryHDU())
                 for m, mband in enumerate(modbrick.bands):
-                    hdul.append(fits.ImageHDU(data=modbrick.background_images[m], name=f'BACKGROUND_{band}', header=modbrick.wcs.to_header()))
-                    hdul.append(fits.ImageHDU(data=modbrick.background_rms_images[m], name=f'RMS_{band}', header=modbrick.wcs.to_header()))
+                    hdul.append(fits.ImageHDU(data=modbrick.background_images[m], name=f'BACKGROUND_{mband}', header=modbrick.wcs.to_header()))
+                    hdul[f'BACKGROUND_{mband}'].header['BACK_GLOBAL'] = self.backgrounds[m,0]
+                    hdul[f'BACKGROUND_{mband}'].header['BACK_RMS'] = self.backgrounds[m,1]
+                    if (conf.SUBTRACT_BACKGROUND_WITH_MASK|conf.SUBTRACT_BACKGROUND_WITH_DIRECT_MEDIAN):
+                        hdul[f'BACKGROUND_{mband}'].header['MASKEDIMAGE_GLOBAL'] = self.masked_median[m]
+                        hdul[f'BACKGROUND_{mband}'].header['MASKEDIMAGE_RMS'] = self.masked_std[m]
+                    hdul.append(fits.ImageHDU(data=modbrick.background_rms_images[m], name=f'RMS_{mband}', header=modbrick.wcs.to_header()))
                     hdul.append(fits.ImageHDU(data=1/np.sqrt(modbrick.weights[m]), name=f'UNC_{mband}', header=modbrick.wcs.to_header()))
                 hdul.writeto(outpath, overwrite=conf.OVERWRITE)
                 hdul.close()
@@ -1471,6 +1485,8 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
         hdul_seg = fits.open(search_fn)
         fbrick.segmap = hdul_seg['SEGMAP'].data
         fbrick.blobmap = hdul_seg['BLOBMAP'].data
+        fbrick.segmask = fbrick.segmap.copy()
+        fbrick.segmask[fbrick.segmap>0] = 1
     else:
         logger.critical(f'No valid segmentation map was found for {brick_id}')
         return
@@ -1480,6 +1496,8 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
         return
 
     fbrick.add_columns(modeling=False)
+    fbrick.run_background()
+    fbrick.run_weights()
 
     logger.info(f'{conf.MULTIBAND_NICKNAME} brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
 
@@ -1519,9 +1537,24 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
         else:
             hdul = fits.HDUList()
             hdul.append(fits.PrimaryHDU())
+            self.logger.debug(f'    Mesh size = ({conf.SUBTRACT_BW}, {conf.SUBTRACT_BH})')
+        self.logger.debug(f'    Back Mean = {np.mean(self.background_images, (1,2))}')
+        self.logger.debug(f'    Back Std = {np.std(self.background_images, (1,2))}')
+        self.logger.debug(f'    Back Global = {self.backgrounds[:,0]}')
+        self.logger.debug(f'    RMS Global = {self.backgrounds[:,1]}')
+
+        if use_direct_median:
+            self.logger.debug(f'    Direct Median = {self.backgrounds[:,0]}')
+            self.logger.debug(f'    Direct RMS = {self.backgrounds[:,1]}')
+
         for m, mband in enumerate(fbrick.bands):
-            hdul.append(fits.ImageHDU(data=fbrick.background_images[m], name=f'BACKGROUND_{band}', header=fbrick.wcs.to_header()))
-            hdul.append(fits.ImageHDU(data=fbrick.background_rms_images[m], name=f'RMS_{band}', header=fbrick.wcs.to_header()))
+            hdul.append(fits.ImageHDU(data=fbrick.background_images[m], name=f'BACKGROUND_{mband}', header=fbrick.wcs.to_header()))
+            hdul[f'BACKGROUND_{mband}'].header['BACK_GLOBAL'] = self.backgrounds[m,0]
+            hdul[f'BACKGROUND_{mband}'].header['BACK_RMS'] = self.backgrounds[m,1]
+            if (conf.SUBTRACT_BACKGROUND_WITH_MASK|conf.SUBTRACT_BACKGROUND_WITH_DIRECT_MEDIAN):
+                hdul[f'BACKGROUND_{mband}'].header['MASKEDIMAGE_GLOBAL'] = self.masked_median[m]
+                hdul[f'BACKGROUND_{mband}'].header['MASKEDIMAGE_RMS'] = self.masked_std[m]
+            hdul.append(fits.ImageHDU(data=fbrick.background_rms_images[m], name=f'RMS_{mband}', header=fbrick.wcs.to_header()))
             hdul.append(fits.ImageHDU(data=1/np.sqrt(fbrick.weights[m]), name=f'UNC_{mband}', header=fbrick.wcs.to_header()))
         hdul.writeto(outpath, overwrite=conf.OVERWRITE)
         hdul.close()
@@ -1886,8 +1919,12 @@ def make_model_image(brick_id, band, catalog=None, use_band_position=(not conf.F
         hdul_seg = fits.open(search_fn)
         brick.segmap = hdul_seg['SEGMAP'].data
         brick.blobmap = hdul_seg['BLOBMAP'].data
+        brick.segmask = brick.segmap.copy()
+        brick.segmask[brick.segmap>0] = 1
     else:
         raise ValueError(f'No valid segmentation map was found for {brick_id}')
+
+    brick.run_background()
 
     brick.make_model_image(brick.catalog, use_band_position=use_band_position, modeling=modeling)
 
@@ -1948,8 +1985,12 @@ def make_residual_image(brick_id, band, catalog=None, use_band_position=(not con
         hdul_seg = fits.open(search_fn)
         brick.segmap = hdul_seg['SEGMAP'].data
         brick.blobmap = hdul_seg['BLOBMAP'].data
+        brick.segmask = brick.segmap.copy()
+        brick.segmask[brick.segmap>0] = 1
     else:
         raise ValueError(f'No valid segmentation map was found for {brick_id}')
+
+    brick.run_background()
 
     brick.make_residual_image(brick.catalog, use_band_position=use_band_position, use_band_shape=use_band_shape, modeling=modeling)
 
@@ -2008,14 +2049,18 @@ def estimate_effective_area(brick_id, band, catalog=None, use_band_position=(not
         hdul_seg = fits.open(search_fn)
         brick.segmap = hdul_seg['SEGMAP'].data
         brick.blobmap = hdul_seg['BLOBMAP'].data
+        brick.segmask = brick.segmap.copy()
+        brick.segmask[brick.segmap>0] = 1
     else:
         raise ValueError(f'No valid segmentation map was found for {brick_id}')
+
+    brick.run_background()
 
     good_area_pix, inner_area_pix = brick.estimate_effective_area(brick.catalog, sband, modeling=modeling)
     return good_area_pix, inner_area_pix
 
 
-def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, modeling=False):
+def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, modeling=False, is_detection=False):
     """ Essentially a private function. Pre-processes brick files and relevant catalogs """
 
     # Wraps Brick with a single parameter call

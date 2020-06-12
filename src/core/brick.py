@@ -54,8 +54,7 @@ class Brick(Subimage):
                  bands=None,
                  buffer=conf.BRICK_BUFFER,
                  brick_id=-99,
-                 use_rms_weights = conf.USE_RMS_WEIGHTS,
-                 scale_weights = conf.SCALE_WEIGHTS):
+                 ):
         """TODO: docstring"""
 
         self.logger = logging.getLogger('farmer.brick')
@@ -63,31 +62,12 @@ class Brick(Subimage):
         self.wcs = wcs
         self.images = images
         self.weights = weights
-        for i, band in enumerate(bands):
-            rms = self.background_rms_images[i]
-            if conf.USE_MASKED_SEP_RMS | conf.USE_MASKED_DIRECT_RMS:
-                self.subtract_background(idx=i, use_masked=conf.USE_MASKED_SEP_RMS, apply=False) # generates advanced RMS even if its not applied!
-                # So now the background_rms_images are updated
-                if conf.USE_MASKED_DIRECT_RMS:
-                    rms = self.masked_std[i]
-            if band in use_rms_weights:
-                self.logger.info('Converting the RMS image to use as a weight!')
-                ok_weights = rms > 0
-                self.weights[i] = np.zeros_like(rms)
-                self.weights[i][ok_weights] = 1./(rms[ok_weights]**2)
-            elif band in scale_weights:
-                self.logger.info('Using the RMS image to scale the weight!')
-                wgt = weights[i]
-                median_wrms = np.median(1/rms**2)
-                median_wgt = np.median(wgt)
-                self.logger.debug(f' Median rms weight: {median_wrms:3.6f}, and in RMS: {1./np.sqrt(median_wrms):3.6f}')
-                self.logger.debug(f' Median input weight: {median_wgt:3.6f}, and in RMS: {1./np.sqrt(median_wgt):3.6f}')
-                self.logger.debug(f' Will apply a factor of {median_wrms/median_wgt:6.6f} to scale input weights.')
-                self.weights[i] *= median_wrms / median_wgt
 
         self.masks = masks
         self.psfmodels = psfmodels
         self.bands = np.array(bands)
+
+        self.generate_backgrounds()
 
 
         super().__init__()
@@ -134,6 +114,8 @@ class Brick(Subimage):
         self.relabel()
 
         self.add_ids()
+
+        self.run_background()
 
     def clean_segmap(self):
         """TODO: docstring"""
@@ -262,6 +244,47 @@ class Brick(Subimage):
         blob = Blob(self, blob_id)
 
         return blob
+
+    def run_weights(self, is_detection=False):
+        self.logger.info('Performing any weight corrections...')
+        use_rms_weights = conf.USE_RMS_WEIGHTS
+        scale_weights = conf.SCALE_WEIGHTS
+        for i, band in enumerate(self.bands):
+            rms = self.background_rms_images[i]
+            if (conf.USE_MASKED_SEP_RMS | conf.USE_MASKED_DIRECT_RMS) & (not is_detection):
+                self.logger.info('Computing the masked RMS maps')
+                if not hasattr(self, 'segmask'):
+                    raise ValueError('Brick is missing a segment mask!')
+                self.subtract_background(idx=i, use_masked=conf.USE_MASKED_SEP_RMS, apply=False, use_direct_median=conf.USE_MASKED_DIRECT_RMS) # generates advanced RMS even if its not applied!
+                # So now the background_rms_images are updated
+                if conf.USE_MASKED_DIRECT_RMS:
+                    self.logger.info('Setting the RMS to the direct masked measurement!')
+                    rms = self.masked_std[i]
+            if band in use_rms_weights:
+                self.logger.info('Converting the RMS image to use as a weight!')
+                ok_weights = rms > 0
+                self.weights[i] = np.zeros_like(rms)
+                self.weights[i][ok_weights] = 1./(rms[ok_weights]**2)
+            elif band in scale_weights:
+                self.logger.info('Using the RMS image to scale the weight!')
+                wgt = self.weights[i]
+                median_wrms = np.median(1/rms**2)
+                median_wgt = np.median(wgt)
+                self.logger.debug(f' Median rms weight: {median_wrms:3.6f}, and in RMS: {1./np.sqrt(median_wrms):3.6f}')
+                self.logger.debug(f' Median input weight: {median_wgt:3.6f}, and in RMS: {1./np.sqrt(median_wgt):3.6f}')
+                self.logger.debug(f' Will apply a factor of {median_wrms/median_wgt:6.6f} to scale input weights.')
+                self.weights[i] *= median_wrms / median_wgt
+
+    def run_background(self):
+        # Just stash this here. 
+        for i, band in enumerate(self.bands):
+            if band in conf.SUBTRACT_BACKGROUND:
+                self.subtract_background(flat=conf.USE_FLAT, use_masked=(conf.SUBTRACT_BACKGROUND_WITH_MASK|conf.SUBTRACT_BACKGROUND_WITH_DIRECT_MEDIAN), use_direct_median=conf.SUBTRACT_BACKGROUND_WITH_DIRECT_MEDIAN)
+                self.logger.debug(f'Subtracted background (flat={conf.USE_FLAT}, masked={conf.SUBTRACT_BACKGROUND_WITH_MASK}, used_direct_median={conf.SUBTRACT_BACKGROUND_WITH_DIRECT_MEDIAN})')
+
+            elif band in conf.MANUAL_BACKGROUND.keys():
+                image -= conf.MANUAL_BACKGROUND[band]
+                self.logger.debug(f'Subtracted background manually ({conf.MANUAL_BACKGROUND[band]})')
 
     def make_model_image(self, catalog, include_chi=True, include_nopsf=False, save=True, use_band_position=False, use_band_shape=False, modeling=False):
 

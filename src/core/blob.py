@@ -93,6 +93,8 @@ class Blob(Subimage):
 
         self.masks[self.slicepix] = np.logical_not(blobmask[self.slice], dtype=bool)
         self.segmap = brick.segmap[self.slice]
+        self.background_images = np.array([img[self.slice] for img in brick.background_images])
+        self.background_rms_images = np.array([img[self.slice] for img in brick.background_rms_images])
         self._level = 0
         self._sublevel = 0
 
@@ -178,14 +180,6 @@ class Blob(Subimage):
             bcmask = None
             if conf.APPLY_SEGMASK:
                 tweight[mask] = 0
-
-            if band in conf.SUBTRACT_BACKGROUND:
-                self.subtract_background(flat=conf.USE_FLAT, use_masked=(conf.SUBTRACT_BACKGROUND_WITH_MASK|conf.SUBTRACT_BACKGROUND_WITH_DIRECT_MEDIAN), use_direct_median=conf.SUBTRACT_BACKGROUND_WITH_DIRECT_MEDIAN)
-                self.logger.debug(f'Subtracted background (flat={conf.USE_FLAT}, masked={conf.MASKED})')
-
-            elif band in conf.MANUAL_BACKGROUND.keys():
-                image -= conf.MANUAL_BACKGROUND[band]
-                self.logger.debug(f'Subtracted background manually ({conf.MANUAL_BACKGROUND[band]})')
 
             remove_background_psf = False
             if band_strip in conf.RMBACK_PSF:
