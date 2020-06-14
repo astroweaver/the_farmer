@@ -876,11 +876,11 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
                         hdul.append(fits.PrimaryHDU())
                     for m, mband in enumerate(modbrick.bands):
                         hdul.append(fits.ImageHDU(data=modbrick.background_images[m], name=f'BACKGROUND_{mband}', header=modbrick.wcs.to_header()))
-                        hdul[f'BACKGROUND_{mband}'].header['BACK_GLOBAL'] = self.backgrounds[m,0]
-                        hdul[f'BACKGROUND_{mband}'].header['BACK_RMS'] = self.backgrounds[m,1]
+                        hdul[f'BACKGROUND_{mband}'].header['BACK_GLOBAL'] = modbrick.backgrounds[m,0]
+                        hdul[f'BACKGROUND_{mband}'].header['BACK_RMS'] = modbrick.backgrounds[m,1]
                         if (conf.SUBTRACT_BACKGROUND_WITH_MASK|conf.SUBTRACT_BACKGROUND_WITH_DIRECT_MEDIAN):
-                            hdul[f'BACKGROUND_{mband}'].header['MASKEDIMAGE_GLOBAL'] = self.masked_median[m]
-                            hdul[f'BACKGROUND_{mband}'].header['MASKEDIMAGE_RMS'] = self.masked_std[m]
+                            hdul[f'BACKGROUND_{mband}'].header['MASKEDIMAGE_GLOBAL'] = modbrick.masked_median[m]
+                            hdul[f'BACKGROUND_{mband}'].header['MASKEDIMAGE_RMS'] = modbrick.masked_std[m]
                         hdul.append(fits.ImageHDU(data=modbrick.background_rms_images[m], name=f'RMS_{mband}', header=modbrick.wcs.to_header()))
                         hdul.append(fits.ImageHDU(data=1/np.sqrt(modbrick.weights[m]), name=f'UNC_{mband}', header=modbrick.wcs.to_header()))
                     hdul.writeto(outpath, overwrite=conf.OVERWRITE)
@@ -1117,11 +1117,11 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
                     hdul.append(fits.PrimaryHDU())
                 for m, mband in enumerate(modbrick.bands):
                     hdul.append(fits.ImageHDU(data=modbrick.background_images[m], name=f'BACKGROUND_{mband}', header=modbrick.wcs.to_header()))
-                    hdul[f'BACKGROUND_{mband}'].header['BACK_GLOBAL'] = self.backgrounds[m,0]
-                    hdul[f'BACKGROUND_{mband}'].header['BACK_RMS'] = self.backgrounds[m,1]
+                    hdul[f'BACKGROUND_{mband}'].header['BACK_GLOBAL'] = modbrick.backgrounds[m,0]
+                    hdul[f'BACKGROUND_{mband}'].header['BACK_RMS'] = modbrick.backgrounds[m,1]
                     if (conf.SUBTRACT_BACKGROUND_WITH_MASK|conf.SUBTRACT_BACKGROUND_WITH_DIRECT_MEDIAN):
-                        hdul[f'BACKGROUND_{mband}'].header['MASKEDIMAGE_GLOBAL'] = self.masked_median[m]
-                        hdul[f'BACKGROUND_{mband}'].header['MASKEDIMAGE_RMS'] = self.masked_std[m]
+                        hdul[f'BACKGROUND_{mband}'].header['MASKEDIMAGE_GLOBAL'] = modbrick.masked_median[m]
+                        hdul[f'BACKGROUND_{mband}'].header['MASKEDIMAGE_RMS'] = modbrick.masked_std[m]
                     hdul.append(fits.ImageHDU(data=modbrick.background_rms_images[m], name=f'RMS_{mband}', header=modbrick.wcs.to_header()))
                     hdul.append(fits.ImageHDU(data=1/np.sqrt(modbrick.weights[m]), name=f'UNC_{mband}', header=modbrick.wcs.to_header()))
                 hdul.writeto(outpath, overwrite=conf.OVERWRITE)
@@ -1537,23 +1537,14 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
         else:
             hdul = fits.HDUList()
             hdul.append(fits.PrimaryHDU())
-            self.logger.debug(f'    Mesh size = ({conf.SUBTRACT_BW}, {conf.SUBTRACT_BH})')
-        self.logger.debug(f'    Back Mean = {np.mean(self.background_images, (1,2))}')
-        self.logger.debug(f'    Back Std = {np.std(self.background_images, (1,2))}')
-        self.logger.debug(f'    Back Global = {self.backgrounds[:,0]}')
-        self.logger.debug(f'    RMS Global = {self.backgrounds[:,1]}')
-
-        if use_direct_median:
-            self.logger.debug(f'    Direct Median = {self.backgrounds[:,0]}')
-            self.logger.debug(f'    Direct RMS = {self.backgrounds[:,1]}')
 
         for m, mband in enumerate(fbrick.bands):
             hdul.append(fits.ImageHDU(data=fbrick.background_images[m], name=f'BACKGROUND_{mband}', header=fbrick.wcs.to_header()))
-            hdul[f'BACKGROUND_{mband}'].header['BACK_GLOBAL'] = self.backgrounds[m,0]
-            hdul[f'BACKGROUND_{mband}'].header['BACK_RMS'] = self.backgrounds[m,1]
+            hdul[f'BACKGROUND_{mband}'].header['BACK_GLOBAL'] = fbrick.backgrounds[m,0]
+            hdul[f'BACKGROUND_{mband}'].header['BACK_RMS'] = fbrick.backgrounds[m,1]
             if (conf.SUBTRACT_BACKGROUND_WITH_MASK|conf.SUBTRACT_BACKGROUND_WITH_DIRECT_MEDIAN):
-                hdul[f'BACKGROUND_{mband}'].header['MASKEDIMAGE_GLOBAL'] = self.masked_median[m]
-                hdul[f'BACKGROUND_{mband}'].header['MASKEDIMAGE_RMS'] = self.masked_std[m]
+                hdul[f'BACKGROUND_{mband}'].header['MASKEDIMAGE_GLOBAL'] = fbrick.masked_median[m]
+                hdul[f'BACKGROUND_{mband}'].header['MASKEDIMAGE_RMS'] = fbrick.masked_std[m]
             hdul.append(fits.ImageHDU(data=fbrick.background_rms_images[m], name=f'RMS_{mband}', header=fbrick.wcs.to_header()))
             hdul.append(fits.ImageHDU(data=1/np.sqrt(fbrick.weights[m]), name=f'UNC_{mband}', header=fbrick.wcs.to_header()))
         hdul.writeto(outpath, overwrite=conf.OVERWRITE)

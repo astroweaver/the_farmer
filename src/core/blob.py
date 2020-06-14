@@ -1269,7 +1269,7 @@ class Blob(Subimage):
                 mids[compmask] = 5
 
             # where better as EXP or DEV
-            compmask_or = (chisq[:, 2, 0] > chisq[:, 1, 0]) | (chisq[:, 2, 0] > chisq[:, 1, 1])
+            compmask_or = (chisq[:, 2, 0] >= chisq[:, 1, 0]) | (chisq[:, 2, 0] >= chisq[:, 1, 1])
             if compmask_or.any():
                 ch_exp = (abs(chisq_exp - chisq[:, 1, 0]) <= abs(chisq_exp - chisq[:, 1, 1])) & compmask_or
 
