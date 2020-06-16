@@ -1416,9 +1416,9 @@ class Brick(Subimage):
         for src in catalog:
 
             if modeling:
-                raw_fluxes = src[f'RAWFLUX_{conf.MODELING_NICKNAME}_{band}']
+                raw_fluxes = src[f'FLUX_{conf.MODELING_NICKNAME}_{band}']
             else:
-                raw_fluxes = src[f'RAWFLUX_{band}']
+                raw_fluxes = src[f'FLUX_{band}']
 
             if conf.RESIDUAL_CHISQ_REJECTION is not None:
                 if modeling:
