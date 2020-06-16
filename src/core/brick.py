@@ -1415,6 +1415,8 @@ class Brick(Subimage):
         residual_mask[self.segmap != 0] = False
         for src in catalog:
 
+            [print(i) for i in src.colnames]
+
             if modeling:
                 raw_fluxes = src[f'FLUX_{conf.MODELING_NICKNAME}_{band}']
             else:
