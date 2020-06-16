@@ -14,6 +14,7 @@ FPHOT_FNAMES = ('master_uhscuvista.fits', 'master_uhscuvista_missing_28_05.fits'
                 # 'master_ubvistanb_subarubb.fits'
                 )
 SAVE = True
+OVERWRITE = True
 OUTPUT_FNAME = 'master_forced_photometry.fits'
 OUTPUT_DIR = WORKING_DIR
 
@@ -49,7 +50,9 @@ for fname in FPHOT_FNAMES:
             print('*** ' + bn)
             colnames = []
             for col in tab.colnames:
-                if (bn in col) & (not 'MODELING' in col):
+                if (bn in col) & (not 'MODELING' in col) & ('MAG' in col):
+                    tab[col].mask |= np.isnan(tab[col])
+                    tab[col] = tab[col].filled(-99)
                     colnames.append(col)
             band_names[bn] = colnames
     nbands = len(band_names)
@@ -66,9 +69,9 @@ for fname in FPHOT_FNAMES:
             for bid in np.unique(tab['brick_id']):
                 selection = tab_master['brick_id'] == bid
                 selection2 = tab['brick_id'] == bid
-                if np.nansum(tab_master[selection][f'CHISQ_{band}']) > 0:
+                if (tab_master[selection][f'MAG_{band}'] <= 0).all():
                     continue
-                if np.nansum(tab[selection2][f'CHISQ_{band}']) > 0:
+                if (tab[selection2][f'MAG_{band}'] <= 0).all():
                     print(f'*** No valid sources found for brick #{bid} -- MISSING!')
                     continue
                 # if there is nothing there, then:
@@ -76,7 +79,13 @@ for fname in FPHOT_FNAMES:
                 idx = np.where(np.in1d(tab_master['uniq_id'], tab['uniq_id']) & selection)[0]
                 idx2 = np.where(np.in1d(tab['uniq_id'], tab_master['uniq_id']) & selection2)[0]
                 for col in band_names[band]:
+                    print(band, bid, np.sum(tab_master[col][idx]), np.median(tab_master[col][idx]))
                     tab_master[col][idx] = tab[col][idx2]
+                    assert((tab_master[col][idx] == tab[col][idx2]).all())
+                    print('***** ', np.sum(tab[col][idx2]), np.median(tab[col][idx2]))
+                    print('***** ', np.sum(tab_master[col][idx]), np.median(tab_master[col][idx]))
+                    print()
+
         
         else:
             print(f'[{i+1}/{nbands}] Appending columns for {band}')
@@ -92,6 +101,6 @@ for i in tab_master.colnames:
 
 if SAVE:
     print('Saving...')
-    tab_master.write(os.path.join(OUTPUT_DIR, OUTPUT_FNAME), format='fits')
+    tab_master.write(os.path.join(OUTPUT_DIR, OUTPUT_FNAME), format='fits', overwrite=OVERWRITE)
 else:
     print('NO SAVE.')
