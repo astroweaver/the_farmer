@@ -648,7 +648,7 @@ class Blob(Subimage):
                     if trip:
                         tr.setCatalog(Catalog(*cat))
 
-                if (dlnp < conf.TRACTOR_CONTHRESH) & (~trip):
+                if (dlnp == 0) | ( (dlnp < conf.TRACTOR_CONTHRESH) & (~trip) ):
                     self.logger.info(f'Blob #{self.blob_id} converged in {i+1} steps ({dlnp_init:2.2f} --> {dlnp:2.2f}) ({time.time() - tstart:3.3f}s)')
                     self.n_converge = i
                     break
