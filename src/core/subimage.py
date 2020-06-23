@@ -415,7 +415,7 @@ class Subimage():
                 for i, (img, mask) in enumerate(zip(self.images, self.masks)):
                     img_masked = img.copy()
                     # fill with 1st pass background median
-                    img_masked[self.segmask | mask] = np.nan 
+                    img_masked[(self.segmask == 1) | mask] = np.nan 
                     # get direct median
                     img_masked_stat = sigma_clip(img_masked.flatten(), 3, masked=False)
                     self.masked_median[i] = np.nanmedian(img_masked_stat)
@@ -431,7 +431,7 @@ class Subimage():
                 img, mask = self.images[idx], self.masks[idx]
                 img_masked = img.copy()
                 # fill with 1st pass background median
-                img_masked[self.segmask | mask] = np.nan 
+                img_masked[(self.segmask==1) | mask] = np.nan 
                 img_masked_stat = sigma_clip(img_masked.flatten(), 3, masked=False)
                 self.masked_median[idx] = np.nanmedian(img_masked_stat)
                 self.masked_std[idx] = np.nanstd(img_masked_stat)
