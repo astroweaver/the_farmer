@@ -231,7 +231,7 @@ def make_psf(image_type=conf.MULTIBAND_NICKNAME, band=None, sextractor_only=Fals
     return
 
 
-def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, brick_id=None, insert=False, skip_psf=True, max_bricks=None):
+def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, brick_id=None, insert=False, skip_psf=True, max_bricks=None, make_new_bricks=False):
     """ Stage 1. Here we collect the detection, modelling, and multiband images for processing. We may also cut them up! 
     
     NB: PSFs can be automatically made at this stage too, assuming you've determined your PSF selection a priori.
@@ -309,7 +309,7 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, brick_id=None, in
 
             # Assume we can overwrite files unless insertion is explicit
             # First image w/o insertion will make new file anyways
-            if conf.OVERWRITE:
+            if make_new_bricks:
                 overwrite = True
                 if insert | (i > 0):
                     overwrite = False
