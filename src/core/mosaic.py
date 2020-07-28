@@ -81,12 +81,12 @@ class Mosaic(Subimage):
             tstart = time()
             if os.path.exists(self.path_image):
                 with fits.open(self.path_image, memmap=True) as hdu_image:
-                if hdu_image['PRIMARY'].data is not None:
-                    self.images = hdu_image['PRIMARY'].data
-                    self.master_head = hdu_image['PRIMARY'].header
-                else:
-                    self.images = hdu_image[1].data
-                    self.master_head = hdu_image[1].header
+                    if hdu_image['PRIMARY'].data is not None:
+                        self.images = hdu_image['PRIMARY'].data
+                        self.master_head = hdu_image['PRIMARY'].header
+                    else:
+                        self.images = hdu_image[1].data
+                        self.master_head = hdu_image[1].header
                 self.wcs = WCS(self.master_head)
                 path = self.path_image
             else:
