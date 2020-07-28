@@ -988,9 +988,10 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
                 output_cat = vstack(output_rows)
 
                 # estimate effective area
-                eff_area = np.zeros(len(img_names))
-                for b, bname in enumerate(img_names):
-                    eff_area[bname] = fbrick.estimate_effective_area(output_cat, bname, modeling=True)[0]
+                if conf.ESTIMATE_EFF_AREA:
+                    eff_area = np.zeros(len(img_names))
+                    for b, bname in enumerate(img_names):
+                        eff_area[bname] = fbrick.estimate_effective_area(output_cat, bname, modeling=True)[0]
 
                 ttotal = time.time() - tstart
                 logger.info(f'Completed {run_n_blobs} blobs with {len(output_cat)} sources in {ttotal:3.3f}s (avg. {ttotal/len(output_cat):2.2f}s per source)')
@@ -1236,9 +1237,12 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
             logger.info(f'Completed {run_n_blobs} blobs with {len(output_cat)} sources in {ttotal:3.3f}s (avg. {ttotal/len(output_cat):2.2f}s per source)')
 
             # estimate effective area
-            eff_area = dict(zip(img_names, np.zeros(len(img_names))))
-            for b, bname in enumerate(img_names):
-                eff_area[bname] = modbrick.estimate_effective_area(output_cat, bname, modeling=True)[0]
+            if conf.ESTIMATE_EFF_AREA:
+                eff_area = dict(zip(img_names, np.zeros(len(img_names))))
+                for b, bname in enumerate(img_names):
+                    eff_area[bname] = modbrick.estimate_effective_area(output_cat, bname, modeling=True)[0]
+            else:
+                eff_area = None
                         
             for colname in output_cat.colnames:
                 if colname not in outcatalog.colnames:
@@ -1655,9 +1659,12 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
         output_cat = vstack(output_rows)  # HACK -- at some point this should just UPDATE the bcatalog with the new photoms. IF the user sets NBLOBS > 0, the catalog is truncated!
 
         # estimate effective area
-        eff_area = dict(zip(fband, np.zeros(len(fband))))
-        for b, bname in enumerate(fband):
-            eff_area[bname] = fbrick.estimate_effective_area(output_cat, bname, modeling=False)[0]
+        if conf.ESTIMATE_EFF_AREA:
+            eff_area = dict(zip(fband, np.zeros(len(fband))))
+            for b, bname in enumerate(fband):
+                eff_area[bname] = fbrick.estimate_effective_area(output_cat, bname, modeling=False)[0]
+        else:
+            eff_area = None
 
         if not conf.OUTPUT:
             logging.warning('OUTPUT is DISABLED! Quitting...')

@@ -81,9 +81,13 @@ class Mosaic(Subimage):
             tstart = time()
             if os.path.exists(self.path_image):
                 with fits.open(self.path_image, memmap=True) as hdu_image:
+                if hdu_image['PRIMARY'].data is not None:
                     self.images = hdu_image['PRIMARY'].data
                     self.master_head = hdu_image['PRIMARY'].header
-                    self.wcs = WCS(self.master_head)
+                else:
+                    self.images = hdu_image[1].data
+                    self.master_head = hdu_image[1].header
+                self.wcs = WCS(self.master_head)
                 path = self.path_image
             else:
                 raise ValueError(f'No image found at {self.path_image}')
@@ -92,7 +96,10 @@ class Mosaic(Subimage):
             tstart = time()
             if os.path.exists(self.path_weight):
                 with fits.open(self.path_weight) as hdu_weight:
-                    self.weights = hdu_weight['PRIMARY'].data
+                    if hdu_weight['PRIMARY'].data is not None:
+                        self.weights = hdu_weight['PRIMARY'].data
+                    else:
+                        self.weights = hdu_weight[1].data
                 path = self.path_weight
             else:
                 #raise ValueError(f'No weight found at {self.path_weight}')
@@ -104,7 +111,10 @@ class Mosaic(Subimage):
             tstart = time()
             if os.path.exists(self.path_mask):
                 with fits.open(self.path_mask) as hdu_mask:
-                    self.masks = hdu_mask['PRIMARY'].data
+                    if hdu_mask['PRIMARY'].data is not None:
+                        self.masks = hdu_mask['PRIMARY'].data
+                    else:
+                        self.masks = hdu_mask[1].data
                 path = self.path_mask
             else:
                 self.masks = None    
