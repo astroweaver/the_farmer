@@ -137,6 +137,7 @@ class Brick(Subimage):
     def add_columns(self, modeling=True, multiband_model=False, modbrick_name=conf.MODELING_NICKNAME):
         """TODO: docstring"""
         filler = np.zeros(len(self.catalog))
+        boolfiller = np.zeros(len(self.catalog), dtype=bool)
         if 'N_BLOB' not in self.catalog.colnames:
             self.catalog.add_column(Column(-99*np.ones(len(self.catalog), dtype=int), name='N_BLOB'))
         if 'BEST_MODEL_BAND' not in self.catalog.colnames:
@@ -168,7 +169,7 @@ class Brick(Subimage):
                 self.catalog.add_column(Column(filler, name=f'CHI_MU_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'CHI_SIG_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'CHI_K2_{colname}'))
-                # self.catalog.add_column(Column(filler, name=f'VALID_SOURCE_{colname}'))
+                self.catalog.add_column(Column(boolfiller, name=f'VALID_SOURCE_{colname}'))
                 # self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype='S20'), name=f'SOLMODEL_{colname}'))
                 if not conf.FREEZE_FORCED_POSITION:
                     self.catalog.add_column(Column(filler, name=f'X_MODEL_{colname}'))

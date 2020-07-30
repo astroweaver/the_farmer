@@ -272,7 +272,7 @@ def plot_srcprofile(blob, src, sid, bands=None):
         res = img - mod
         rms = np.median(blob.background_rms_images[idx])
 
-        ypix, xpix = np.nonzero(seg)
+        xpix, ypix = np.nonzero(seg)
         dx, dy = (np.max(xpix) - np.min(xpix)) / 2., (np.max(ypix) - np.min(ypix)) / 2.
         buff = np.min([conf.BLOB_BUFFER, 10.])
         xlim, ylim = np.array([-(dx + buff), (dx + buff)]) * conf.PIXEL_SCALE, np.array([-(dy + buff), (dy + buff)]) * conf.PIXEL_SCALE
