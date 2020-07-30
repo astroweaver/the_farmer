@@ -168,6 +168,8 @@ class Brick(Subimage):
                 self.catalog.add_column(Column(filler, name=f'CHI_MU_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'CHI_SIG_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'CHI_K2_{colname}'))
+                # self.catalog.add_column(Column(filler, name=f'VALID_SOURCE_{colname}'))
+                # self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype='S20'), name=f'SOLMODEL_{colname}'))
                 if not conf.FREEZE_FORCED_POSITION:
                     self.catalog.add_column(Column(filler, name=f'X_MODEL_{colname}'))
                     self.catalog.add_column(Column(filler, name=f'Y_MODEL_{colname}'))
@@ -178,24 +180,25 @@ class Brick(Subimage):
             except:
                 self.logger.debug(f'Columns already exist for {colname}')
             if (modeling & (not multiband_model)) | (not conf.FREEZE_FORCED_SHAPE):
-                try:
-                    if modeling:
-                        self.logger.debug(f'Adding model columns to catalog.')
-                        for colname_fill in [f'{colext}_{colname}' for colext in ('X_MODEL', 'Y_MODEL', 'XERR_MODEL', 'YERR_MODEL', 'RA', 'DEC')]:
+                if modeling:
+                    self.logger.debug(f'Adding model columns to catalog. (multiband = False)')
+                    for colname_fill in [f'{colext}_{colname}' for colext in ('X_MODEL', 'Y_MODEL', 'XERR_MODEL', 'YERR_MODEL', 'RA', 'DEC')]:
+                        try:
                             self.catalog.add_column(Column(filler, name=colname_fill))
-                        self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype='S20'), name=f'SOLMODEL_{colname}'))
-                    self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=bool), name=f'VALID_SOURCE_{colname}'))
-                    
-                    for colname_fill in [f'{colext}_{colname}' for colext in ('REFF', 'REFF_ERR', 'EE1', 'EE2', 'AB', 'AB_ERR', 'THETA', 'THETA_ERR',
-                                'FRACDEV', 'EXP_REFF', 'EXP_REFF_ERR', 'EXP_EE1', 'EXP_EE2', 'EXP_AB', 'EXP_AB_ERR', 'EXP_THETA', 'EXP_THETA_ERR', 
-                                'DEV_REFF', 'DEV_REFF_ERR', 'DEV_EE1', 'DEV_EE2', 'DEV_AB', 'DEV_AB_ERR', 'DEV_THETA', 'DEV_THETA_ERR' )]:
-                        self.catalog.add_column(Column(filler, name=colname_fill))
-                except:
-                    self.logger.debug(f'Model columns already exist')
+                        except:
+                            pass
+                self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype='S20'), name=f'SOLMODEL_{colname}'))
+                self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=bool), name=f'VALID_SOURCE_{colname}'))
+                
+                for colname_fill in [f'{colext}_{colname}' for colext in ('REFF', 'REFF_ERR', 'EE1', 'EE2', 'AB', 'AB_ERR', 'THETA', 'THETA_ERR',
+                            'FRACDEV', 'EXP_REFF', 'EXP_REFF_ERR', 'EXP_EE1', 'EXP_EE2', 'EXP_AB', 'EXP_AB_ERR', 'EXP_THETA', 'EXP_THETA_ERR', 
+                            'DEV_REFF', 'DEV_REFF_ERR', 'DEV_EE1', 'DEV_EE2', 'DEV_AB', 'DEV_AB_ERR', 'DEV_THETA', 'DEV_THETA_ERR' )]:
+                    self.catalog.add_column(Column(filler, name=colname_fill))
+
         if multiband_model:
             colname = modbrick_name
             try:
-                self.logger.debug(f'Adding model columns to catalog.')
+                self.logger.debug(f'Adding model columns to catalog. (multiband = True)')
                 for colname_fill in [f'{colext}_{colname}' for colext in ('X_MODEL', 'Y_MODEL', 'XERR_MODEL', 'YERR_MODEL', 'RA', 'DEC')]:
                     self.catalog.add_column(Column(filler, name=colname_fill))
                 self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype='S20'), name=f'SOLMODEL_{colname}'))
@@ -213,15 +216,21 @@ class Brick(Subimage):
         # Make binary
         segmask = self.segmap.copy()  # I don't see how we can get around this.
         segmask[segmask != 0] = 1
-        # Dilate
-        struct2 = create_circular_mask(2*radius, 2*radius, radius=radius)
-        segmask = binary_dilation(segmask, structure=struct2)
 
-        if fill_holes:
-            segmask = binary_fill_holes(segmask).astype(int)
+        if conf.DILATION_RADIUS == 0:
+            # exit early!
+            self.segmask = segmask
+            return segmask
+        else:
+            # Dilate
+            struct2 = create_circular_mask(2*radius, 2*radius, radius=radius)
+            segmask = binary_dilation(segmask, structure=struct2)
 
-        self.segmask = segmask
-        return segmask
+            if fill_holes:
+                segmask = binary_fill_holes(segmask).astype(int)
+
+            self.segmask = segmask
+            return segmask
 
     def relabel(self):
         self.blobmap, self.n_blobs = label(self.segmask)
@@ -246,10 +255,15 @@ class Brick(Subimage):
         return blob
 
     def run_weights(self, is_detection=False):
-        self.logger.info('Performing any weight corrections...')
+        
         use_rms_weights = conf.USE_RMS_WEIGHTS
         scale_weights = conf.SCALE_WEIGHTS
         for i, band in enumerate(self.bands):
+            if band.startswith(conf.MODELING_NICKNAME):
+                band = band[len(conf.MODELING_NICKNAME)+1:]
+            if (band not in use_rms_weights) & (band not in scale_weights):
+                continue
+            self.logger.info(f'Performing any weight corrections for {band}')
             rms = self.background_rms_images[i]
             if (conf.USE_MASKED_SEP_RMS | conf.USE_MASKED_DIRECT_RMS) & (not is_detection):
                 self.logger.info('Computing the masked RMS maps')
@@ -291,11 +305,14 @@ class Brick(Subimage):
         self.model_images = np.zeros(shape=(self.n_bands, np.shape(self.images[0])[0], np.shape(self.images[0])[1]))
         self.chisq_images = np.zeros(shape=(self.n_bands, np.shape(self.images[0])[0], np.shape(self.images[0])[1]))
 
-        # if modeling:
-        #     sbands = [s[len(conf.MODELING_NICKNAME)+1:] for s in self.bands]
-        # else:
-        #     sbands = self.bands
-        sbands = self.bands
+        sbands = np.zeros_like(self.bands)
+        for b, band in enumerate(self.bands):
+            if band.startswith(conf.MODELING_NICKNAME):
+                sbands[b] = band[len(conf.MODELING_NICKNAME)+1:]
+            else:
+                sbands[b] = band
+        
+
         self.bands = np.array(self.bands) # The bands attribute is being modfified somewhere to make it BACK into a list. Why? Dunno. Just don't change this.
 
         # Figure out which bands are to be run with which setup.
@@ -995,8 +1012,9 @@ class Brick(Subimage):
 
         for i, (psf, band) in enumerate(zip(self.psfmodels[idx], self.bands[idx])):
 
-            # if modeling:
-            #     band = band[len(conf.MODELING_NICKNAME)+1:]
+            band_orig = band
+            if band.startswith(conf.MODELING_NICKNAME):
+                band = band[len(conf.MODELING_NICKNAME)+1:]
 
             remove_background_psf = False
             if band in conf.RMBACK_PSF:
@@ -1030,8 +1048,8 @@ class Brick(Subimage):
                     psfmodel = HybridPixelizedPSF(pix=psfmodel, N=10).gauss
 
             elif (psf is not None):
-                self.logger.error('Position dependent PSFs in brick-scale model images is NOT SUPPORTED YET.')
-                continue
+                raise RuntimeError('Position dependent PSFs in brick-scale model images is NOT SUPPORTED YET.')
+                # continue
                 # blob_centerx = self.blob_center[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
                 # blob_centery = self.blob_center[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
                 # psfmodel = psf.constantPsfAt(blob_centerx, blob_centery) # init at blob center, may need to swap!
@@ -1066,7 +1084,7 @@ class Brick(Subimage):
                             invvar=np.ones_like(self.images[0]),
                             psf=psfmodel,
                             wcs=NullWCS(),
-                            photocal=FluxesPhotoCal(band),
+                            photocal=FluxesPhotoCal(band_orig),
                             sky=ConstantSky(0.),
                             name=band)
 
@@ -1091,18 +1109,13 @@ class Brick(Subimage):
 
                     continue
 
-            if modeling:
-                raw_fluxes = np.array([src[f'RAWFLUX_{conf.MODELING_NICKNAME}_{band}'] for band in self.bands[idx]])
-            else:
-                raw_fluxes = np.array([src[f'RAWFLUX_{band}'] for band in self.bands[idx]])
+            raw_fluxes = np.array([src[f'RAWFLUX_{band}'] for band in self.bands[idx]])
+
             
             rejected = False
             if conf.RESIDUAL_CHISQ_REJECTION is not None:
                 for j, band in enumerate(self.bands[idx]):
-                    if modeling:
-                        chisq_band = src[f'CHISQ_MODELING_{band}']
-                    else:
-                        chisq_band = src[f'CHISQ_{band}']
+                    chisq_band = src[f'CHISQ_{band}']
                     if chisq_band > conf.RESIDUAL_CHISQ_REJECTION:
                         raw_fluxes[j] = 0.0
                         self.logger.debug(f'Source has too large chisq in {band}. ({chisq_band:3.3f}) > {conf.RESIDUAL_CHISQ_REJECTION})')
@@ -1124,10 +1137,10 @@ class Brick(Subimage):
                     raw_fluxes[raw_fluxes < 0.0] = 0.0
                     self.logger.debug('Source has negative flux in some bands.')
 
-            if (conf.RESIDUAL_AB_REJECTION is not None) & (src[f'SOLMODEL_{conf.MODELING_NICKNAME}'] not in ('PointSource', 'SimpleGalaxy')):  # HACK -- does NOT apply to unfixed shapes!
+            if (conf.RESIDUAL_AB_REJECTION is not None) & (src[f'SOLMODEL_{band}'] not in ('PointSource', 'SimpleGalaxy')):  # HACK -- does NOT apply to unfixed shapes!
                 
-                if src[f'SOLMODEL_{conf.MODELING_NICKNAME}'] in ('ExpGalaxy', 'DevGalaxy'):
-                    ab = np.array([src[f'AB_{conf.MODELING_NICKNAME}'] for band in self.bands[idx]])
+                if src[f'SOLMODEL_{band}'] in ('ExpGalaxy', 'DevGalaxy'):
+                    ab = np.array([src[f'AB_{band}'] for band in self.bands[idx]])
                     if (ab > conf.RESIDUAL_AB_REJECTION).all() | (ab <= 0).all():
 
                         self.logger.debug('Source has exessive a/b in all bands. Rejecting!')
@@ -1137,7 +1150,7 @@ class Brick(Subimage):
                         raw_fluxes[ab <= 0] = 0.0
                         self.logger.debug('Source has exessive a/b in some bands.')
                 else:
-                    ab_exp = np.array([src[f'EXP_AB_{conf.MODELING_NICKNAME}'] for band in self.bands[idx]])
+                    ab_exp = np.array([src[f'EXP_AB_{band}'] for band in self.bands[idx]])
                     if (ab_exp > conf.RESIDUAL_AB_REJECTION).all() | (ab_exp <= 0).all():
 
                         self.logger.debug('Source has exessive exp a/b in all bands. Rejecting!')
@@ -1147,7 +1160,7 @@ class Brick(Subimage):
                         raw_fluxes[ab_exp <= 0] = 0.0
                         self.logger.debug('Source has exessive exp a/b in some bands.')
 
-                    ab_dev = np.array([src[f'DEV_AB_{conf.MODELING_NICKNAME}'] for band in self.bands[idx]])
+                    ab_dev = np.array([src[f'DEV_AB_{band}'] for band in self.bands[idx]])
                     if (ab_dev > conf.RESIDUAL_AB_REJECTION).all() | (ab_dev <= 0).all():
 
                         self.logger.debug('Source has exessive dev a/b in all bands. Rejecting!')
@@ -1214,6 +1227,7 @@ class Brick(Subimage):
         if not self.model_mask.any():        
             raise RuntimeError(f'No valid models to make model image! (of {mtotal}, {nmasked} masked)')
         self.logger.info(f'Making model image with {msrc}/{mtotal} sources. ({nmasked} are masked)')
+        [print(foo['source_id', 'blob_id', 'RAWFLUX_MODELING_sim1_lr']) for foo in catalog[~self.model_mask]]
         self.model_catalog = self.model_catalog[self.model_mask]
 
         # Tractorize
@@ -1222,6 +1236,7 @@ class Brick(Subimage):
 
         self.logger.info(f'Computing model image...')
         self.model_images[idx] = [tr.getModelImage(k) for k in np.arange(len(idx))]
+
         if include_chi:
             self.logger.info(f'Computing chi image...')
             self.chisq_images[idx] = [tr.getChiImage(k) for k in np.arange(len(idx))]
@@ -1435,20 +1450,20 @@ class Brick(Subimage):
                     self.logger.debug('Source has negative flux. Rejecting!')
                     continue
 
-            if (conf.RESIDUAL_AB_REJECTION is not None) & (src[f'SOLMODEL_{conf.MODELING_NICKNAME}'] not in ('PointSource', 'SimpleGalaxy')):  # HACK -- does NOT apply to unfixed shapes!
+            if (conf.RESIDUAL_AB_REJECTION is not None) & (src[f'SOLMODEL_{conf.MODELING_NICKNAME}_{band}'] not in ('PointSource', 'SimpleGalaxy')):  # HACK -- does NOT apply to unfixed shapes!
                 
-                if src[f'SOLMODEL_{conf.MODELING_NICKNAME}'] in ('ExpGalaxy', 'DevGalaxy'):
-                    ab = src[f'AB_{conf.MODELING_NICKNAME}']
+                if src[f'SOLMODEL_{conf.MODELING_NICKNAME}_{band}'] in ('ExpGalaxy', 'DevGalaxy'):
+                    ab = src[f'AB_{conf.MODELING_NICKNAME}_{band}']
                     if (ab > conf.RESIDUAL_AB_REJECTION) | (ab <= 0):
                         self.logger.debug('Source has exessive a/b. Rejecting!')
                         continue
                 else:
-                    ab_exp = src[f'EXP_AB_{conf.MODELING_NICKNAME}']
+                    ab_exp = src[f'EXP_AB_{conf.MODELING_NICKNAME}_{band}']
                     if (ab_exp > conf.RESIDUAL_AB_REJECTION) | (ab_exp <= 0):
                         self.logger.debug('Source has exessive exp a/b. Rejecting!')
                         continue
 
-                    ab_dev = src[f'DEV_AB_{conf.MODELING_NICKNAME}']
+                    ab_dev = src[f'DEV_AB_{conf.MODELING_NICKNAME}_{band}']
                     if (ab_dev > conf.RESIDUAL_AB_REJECTION) | (ab_dev <= 0):
                         self.logger.debug('Source has exessive dev a/b. Rejecting!')
                         continue

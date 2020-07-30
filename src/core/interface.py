@@ -109,7 +109,7 @@ if not len(logger.handlers):
     ch.setFormatter(formatter)
     logger.addHandler(ch)
 
-    if conf.LOGFILE_LOGGING_LEVEL is None:
+    if (conf.LOGFILE_LOGGING_LEVEL is None) | (not os.path.exists(conf.LOGGING_DIR)):
         print('Logging information wills stream only to console.\n')
         
     else:
@@ -165,6 +165,32 @@ except:
             count_short += 1
     logger.info(f'interface.translation :: Done checking. Shortened {count_short} image names.')
 
+
+def make_directories():
+    """Uses the existing config file to set up the directories. Must call from config.py directory!
+    """
+    import pathlib
+    logger.info('Making directories!')
+    dir_dict = {'IMAGE_DIR': conf.IMAGE_DIR,
+                'PSF_DIR': conf.PSF_DIR,
+                'BRICK_DIR': conf.BRICK_DIR,
+                'INTERIM_DIR': conf.INTERIM_DIR,
+                'PLOT_DIR': conf.PLOT_DIR,
+                'CATALOG_DIR': conf.CATALOG_DIR,
+                'LOGGING_DIR': conf.LOGGING_DIR
+    }
+    for key in dir_dict.keys():
+        path = dir_dict[key]
+        if os.path.exists(path):  # too important to allow overwrite...
+            logger.warning(f'{key} already exists under {path}!')
+            for i in dir_dict.keys():
+                if path == dir_dict[i]:
+                    logger.info(f'{key} was already created for {i}...OK')
+                    break
+        else:
+            logger.info(f'{key} --> {path}')
+            pathlib.Path(path).mkdir(parents=True, exist_ok=True) 
+            
 
 def make_psf(image_type=conf.MULTIBAND_NICKNAME, band=None, sextractor_only=False, psfex_only=False, override=conf.OVERWRITE):
     """ This is where we automatically construct the PSFs for Farmer.
@@ -425,7 +451,11 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
             return catout
 
         # Run models
-        if (conf.ITERATIVE_SUBTRACTION_THRESH is not None) & (modblob.n_sources >= conf.ITERATIVE_SUBTRACTION_THRESH):
+        if conf.ITERATIVE_SUBTRACTION_THRESH is None:
+            iter_thresh = 1E31
+        else:
+            iter_thresh = conf.ITERATIVE_SUBTRACTION_THRESH
+        if (conf.ITERATIVE_SUBTRACTION_THRESH is not None) & (modblob.n_sources >= iter_thresh):
             logger.debug(f'Performing iterative subtraction for {conf.MODELING_NICKNAME}')
             astart = time.time()
 
@@ -816,6 +846,10 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
             shape, minmax, mean, var = stats.describe(modbrick.weights[0], axis=None)[:4]
             logger.debug(f'    Limits: {minmax[0]:6.6f} - {minmax[1]:6.6f}')
             logger.debug(f'    Mean: {mean:6.6f}+/-{np.sqrt(var):6.6f}\n')
+            logger.debug(f'Brick #{brick_id} -- Error statistics for {mod_band}')
+            shape, minmax, mean, var = stats.describe(1/np.sqrt(modbrick.weights[0]), axis=None)[:4]
+            logger.debug(f'    Limits: {minmax[0]:6.6f} - {minmax[1]:6.6f}')
+            logger.debug(f'    Mean: {mean:6.6f}+/-{np.sqrt(var):6.6f}\n')
             logger.debug(f'Brick #{brick_id} -- Background statistics for {mod_band}')
             logger.debug(f'    Global: {modbrick.backgrounds[0, 0]:6.6f}')
             logger.debug(f'    RMS: {modbrick.backgrounds[0, 1]:6.6f}\n')
@@ -827,8 +861,6 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
                 modbrick.blobmap = detbrick.blobmap
                 modbrick.n_blobs = detbrick.n_blobs
                 modbrick.segmask = detbrick.segmask
-            
-            modbrick.run_weights()
 
             # Cleanup on MODBRICK
             tstart = time.time()
@@ -839,6 +871,8 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
             if modbrick.n_blobs <= 0:
                 logger.critical(f'Modeling brick #{brick_id} gained {modbrick.n_blobs} blobs! Quiting.')
                 return
+
+            modbrick.run_weights()
             
             modbrick.add_columns(modbrick_name=mod_band, multiband_model = False) # doing on detbrick gets column names wrong
             logger.info(f'Modeling brick #{brick_id} gained {modbrick.n_blobs} blobs with {modbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
@@ -991,7 +1025,7 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
                 if conf.ESTIMATE_EFF_AREA:
                     eff_area = np.zeros(len(img_names))
                     for b, bname in enumerate(img_names):
-                        eff_area[bname] = fbrick.estimate_effective_area(output_cat, bname, modeling=True)[0]
+                        eff_area[b] = modbrick.estimate_effective_area(output_cat, bname, modeling=True)[0]
 
                 ttotal = time.time() - tstart
                 logger.info(f'Completed {run_n_blobs} blobs with {len(output_cat)} sources in {ttotal:3.3f}s (avg. {ttotal/len(output_cat):2.2f}s per source)')
@@ -1062,6 +1096,10 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
             shape, minmax, mean, var = stats.describe(modbrick.weights[i], axis=None)[:4]
             logger.debug(f'    Limits: {minmax[0]:6.6f} - {minmax[1]:6.6f}')
             logger.debug(f'    Mean: {mean:6.6f}+/-{np.sqrt(var):6.6f}\n')
+            logger.debug(f'Brick #{brick_id} -- Error statistics for {mod_band}')
+            shape, minmax, mean, var = stats.describe(1/np.sqrt(modbrick.weights[i]), axis=None)[:4]
+            logger.debug(f'    Limits: {minmax[0]:6.6f} - {minmax[1]:6.6f}')
+            logger.debug(f'    Mean: {mean:6.6f}+/-{np.sqrt(var):6.6f}\n')
             logger.debug(f'Brick #{brick_id} -- Background statistics for {mod_band}')
             logger.debug(f'    Global: {modbrick.backgrounds[i, 0]:6.6f}')
             logger.debug(f'    RMS: {modbrick.backgrounds[i, 1]:6.6f}\n')
@@ -1073,8 +1111,6 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
             modbrick.blobmap = detbrick.blobmap
             modbrick.n_blobs = detbrick.n_blobs
             modbrick.segmask = detbrick.segmask
-
-        modbrick.run_weights()
 
         # Cleanup on MODBRICK
         tstart = time.time()
@@ -1090,6 +1126,8 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
         modbrick.shared_params = True ## CRITICAL THING TO DO HERE!
         modbrick.add_columns(multiband_model=True) # doing on detbrick gets column names wrong
         logger.info(f'Modeling brick #{brick_id} gained {modbrick.n_blobs} blobs with {modbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
+
+        modbrick.run_weights()
 
         if conf.PLOT > 2:
             plot_blobmap(modbrick)
@@ -1327,7 +1365,7 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
         if eff_area is not None:
             for b, band in enumerate(conf.BANDS):
                 if band in img_names:
-                    eff_area_deg = eff_area[band] * (conf.PIXEL_SCALE / 3600)**2
+                    eff_area_deg = eff_area[b] * (conf.PIXEL_SCALE / 3600)**2
                     hdr.set(f'AREA{b}', eff_area_deg, f'{conf.MODELING_NICKNAME} {band} EFF_AREA (deg2)')
         hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
         hdu_table = fits.table_to_hdu(modbrick.catalog)
@@ -1345,9 +1383,10 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
         cleancatalog = outcatalog[outcatalog[f'VALID_SOURCE']]
         modbrick.make_model_image(catalog=cleancatalog, use_band_position=False, modeling=True)
 
-    # close the brick_id specific file handlers                                                                                         
-    new_fh.close()
-    logger.removeHandler(new_fh)
+    # close the brick_id specific file handlers         
+    if conf.LOGFILE_LOGGING_LEVEL is not None:                                                                                
+        new_fh.close()
+        logger.removeHandler(new_fh)
 
 
 def force_photometry(brick_id, band=None, source_id=None, blob_id=None, insert=True, source_only=False, unfix_bandwise_positions=(not conf.FREEZE_FORCED_POSITION), unfix_bandwise_shapes=(not conf.FREEZE_FORCED_SHAPE)):
@@ -1527,6 +1566,10 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
         logger.debug(f'    Mean: {mean:6.6f}+/-{np.sqrt(var):6.6f}\n')
         logger.debug(f'Brick #{brick_id} -- Weight statistics for {vb_band}')
         shape, minmax, mean, var = stats.describe(fbrick.weights[i], axis=None)[:4]
+        logger.debug(f'    Limits: {minmax[0]:6.6f} - {minmax[1]:6.6f}')
+        logger.debug(f'    Mean: {mean:6.6f}+/-{np.sqrt(var):6.6f}\n')
+        logger.debug(f'Brick #{brick_id} -- Error statistics for {mod_band}')
+        shape, minmax, mean, var = stats.describe(1/np.sqrt(fbrick.weights[i]), axis=None)[:4]
         logger.debug(f'    Limits: {minmax[0]:6.6f} - {minmax[1]:6.6f}')
         logger.debug(f'    Mean: {mean:6.6f}+/-{np.sqrt(var):6.6f}\n')
         logger.debug(f'Brick #{brick_id} -- Background statistics for {vb_band}')
@@ -2147,6 +2190,14 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, modeling=False, 
                 logger.info(f'PSF model for {band} adopted as PixelizedPsfEx. ({path_psffile})')
 
             except:
+                img = fits.open(path_psffile)[0].data
+                img = img.astype('float32')
+                img[img<=0.] = 1E-31
+                psfmodels[i] = PixelizedPSF(img)
+                logger.info(f'PSF model for {band} adopted as PixelizedPSF. ({path_psffile})')
+        
+        elif os.path.exists(os.path.join(conf.PSF_DIR, f'{band}.fits')) & (not conf.FORCE_GAUSSIAN_PSF):
+                path_psffile = os.path.join(conf.PSF_DIR, f'{band}.fits') 
                 img = fits.open(path_psffile)[0].data
                 img = img.astype('float32')
                 img[img<=0.] = 1E-31

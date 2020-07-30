@@ -105,11 +105,18 @@ class Blob(Subimage):
         ra, dec = self.wcs.all_pix2world(center_x, center_y, 0)
         self.blob_coords = SkyCoord(ra=ra*u.degree, dec=dec*u.degree)
 
+        self.shared_params = brick.shared_params
+        self.multiband_model = brick.shared_params # HACK
+
         # Clean
         blob_sourcemask = np.in1d(brick.catalog['source_id'], blob_sources)
         self.bcatalog = brick.catalog[blob_sourcemask].copy() # working copy
-        if brick.catalog['VALID_SOURCE_MODELING'].any(): # Then modeling completed (???) and we are good to check this stuff.
-            valid_arr = self.bcatalog['VALID_SOURCE_MODELING']
+        if self.multiband_model:
+            mod_band = conf.MODELING_NICKNAME
+        else:
+            mod_band = self.bands[0]
+        if brick.catalog[f'VALID_SOURCE_{mod_band}'].any(): # Then {model_band} completed (???) and we are good to check this stuff.
+            valid_arr = self.bcatalog[f'VALID_SOURCE_{mod_band}']
             if len(valid_arr) > 1:
                 if (valid_arr == False).all():
                     self.logger.warning('Blob is rejected as no sources are valid!')
@@ -127,9 +134,6 @@ class Blob(Subimage):
         # print(self.subvector)
         # print(self.mosaic_origin)
         self.n_sources = len(self.bcatalog)
-
-        self.shared_params = brick.shared_params
-        self.multiband_model = brick.shared_params # HACK
 
         self.mids = np.ones(self.n_sources, dtype=int)
         self.model_catalog = np.zeros(self.n_sources, dtype=object)
@@ -534,17 +538,10 @@ class Blob(Subimage):
                 #     pos.addGaussianPrior('x', 13, 2)
                 #     pos.addGaussianPrior('y', 30, 2)
                 #     tr.addSource(PointSource(pos, Fluxes(**dict(zip(self.bands, 0.1 * np.ones(len(self.bands)))))))
-
+                # tr_old = tr
                 if conf.TRY_OPTIMIZATION:
                     try:
-                        # print()
-                        # print(i)
-                        # [print(m.getPosition()) for m in tr.getCatalog()]
-                        # [print(m.getBrightness().getFlux(self.bands[0])) for m in tr.getCatalog()]
-                        # [print(m.getThawedParams()) for m in tr.getCatalog()]
-                        # [print(m.getFrozenParams()) for m in tr.getCatalog()]
-                        # print('...')
-
+                        
                         # dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, damp=conf.DAMPING, variance=True, priors=conf.USE_POSITION_PRIOR)
                         dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, damp=conf.DAMPING, 
                                                     variance=True, priors=conf.USE_POSITION_PRIOR)
@@ -567,7 +564,13 @@ class Blob(Subimage):
                     except:
                         self.logger.warning(f'WARNING - Optimization failed on step {i} for blob #{self.blob_id}')
                         return False
+                        # tr = tr_old
+                        # self.logger.info(f'Blob #{self.blob_id} failed to converged in {i+1} steps ({time.time() - tstart:3.3f}s)')
+                        # self.n_converge = i
+                        # break
+
                 else:
+
                     dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, damp=conf.DAMPING, 
                                                     variance=True, priors=conf.USE_POSITION_PRIOR)
                     self.logger.debug(f'    {i+1}) dlnp = {dlnp}')
@@ -767,7 +770,7 @@ class Blob(Subimage):
                             opttop += rchi2* wgt
                             optbot += wgt
                     else:
-                        totalchisq = np.sum((self.tr.getChiImage(i)[self.segmap == src['source_id']])**2)
+                        totalchisq = np.sum((self.tr.getChiImage(0)[self.segmap == src['source_id']])**2)
                     m_param = self.model_catalog[i].numberOfParams()
                     n_data = np.sum(self.segmap == src['source_id']) * self.n_bands # 1, or else multimodel!
                     self.chisq[i, self._level, self._sublevel] = totalchisq
@@ -1530,7 +1533,7 @@ class Blob(Subimage):
             self.bcatalog[row]['CHI_MU_'+band] = self.chi_mu[row, i]
             self.bcatalog[row]['CHI_SIG_'+band] = self.chi_sig[row, i]
             self.bcatalog[row]['CHI_K2_'+band] = self.k2[row, i]
-            # self.bcatalog[row]['VALID_SOURCE_'+band] = valid_source
+            self.bcatalog[row]['VALID_SOURCE_'+band] = valid_source
 
             if not conf.FREEZE_FORCED_POSITION:
                 self.bcatalog[row][f'X_MODEL_{band}'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER

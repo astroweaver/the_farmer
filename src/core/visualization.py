@@ -250,7 +250,7 @@ def plot_srcprofile(blob, src, sid, bands=None):
 
         is_resolved = False
         if src.name not in ('PointSource', 'SimpleGalaxy'):
-            rband = conf.MODELING_NICKNAME # Does this always work?!
+            rband = band #conf.MODELING_NICKNAME # Does this always work?! No.
             is_resolved = True
             reff, reff_err = np.exp(bsrc[f'REFF_{rband}'][0])*conf.PIXEL_SCALE, np.exp(bsrc[f'REFF_{rband}'][0])*bsrc[f'REFF_ERR_{rband}'][0]*2.303*conf.PIXEL_SCALE
             ab, ab_err = bsrc[f'AB_{rband}'][0], bsrc[f'AB_ERR_{rband}'][0]
@@ -272,7 +272,7 @@ def plot_srcprofile(blob, src, sid, bands=None):
         res = img - mod
         rms = np.median(blob.background_rms_images[idx])
 
-        xpix, ypix = np.nonzero(seg)
+        ypix, xpix = np.nonzero(seg)
         dx, dy = (np.max(xpix) - np.min(xpix)) / 2., (np.max(ypix) - np.min(ypix)) / 2.
         buff = np.min([conf.BLOB_BUFFER, 10.])
         xlim, ylim = np.array([-(dx + buff), (dx + buff)]) * conf.PIXEL_SCALE, np.array([-(dy + buff), (dy + buff)]) * conf.PIXEL_SCALE
@@ -416,12 +416,21 @@ def plot_srcprofile(blob, src, sid, bands=None):
         imgx = blob.images[idx][:, int(xps)]
         errx = 1./np.sqrt(blob.weights[idx][:, int(xps)])
         modx = blob.solution_model_images[idx][:, int(xps)]
+        sign = 1
+        if bsrc[f'RAWFLUX_{band}'][0] < 0:
+            sign = -1
+        modxlo = blob.solution_model_images[idx][:, int(xps)] / bsrc[f'RAWFLUX_{band}'][0] * (bsrc[f'RAWFLUX_{band}'][0] - sign * bsrc[f'RAWFLUXERR_{band}'][0])
+        modxhi = blob.solution_model_images[idx][:, int(xps)] / bsrc[f'RAWFLUX_{band}'][0] * (bsrc[f'RAWFLUX_{band}'][0] + sign * bsrc[f'RAWFLUXERR_{band}'][0])
         resx = imgx - modx
 
         # y slice
         imgy = blob.images[idx][int(yps), :]
         erry = 1./np.sqrt(blob.weights[idx][int(yps), :])
         mody = blob.solution_model_images[idx][int(yps), :]
+        if bsrc[f'RAWFLUX_{band}'][0] < 0:
+            sign = -1
+        modylo = blob.solution_model_images[idx][int(yps), :] / bsrc[f'RAWFLUX_{band}'][0] * (bsrc[f'RAWFLUX_{band}'][0] - sign * bsrc[f'RAWFLUXERR_{band}'][0])
+        modyhi = blob.solution_model_images[idx][int(yps), :] / bsrc[f'RAWFLUX_{band}'][0] * (bsrc[f'RAWFLUX_{band}'][0] + sign * bsrc[f'RAWFLUXERR_{band}'][0])
         resy = imgy - mody
 
         ylim = (0.9*np.min([np.min(imgx), np.min(imgy)]), 1.1*np.max([np.max(imgx), np.max(imgy)]))
@@ -429,6 +438,7 @@ def plot_srcprofile(blob, src, sid, bands=None):
         xax = np.linspace(extent[2], extent[3]+conf.PIXEL_SCALE, len(imgx))
         ax[3,2].errorbar(xax, imgx, yerr=errx, c='k')
         ax[3,2].plot(xax, modx, c='r')
+        ax[3,2].fill_between(xax, modxlo, modxhi, color='r', alpha=0.3)
         ax[3,2].plot(xax, resx, c='g')
         ax[3,2].axvline(0, ls='dotted', c='k')
         ax[3,2].set(ylim =ylim,  xlabel='arcsec', xlim=xlim)
@@ -437,6 +447,7 @@ def plot_srcprofile(blob, src, sid, bands=None):
         yax = np.linspace(extent[0], extent[1]+conf.PIXEL_SCALE, len(imgy))
         ax[3,1].errorbar(yax, imgy, yerr=erry, c='k')
         ax[3,1].plot(yax, mody, c='r')
+        ax[3,1].fill_between(yax, modylo, modyhi, color='r', alpha=0.3)
         ax[3,1].plot(yax, resy, c='g')
         ax[3,1].axvline(0, ls='dotted', c='k')
         ax[3,1].set(ylim=ylim, xlabel='arcsec', xlim=xlim)
@@ -458,7 +469,6 @@ def plot_srcprofile(blob, src, sid, bands=None):
         plt.close()
     logger.info(f'Saving figure: {outpath}') 
     pdf.close()
-
 
 def plot_apertures(blob, band=None):
     pass
@@ -519,8 +529,9 @@ def plot_iterblob(blob, tr, iteration, bands=None):
         cat = tr.getCatalog()
         xp, yp = [src.pos[0] for src in cat], [src.pos[1] for src in cat]
 
-        back = blob.backgrounds[0]
-        mean, rms = back[0], back[1]
+        back = blob.background_images[idx]
+        back_rms = blob.background_rms_images[idx]
+        mean, rms =  np.nanmean(back), np.nanmean(back_rms)
         
         img_opt = dict(cmap='RdGy', vmin=-5*rms, vmax=5*rms)
 
@@ -559,8 +570,9 @@ def plot_modprofile(blob, band=None):
 
     psfmodel = blob.psfimg[band]
 
-    back = blob.backgrounds[idx]
-    mean, rms = back[0], back[1]
+    back = blob.background_images[idx]
+    back_rms = blob.background_rms[idx]
+    mean, rms =  np.nanmean(back), np.nanmean(back_rms)
     noise = np.random.normal(mean, rms, size=blob.dims)
     tr = blob.solution_tractor
     
@@ -721,15 +733,6 @@ def plot_xsection(blob, band, src, sid):
 
 def plot_detblob(blob, fig=None, ax=None, band=None, level=0, sublevel=0, final_opt=False, init=False):
 
-    back = blob.backgrounds[0]
-    mean, rms = back[0], back[1]
-    noise = np.random.normal(mean, rms, size=blob.dims)
-    tr = blob.solution_tractor
-    
-    norm = LogNorm(np.max([mean + rms, 1E-5]), blob.images.max(), clip='True')
-    img_opt = dict(cmap='Greys', norm=norm)
-    img_opt = dict(cmap='RdGy', vmin=-5*rms, vmax=5*rms)
-
     if band is None:
         idx = 0
         band = ''
@@ -737,6 +740,16 @@ def plot_detblob(blob, fig=None, ax=None, band=None, level=0, sublevel=0, final_
         # print(blob.bands)
         # print(band)
         idx = np.argwhere(np.array(blob.bands) == band)[0][0]
+
+    back = blob.background_images[idx]
+    rms = blob.background_rms_images[idx]
+    mean, rms = np.nanmean(back), np.nanmean(rms)
+    noise = np.random.normal(mean, rms, size=blob.dims)
+    tr = blob.solution_tractor
+
+    norm = LogNorm(np.max([mean + rms, 1E-5]), blob.images.max(), clip='True')
+    img_opt = dict(cmap='Greys', norm=norm)
+    img_opt = dict(cmap='RdGy', vmin=-5*rms, vmax=5*rms)
 
     # Init
     if fig is None:
