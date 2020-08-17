@@ -963,6 +963,7 @@ class Blob(Subimage):
         self.tr = Tractor(self.timages, self.model_catalog)
         self.stage = 'Forced Photometry'
 
+        import pickle
         pickle.dump(self.model_catalog, open('mcat.pkl', 'wb'))
         print('WROTE CAT PICKLE!!!')
 
