@@ -662,8 +662,9 @@ def plot_xsection(blob, band, src, sid):
     else:
         idx = blob._band2idx(band, bands=blob.bands)
 
-    back = blob.backgrounds[idx]
-    mean, rms = back[0], back[1]
+    back = blob.background_images[idx]
+    back_rms = blob.background_rms[idx]
+    mean, rms =  np.nanmean(back), np.nanmean(back_rms)
 
     fig, ax = plt.subplots(ncols=2)
 
