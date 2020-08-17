@@ -671,6 +671,10 @@ class Blob(Subimage):
         #     var_catalog = self.model_catalog.copy()
 
         self.variance = var_catalog
+        for row in np.arange(len(var_catalog)):
+            foo = np.sqrt(param_var[row].brightness.getParams())
+            for fo in foo:
+                print(fo)
         # counter = 0
         # for i, src in enumerate(np.arange(self.n_sources)):
         #     n_params = var_catalog[i].numberOfParams()
@@ -1518,6 +1522,8 @@ class Blob(Subimage):
             else:
                 zpt = conf.MULTIBAND_ZPT[self._band2idx(band)]
                 param_var = self.forced_variance
+
+            print(np.sqrt(param_var[row].brightness.getParams()[i]))
 
             self.bcatalog[row]['MAG_'+band] = -2.5 * np.log10(src.getBrightness().getFlux(band)) + zpt
             self.bcatalog[row]['MAGERR_'+band] = 1.089 * np.sqrt(param_var[row].brightness.getParams()[i]) / src.getBrightness().getFlux(band)
