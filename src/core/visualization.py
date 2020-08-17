@@ -255,8 +255,8 @@ def plot_srcprofile(blob, src, sid, bands=None):
                 rband = conf.MODELING_NICKNAME + '_' + band # Does this always work?! No.
                 reff, reff_err = np.exp(bsrc[f'REFF_{rband}'][0])*conf.PIXEL_SCALE, np.exp(bsrc[f'REFF_{rband}'][0])*bsrc[f'REFF_ERR_{rband}'][0]*2.303*conf.PIXEL_SCALE
             except:
-                rband = band # Does this always work?! No.
-                print(bsrc.colnames)
+                rband = conf.MODELING_NICKNAME
+                # print(bsrc.colnames)
                 reff, reff_err = np.exp(bsrc[f'REFF_{rband}'][0])*conf.PIXEL_SCALE, np.exp(bsrc[f'REFF_{rband}'][0])*bsrc[f'REFF_ERR_{rband}'][0]*2.303*conf.PIXEL_SCALE
             ab, ab_err = bsrc[f'AB_{rband}'][0], bsrc[f'AB_ERR_{rband}'][0]
             if ab == -99.0:
