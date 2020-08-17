@@ -405,10 +405,10 @@ class Blob(Subimage):
             # print(f'Setting minval to {modelminval} in img pixel units.')
 
             # some pickling
-            import pickle
-            pickle.dump(image, open("image.pkl", "wb"))
-            pickle.dump(tweight, open("tweight.pkl", "wb"))
-            pickle.dump(psfmodel, open("psf.pkl", 'wb'))
+            # import pickle
+            # pickle.dump(image, open("image.pkl", "wb"))
+            # pickle.dump(tweight, open("tweight.pkl", "wb"))
+            # pickle.dump(psfmodel, open("psf.pkl", 'wb'))
 
         self.timages = timages
         return True
@@ -963,9 +963,9 @@ class Blob(Subimage):
         self.tr = Tractor(self.timages, self.model_catalog)
         self.stage = 'Forced Photometry'
 
-        import pickle
-        pickle.dump(self.model_catalog, open('mcat.pkl', 'wb'))
-        print('WROTE CAT PICKLE!!!')
+        # import pickle
+        # pickle.dump(self.model_catalog, open('mcat.pkl', 'wb'))
+        # print('WROTE CAT PICKLE!!!')
 
         # if conf.PLOT >1:
         #     axlist = [plot_fblob(self, band=band) for band in self.bands]
