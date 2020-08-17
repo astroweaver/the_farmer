@@ -404,6 +404,12 @@ class Blob(Subimage):
             # timages[i].modelMinval = 1. #modelminval
             # print(f'Setting minval to {modelminval} in img pixel units.')
 
+            # some pickling
+            import pickle
+            pickle.dump(image, open("image.pkl", "w"))
+            pickle.dump(tweight, open("tweight.pkl", "w"))
+            pickle.dump(psfmodel, open("psf.pkl", 'w'))
+            
         self.timages = timages
         return True
 
