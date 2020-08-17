@@ -406,10 +406,10 @@ class Blob(Subimage):
 
             # some pickling
             import pickle
-            pickle.dump(image, open("image.pkl", "w"))
-            pickle.dump(tweight, open("tweight.pkl", "w"))
-            pickle.dump(psfmodel, open("psf.pkl", 'w'))
-            
+            pickle.dump(image, open("image.pkl", "wb"))
+            pickle.dump(tweight, open("tweight.pkl", "wb"))
+            pickle.dump(psfmodel, open("psf.pkl", 'wb'))
+
         self.timages = timages
         return True
 
