@@ -488,6 +488,7 @@ class Blob(Subimage):
                 self.logger.debug(f'               {shape}')
 
         pickle.dump(self.model_catalog, open('mcat.pkl', 'wb'))
+        print('WROTE CAT PICKLE!!!')
 
     def optimize_tractor(self, tr=None):
         """ Iterate and optimize given a Tractor Image and Model catalog. Determines uncertainties. """
