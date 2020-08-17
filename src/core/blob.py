@@ -672,7 +672,7 @@ class Blob(Subimage):
 
         self.variance = var_catalog
         for row in np.arange(len(var_catalog)):
-            foo = np.sqrt(param_var[row].brightness.getParams())
+            foo = np.sqrt(var_catalog[row].brightness.getParams())
             for fo in foo:
                 print(fo)
         # counter = 0
