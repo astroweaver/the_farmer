@@ -487,9 +487,6 @@ class Blob(Subimage):
             if mid not in (1,2):
                 self.logger.debug(f'               {shape}')
 
-        pickle.dump(self.model_catalog, open('mcat.pkl', 'wb'))
-        print('WROTE CAT PICKLE!!!')
-
     def optimize_tractor(self, tr=None):
         """ Iterate and optimize given a Tractor Image and Model catalog. Determines uncertainties. """
 
@@ -965,6 +962,9 @@ class Blob(Subimage):
         # Stash in Tractor
         self.tr = Tractor(self.timages, self.model_catalog)
         self.stage = 'Forced Photometry'
+
+        pickle.dump(self.model_catalog, open('mcat.pkl', 'wb'))
+        print('WROTE CAT PICKLE!!!')
 
         # if conf.PLOT >1:
         #     axlist = [plot_fblob(self, band=band) for band in self.bands]
