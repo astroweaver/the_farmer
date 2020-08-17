@@ -487,6 +487,8 @@ class Blob(Subimage):
             if mid not in (1,2):
                 self.logger.debug(f'               {shape}')
 
+        pickle.dump(self.model_catalog, open('mcat.pkl', 'wb'))
+
     def optimize_tractor(self, tr=None):
         """ Iterate and optimize given a Tractor Image and Model catalog. Determines uncertainties. """
 
