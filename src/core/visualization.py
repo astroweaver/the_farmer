@@ -250,7 +250,7 @@ def plot_srcprofile(blob, src, sid, bands=None):
 
         is_resolved = False
         if src.name not in ('PointSource', 'SimpleGalaxy'):
-            rband = band #conf.MODELING_NICKNAME # Does this always work?! No.
+            rband = conf.MODELING_NICKNAME + '_' + band # Does this always work?! No.
             is_resolved = True
             reff, reff_err = np.exp(bsrc[f'REFF_{rband}'][0])*conf.PIXEL_SCALE, np.exp(bsrc[f'REFF_{rband}'][0])*bsrc[f'REFF_ERR_{rband}'][0]*2.303*conf.PIXEL_SCALE
             ab, ab_err = bsrc[f'AB_{rband}'][0], bsrc[f'AB_ERR_{rband}'][0]
