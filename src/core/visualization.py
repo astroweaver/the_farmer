@@ -571,7 +571,7 @@ def plot_modprofile(blob, band=None):
     psfmodel = blob.psfimg[band]
 
     back = blob.background_images[idx]
-    back_rms = blob.background_rms[idx]
+    back_rms = blob.background_rms_images[idx]
     mean, rms =  np.nanmean(back), np.nanmean(back_rms)
     noise = np.random.normal(mean, rms, size=blob.dims)
     tr = blob.solution_tractor
@@ -663,7 +663,7 @@ def plot_xsection(blob, band, src, sid):
         idx = blob._band2idx(band, bands=blob.bands)
 
     back = blob.background_images[idx]
-    back_rms = blob.background_rms[idx]
+    back_rms = blob.background_rms_images[idx]
     mean, rms =  np.nanmean(back), np.nanmean(back_rms)
 
     fig, ax = plt.subplots(ncols=2)
