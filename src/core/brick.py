@@ -189,7 +189,7 @@ class Brick(Subimage):
                         except:
                             pass
                 self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype='S20'), name=f'SOLMODEL_{colname}'))
-                self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=bool), name=f'VALID_SOURCE_{colname}'))
+                # self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=bool), name=f'VALID_SOURCE_{colname}'))
                 
                 for colname_fill in [f'{colext}_{colname}' for colext in ('REFF', 'REFF_ERR', 'EE1', 'EE2', 'AB', 'AB_ERR', 'THETA', 'THETA_ERR',
                             'FRACDEV', 'EXP_REFF', 'EXP_REFF_ERR', 'EXP_EE1', 'EXP_EE2', 'EXP_AB', 'EXP_AB_ERR', 'EXP_THETA', 'EXP_THETA_ERR', 
@@ -203,7 +203,7 @@ class Brick(Subimage):
                 for colname_fill in [f'{colext}_{colname}' for colext in ('X_MODEL', 'Y_MODEL', 'XERR_MODEL', 'YERR_MODEL', 'RA', 'DEC')]:
                     self.catalog.add_column(Column(filler, name=colname_fill))
                 self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype='S20'), name=f'SOLMODEL_{colname}'))
-                self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=bool), name=f'VALID_SOURCE_{colname}'))
+                # self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=bool), name=f'VALID_SOURCE_{colname}'))
                 
                 for colname_fill in [f'{colext}_{colname}' for colext in ('REFF', 'REFF_ERR', 'EE1', 'EE2', 'AB', 'AB_ERR', 'THETA', 'THETA_ERR',
                             'FRACDEV', 'EXP_REFF', 'EXP_REFF_ERR', 'EXP_EE1', 'EXP_EE2', 'EXP_AB', 'EXP_AB_ERR', 'EXP_THETA', 'EXP_THETA_ERR', 
