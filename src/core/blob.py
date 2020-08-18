@@ -1824,6 +1824,6 @@ class Blob(Subimage):
 
             for b in fblob.bcatalog:
                 f, ferr = b[f'DIRECTFLUX_{band}'], b[f'DIRECTFLUXERR_{band}']
-                logger.info(f'{b['source_id']}: DFlux({band} = {f:3.3f}+/-{ferr:3.3f}')
+                logger.info(f'{b["source_id"]}: DFlux({band} = {f:3.3f}+/-{ferr:3.3f}')
 
         return True # i.e. status
