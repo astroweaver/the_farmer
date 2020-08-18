@@ -1389,7 +1389,7 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
         logger.removeHandler(new_fh)
 
 
-def force_photometry(brick_id, band=None, source_id=None, blob_id=None, insert=True, source_only=False, unfix_bandwise_positions=(not conf.FREEZE_FORCED_POSITION), unfix_bandwise_shapes=(not conf.FREEZE_FORCED_SHAPE)):
+def force_photometry(brick_id, band=None, source_id=None, blob_id=None, insert=True, source_only=False, unfix_bandwise_positions=(not conf.FREEZE_FORCED_POSITION), unfix_bandwise_shapes=(not conf.FREEZE_FORCED_SHAPE), rao_cramer_only=False):
 
     if band is None:
         fband = conf.BANDS
@@ -1429,7 +1429,7 @@ def force_photometry(brick_id, band=None, source_id=None, blob_id=None, insert=T
 
     if ((not unfix_bandwise_positions) & (not unfix_bandwise_shapes)) | (len(fband) == 1):
         
-        force_models(brick_id=brick_id, band=band, source_id=source_id, blob_id=blob_id, insert=insert, source_only=source_only, force_unfixed_pos=False, use_band_shape=unfix_bandwise_shapes)
+        force_models(brick_id=brick_id, band=band, source_id=source_id, blob_id=blob_id, insert=insert, source_only=source_only, force_unfixed_pos=False, use_band_shape=unfix_bandwise_shapes, rao_cramer_only=rao_cramer_only)
 
     else:
         if conf.FREEZE_FORCED_POSITION:
@@ -1439,7 +1439,10 @@ def force_photometry(brick_id, band=None, source_id=None, blob_id=None, insert=T
         for b in fband:
             tstart = time.time()
             logger.critical(f'Running Forced Photometry on {b}')
-            force_models(brick_id=brick_id, band=b, source_id=source_id, blob_id=blob_id, insert=insert, source_only=source_only, force_unfixed_pos=True, use_band_shape=unfix_bandwise_shapes)
+            if rao_cramer_only:
+                logger.critical('WARNING -- ONLY COMPUTING RAO-CRAMER FLUX ERRORS! THIS IS NOT A NORMAL MODE!')
+                logger.critical('ENSURE PLOTTING IS TURNED OFF!!!')
+            force_models(brick_id=brick_id, band=b, source_id=source_id, blob_id=blob_id, insert=insert, source_only=source_only, force_unfixed_pos=True, use_band_shape=unfix_bandwise_shapes, rao_cramer_only=rao_cramer_only)
             logger.critical(f'Forced Photometry for {b} finished in {time.time() - tstart:3.3f}s')
             # TODO -- compare valid source_band and add to catalog!
 
@@ -1485,7 +1488,7 @@ def force_photometry(brick_id, band=None, source_id=None, blob_id=None, insert=T
                 [os.system(f'rm {fname}') for fname in fnames]
 
 
-def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True, source_only=False, force_unfixed_pos=(not conf.FREEZE_FORCED_POSITION), use_band_shape=(not conf.FREEZE_FORCED_SHAPE)):
+def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True, source_only=False, force_unfixed_pos=(not conf.FREEZE_FORCED_POSITION), use_band_shape=(not conf.FREEZE_FORCED_SHAPE), rao_cramer_only=False):
     """ Stage 3. Force the models on the other images and solve only for flux. """
 
     # Create and update multiband brick
@@ -1538,7 +1541,8 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
         logger.critical(f'All sources in brick #{brick_id} are invalid. Quitting!')
         return
 
-    fbrick.add_columns(modeling=False)
+    if not rao_cramer_only:
+        fbrick.add_columns(modeling=False)
     fbrick.run_background()
     fbrick.run_weights()
 
@@ -1614,7 +1618,11 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
             for source in fbrick.catalog:
                 logger.debug(source['source_id'], source['cflux'])
             raise ValueError('Requested source is not in blob!')
-        output_rows = runblob(blob_id, fblob, modeling=False, catalog=fbrick.catalog, plotting=conf.PLOT, source_id=source_id)
+        
+        if rao_cramer_only:
+            output_rows = runblob_rc(blob_id, fblob, catalog=fbrick.catalog, source_id=source_id)
+        else:
+            output_rows = runblob(blob_id, fblob, modeling=False, catalog=fbrick.catalog, plotting=conf.PLOT, source_id=source_id)
 
         if not conf.OUTPUT:
             logging.warning('OUTPUT is DISABLED! Quitting...')
@@ -1688,12 +1696,18 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
 
             with pa.pools.ProcessPool(ncpus=conf.NTHREADS) as pool:
                 logger.info(f'Parallel processing pool initalized with {conf.NTHREADS} threads.')
-                result = pool.uimap(partial(runblob, modeling=False, catalog=fbrick.catalog, plotting=conf.PLOT), np.arange(1, run_n_blobs+1), fblobs)
+                if rao_cramer_only:
+                    result = pool.uimap(partial(runblob_rc, catalog=fbrick.catalog), np.arange(1, run_n_blobs+1), fblobs)
+                else:
+                    result = pool.uimap(partial(runblob, modeling=False, catalog=fbrick.catalog, plotting=conf.PLOT), np.arange(1, run_n_blobs+1), fblobs)
                 logger.info('Parallel processing complete.')
                 output_rows = list(result)
 
         else:
-            output_rows = [runblob(kblob_id, fbrick.make_blob(kblob_id), modeling=False, catalog=fbrick.catalog, plotting=conf.PLOT) for kblob_id in np.arange(1, run_n_blobs+1)]
+            if rao_cramer_only:
+                output_rows = [runblob_rc(kblob_id, fbrick.make_blob(kblob_id), catalog=fbrick.catalog) for kblob_id in np.arange(1, run_n_blobs+1)]
+            else:
+                output_rows = [runblob(kblob_id, fbrick.make_blob(kblob_id), modeling=False, catalog=fbrick.catalog, plotting=conf.PLOT) for kblob_id in np.arange(1, run_n_blobs+1)]
 
         logger.info(f'Completed {run_n_blobs} blobs in {time.time() - tstart:3.3f}s')
 
@@ -2219,7 +2233,7 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, modeling=False, 
     return newbrick
 
 
-def models_from_catalog(catalog, fblob):
+def models_from_catalog(catalog, fblob, unit_flux=False):
     """ Given an input catalog, construct models """
     # make multiband catalog from det output
     logger.info('Adopting sources from existing catalog.')
@@ -2260,35 +2274,37 @@ def models_from_catalog(catalog, fblob):
         idx_bands = [fblob._band2idx(b) for b in fblob.bands]
         target_zpt = np.array(conf.MULTIBAND_ZPT)[idx_bands]
         
-
-        try:
-            # Make initial guess at flux using PSF!
-            # This will UNDERESTIMATE for exp/dev models!
-            qflux = np.zeros(len(fblob.bands))
-            src_seg = fblob.segmap==src['source_id']
-            for j, (img, band) in enumerate(zip(fblob.images, fblob.bands)):
-                max_img = np.nanmax(img * src_seg)                                              # TODO THESE ARENT ALWAYS THE SAME SHAPE!
-                max_psf = np.nanmax(fblob.psfimg[band])
-                qflux[j] = max_img / max_psf
-
-            flux = Fluxes(**dict(zip(fblob.bands, qflux)))
-
-
-        except:
+        if unit_flux:
+            flux = Fluxes(**dict(zip(fblob.bands, np.ones(len(fblob.bands)))))
+        else:
             try:
-                original_zpt = conf.MODELING_ZPT
-                logger.info(f'Converting fluxes from zerpoint {original_zpt} to {target_zpt}')
-                qflux = src[f'RAWFLUX_{best_band}'] * 10 ** (0.4 * (target_zpt - original_zpt))
+                # Make initial guess at flux using PSF!
+                # This will UNDERESTIMATE for exp/dev models!
+                qflux = np.zeros(len(fblob.bands))
+                src_seg = fblob.segmap==src['source_id']
+                for j, (img, band) in enumerate(zip(fblob.images, fblob.bands)):
+                    max_img = np.nanmax(img * src_seg)                                              # TODO THESE ARENT ALWAYS THE SAME SHAPE!
+                    max_psf = np.nanmax(fblob.psfimg[band])
+                    qflux[j] = max_img / max_psf
+
+                flux = Fluxes(**dict(zip(fblob.bands, qflux)))
+
+
             except:
-                # IF I TRIED MULTIBAND MODELING, THEN I STILL NEED AN INITIAL FLUX. START WITH 0 idx!
-                init_band = f'{conf.MODELING_NICKNAME}_{conf.INIT_FLUX_BAND}'
-                if conf.INIT_FLUX_BAND is None:
-                    conf.INIT_FLUX_BAND = fblob.bands[0]
-                logger.warning(f'Coming from multiband model, so using flux from {init_band}')
-                original_zpt = fblob._band2idx(conf.INIT_FLUX_BAND)
-                qflux = src[f'RAWFLUX_{init_band}'] * 10 ** (0.4 * (target_zpt - original_zpt))
-                
-            flux = Fluxes(**dict(zip(band, qflux)))
+                try:
+                    original_zpt = conf.MODELING_ZPT
+                    logger.info(f'Converting fluxes from zerpoint {original_zpt} to {target_zpt}')
+                    qflux = src[f'RAWFLUX_{best_band}'] * 10 ** (0.4 * (target_zpt - original_zpt))
+                except:
+                    # IF I TRIED MULTIBAND MODELING, THEN I STILL NEED AN INITIAL FLUX. START WITH 0 idx!
+                    init_band = f'{conf.MODELING_NICKNAME}_{conf.INIT_FLUX_BAND}'
+                    if conf.INIT_FLUX_BAND is None:
+                        conf.INIT_FLUX_BAND = fblob.bands[0]
+                    logger.warning(f'Coming from multiband model, so using flux from {init_band}')
+                    original_zpt = fblob._band2idx(conf.INIT_FLUX_BAND)
+                    qflux = src[f'RAWFLUX_{init_band}'] * 10 ** (0.4 * (target_zpt - original_zpt))
+                    
+                flux = Fluxes(**dict(zip(band, qflux)))
 
         # Check if valid source
         if not src[f'VALID_SOURCE_{best_band}']:
@@ -2370,3 +2386,131 @@ def models_from_catalog(catalog, fblob):
         good_sources = np.zeros_like(good_sources, dtype=bool)
 
     return model_catalog[good_sources], good_sources
+
+def runblob_rc(blob_id, fblob, catalog=fbrick.catalog, source_id=source_id):
+    """ Essentially a private function. Runs each individual blob and handles the bulk of the work. """
+
+    # if conf.NTHREADS != 0:
+    #     fh = logging.FileHandler(f'B{blob_id}.log')
+    #     fh.setLevel(logging.getLevelName(conf.LOGFILE_LOGGING_LEVEL))
+    #     formatter = logging.Formatter('[%(asctime)s] %(name)s :: %(levelname)s - %(message)s', '%H:%M:%S')
+    #     fh.setFormatter(formatter)
+
+    #     logger = pathos.logger(level=logging.getLevelName(conf.LOGFILE_LOGGING_LEVEL), handler=fh)
+
+    logger = logging.getLogger(f'farmer.blob.{blob_id}')
+    logger.info(f'Starting on Blob #{blob_id}')
+
+    modblob = None
+    fblob = None
+    tstart = time.time()
+    logger.debug('Making weakref proxies of blobs')
+    fblob = weakref.proxy(blobs)
+    logger.debug(f'Weakref made ({time.time() - tstart:3.3f})s')
+
+    if fblob is not None:
+        # make new blob with band information
+        logger.debug(f'Making blob with {conf.MULTIBAND_NICKNAME}')
+        fblob.logger = logger
+
+        if fblob.rejected:
+            logger.info('Blob has been rejected!')
+            # if conf.NTHREADS != 0:
+            #     logger.removeHandler(fh)
+            catout = fblob.bcatalog.copy()
+            del fblob
+            return catout
+
+        astart = time.time() 
+        status = fblob.stage_images()
+        if not status:
+            # if conf.NTHREADS != 0:
+            #     logger.removeHandler(fh)
+            catout = fblob.bcatalog.copy()
+            del fblob
+            return catout
+            
+        logger.info(f'{len(fblob.bands)} images staged. ({time.time() - astart:3.3f})s')
+
+        
+        astart = time.time() 
+
+        if catalog is None:
+            raise ValueError('Input catalog not supplied!')
+        else:
+            blobmask = np.ones(len(catalog))
+            if source_id is not None:
+                # If the user wants to just model a specific source...
+                logger.info(f'Preparing to force single source: {source_id}')
+                sid = catalog['source_id']
+                bid = catalog['blob_id']
+                fblob.bcatalog = catalog[(sid == source_id) & (bid == blob_id)]
+                fblob.n_sources = len(fblob.bcatalog)
+                fblob.mids = np.ones(fblob.n_sources, dtype=int)
+                fblob.model_catalog = np.zeros(fblob.n_sources, dtype=object)
+                fblob.solution_catalog = np.zeros(fblob.n_sources, dtype=object)
+                fblob.solved_chisq = np.zeros(fblob.n_sources)
+                fblob.solved_bic = np.zeros(fblob.n_sources)
+                fblob.solution_chisq = np.zeros(fblob.n_sources)
+                fblob.tr_catalogs = np.zeros((fblob.n_sources, 3, 2), dtype=object)
+                fblob.chisq = np.zeros((fblob.n_sources, 3, 2))
+                fblob.rchisq = np.zeros((fblob.n_sources, 3, 2))
+                fblob.bic = np.zeros((fblob.n_sources, 3, 2))
+                assert(len(fblob.bcatalog) > 0)
+            else:
+                if blob_id is not None:
+                    blobmask = catalog['blob_id'] == blob_id
+                fblob.bcatalog = catalog[blobmask]
+                fblob.n_sources = len(fblob.bcatalog)
+                catalog = catalog[blobmask]
+
+            band = fblob.bands[0] # HACK!
+            # replace the main x/y columns with the forced phot solution position!
+            orig_xcol, orig_ycol = catalog[f'X_MODEL'].copy(), catalog[f'Y_MODEL'].copy()
+            catalog[f'X_MODEL'] = catalog[f'X_MODEL_{band}'] - fblob.subvector[1] + fblob.mosaic_origin[1] - conf.BRICK_BUFFER + 1
+            catalog[f'Y_MODEL'] = catalog[f'Y_MODEL_{band}'] - fblob.subvector[0] + fblob.mosaic_origin[0] - conf.BRICK_BUFFER + 1
+
+            fblob.model_catalog, good_sources = models_from_catalog(catalog, fblob, unit_flux=True) # Gets us unit models!
+            if (good_sources == False).all():
+                logger.warning('All sources are invalid!')
+                catalog[f'X_MODEL_{band}'] = orig_xcol
+                catalog[f'Y_MODEL_{band}'] = orig_ycol
+                return catalog
+
+            fblob.position_variance = None
+            fblob.parameter_variance = None
+            fblob.bcatalog = catalog[good_sources]
+            fblob.n_sources = len(catalog)
+
+        if fblob.rejected:
+            logger.info('Blob has been rejected!')
+            # if conf.NTHREADS != 0:
+            #     logger.removeHandler(fh)
+            catout = fblob.bcatalog.copy()
+            del fblob
+            return catout
+
+        # Forced phot
+    
+        astart = time.time() 
+        logger.info(f'Starting rao_cramer computation...')
+
+        status = fblob.rao_cramer()
+
+        if not status:
+            # if conf.NTHREADS != 0:
+            #     logger.removeHandler(fh)
+            catout = fblob.bcatalog.copy()
+            del fblob
+            return catout
+
+        logger.info(f'Force photometry complete. ({time.time() - astart:3.3f})s')
+
+        duration = time.time() - tstart
+        logger.info(f'Rao-Cramer computed for blob {fblob.blob_id} (N={fblob.n_sources}) in {duration:3.3f}s ({duration/fblob.n_sources:2.2f}s per src)')
+
+
+        catout = fblob.bcatalog.copy()
+        del fblob
+
+    return catout

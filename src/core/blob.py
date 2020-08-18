@@ -1783,3 +1783,42 @@ class Blob(Subimage):
                 self.logger.warning(f"Source does not have a valid solution model!")
                 valid_source = False
                 self.bcatalog[row]['VALID_SOURCE'] = valid_source
+
+    def rao_cramer(self):
+
+        # tractorize
+        tr = Tractor(self.timages, self.model_catalog)
+
+        for i, band in enumerate(self.bands):
+            # Prepare matrix
+            im = tr.getImage(i).data
+            inverr = np.sqrt(tr.getImage(i).invvar)
+            store_mod = np.zeros_like(mod)
+            for i, m in enumerate(mod):
+                trm = Tractor([tr.getImage(i),], [m,])
+                trm.freezeParams('images')
+                store_mod[i] = trm.getModelImage(i).flatten()
+
+            # More prep work
+            _A = np.vstack(store_mod)
+            renorm = _A.sum(axis=1)
+            # print(renorm)
+            _A = (_A.T/renorm).T
+
+            # print(_A.shape)
+            _Ax = (_A*inverr.flatten()).T
+            _yx = (im*inverr).flatten()
+
+            # collect + output
+            flux = _coeffs[0]
+            covar = np.matrix(np.dot(_Ax.T, _Ax)).I.A
+            err = np.sqrt(covar.diagonal())
+
+            zpt = conf.MULTIBAND_ZPT[self._band2idx(band)]
+
+            fblob.bcatalog['RAW_DIRECTFLUX_{band}'] = flux
+            fblob.bcatalog['RAW_DIRECTFLUXERR_{band}'] = err
+            fblob.bcatalog['DIRECTFLUX_{band}'] = flux * 10**(-0.4 * (zpt - 23.9))
+            fblob.bcatalog['DIRECTFLUXERR_{band}'] = err * 10**(-0.4 * (zpt - 23.9))
+
+        return True # i.e. status
