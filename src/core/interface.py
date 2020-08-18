@@ -2387,7 +2387,7 @@ def models_from_catalog(catalog, fblob, unit_flux=False):
 
     return model_catalog[good_sources], good_sources
 
-def runblob_rc(blob_id, fblob, catalog=fbrick.catalog, source_id=source_id):
+def runblob_rc(blob_id, fblob, catalog=None, source_id=None):
     """ Essentially a private function. Runs each individual blob and handles the bulk of the work. """
 
     # if conf.NTHREADS != 0:
