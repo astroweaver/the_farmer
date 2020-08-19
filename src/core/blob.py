@@ -1814,10 +1814,11 @@ class Blob(Subimage):
                 _Ax = (_A*inverr.flatten()).T
                 _yx = (im*inverr).flatten()
 
-                _coeffs = np.linalg.lstsq(_Ax, _yx, rcond=None)
+                # _coeffs = np.linalg.lstsq(_Ax, _yx, rcond=None)
 
                 # collect + output
-                flux = _coeffs[0]
+                # flux = _coeffs[0]  ## WE ARE NOT RUNNING FLUXES!
+                flux = -99.0 * np.ones(len(self.bcatalog))
                 covar = np.matrix(np.dot(_Ax.T, _Ax)).I.A
                 err = np.sqrt(covar.diagonal())
 
@@ -1833,10 +1834,10 @@ class Blob(Subimage):
                     self.logger.info(f'#{b["source_id"]}: DFlux({band}) = {f:3.3f}+/-{ferr:3.3f} uJy')
 
             except:
-                self.bcatalog[f'RAW_DIRECTFLUX_{band}'] = -99 * np.ones(len(self.bcatalog))
-                self.bcatalog[f'RAW_DIRECTFLUXERR_{band}'] = -99 * np.ones(len(self.bcatalog))
-                self.bcatalog[f'DIRECTFLUX_{band}'] = -99 * np.ones(len(self.bcatalog))
-                self.bcatalog[f'DIRECTFLUXERR_{band}'] = -99 * np.ones(len(self.bcatalog))
+                self.bcatalog[f'RAW_DIRECTFLUX_{band}'] = -99.0 * np.ones(len(self.bcatalog))
+                self.bcatalog[f'RAW_DIRECTFLUXERR_{band}'] = -99.0 * np.ones(len(self.bcatalog))
+                self.bcatalog[f'DIRECTFLUX_{band}'] = -99.0 * np.ones(len(self.bcatalog))
+                self.bcatalog[f'DIRECTFLUXERR_{band}'] = -99.0 * np.ones(len(self.bcatalog))
 
                 self.logger.warning(f'Failed to derive Rao-Cramer estimate for blob #{self.blob_id}')
 
