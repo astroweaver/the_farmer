@@ -2405,7 +2405,7 @@ def runblob_rc(blob_id, fblob, catalog=None, source_id=None):
     fblob = None
     tstart = time.time()
     logger.debug('Making weakref proxies of blobs')
-    fblob = weakref.proxy(blobs)
+    fblob = weakref.proxy(fblob)
     logger.debug(f'Weakref made ({time.time() - tstart:3.3f})s')
 
     if fblob is not None:
