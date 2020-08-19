@@ -115,7 +115,11 @@ class Blob(Subimage):
             mod_band = conf.MODELING_NICKNAME
         else:
             mod_band = self.bands[0]
-        if brick.catalog[f'VALID_SOURCE_{mod_band}'].any(): # Then {model_band} completed (???) and we are good to check this stuff.
+        try:
+            valid_col = brick.catalog[f'VALID_SOURCE_{mod_band}']
+        else:
+            valid_col = brick.catalog[f'VALID_SOURCE']
+        if valid_col.any():
             valid_arr = self.bcatalog[f'VALID_SOURCE_{mod_band}']
             if len(valid_arr) > 1:
                 if (valid_arr == False).all():
