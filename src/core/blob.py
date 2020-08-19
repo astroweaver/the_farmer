@@ -117,7 +117,7 @@ class Blob(Subimage):
             mod_band = self.bands[0]
         try:
             valid_col = brick.catalog[f'VALID_SOURCE_{mod_band}']
-        else:
+        except:
             valid_col = brick.catalog[f'VALID_SOURCE']
         if valid_col.any():
             valid_arr = self.bcatalog[f'VALID_SOURCE_{mod_band}']
