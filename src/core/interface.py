@@ -1543,6 +1543,13 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
 
     if not rao_cramer_only:
         fbrick.add_columns(modeling=False)
+    else:
+        for colname in self.bands:
+            colname = colname.replace(' ', '_')
+            fbrick.catalog.add_column(Column(filler, name=f'RAW_DIRECTFLUX_{colname}'))
+            fbrick.catalog.add_column(Column(filler, name=f'RAW_DIRECTFLUXERR_{colname}'))
+            fbrick.catalog.add_column(Column(filler, name=f'DIRECTFLUX_{colname}'))
+            fbrick.catalog.add_column(Column(filler, name=f'DIRECTFLUXERR_{colname}'))
     fbrick.run_background()
     fbrick.run_weights()
 

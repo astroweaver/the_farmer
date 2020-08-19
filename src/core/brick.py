@@ -178,6 +178,7 @@ class Brick(Subimage):
                     self.catalog.add_column(Column(filler, name=f'YERR_MODEL_{colname}'))
                     self.catalog.add_column(Column(filler, name=f'RA_{colname}'))
                     self.catalog.add_column(Column(filler, name=f'DEC_{colname}'))
+
             except:
                 self.logger.debug(f'Columns already exist for {colname}')
             if (modeling & (not multiband_model)) | (not conf.FREEZE_FORCED_SHAPE):
