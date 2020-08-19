@@ -1798,10 +1798,10 @@ class Blob(Subimage):
             im = tr.getImage(i).data
             inverr = np.sqrt(tr.getImage(i).invvar)
             store_mod = np.zeros_like(self.model_catalog)
-            for i, m in enumerate(self.model_catalog):
+            for j, m in enumerate(self.model_catalog):
                 trm = Tractor([tr.getImage(i),], [m,])
                 trm.freezeParams('images')
-                store_mod[i] = trm.getModelImage(i).flatten()
+                store_mod[j] = trm.getModelImage().flatten()
 
             # More prep work
             _A = np.vstack(store_mod)
