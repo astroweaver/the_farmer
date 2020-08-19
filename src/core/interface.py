@@ -1777,7 +1777,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                     logger.critical(f'Catalog file for brick #{fbrick.brick_id} could not be found!')
                     return
 
-            elif ((not insert) & force_unfixed_pos) | (rao_cramer_only):
+            elif (not insert) & force_unfixed_pos):
                 # make a new MULITBAND catalog or add to it!
                 path_mastercat = os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{conf.MULTIBAND_NICKNAME}.cat')
                 if os.path.exists(path_mastercat):
