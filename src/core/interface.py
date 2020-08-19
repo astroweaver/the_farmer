@@ -1698,14 +1698,14 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
         else:
             run_n_blobs = fbrick.n_blobs
 
-        fblobs = (fbrick.make_blob(i) for i in np.arange(1, run_n_blobs+1))
+        fblobs = [fbrick.make_blob(i) for i in np.arange(1, run_n_blobs+1)]
 
         if conf.NTHREADS > 0:
 
             with pa.pools.ProcessPool(ncpus=conf.NTHREADS) as pool:
                 logger.info(f'Parallel processing pool initalized with {conf.NTHREADS} threads.')
                 if rao_cramer_only:
-                    result = pool.imap(partial(runblob_rc, catalog=fbrick.catalog), np.arange(1, run_n_blobs+1), fblobs)
+                    result = pool.uimap(partial(runblob_rc, catalog=fbrick.catalog), np.arange(1, run_n_blobs+1), fblobs)
                 else:
                     result = pool.uimap(partial(runblob, modeling=False, catalog=fbrick.catalog, plotting=conf.PLOT), np.arange(1, run_n_blobs+1), fblobs)
                 output_rows = list(result)
