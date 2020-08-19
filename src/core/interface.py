@@ -2401,8 +2401,6 @@ def runblob_rc(blob_id, fblob, catalog=None, source_id=None):
     logger = logging.getLogger(f'farmer.blob.{blob_id}')
     logger.info(f'Starting on Blob #{blob_id}')
 
-    modblob = None
-    fblob = None
     tstart = time.time()
     logger.debug('Making weakref proxies of blobs')
     fblob = weakref.proxy(fblob)
