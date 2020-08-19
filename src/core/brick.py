@@ -170,6 +170,8 @@ class Brick(Subimage):
                 self.catalog.add_column(Column(filler, name=f'CHI_SIG_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'CHI_K2_{colname}'))
                 self.catalog.add_column(Column(boolfiller, name=f'VALID_SOURCE_{colname}'))
+                self.catalog.add_column(Columb(filler, name=f'RAWDIRECTFLUXERR_{colname}'))
+                self.catalog.add_column(Columb(filler, name=f'DIRECTFLUXERR_{colname}'))
                 # self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype='S20'), name=f'SOLMODEL_{colname}'))
                 if not conf.FREEZE_FORCED_POSITION:
                     self.catalog.add_column(Column(filler, name=f'X_MODEL_{colname}'))
