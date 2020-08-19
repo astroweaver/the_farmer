@@ -1827,12 +1827,6 @@ class Blob(Subimage):
             self.bcatalog[f'DIRECTFLUX_{band}'] = flux * 10**(-0.4 * (zpt - 23.9))
             self.bcatalog[f'DIRECTFLUXERR_{band}'] = err * 10**(-0.4 * (zpt - 23.9))
 
-            print(self.bcatalog[f'RAW_DIRECTFLUX_{band}'])
-            print(self.bcatalog[f'DIRECTFLUX_{band}'])
-            print(self.bcatalog[f'FLUX_hsc_i'])
-            print(self.bcatalog[f'FLUXERR_hsc_i'])
-
-
             for b in self.bcatalog:
                 f, ferr = b[f'DIRECTFLUX_{band}'], b[f'DIRECTFLUXERR_{band}']
                 self.logger.info(f'#{b["source_id"]}: DFlux({band}) = {f:3.3f}+/-{ferr:3.3f} uJy')
