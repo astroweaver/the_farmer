@@ -189,6 +189,10 @@ class Blob(Subimage):
             if conf.APPLY_SEGMASK:
                 tweight[mask] = 0
 
+            # check nans
+            tweight[np.isnan(tweight)] = 0
+            image[np.isnan(image)] = 0 
+
             remove_background_psf = False
             if band_strip in conf.RMBACK_PSF:
                 remove_background_psf = True
