@@ -1795,40 +1795,49 @@ class Blob(Subimage):
 
         for i, band in enumerate(self.bands): # this will really just be one band.
             # Prepare matrix
-            im = tr.getImage(i).data
-            inverr = np.sqrt(tr.getImage(i).invvar)
-            store_mod = np.zeros_like(self.model_catalog)
-            for j, m in enumerate(self.model_catalog):
-                trm = Tractor([tr.getImage(i),], [m,])
-                # trm.freezeParams('images') # Not doing tractor here...
-                store_mod[j] = trm.getModelImage(i).flatten()
+            try:
+                im = tr.getImage(i).data
+                inverr = np.sqrt(tr.getImage(i).invvar)
+                store_mod = np.zeros_like(self.model_catalog)
+                for j, m in enumerate(self.model_catalog):
+                    trm = Tractor([tr.getImage(i),], [m,])
+                    # trm.freezeParams('images') # Not doing tractor here...
+                    store_mod[j] = trm.getModelImage(i).flatten()
 
-            # More prep work
-            _A = np.vstack(store_mod)
-            renorm = _A.sum(axis=1)
-            # print(renorm)
-            _A = (_A.T/renorm).T
+                # More prep work
+                _A = np.vstack(store_mod)
+                renorm = _A.sum(axis=1)
+                # print(renorm)
+                _A = (_A.T/renorm).T
 
-            # print(_A.shape)
-            _Ax = (_A*inverr.flatten()).T
-            _yx = (im*inverr).flatten()
+                # print(_A.shape)
+                _Ax = (_A*inverr.flatten()).T
+                _yx = (im*inverr).flatten()
 
-            _coeffs = np.linalg.lstsq(_Ax, _yx, rcond=None)
+                _coeffs = np.linalg.lstsq(_Ax, _yx, rcond=None)
 
-            # collect + output
-            flux = _coeffs[0]
-            covar = np.matrix(np.dot(_Ax.T, _Ax)).I.A
-            err = np.sqrt(covar.diagonal())
+                # collect + output
+                flux = _coeffs[0]
+                covar = np.matrix(np.dot(_Ax.T, _Ax)).I.A
+                err = np.sqrt(covar.diagonal())
 
-            zpt = conf.MULTIBAND_ZPT[self._band2idx(band)]
+                zpt = conf.MULTIBAND_ZPT[self._band2idx(band)]
 
-            self.bcatalog[f'RAW_DIRECTFLUX_{band}'] = flux
-            self.bcatalog[f'RAW_DIRECTFLUXERR_{band}'] = err
-            self.bcatalog[f'DIRECTFLUX_{band}'] = flux * 10**(-0.4 * (zpt - 23.9))
-            self.bcatalog[f'DIRECTFLUXERR_{band}'] = err * 10**(-0.4 * (zpt - 23.9))
+                self.bcatalog[f'RAW_DIRECTFLUX_{band}'] = flux
+                self.bcatalog[f'RAW_DIRECTFLUXERR_{band}'] = err
+                self.bcatalog[f'DIRECTFLUX_{band}'] = flux * 10**(-0.4 * (zpt - 23.9))
+                self.bcatalog[f'DIRECTFLUXERR_{band}'] = err * 10**(-0.4 * (zpt - 23.9))
 
-            for b in self.bcatalog:
-                f, ferr = b[f'DIRECTFLUX_{band}'], b[f'DIRECTFLUXERR_{band}']
-                self.logger.info(f'#{b["source_id"]}: DFlux({band}) = {f:3.3f}+/-{ferr:3.3f} uJy')
+                for b in self.bcatalog:
+                    f, ferr = b[f'DIRECTFLUX_{band}'], b[f'DIRECTFLUXERR_{band}']
+                    self.logger.info(f'#{b["source_id"]}: DFlux({band}) = {f:3.3f}+/-{ferr:3.3f} uJy')
+
+            except:
+                self.bcatalog[f'RAW_DIRECTFLUX_{band}'] = -99 * np.ones(len(self.bcatalog))
+                self.bcatalog[f'RAW_DIRECTFLUXERR_{band}'] = -99 * np.ones(len(self.bcatalog))
+                self.bcatalog[f'DIRECTFLUX_{band}'] = -99 * np.ones(len(self.bcatalog))
+                self.bcatalog[f'DIRECTFLUXERR_{band}'] = -99 * np.ones(len(self.bcatalog))
+
+                self.logger.warning(f'Failed to derive Rao-Cramer estimate for blob #{self.blob_id}')
 
         return True # i.e. status
