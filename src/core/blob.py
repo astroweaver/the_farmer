@@ -1822,6 +1822,8 @@ class Blob(Subimage):
 
             zpt = conf.MULTIBAND_ZPT[self._band2idx(band)]
 
+            print(flux, err)
+
             self.bcatalog['RAW_DIRECTFLUX_{band}'] = flux
             self.bcatalog['RAW_DIRECTFLUXERR_{band}'] = err
             self.bcatalog['DIRECTFLUX_{band}'] = flux * 10**(-0.4 * (zpt - 23.9))
@@ -1830,6 +1832,6 @@ class Blob(Subimage):
 
             for b in self.bcatalog:
                 f, ferr = b[f'DIRECTFLUX_{band}'], b[f'DIRECTFLUXERR_{band}']
-                self.logger.info(f'{b["source_id"]}: DFlux({band} = {f:3.3f}+/-{ferr:3.3f}')
+                self.logger.info(f'#{b["source_id"]}: DFlux({band}) = {f:3.3f}+/-{ferr:3.3f} uJy')
 
         return True # i.e. status
