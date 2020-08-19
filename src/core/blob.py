@@ -1813,6 +1813,8 @@ class Blob(Subimage):
             _Ax = (_A*inverr.flatten()).T
             _yx = (im*inverr).flatten()
 
+            _coeffs = np.linalg.lstsq(_Ax, _yx, rcond=None)
+
             # collect + output
             flux = _coeffs[0]
             covar = np.matrix(np.dot(_Ax.T, _Ax)).I.A
