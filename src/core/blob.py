@@ -1822,13 +1822,10 @@ class Blob(Subimage):
 
             zpt = conf.MULTIBAND_ZPT[self._band2idx(band)]
 
-            print(flux, err)
-            print(zpt)
-
-            self.bcatalog['RAW_DIRECTFLUX_{band}'] = flux
-            self.bcatalog['RAW_DIRECTFLUXERR_{band}'] = err
-            self.bcatalog['DIRECTFLUX_{band}'] = flux * 10**(-0.4 * (zpt - 23.9))
-            self.bcatalog['DIRECTFLUXERR_{band}'] = err * 10**(-0.4 * (zpt - 23.9))
+            self.bcatalog[f'RAW_DIRECTFLUX_{band}'] = flux
+            self.bcatalog[f'RAW_DIRECTFLUXERR_{band}'] = err
+            self.bcatalog[f'DIRECTFLUX_{band}'] = flux * 10**(-0.4 * (zpt - 23.9))
+            self.bcatalog[f'DIRECTFLUXERR_{band}'] = err * 10**(-0.4 * (zpt - 23.9))
 
 
             for b in self.bcatalog:
