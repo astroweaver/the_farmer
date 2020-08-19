@@ -1829,6 +1829,8 @@ class Blob(Subimage):
 
             print(self.bcatalog[f'RAW_DIRECTFLUX_{band}'])
             print(self.bcatalog[f'DIRECTFLUX_{band}'])
+            print(self.bcatalog[f'FLUX_hsc_i'])
+            print(self.bcatalog[f'FLUXERR_hsc_i'])
 
 
             for b in self.bcatalog:
