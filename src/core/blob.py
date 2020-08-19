@@ -1797,8 +1797,8 @@ class Blob(Subimage):
             # Prepare matrix
             im = tr.getImage(i).data
             inverr = np.sqrt(tr.getImage(i).invvar)
-            store_mod = np.zeros_like(mod)
-            for i, m in enumerate(mod):
+            store_mod = np.zeros_like(self.model_catalog)
+            for i, m in enumerate(self.model_catalog):
                 trm = Tractor([tr.getImage(i),], [m,])
                 trm.freezeParams('images')
                 store_mod[i] = trm.getModelImage(i).flatten()
