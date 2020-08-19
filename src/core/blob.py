@@ -1800,7 +1800,7 @@ class Blob(Subimage):
             store_mod = np.zeros_like(self.model_catalog)
             for j, m in enumerate(self.model_catalog):
                 trm = Tractor([tr.getImage(i),], [m,])
-                trm.freezeParams('images')
+                # trm.freezeParams('images')
                 store_mod[j] = trm.getModelImage().flatten()
 
             # More prep work
