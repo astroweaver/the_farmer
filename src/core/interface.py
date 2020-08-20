@@ -1124,7 +1124,6 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
             logger.critical(f'Modeling brick #{brick_id} gained {modbrick.n_blobs} blobs! Quiting.')
             return
         modbrick.shared_params = True ## CRITICAL THING TO DO HERE!
-        print(modbrick.catalog.colnames)
         modbrick.add_columns(multiband_model=True) # doing on detbrick gets column names wrong
         logger.info(f'Modeling brick #{brick_id} gained {modbrick.n_blobs} blobs with {modbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
 

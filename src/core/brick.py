@@ -155,8 +155,7 @@ class Brick(Subimage):
         for colname in self.bands:
             colname = colname.replace(' ', '_')
             self.logger.debug(f'Adding columns to catalog for {colname}')
-            # try:
-            if True:
+            try:
                 self.catalog.add_column(Column(filler, name=f'MAG_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'MAGERR_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'RAWFLUX_{colname}'))
@@ -171,8 +170,8 @@ class Brick(Subimage):
                 self.catalog.add_column(Column(filler, name=f'CHI_SIG_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'CHI_K2_{colname}'))
                 self.catalog.add_column(Column(boolfiller, name=f'VALID_SOURCE_{colname}'))
-                self.catalog.add_column(Columb(filler, name=f'RAWDIRECTFLUXERR_{colname}'))
-                self.catalog.add_column(Columb(filler, name=f'DIRECTFLUXERR_{colname}'))
+                self.catalog.add_column(Column(filler, name=f'RAWDIRECTFLUXERR_{colname}'))
+                self.catalog.add_column(Column(filler, name=f'DIRECTFLUXERR_{colname}'))
                 # self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype='S20'), name=f'SOLMODEL_{colname}'))
                 if modeling | (~modeling & (not conf.FREEZE_FORCED_POSITION)):
                     self.catalog.add_column(Column(filler, name=f'X_MODEL_{colname}'))
@@ -181,10 +180,9 @@ class Brick(Subimage):
                     self.catalog.add_column(Column(filler, name=f'YERR_MODEL_{colname}'))
                     self.catalog.add_column(Column(filler, name=f'RA_{colname}'))
                     self.catalog.add_column(Column(filler, name=f'DEC_{colname}'))
-                    print(self.catalog.colnames)
 
-            # except:
-            #     self.logger.debug(f'Columns already exist for {colname}')
+            except:
+                self.logger.debug(f'Columns already exist for {colname}')
             if (modeling & (not multiband_model)) | (not conf.FREEZE_FORCED_SHAPE):
                 if modeling:
                     self.logger.debug(f'Adding model columns to catalog. (multiband = False)')
