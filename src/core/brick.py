@@ -173,7 +173,7 @@ class Brick(Subimage):
                 self.catalog.add_column(Columb(filler, name=f'RAWDIRECTFLUXERR_{colname}'))
                 self.catalog.add_column(Columb(filler, name=f'DIRECTFLUXERR_{colname}'))
                 # self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype='S20'), name=f'SOLMODEL_{colname}'))
-                if not conf.FREEZE_FORCED_POSITION:
+                if modeling | (~modeling & (not conf.FREEZE_FORCED_POSITION)):
                     self.catalog.add_column(Column(filler, name=f'X_MODEL_{colname}'))
                     self.catalog.add_column(Column(filler, name=f'Y_MODEL_{colname}'))
                     self.catalog.add_column(Column(filler, name=f'XERR_MODEL_{colname}'))
