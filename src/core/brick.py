@@ -186,6 +186,7 @@ class Brick(Subimage):
             if (modeling & (not multiband_model)) | (not conf.FREEZE_FORCED_SHAPE):
                 if modeling:
                     self.logger.debug(f'Adding model columns to catalog. (multiband = False)')
+                    self.catalog.add_column(boolfiller, name=f'VALID_SOURCE_{conf.MODELING_NICKNAME}'))
                     for colname_fill in [f'{colext}_{colname}' for colext in ('X_MODEL', 'Y_MODEL', 'XERR_MODEL', 'YERR_MODEL', 'RA', 'DEC')]:
                         try:
                             self.catalog.add_column(Column(filler, name=colname_fill))
