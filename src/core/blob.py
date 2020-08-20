@@ -450,7 +450,7 @@ class Blob(Subimage):
                 flux = Fluxes(**dict(zip(self.bands, src['flux'] * np.ones(len(self.bands)))))
 
             else:
-                try:
+                try:  # THIS DOES NOT WORK FOR non-CONSTANT PSFS! #TODO
                     qflux = np.zeros(len(self.bands))
                     src_seg = self.segmap==src['source_id']
                     for j, (img, psf) in enumerate(zip(self.images, self.psfmodels)):

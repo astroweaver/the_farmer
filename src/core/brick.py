@@ -180,6 +180,7 @@ class Brick(Subimage):
                     self.catalog.add_column(Column(filler, name=f'YERR_MODEL_{colname}'))
                     self.catalog.add_column(Column(filler, name=f'RA_{colname}'))
                     self.catalog.add_column(Column(filler, name=f'DEC_{colname}'))
+                    print(self.catalog.colnames)
 
             except:
                 self.logger.debug(f'Columns already exist for {colname}')
