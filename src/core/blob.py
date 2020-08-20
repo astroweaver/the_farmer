@@ -772,10 +772,10 @@ class Blob(Subimage):
                         optbot = 0
                         for k in np.arange(self.n_bands):
                             try:
-                                wgt = self.tr.getImages(k).psf.fwhm**-1
+                                wgt = self.tr.getImage(k).psf.fwhm**-1
                             except:
-                                midx = int(np.shape(self.tr.getImages(k).psf.img)[0]/2)
-                                fwhm = 2.355 * np.std(self.tr.getImages(k).psf.img[midx, :])
+                                midx = int(np.shape(self.tr.getImage(k).psf.img)[0]/2)
+                                fwhm = 2.355 * np.std(self.tr.getImage(k).psf.img[midx, :])
                                 wgt = fwhm**-1
 
                             totalchisq += np.sum((self.tr.getChiImage(k)[self.segmap == src['source_id']])**2)
