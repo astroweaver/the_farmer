@@ -187,6 +187,7 @@ class Brick(Subimage):
                 if modeling:
                     self.logger.debug(f'Adding model columns to catalog. (multiband = False)')
                     self.catalog.add_column(Column(boolfiller, name=f'VALID_SOURCE_{conf.MODELING_NICKNAME}'))
+
                     for colname_fill in [f'{colext}_{colname}' for colext in ('X_MODEL', 'Y_MODEL', 'XERR_MODEL', 'YERR_MODEL', 'RA', 'DEC')]:
                         try:
                             self.catalog.add_column(Column(filler, name=colname_fill))
@@ -207,6 +208,8 @@ class Brick(Subimage):
                 for colname_fill in [f'{colext}_{colname}' for colext in ('X_MODEL', 'Y_MODEL', 'XERR_MODEL', 'YERR_MODEL', 'RA', 'DEC')]:
                     self.catalog.add_column(Column(filler, name=colname_fill))
                 self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype='S20'), name=f'SOLMODEL_{colname}'))
+                self.catalog.add_column(Column(boolfiller, name=f'VALID_SOURCE_{conf.MODELING_NICKNAME}'))
+
                 # self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=bool), name=f'VALID_SOURCE_{colname}'))
                 
                 for colname_fill in [f'{colext}_{colname}' for colext in ('REFF', 'REFF_ERR', 'EE1', 'EE2', 'AB', 'AB_ERR', 'THETA', 'THETA_ERR',
