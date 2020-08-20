@@ -156,6 +156,7 @@ class Brick(Subimage):
             colname = colname.replace(' ', '_')
             self.logger.debug(f'Adding columns to catalog for {colname}')
             try:
+            if True:
                 self.catalog.add_column(Column(filler, name=f'MAG_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'MAGERR_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'RAWFLUX_{colname}'))
@@ -182,8 +183,8 @@ class Brick(Subimage):
                     self.catalog.add_column(Column(filler, name=f'DEC_{colname}'))
                     print(self.catalog.colnames)
 
-            except:
-                self.logger.debug(f'Columns already exist for {colname}')
+            # except:
+            #     self.logger.debug(f'Columns already exist for {colname}')
             if (modeling & (not multiband_model)) | (not conf.FREEZE_FORCED_SHAPE):
                 if modeling:
                     self.logger.debug(f'Adding model columns to catalog. (multiband = False)')
