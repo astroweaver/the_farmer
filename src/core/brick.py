@@ -155,7 +155,7 @@ class Brick(Subimage):
         for colname in self.bands:
             colname = colname.replace(' ', '_')
             self.logger.debug(f'Adding columns to catalog for {colname}')
-            try:
+            # try:
             if True:
                 self.catalog.add_column(Column(filler, name=f'MAG_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'MAGERR_{colname}'))
