@@ -23,7 +23,7 @@ import numpy as np
 
 from astropy.table import Column
 from astropy.io import fits
-from scipy.ndimage import label, binary_dilation, binary_fill_holes
+from scipy.ndimage import label, binary_dilation, binary_erosion, binary_fill_holes
 from astropy.coordinates import SkyCoord
 import astropy.units as u
 from scipy.ndimage import zoom
@@ -113,6 +113,8 @@ class Brick(Subimage):
 
         self.relabel()
 
+        # self.clean_blobmap()
+
         self.add_ids()
 
         self.run_background()
@@ -199,7 +201,7 @@ class Brick(Subimage):
                 for colname_fill in [f'{colext}_{colname}' for colext in ('REFF', 'REFF_ERR', 'EE1', 'EE2', 'AB', 'AB_ERR', 'THETA', 'THETA_ERR',
                             'FRACDEV', 'EXP_REFF', 'EXP_REFF_ERR', 'EXP_EE1', 'EXP_EE2', 'EXP_AB', 'EXP_AB_ERR', 'EXP_THETA', 'EXP_THETA_ERR', 
                             'DEV_REFF', 'DEV_REFF_ERR', 'DEV_EE1', 'DEV_EE2', 'DEV_AB', 'DEV_AB_ERR', 'DEV_THETA', 'DEV_THETA_ERR' )]:
-                    self.catalog.add_column(Column(filler, name=colname_fill))
+                    self.catalog.add_column(Column(-99. * (1.+filler), name=colname_fill))
 
         if multiband_model:
             colname = modbrick_name
@@ -215,7 +217,7 @@ class Brick(Subimage):
                 for colname_fill in [f'{colext}_{colname}' for colext in ('REFF', 'REFF_ERR', 'EE1', 'EE2', 'AB', 'AB_ERR', 'THETA', 'THETA_ERR',
                             'FRACDEV', 'EXP_REFF', 'EXP_REFF_ERR', 'EXP_EE1', 'EXP_EE2', 'EXP_AB', 'EXP_AB_ERR', 'EXP_THETA', 'EXP_THETA_ERR', 
                             'DEV_REFF', 'DEV_REFF_ERR', 'DEV_EE1', 'DEV_EE2', 'DEV_AB', 'DEV_AB_ERR', 'DEV_THETA', 'DEV_THETA_ERR' )]:
-                    self.catalog.add_column(Column(filler, name=colname_fill))
+                    self.catalog.add_column(Column(-99. * (1.+filler), name=colname_fill))
             except:
                 self.logger.debug(f'Model columns already exist')
 
@@ -225,14 +227,17 @@ class Brick(Subimage):
         segmask = self.segmap.copy()  # I don't see how we can get around this.
         segmask[segmask != 0] = 1
 
-        if conf.DILATION_RADIUS == 0:
+        if radius == 0:
             # exit early!
             self.segmask = segmask
             return segmask
         else:
             # Dilate
-            struct2 = create_circular_mask(2*radius, 2*radius, radius=radius)
-            segmask = binary_dilation(segmask, structure=struct2)
+            struct2 = create_circular_mask(2*abs(radius), 2*abs(radius), radius=abs(radius))
+            if True: #radius > 0: #HACK erosion not ready to go.
+                segmask = binary_dilation(segmask, structure=struct2)
+            else:
+                segmask = binary_erosion(segmask, structure=struct2)
 
             if fill_holes:
                 segmask = binary_fill_holes(segmask).astype(int)
@@ -244,6 +249,29 @@ class Brick(Subimage):
         self.blobmap, self.n_blobs = label(self.segmask)
 
         return self.blobmap, self.n_blobs
+
+    def clean_blobmap(self):
+        """Remove eroded regions without sources"""
+
+        for i in np.unique(self.blobmap):
+            mask = self.blobmap==i
+            n_px = np.sum(mask)
+            print(i, np.sum(mask))
+            if n_px < 70: #HACK
+                self.segmask[mask] = 0
+                print('TINY GUY')
+
+            # for obj in self.catalog:
+            #     x, y = int(obj['x']+conf.BRICK_BUFFER), int(obj['y']+conf.BRICK_BUFFER)
+            #     print(x, y)
+            #     if mask[x, y]: # is there a centroid in the blob?
+            #         print(' ok!')
+            #         break
+            #     else: # NO? kill blob.
+            #         print(' bad blob!')
+            #         self.segmask[mask] = 0
+
+        self.relabel() # clean it up again.
 
     def add_ids(self):
         """TODO: docstring. rename sid and bid throughout"""
@@ -1103,19 +1131,20 @@ class Brick(Subimage):
         self.model_mask = np.zeros(len(catalog), dtype=bool)
         for i, src in enumerate(catalog):
             
-            if (catalog['BEST_MODEL_BAND'] == '').all():
-                self.logger.debug('No best models chosen yet.')
-                best_band = self.bands[0]
-                if not src[f'VALID_SOURCE_{self.bands[0]}']:
+            best_band = conf.MODELING_NICKNAME
+            # if (catalog['BEST_MODEL_BAND'] == '').all():
+            #     self.logger.debug('No best models chosen yet.')
+            #     best_band = self.bands[0]
+            #     if not src[f'VALID_SOURCE_{self.bands[0]}']:
 
-                    self.logger.debug('Source does not have a valid model.')
-                    continue
-            else:
-                best_band = src['BEST_MODEL_BAND']
+            #         self.logger.debug('Source does not have a valid model.')
+            #         continue
+            # else:
+            #     best_band = src['BEST_MODEL_BAND']
 
-                if not src[f'VALID_SOURCE_{best_band}']:
+            #     if not src[f'VALID_SOURCE_{best_band}']:
 
-                    continue
+            #         continue
 
             raw_fluxes = np.array([src[f'RAWFLUX_{band}'] for band in self.bands[idx]])
 
@@ -1145,10 +1174,10 @@ class Brick(Subimage):
                     raw_fluxes[raw_fluxes < 0.0] = 0.0
                     self.logger.debug('Source has negative flux in some bands.')
 
-            if (conf.RESIDUAL_AB_REJECTION is not None) & (src[f'SOLMODEL_{band}'] not in ('PointSource', 'SimpleGalaxy')):  # HACK -- does NOT apply to unfixed shapes!
+            if (conf.RESIDUAL_AB_REJECTION is not None) & (src[f'SOLMODEL_{best_band}'] not in ('PointSource', 'SimpleGalaxy')):  # HACK -- does NOT apply to unfixed shapes!
                 
-                if src[f'SOLMODEL_{band}'] in ('ExpGalaxy', 'DevGalaxy'):
-                    ab = np.array([src[f'AB_{band}'] for band in self.bands[idx]])
+                if src[f'SOLMODEL_{best_band}'] in ('ExpGalaxy', 'DevGalaxy'):
+                    ab = np.array([src[f'AB_{best_band}'] for band in self.bands[idx]])
                     if (ab > conf.RESIDUAL_AB_REJECTION).all() | (ab <= 0).all():
 
                         self.logger.debug('Source has exessive a/b in all bands. Rejecting!')
@@ -1158,7 +1187,7 @@ class Brick(Subimage):
                         raw_fluxes[ab <= 0] = 0.0
                         self.logger.debug('Source has exessive a/b in some bands.')
                 else:
-                    ab_exp = np.array([src[f'EXP_AB_{band}'] for band in self.bands[idx]])
+                    ab_exp = np.array([src[f'EXP_AB_{best_band}'] for band in self.bands[idx]])
                     if (ab_exp > conf.RESIDUAL_AB_REJECTION).all() | (ab_exp <= 0).all():
 
                         self.logger.debug('Source has exessive exp a/b in all bands. Rejecting!')
@@ -1168,7 +1197,7 @@ class Brick(Subimage):
                         raw_fluxes[ab_exp <= 0] = 0.0
                         self.logger.debug('Source has exessive exp a/b in some bands.')
 
-                    ab_dev = np.array([src[f'DEV_AB_{band}'] for band in self.bands[idx]])
+                    ab_dev = np.array([src[f'DEV_AB_{best_band}'] for band in self.bands[idx]])
                     if (ab_dev > conf.RESIDUAL_AB_REJECTION).all() | (ab_dev <= 0).all():
 
                         self.logger.debug('Source has exessive dev a/b in all bands. Rejecting!')
@@ -1235,7 +1264,6 @@ class Brick(Subimage):
         if not self.model_mask.any():        
             raise RuntimeError(f'No valid models to make model image! (of {mtotal}, {nmasked} masked)')
         self.logger.info(f'Making model image with {msrc}/{mtotal} sources. ({nmasked} are masked)')
-        [print(foo['source_id', 'blob_id', 'RAWFLUX_MODELING_sim1_lr']) for foo in catalog[~self.model_mask]]
         self.model_catalog = self.model_catalog[self.model_mask]
 
         # Tractorize

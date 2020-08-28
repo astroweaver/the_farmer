@@ -847,7 +847,7 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
             logger.debug(f'    Limits: {minmax[0]:6.6f} - {minmax[1]:6.6f}')
             logger.debug(f'    Mean: {mean:6.6f}+/-{np.sqrt(var):6.6f}\n')
             logger.debug(f'Brick #{brick_id} -- Error statistics for {mod_band}')
-            shape, minmax, mean, var = stats.describe(1/np.sqrt(modbrick.weights[0]), axis=None)[:4]
+            shape, minmax, mean, var = stats.describe(1/np.sqrt(np.nonzero(modbrick.weights[0].flatten())), axis=None)[:4]
             logger.debug(f'    Limits: {minmax[0]:6.6f} - {minmax[1]:6.6f}')
             logger.debug(f'    Mean: {mean:6.6f}+/-{np.sqrt(var):6.6f}\n')
             logger.debug(f'Brick #{brick_id} -- Background statistics for {mod_band}')
@@ -1097,7 +1097,7 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
             logger.debug(f'    Limits: {minmax[0]:6.6f} - {minmax[1]:6.6f}')
             logger.debug(f'    Mean: {mean:6.6f}+/-{np.sqrt(var):6.6f}\n')
             logger.debug(f'Brick #{brick_id} -- Error statistics for {mod_band}')
-            shape, minmax, mean, var = stats.describe(1/np.sqrt(modbrick.weights[i]), axis=None)[:4]
+            shape, minmax, mean, var = stats.describe(1/np.sqrt(np.nonzero(modbrick.weights[i].flatten())), axis=None)[:4]
             logger.debug(f'    Limits: {minmax[0]:6.6f} - {minmax[1]:6.6f}')
             logger.debug(f'    Mean: {mean:6.6f}+/-{np.sqrt(var):6.6f}\n')
             logger.debug(f'Brick #{brick_id} -- Background statistics for {mod_band}')
@@ -1581,7 +1581,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
         logger.debug(f'    Limits: {minmax[0]:6.6f} - {minmax[1]:6.6f}')
         logger.debug(f'    Mean: {mean:6.6f}+/-{np.sqrt(var):6.6f}\n')
         logger.debug(f'Brick #{brick_id} -- Error statistics for {vb_band}')
-        shape, minmax, mean, var = stats.describe(1/np.sqrt(fbrick.weights[i]), axis=None)[:4]
+        shape, minmax, mean, var = stats.describe(1/np.sqrt(np.nonzero(fbrick.weights[i].flatten())), axis=None)[:4]
         logger.debug(f'    Limits: {minmax[0]:6.6f} - {minmax[1]:6.6f}')
         logger.debug(f'    Mean: {mean:6.6f}+/-{np.sqrt(var):6.6f}\n')
         logger.debug(f'Brick #{brick_id} -- Background statistics for {vb_band}')
@@ -2253,7 +2253,7 @@ def models_from_catalog(catalog, fblob, unit_flux=False):
 
     for i, src in enumerate(catalog):
 
-        best_band = src['BEST_MODEL_BAND']
+        best_band = conf.MODELING_NICKNAME #src['BEST_MODEL_BAND']
 
         if src['BEST_MODEL_BAND'] == '':
             logger.warning(f'Source #{src["source_id"]}: no best-fit model chosen, trying out {conf.MODELING_NICKNAME}')

@@ -955,7 +955,7 @@ class Blob(Subimage):
                 self.model_catalog[i].thawParams('shapeExp')
                 self.model_catalog[i].thawParams('shapeDev')
 
-            best_band = f"{self.bcatalog[i]['BEST_MODEL_BAND']}"
+            best_band = conf.MODELING_NICKNAME #f"{self.bcatalog[i]['BEST_MODEL_BAND']}"
 
 
             self.logger.debug(f"Source #{self.bcatalog[i]['source_id']}: {self.model_catalog[i].name} model at {self.model_catalog[i].pos}")
@@ -1869,7 +1869,7 @@ class Blob(Subimage):
 
                 # print(_A.shape)
                 _Ax = (_A*inverr.flatten()).T
-                _yx = (im*inverr).flatten()
+                # _yx = (im*inverr).flatten()
 
                 # _coeffs = np.linalg.lstsq(_Ax, _yx, rcond=None)
 

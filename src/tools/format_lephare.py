@@ -62,7 +62,8 @@ def farmer_to_lephare(sfddir=conf.SFDMAP_DIR, idx=0):
                 'FLUX_APER_', 'FLUXERR_APER_',
                 'MAG_MODELING_', 'MAGERR_MODELING_',
                 'FLUX_MODELING_', 'FLUXERR_MODELING',
-                 'RAWFLUX_', 'RAWFLUXERR_',
+                 'RAWFLUX_', 'RAWFLUXERR_', 'RAW_DIRECTFLUXERR_',
+                 'DIRECTFLUX_',
                  'BIC_', 'SNR_', 'NORM_'):
             if colname.startswith(i):
                 tab.remove_column(colname)
@@ -99,12 +100,14 @@ def farmer_to_lephare(sfddir=conf.SFDMAP_DIR, idx=0):
             print(f'{colname}...{newname}')
             tab[colname].name =  newname   
 
-        if colname.startswith('FLUXERR_'):
+        if colname.startswith('DIRECTFLUXERR_'):
             # tab[colname] *= 1E-29
             name = colname[8:]
+            tab.remove_column(map_dict[name] + '_FLUXERR')
             newname = map_dict[name] + '_FLUXERR'
             print(f'{colname}...{newname}')
             tab[colname].name =  newname 
+            tab.remove_column(colname)
 
         for i in ('CHISQ_', 'CHI_MU_', 'CHI_SIG_', 'CHI_K2_', 'X_MODEL_', 'Y_MODEL_',
                 'XERR_MODEL_', 'YERR_MODEL_', 'RA_', 'DEC_'

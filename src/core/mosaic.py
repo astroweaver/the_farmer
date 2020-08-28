@@ -252,7 +252,7 @@ class Mosaic(Subimage):
         path_fitsname = os.path.join(conf.BRICK_DIR, save_fitsname)
 
         if (not overwrite) & (not os.path.exists(path_fitsname)):
-            raise ValueError(f'No existing file found for {path_fitsname}. Will not write new one.')
+            raise ValueError(f'No existing file found for {path_fitsname}. Will not write new one. Try setting make_new_bricks=True')
 
         x0, y0 = self._get_origin(brick_id, brick_width, brick_height)
         if (brick_width + 2*brick_buffer == conf.MOSAIC_WIDTH) & (brick_height + 2*brick_buffer == conf.MOSAIC_HEIGHT):
