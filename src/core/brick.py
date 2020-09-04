@@ -1468,8 +1468,10 @@ class Brick(Subimage):
 
             if modeling:
                 raw_fluxes = src[f'FLUX_{conf.MODELING_NICKNAME}_{band}']
+                solmodel = src[f'SOLMODEL_{conf.MODELING_NICKNAME}_{band}']
             else:
                 raw_fluxes = src[f'FLUX_{band}']
+                solmodel = src[f'SOLMODEL_{conf.MODELING_NICKNAME}']
 
             if conf.RESIDUAL_CHISQ_REJECTION is not None:
                 if modeling:
@@ -1486,20 +1488,20 @@ class Brick(Subimage):
                     self.logger.debug('Source has negative flux. Rejecting!')
                     continue
 
-            if (conf.RESIDUAL_AB_REJECTION is not None) & (src[f'SOLMODEL_{conf.MODELING_NICKNAME}_{band}'] not in ('PointSource', 'SimpleGalaxy')):  # HACK -- does NOT apply to unfixed shapes!
+            if (conf.RESIDUAL_AB_REJECTION is not None) & (src[f'SOLMODEL_{conf.MODELING_NICKNAME}'] not in ('PointSource', 'SimpleGalaxy')):  # HACK -- does NOT apply to unfixed shapes!
                 
-                if src[f'SOLMODEL_{conf.MODELING_NICKNAME}_{band}'] in ('ExpGalaxy', 'DevGalaxy'):
-                    ab = src[f'AB_{conf.MODELING_NICKNAME}_{band}']
+                if src[f'SOLMODEL_{conf.MODELING_NICKNAME}'] in ('ExpGalaxy', 'DevGalaxy'):
+                    ab = src[f'AB_{conf.MODELING_NICKNAME}']
                     if (ab > conf.RESIDUAL_AB_REJECTION) | (ab <= 0):
                         self.logger.debug('Source has exessive a/b. Rejecting!')
                         continue
                 else:
-                    ab_exp = src[f'EXP_AB_{conf.MODELING_NICKNAME}_{band}']
+                    ab_exp = src[f'EXP_AB_{conf.MODELING_NICKNAME}']
                     if (ab_exp > conf.RESIDUAL_AB_REJECTION) | (ab_exp <= 0):
                         self.logger.debug('Source has exessive exp a/b. Rejecting!')
                         continue
 
-                    ab_dev = src[f'DEV_AB_{conf.MODELING_NICKNAME}_{band}']
+                    ab_dev = src[f'DEV_AB_{conf.MODELING_NICKNAME}']
                     if (ab_dev > conf.RESIDUAL_AB_REJECTION) | (ab_dev <= 0):
                         self.logger.debug('Source has exessive dev a/b. Rejecting!')
                         continue

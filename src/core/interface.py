@@ -566,7 +566,7 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
                         logger.info(f'interface.runblob :: WARNING - Aperture photmetry FAILED for {conf.MODELING_NICKNAME} {img_type}')
         if conf.DO_SEXPHOT:
             try:
-                modblob.sextract_phot()
+                modblob.residual_phot()
             except:
                 logger.warning(f'Source extraction on the residual blob FAILED for {conf.MODELING_NICKNAME} {img_type}')    
 
@@ -679,20 +679,26 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
 
         logger.info(f'Force photometry complete. ({time.time() - astart:3.3f})s')
 
-
         # Run follow-up phot
         if conf.DO_APPHOT:
             for img_type in ('image', 'model', 'isomodel', 'residual',):
                 for band in fblob.bands:
-                    try:
+                    if True:
                         fblob.aperture_phot(band, img_type, sub_background=conf.SUBTRACT_BACKGROUND)
-                    except:
+                    if False:
                         logger.warning(f'Aperture photmetry FAILED for {band} {img_type}. Likely a bad blob.')
         if conf.DO_SEXPHOT:
-            try:
-                [fblob.sextract_phot(band) for band in fblob.bands]
-            except:
+            if True:
+                [fblob.residual_phot(band) for band in fblob.bands]
+            if False:
                 logger.warning(f'Residual Sextractor photmetry FAILED. Likely a bad blob.)')
+
+        if conf.DO_SEPHOT:
+            if True:
+                [fblob.sep_phot(band, centroid='MODEL') for band in fblob.bands]
+                [fblob.sep_phot(band, centroid='DETECTION') for band in fblob.bands]
+            if False:
+                logger.warning(f'SEP photmetry FAILED. Likely a bad blob.)')
 
         duration = time.time() - tstart
         logger.info(f'Solution for blob {fblob.blob_id} (N={fblob.n_sources}) arrived at in {duration:3.3f}s ({duration/fblob.n_sources:2.2f}s per src)')
@@ -945,7 +951,7 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
                     if blob_id not in outcatalog['blob_id']:
                         raise ValueError(f'No blobs exist for requested blob id {blob_id}')
 
-                logger.info(f'Running single blob for blob {blob_id}')
+                logger.info(f'Running single blob {blob_id}')
                 modblob = modbrick.make_blob(blob_id)
 
                 # if source_id is set, then look at only that source
@@ -1889,6 +1895,8 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                     if colname not in fbrick.catalog.colnames:
                         if colname.startswith('FLUX_APER') | colname.startswith('MAG_APER'):
                             fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
+                        elif colname.endswith('FLUX_RADIUS'):
+                            fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=float, shape=(len(conf.PHOT_FLUXFRAC),), name=colname))
                         else:
                             fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
                 #fbrick.catalog = join(fbrick.catalog, output_cat, join_type='left', )

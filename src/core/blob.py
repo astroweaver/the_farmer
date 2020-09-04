@@ -93,6 +93,7 @@ class Blob(Subimage):
 
         self.masks[self.slicepix] = np.logical_not(blobmask[self.slice], dtype=bool)
         self.segmap = brick.segmap[self.slice]
+        self.backgrounds = np.array([back for back in brick.backgrounds])
         self.background_images = np.array([img[self.slice] for img in brick.background_images])
         self.background_rms_images = np.array([img[self.slice] for img in brick.background_rms_images])
         self._level = 0
@@ -111,6 +112,7 @@ class Blob(Subimage):
         # Clean
         blob_sourcemask = np.in1d(brick.catalog['source_id'], blob_sources)
         self.bcatalog = brick.catalog[blob_sourcemask].copy() # working copy
+        self.logger.info(f'Blob has {len(self.bcatalog)} sources')
         if self.multiband_model:
             mod_band = conf.MODELING_NICKNAME
         else:
@@ -1417,8 +1419,7 @@ class Blob(Subimage):
             tweight = self.weights[idx].copy()
             tweight[self.masks[idx]] = 0  # Well this isn't going to go well.
             var = 1. / tweight # TODO: WRITE TO UTILS
-
-        if sub_background & (not use_iso):
+        if (band in sub_background) & (not use_iso):
             image -= self.background_images[idx]
 
         cat = self.solution_catalog
@@ -1521,7 +1522,104 @@ class Blob(Subimage):
 
         self.logger.info(f'Aperture photometry complete ({time.time() - tstart:3.3f}s)')
 
-    def sextract_phot(self, band=None, sub_background=False):
+    def sep_phot(self, band=None, sub_background=False, centroid='MODEL'):
+        """ Run Sextractor on the image with either the detection or model centroid, where available! """
+        if band is None:
+            idx = 0
+        else:
+            idx = self._band2idx(band)
+        image = self.images[idx]
+        tweight = self.weights[idx].copy()
+        tweight[self.masks[idx]] = 0 # OK this isn't going to go well.
+        var = 1. / tweight # TODO: WRITE TO UTILS
+        background = self.backgrounds[idx]
+
+        if (self.weights == 1).all():
+            # No weight given - kinda
+            var = None
+            thresh = conf.RES_THRESH * background.globalrms
+            if not sub_background:
+                thresh += background.globalback
+
+        else:
+            thresh = conf.RES_THRESH
+
+        if sub_background:
+            residual -= background.back()
+
+        kwargs = dict(var=var, minarea=conf.RES_MINAREA, segmentation_map=True, deblend_nthresh=conf.RES_DEBLEND_NTHRESH, deblend_cont=conf.RES_DEBLEND_CONT)
+        if centroid == 'MODEL':
+            cat = self.solution_catalog
+            xxyy = np.array([src.getPosition() for src in cat])
+            x, y = xxyy[:,0], xxyy[:,1]
+            # assume the blob is all or nothing for this measurement
+            if (x < 0).any() | (y < 0).any():
+                self.logger.warning(f'Could not perform SEP measurements with MODEL centroid for {band}')
+                return 
+            else:
+                self.logger.info(f'Performing SEP measurements with MODEL centroid for {band}')
+
+        elif centroid == 'DETECTION':
+            return # DONT DO IT
+            x, y = self.bcatalog['x'], self.bcatalog['y'] # ARE THESE IN THE RIGHT FRAME!?
+            self.logger.info(f'Performing SEP measurements with DETECTION centroid for {band}')
+
+        a, b, theta = self.bcatalog['a'], self.bcatalog['b'], self.bcatalog['theta']  # This is from the DETECTION IMAGE -- may not be reliable for normal images though...
+
+        # calculate kron radius first
+        kronrad, krflag = sep.kron_radius(image, x, y, a, b, theta, 6.0)
+
+
+        # Then calculate fluxes
+        flux, fluxerr, flag = sep.sum_ellipse(image, x, y, a, b, theta, conf.PHOT_AUTOPARAMS[0]*kronrad, subpix=1, var=var)
+        flag |= krflag
+
+        # If the source is too small, use circles instead
+        use_circle = kronrad * np.sqrt(a * b) < conf.PHOT_AUTOPARAMS[1] / 2.
+        cflux, cfluxerr, cflag = sep.sum_circle(image, x[use_circle], y[use_circle], conf.PHOT_AUTOPARAMS[1] / 2., subpix=1, var=var)
+
+
+        flux[use_circle] = cflux
+        fluxerr[use_circle] = cfluxerr
+        flag[use_circle] = cflag
+
+        # Flux radii
+        r, rflag = sep.flux_radius(image, x, y, 6.*a, conf.PHOT_FLUXFRAC, normflux=flux, subpix=5)
+
+        if band is None:
+            band = 'MODELING'
+        for colname in (f'C{centroid}_RAW_FLUX_AUTO_{band}', f'C{centroid}_RAW_FLUXERR_AUTO_{band}', f'C{centroid}_FLUX_AUTO_{band}', f'C{centroid}_FLUXERR_AUTO_{band}', f'C{centroid}_FLUX_AUTO_FLAG_{band}', f'C{centroid}_FLUX_RADIUS_{band}', f'C{centroid}_FLUX_RADIUS_FLAG_{band}'):
+            if colname not in self.bcatalog.colnames:
+                    if colname.endswith(f'FLUX_RADIUS_{band}'):
+                        self.bcatalog.add_column(Column(-99.*np.ones((len(self.bcatalog), len(conf.PHOT_FLUXFRAC))), name=colname))
+                    else:
+                        self.bcatalog.add_column(Column(-99.*np.ones(len(self.bcatalog)), name=colname))
+
+        band = band.replace(' ', '_')
+        if band == conf.MODELING_NICKNAME:
+            zpt = conf.MODELING_ZPT
+        elif band.startswith(conf.MODELING_NICKNAME):
+            band_name = band[len(conf.MODELING_NICKNAME)+1:]
+            zpt = conf.MULTIBAND_ZPT[self._band2idx(band_name)]
+        else:
+            zpt = conf.MULTIBAND_ZPT[self._band2idx(band)]
+
+        for idx, src in enumerate(self.solution_catalog):
+            sid = self.bcatalog['source_id'][idx]
+            row = np.argwhere(self.bcatalog['source_id'] == sid)[0][0]
+            self.bcatalog[row][f'C{centroid}_RAW_FLUX_AUTO_{band}'] = flux[row]
+            self.bcatalog[row][f'C{centroid}_RAW_FLUXERR_AUTO_{band}'] = fluxerr[row]
+            self.bcatalog[row][f'C{centroid}_FLUX_AUTO_{band}'] = flux[row] * 10**(-0.4 * (zpt - 23.9))
+            self.bcatalog[row][f'C{centroid}_FLUXERR_AUTO_{band}'] = fluxerr[row] * 10**(-0.4 * (zpt - 23.9))
+            self.bcatalog[row][f'C{centroid}_FLUX_AUTO_FLAG_{band}'] = flag[row]
+            self.bcatalog[row][f'C{centroid}_FLUX_RADIUS_{band}'] = r[row] * conf.PIXEL_SCALE # in arcsec
+            self.bcatalog[row][f'C{centroid}_FLUX_RADIUS_FLAG_{band}'] = rflag[row]
+
+            print(self.bcatalog[row][f'C{centroid}_FLUX_AUTO_{band}'], self.bcatalog[row][f'FLUX_{band}'])
+            print(self.bcatalog[row][f'C{centroid}_FLUX_AUTO_{band}']/self.bcatalog[row][f'FLUX_{band}'] )
+            plt.pause(5)
+
+    def residual_phot(self, band=None, sub_background=False):
         """ Run Sextractor on the residuals and flag any sources with detections in the parent blob """
         # SHOULD WE STACK THE RESIDUALS? (No?)
         # SHOULD WE DO THIS ON THE MODELING IMAGE TOO? (I suppose we can already...!)

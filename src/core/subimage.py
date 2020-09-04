@@ -350,16 +350,26 @@ class Subimage():
         sep.set_extract_pixstack(conf.PIXSTACK_SIZE)
 
         if sub_background:
+            self.logger.debug('Background will be subtracted.')
             background = sep.Background(self.images[idx], bw = conf.DETECT_BW, bh = conf.DETECT_BH,
                                 fw = conf.DETECT_FW, fh = conf.DETECT_FH)
             image -= background.back()
 
+        var = np.ones_like(var)
         kwargs = dict(var=var, mask=mask, minarea=conf.MINAREA, filter_kernel=convfilt, 
                 filter_type=conf.FILTER_TYPE, segmentation_map=True, 
                 deblend_nthresh=conf.DEBLEND_NTHRESH, deblend_cont=conf.DEBLEND_CONT)
         catalog, segmap = sep.extract(image, thresh, **kwargs)
         # catalog['y'] -= 0.75 # HACK
         # catalog['x'] -= 1. #HACK
+
+        # plt.ion()
+        # fig = plt.figure()
+        # plt.imshow(image)
+        # plt.scatter(catalog['x'], catalog['y'])
+        # plt.show()
+        # fig.savefig('whoknows.pdf')
+        # plt.pause(1000)
 
         
         if len(catalog) != 0:
