@@ -2116,6 +2116,7 @@ def estimate_effective_area(brick_id, band, catalog=None, save=False, use_band_p
         else:
             raise ValueError(f'No valid catalog was found for {brick_id}')
 
+    import os
     search_fn = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits')
     if os.path.exists(search_fn):
         hdul_seg = fits.open(search_fn)
