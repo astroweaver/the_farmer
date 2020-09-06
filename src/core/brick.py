@@ -1447,6 +1447,7 @@ class Brick(Subimage):
 
     def estimate_effective_area(self, catalog, band, modeling=False):
         self.logger.info(f'Calculating the effective area for {band}')
+        inner_area_pix = (conf.BRICK_WIDTH) * (conf.BRICK_HEIGHT)
         if len(self.masks > 0):  # bit of an assumption, but OK
             mask = self.masks[0]
         else:
@@ -1460,11 +1461,13 @@ class Brick(Subimage):
                 idx = self._band2idx(band)
 
             mask = self.masks[idx]
-        residual_mask = np.zeros_like(mask, dtype=bool)
-        residual_mask[conf.BRICK_BUFFER:-conf.BRICK_BUFFER, conf.BRICK_BUFFER:-conf.BRICK_BUFFER] = True
-        residual_mask[mask] = False
-        residual_mask[self.segmap != 0] = False
+        total_area_pix = np.size(mask)
+        residual_mask = np.zeros_like(mask, dtype=bool) # everything masked
+        residual_mask[conf.BRICK_BUFFER:-conf.BRICK_BUFFER, conf.BRICK_BUFFER:-conf.BRICK_BUFFER] = True  # inner region ok
+        residual_mask[mask] = False # mask is not ok
+        residual_mask[self.segmap != 0] = False # assume everything failed
         for src in catalog:
+            self.logger.debug(f"Evaluating source #{src['source_id']}")
 
             if modeling:
                 raw_fluxes = src[f'FLUX_{conf.MODELING_NICKNAME}_{band}']
@@ -1510,7 +1513,6 @@ class Brick(Subimage):
             residual_mask[self.segmap == sid] = True
 
         # HACK -- this is a slight estimationf in the case that a source bleeds into the buffer, but it is EXACT for the good area!
-        inner_area_pix = (conf.BRICK_WIDTH - 2 * conf.BRICK_BUFFER) * (conf.BRICK_HEIGHT - 2 * conf.BRICK_BUFFER)
         good_area_pix = np.sum(residual_mask)
         bad_area_pix = inner_area_pix - good_area_pix
         self.logger.info(f'Total effective area for brick #{self.brick_id}: {good_area_pix*(conf.PIXEL_SCALE/3600)**2:4.4f} deg2 ({good_area_pix/inner_area_pix*100:3.3f}%)')

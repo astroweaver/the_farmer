@@ -10,7 +10,7 @@ fnout = '/Volumes/WD4/Current/COSMOS2020/data/output/catalogs/candide/cosmos_chi
 
 OVERWRITE = True
 
-def farmer_to_lephare(sfddir=conf.SFDMAP_DIR, idx=0):
+def farmer_to_lephare(tab, sfddir=conf.SFDMAP_DIR, idx=0):
     
    
 
@@ -135,16 +135,18 @@ def farmer_to_lephare(sfddir=conf.SFDMAP_DIR, idx=0):
         
 
 
-    tab.add_column(Column(1+np.arange(len(tab)), name='ID'), index=0)        
+    # tab.add_column(Column(1+np.arange(len(tab)), name='ID'), index=0)        
 
-    from sfdmap import SFDMap
+    # from sfdmap import SFDMap
 
-    m = SFDMap(sfddir, scaling=0.86)
-    ebv = m.ebv(tab['ALPHA_J2000'], tab['DELTA_J2000'], frame='icrs')
-    tab.add_column(Column(ebv, name='EBV'))
+    # m = SFDMap(sfddir, scaling=0.86)
+    # ebv = m.ebv(tab['ALPHA_J2000'], tab['DELTA_J2000'], frame='icrs')
+    # tab.add_column(Column(ebv, name='EBV'))
+
+    return tab
     
 
-def crossmatch_with_aux():
+def crossmatch_with_aux(tab):
 
     print('Crossmatching with auxillary catalogs...')
 
@@ -183,30 +185,46 @@ def crossmatch_with_aux():
             'DF10CM': 'FIR10CM_FLUXERR',},
         'fits'
     )
-    # fname_xray = ('Chandra_COSMOS_Legacy_20151120_4d.fits', \
-    #     {'id_x': 'ID_CHANDRA',
-    #     'flux_F': 'XF_FLUX',
-    #     'flux_F_err': 'XF_FLUXERR',
-    #     'flux_S': 'XS_FLUX',
-    #     'flux_S_err': 'XS_FLUXERR',
-    #     'flux_H': 'XH_FLUX',
-    #     'flux_H_err': 'XH_FLUXERR',
-    #     },
-    #     'fits'
-    # )
+    fname_xray = ('Chandra_COSMOS_Legacy_20151120_4d.fits', \
+        {'id_x': 'ID_CHANDRA',
+        'flux_F': 'XF_FLUX',
+        'flux_F_err': 'XF_FLUXERR',
+        'flux_S': 'XS_FLUX',
+        'flux_S_err': 'XS_FLUXERR',
+        'flux_H': 'XH_FLUX',
+        'flux_H_err': 'XH_FLUXERR',
+        },
+        'fits'
+    )
     # fname_acs = ( , \
     #     {}
     # )
+
+    fname_laigle = ('/Volumes/WD4/Current/COSMOS2020/data/external/COSMOS2015_Laigle+_v1.1.fits', \
+        {'NUMBER': '2015_ID'},
+        'fits'
+    )
 
     # loop over + do 2step xmatch + add column
 
     from catalog_tools import crossmatch
     import astropy.units as u
 
-    for (fname, cols, fmt) in (fname_galex,):
+    for (fname, cols, fmt) in (fname_galex, fname_fir, fname_xray, fname_laigle):
 
         if fname.startswith('COSMOS_GALEX'):
             aux = Table.read(os.path.join(AUX_DIR, fname), format=fmt, data_start=4)
+            # modify
+            aux['FLUX_NUV'] = 10**(-0.4 * (aux['MAG_NUV'] - 23.9))
+            aux['FLUX_FUV'] = 10**(-0.4 * (aux['MAG_FUV'] - 23.9))
+            aux['FLUXERR_NUV'] = aux['FLUX_NUV'] * aux['MERR_NUV'] / 1.089
+            aux['FLUXERR_FUV'] = aux['FLUX_FUV'] * aux['MERR_FUV'] / 1.089
+            aux['FLUX_NUV'][aux['FLUXERR_NUV'] < 0] = -99
+            aux['FLUXERR_NUV'][aux['FLUXERR_NUV'] < 0] = -99
+            aux['FLUX_FUV'][aux['FLUXERR_FUV'] < 0] = -99
+            aux['FLUXERR_FUV'][aux['FLUXERR_FUV'] < 0] = -99
+        elif fname.startswith('/Volumes/'):
+            aux = Table.read(fname, format=fmt)
         else:
             aux = Table.read(os.path.join(AUX_DIR, fname), format=fmt)
         print(f'{fname}')
@@ -230,9 +248,10 @@ def crossmatch_with_aux():
             for idx, val in zip(mcat_farmer['ID'], mcat_aux[coln]):
                 col_aux[tab['ID']==idx] = val
             print(f'*** {coln} --> {cols[coln]}')
-            tab.add_column(Column(col_aux, name=cols[coln]))
+            tab[cols[coln]] = col_aux
 
     print('*** DONE.')
+    return tab
 
 def add_zspec():
 
@@ -253,17 +272,17 @@ def add_zspec():
     print('*** DONE.')
 
 
-tab = Table.read(fn, 1)
+# tab = Table.read(fn, 1)
 
-farmer_to_lephare()
+# # farmer_to_lephare(tab)
 
-crossmatch_with_aux()
+# crossmatch_with_aux(tab)
 
-add_zspec()
+# add_zspec()
 
-tab['VALID_SOURCE'] = tab['VALID_SOURCE_MODELING'] & (tab['i_CHISQ'] < 100) # sanity
-tab.remove_column('VALID_SOURCE_MODELING')
+# tab['VALID_SOURCE'] = tab['VALID_SOURCE_MODELING'] & (tab['i_CHISQ'] < 100) # sanity
+# tab.remove_column('VALID_SOURCE_MODELING')
 
-tab.write(fnout, format='fits', overwrite=OVERWRITE)
+# tab.write(fnout, format='fits', overwrite=OVERWRITE)
 
 # Then push it to candide and run prepare_input_trac.py

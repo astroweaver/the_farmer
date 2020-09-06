@@ -2067,7 +2067,7 @@ def make_residual_image(brick_id, band, catalog=None, use_band_position=(not con
     brick.make_residual_image(brick.catalog, use_band_position=use_band_position, use_band_shape=use_band_shape, modeling=modeling)
 
 
-def estimate_effective_area(brick_id, band, catalog=None, use_band_position=(not conf.FREEZE_FORCED_POSITION), use_band_shape=(not conf.FREEZE_FORCED_SHAPE), modeling=False):
+def estimate_effective_area(brick_id, band, catalog=None, save=False, use_band_position=(not conf.FREEZE_FORCED_POSITION), use_band_shape=(not conf.FREEZE_FORCED_SHAPE), modeling=False):
     if band.startswith(conf.MODELING_NICKNAME) | ((modeling==True) & (band != conf.MODELING_NICKNAME)):
         nickname = conf.MULTIBAND_NICKNAME
         if band.startswith(conf.MODELING_NICKNAME):
@@ -2087,7 +2087,7 @@ def estimate_effective_area(brick_id, band, catalog=None, use_band_position=(not
     brick = stage_brickfiles(brick_id, nickname=nickname, band=sband)
 
     if catalog is not None:
-        brick.catalog = catalog
+        brick.catalog = catalog[catalog['brick_id']==brick_id]
         brick.n_sources = len(brick.catalog)
         brick.n_blobs = brick.catalog['blob_id'].max()
   
@@ -2129,6 +2129,13 @@ def estimate_effective_area(brick_id, band, catalog=None, use_band_position=(not
     # brick.run_background()
 
     good_area_pix, inner_area_pix = brick.estimate_effective_area(brick.catalog, sband, modeling=modeling)
+
+    if save:
+        import os
+        outF = open(os.path.join(conf.INTERIM_DIR, f"effarea_{band}_{brick_id}.dat"), "w")
+        outF.write(f'{good_area_pix}\n{inner_area_pix}')
+        outF.close()
+
     return good_area_pix, inner_area_pix
 
 
