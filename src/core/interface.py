@@ -746,6 +746,8 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
 
 
     detbrick = stage_brickfiles(brick_id, nickname=conf.DETECTION_NICKNAME, modeling=True, is_detection=True)
+    if detbrick is None:
+        return
 
     logger.info(f'Detection brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
 
@@ -831,6 +833,8 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
                 catalog['x'] = catalog['x'] - detbrick.mosaic_origin[1] + conf.BRICK_BUFFER - 1
                 catalog['y'] = catalog['y'] - detbrick.mosaic_origin[0] + conf.BRICK_BUFFER - 1
             modbrick = stage_brickfiles(brick_id, band=mod_band, nickname=mod_nickname, modeling=True)
+            if modbrick is None:
+                return
             if band != conf.MODELING_NICKNAME:
                 modbrick.bands = [f'{conf.MODELING_NICKNAME}_{mod_band}',]
                 modbrick.n_bands = len(modbrick.bands)
@@ -1084,6 +1088,8 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
             catalog['x'] = catalog['x'] - detbrick.mosaic_origin[1] + conf.BRICK_BUFFER - 1
             catalog['y'] = catalog['y'] - detbrick.mosaic_origin[0] + conf.BRICK_BUFFER - 1
         modbrick = stage_brickfiles(brick_id, band=img_names, nickname=mod_nickname, modeling=True)
+        if modbrick is None:
+            return
         modbrick.bands = [f'{conf.MODELING_NICKNAME}_{b}' for b in img_names]
         modbrick.n_bands = len(modbrick.bands)
         logger.info(f'Multi-band Modeling brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
@@ -1522,6 +1528,8 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
             
 
     fbrick = stage_brickfiles(brick_id, nickname=conf.MULTIBAND_NICKNAME, band=fband, modeling=False)
+    if fbrick is None:
+        return
 
     search_fn = os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat')
     if os.path.exists(search_fn):
@@ -2180,7 +2188,8 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, modeling=False, 
                 masks[i] = hdul_brick[f"{tband}_MASK"].data
 
                 if (images[i] == 0).all():
-                    raise RuntimeError('HACK: All-zero image found. Cannot perform modelling. Skipping brick!')
+                    logger.critical('HACK: All-zero image found. Cannot perform modelling. Skipping brick!')
+                    return None
     else:
         raise ValueError(f'Brick file not found for {path_brickfile}')
 

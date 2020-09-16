@@ -154,35 +154,41 @@ def crossmatch_with_aux(tab):
 
     fname_galex = ('COSMOS_GALEX_emphot_v3.dat', \
         {'NUMBER': 'ID_GALEX',
-        'FLUX_NUV': 'NUV_FLUX',
-        'FLUXERR_NUV' : 'NUV_FLUXERR',
-        'FLUX_FUV': 'FUV_FLUX',
-        'FLUXERR_FUV': 'FUV_FLUXERR'
+        'FLUX_NUV': 'GALEX_NUV_FLUX',
+        'FLUXERR_NUV' : 'GALEX_NUV_FLUXERR',
+        'MAG_NUV': 'GALEX_NUV_MAG',
+        'MERR_NUV' : 'GALEX_NUV_MAGERR',
+        'FLUX_FUV': 'GALEX_FUV_FLUX',
+        'FLUXERR_FUV': 'GALEX_FUV_FLUXERR',
+        'MAG_FUV': 'GALEX_FUV_MAG',
+        'MERR_FUV': 'GALEX_FUV_MAGERR'
         },
         'ascii.fixed_width'
     )
     fname_fir = ('COSMOS_Super_Deblended_FIRmm_Catalog_20180719.fits', \
         {   'ID' : 'ID_FIR',
-            'F24': 'FIR24_FLUX',
-            'DF24': 'FIR24_FLUXERR',
-            'F100': 'FIR100_FLUX',
-            'DF100': 'FIR100_FLUXERR',
-            'F160': 'FIR160_FLUX',
-            'DF160': 'FIR160_FLUXERR',
-            'F250': 'FIR250_FLUX',
-            'DF250': 'FIR250_FLUXERR',
-            'F350': 'FIR350_FLUX',
-            'DF350': 'FIR350_FLUXERR',
-            'F500': 'FIR500_FLUX',
-            'DF500': 'FIR500_FLUXERR',
-            'F850': 'FIR850_FLUX',
-            'DF850': 'FIR850_FLUXERR',
-            'F1100': 'FIR1100_FLUX',
-            'DF1100': 'FIR1100_FLUXERR',
-            'F1200': 'FIR1200_FLUX',
-            'DF1200': 'FIR1200_FLUXERR',
-            'F10CM': 'FIR10CM_FLUX',
-            'DF10CM': 'FIR10CM_FLUXERR',},
+            'F24': 'FIR_24_FLUX',
+            'DF24': 'FIR_24_FLUXERR',
+            'F100': 'FIR_100_FLUX',
+            'DF100': 'FIR_100_FLUXERR',
+            'F160': 'FIR_160_FLUX',
+            'DF160': 'FIR_160_FLUXERR',
+            'F250': 'FIR_250_FLUX',
+            'DF250': 'FIR_250_FLUXERR',
+            'F350': 'FIR_350_FLUX',
+            'DF350': 'FIR_350_FLUXERR',
+            'F500': 'FIR_500_FLUX',
+            'DF500': 'FIR_500_FLUXERR',
+            'F850': 'FIR_850_FLUX',
+            'DF850': 'FIR_850_FLUXERR',
+            'F1100': 'FIR_1100_FLUX',
+            'DF1100': 'FIR_1100_FLUXERR',
+            'F1200': 'FIR_1200_FLUX',
+            'DF1200': 'FIR_1200_FLUXERR',
+            'F10CM': 'FIR_10CM_FLUX',
+            'DF10CM': 'FIR_10CM_FLUXERR',
+            'F20CM': 'FIR_20CM_FLUX',
+            'DF20CM': 'FIR_20CM_FLUXERR',},
         'fits'
     )
     fname_xray = ('Chandra_COSMOS_Legacy_20151120_4d.fits', \
@@ -196,12 +202,42 @@ def crossmatch_with_aux(tab):
         },
         'fits'
     )
-    # fname_acs = ( , \
-    #     {}
-    # )
+    fname_acs = ( 'COSMOS_ACS_catalog/acs_clean.fits', \
+        {
+        'NUMBER': 'ID_ACS',
+        'MAG_AUTO': 'F184W_MAG',
+        'MAGERR_AUTO': 'F814W_MAGERR',
+        'FLUXERR_AUTO': 'F814W_FLUX',
+        'FLUX_AUTO': 'F814W_FLUXERR',
+        'A_WORLD': 'ACS_A_WORLD',
+        'B_WORLD': 'ACS_B_WORLD',
+        'THETA_WORLD': 'ACS_THETA_WORLD',
+        'FWHM_WORLD': 'ACS_FWHM_WORLD',
+        'MU_MAX': 'ACS_MU_MAX',
+        'MU_CLASS': 'ACS_MU_CLASS',
+        },
+        'fits'
+    )
 
     fname_laigle = ('/Volumes/WD4/Current/COSMOS2020/data/external/COSMOS2015_Laigle+_v1.1.fits', \
-        {'NUMBER': '2015_ID'},
+        {'NUMBER': 'ID_COSMOS2015',
+        'SPLASH_1_FLUX': 'SPLASH_1_FLUX',
+        'SPLASH_1_FLUX_ERR': 'SPLASH_1_FLUXERR',
+        'SPLASH_1_MAG': 'SPLASH_1_MAG',
+        'SPLASH_1_MAGERR': 'SPLASH_1_MAGERR',
+        'SPLASH_2_FLUX': 'SPLASH_2_FLUX',
+        'SPLASH_2_FLUX_ERR': 'SPLASH_2_FLUXERR',
+        'SPLASH_2_MAG': 'SPLASH_2_MAG',
+        'SPLASH_2_MAGERR': 'SPLASH_2_MAGERR',
+        'SPLASH_3_FLUX': 'SPLASH_3_FLUX',
+        'SPLASH_3_FLUX_ERR': 'SPLASH_3_FLUXERR',
+        'SPLASH_3_MAG': 'SPLASH_3_MAG',
+        'SPLASH_3_MAGERR': 'SPLASH_3_MAGERR',
+        'SPLASH_4_FLUX': 'SPLASH_4_FLUX',
+        'SPLASH_4_FLUX_ERR': 'SPLASH_4_FLUXERR',
+        'SPLASH_4_MAG': 'SPLASH_4_MAG',
+        'SPLASH_4_MAGERR': 'SPLASH_4_MAGERR',
+        },
         'fits'
     )
 
@@ -209,12 +245,15 @@ def crossmatch_with_aux(tab):
 
     from catalog_tools import crossmatch
     import astropy.units as u
+    inputs = [fname_galex, fname_fir, fname_xray, fname_acs, fname_laigle,]#[dataset_idx]
 
-    for (fname, cols, fmt) in (fname_galex, fname_fir, fname_xray, fname_laigle):
+    # fname_galex, fname_fir, f
+    for (fname, cols, fmt) in inputs:
 
         if fname.startswith('COSMOS_GALEX'):
             aux = Table.read(os.path.join(AUX_DIR, fname), format=fmt, data_start=4)
             # modify
+            # print(aux.colnames)
             aux['FLUX_NUV'] = 10**(-0.4 * (aux['MAG_NUV'] - 23.9))
             aux['FLUX_FUV'] = 10**(-0.4 * (aux['MAG_FUV'] - 23.9))
             aux['FLUXERR_NUV'] = aux['FLUX_NUV'] * aux['MERR_NUV'] / 1.089
@@ -225,6 +264,25 @@ def crossmatch_with_aux(tab):
             aux['FLUXERR_FUV'][aux['FLUXERR_FUV'] < 0] = -99
         elif fname.startswith('/Volumes/'):
             aux = Table.read(fname, format=fmt)
+        elif 'FIR' in fname:
+            aux = Table.read(os.path.join(AUX_DIR, fname), format=fmt)
+            aux = aux[aux['goodArea']==1]
+        elif 'ACS' in fname:
+            aux = Table.read(os.path.join(AUX_DIR, fname), format=fmt)
+            clean = aux['CLEAN']
+            aux = aux[clean==1]
+            mag = aux['MAG_AUTO'] 
+            idx = mag != 99.
+            aux['MAG_AUTO'][~idx] = -99.
+            aux['MAGERR_AUTO'][~idx] = -99.
+            aux['FLUX_AUTO'] = -99 * np.ones(len(aux))
+            aux['FLUXERR_AUTO'] = -99 * np.ones(len(aux))
+            aux['FLUX_AUTO'][idx] = 10**(-0.4*(aux['MAG_AUTO'][idx] - 23.9))
+            aux['FLUXERR_AUTO'][idx] =  aux['FLUX_AUTO'][idx] * aux['MAGERR_AUTO'][idx] / 1.089
+
+            idx = np.isnan(aux['B_WORLD'])
+            aux['B_WORLD'][idx] = aux['A_WORLD'][idx] / aux['ELONGATION'][idx]
+            
         else:
             aux = Table.read(os.path.join(AUX_DIR, fname), format=fmt)
         print(f'{fname}')
@@ -233,7 +291,7 @@ def crossmatch_with_aux(tab):
             aux['RA_x'].name = 'RA'
             aux['DEC_x'].name = 'DEC'
 
-        print(aux.colnames)
+        # print(aux.colnames)
 
         if fname.startswith('Chandra'):
             aux['RA'] = aux['RA'].astype(float)
@@ -241,12 +299,30 @@ def crossmatch_with_aux(tab):
 
        
 
-        mcat_aux, mcat_farmer = crossmatch(aux, tab, thresh=[1*u.arcsec, 0.6*u.arcsec], plot=False)
+        mcat_aux, mcat_farmer, idx, sel_thresh = crossmatch(aux, tab, thresh=[1*u.arcsec, 0.6*u.arcsec], plot=False, return_idx=True)
 
         for coln in cols.keys():
-            col_aux = -99.*np.ones(len(tab))
-            for idx, val in zip(mcat_farmer['ID'], mcat_aux[coln]):
-                col_aux[tab['ID']==idx] = val
+            # print(coln+' ...')
+            col_aux = -99 * np.ones(len(tab))
+            # print(col_aux[idx[sel_thresh]])
+            # print(mcat_aux[coln][sel_thresh])
+            try:
+                col_aux[idx[sel_thresh]] = aux[coln][sel_thresh]
+            except:
+                col_aux = np.ones(len(tab), dtype=object) # this is overkill, but OK.
+                col_aux[idx[sel_thresh]] = aux[coln][sel_thresh]
+
+            # col_aux[idx[sel_thresh]] = mcat_aux[coln][idx]
+            # try:
+            #     col_aux = -99.0 * col_aux
+            #     for idx, val in zip(mcat_farmer['ID'], mcat_aux[coln]):
+            #         col_aux[tab['ID']==idx] = val
+            # except:
+            #     print('column cannot be coverted to float...')
+            #     col_aux = np.ones(len(tab), dtype=object) # this is overkill, but OK.
+            #     for idx, val in zip(mcat_farmer['ID'], mcat_aux[coln]):
+            #         col_aux[tab['ID']==idx] = val
+            
             print(f'*** {coln} --> {cols[coln]}')
             tab[cols[coln]] = col_aux
 
