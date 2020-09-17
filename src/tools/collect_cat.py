@@ -57,10 +57,12 @@ total_count = 0
 first_stack = True
 for i, fname in enumerate(walk_through_files(out_dir, cat_prefix, cat_suffix)):
 
-    if '/' in fname:
+    print('addding {}'.format(fname))
+    if '/' in fname[2:]:
+        print('')
         continue
 
-    print('addding {}'.format(fname))
+    
     try:
         cat = Table.read(fname, 1, memmap=True)
         total_count += 1
