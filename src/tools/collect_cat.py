@@ -34,7 +34,7 @@ from astropy.io import ascii, fits
 out_dir = sys.argv[1]
 
 cat_prefix = 'B'
-cat_suffix = '_MULTIBAND_GRID.cat'
+cat_suffix = '_MULTIBAND.cat'
 overwrite = True
 
 import logging
@@ -59,7 +59,7 @@ for i, fname in enumerate(walk_through_files(out_dir, cat_prefix, cat_suffix)):
 
     if '/' in fname:
         continue
-    
+
     print('addding {}'.format(fname))
     try:
         cat = Table.read(fname, 1, memmap=True)
