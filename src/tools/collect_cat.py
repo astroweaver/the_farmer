@@ -34,7 +34,7 @@ from astropy.io import ascii, fits
 out_dir = sys.argv[1]
 
 cat_prefix = 'B'
-cat_suffix = '_MULTIBAND.cat'
+cat_suffix = sys.argv[2]
 overwrite = True
 
 import logging
