@@ -1744,8 +1744,8 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
 
         output_cat = vstack(output_rows)  # HACK -- at some point this should just UPDATE the bcatalog with the new photoms. IF the user sets NBLOBS > 0, the catalog is truncated!
         uniq_src, idx_src = np.unique(output_cat['source_id'], return_index=True)
-        if len(idx_src) != len(fbrick.catalog):
-            raise RuntimeError(f'Output catalog is truncated! {len(idx_src)} out of {len(fbrick.catalog)}')
+        # if len(idx_src) != len(fbrick.catalog):
+        #     raise RuntimeError(f'Output catalog is truncated! {len(idx_src)} out of {len(fbrick.catalog)}')
         if len(uniq_src) < len(output_cat):
             logger.warning(f'Found {len(uniq_src)} unique sources, out of {len(output_cat)} -- CLEANING!')
             output_cat = output_cat[idx_src]
