@@ -2485,7 +2485,7 @@ def runblob_rc(blob_id, fblob, catalog=None, source_id=None):
             if len(uniq_src) != len(catalog):
                 n_nonuniq = len(catalog) - len(uniq_src)
                 logger.warning(f'Removing {n_nonuniq} sources from catalog!')
-                catalog = catalog[idex_src]
+                catalog = catalog[index_src]
 
             blobmask = np.ones(len(catalog))
             if source_id is not None:
