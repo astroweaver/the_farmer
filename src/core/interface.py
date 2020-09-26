@@ -2484,7 +2484,7 @@ def runblob_rc(blob_id, fblob, catalog=None, source_id=None):
             uniq_src, index_src = np.unique(catalog['source_id'], return_index=True)
             if len(uniq_src) != len(catalog):
                 n_nonuniq = len(catalog) - len(uniq_src)
-                logger.warning(f'Removing {n_nonuniq} sources from catalog!')
+                logger.warning(f'Removing {n_nonuniq} non-unique sources from catalog!')
                 catalog = catalog[index_src]
 
             blobmask = np.ones(len(catalog))
