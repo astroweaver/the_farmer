@@ -113,15 +113,15 @@ class Blob(Subimage):
         blob_sourcemask = np.in1d(brick.catalog['source_id'], blob_sources)
         self.bcatalog = brick.catalog[blob_sourcemask].copy() # working copy
         self.logger.info(f'Blob has {len(self.bcatalog)} sources')
-        if self.multiband_model:
-            mod_band = conf.MODELING_NICKNAME
-        else:
-            mod_band = self.bands[0]
+        
         try:
             valid_col = brick.catalog[f'VALID_SOURCE_{mod_band}']
         except:
-            valid_col = brick.catalog[f'VALID_SOURCE']
-        print(self.multiband_model)
+            try:
+                mod_band = self.bands[0]
+                valid_col = brick.catalog[f'VALID_SOURCE_{mod_band}']
+            except:
+                valid_col = brick.catalog[f'VALID_SOURCE']
         # if valid_col.any():
         #     valid_arr = self.bcatalog[f'VALID_SOURCE_{mod_band}']
         if len(valid_col) > 1:
