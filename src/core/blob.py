@@ -119,11 +119,11 @@ class Blob(Subimage):
             mod_band = self.bands[0]
         try:
             valid_col = brick.catalog[f'VALID_SOURCE_{mod_band}']
-            print(valid_col)
         except:
             valid_col = brick.catalog[f'VALID_SOURCE']
         # if valid_col.any():
         #     valid_arr = self.bcatalog[f'VALID_SOURCE_{mod_band}']
+        print(valid_col)
         if len(valid_col) > 1:
             if (valid_col == False).all():
                 self.logger.warning('Blob is rejected as no sources are valid!')
