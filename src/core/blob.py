@@ -116,13 +116,13 @@ class Blob(Subimage):
         
         mod_band = conf.MODELING_NICKNAME
         try:
-            valid_col = brick.catalog[f'VALID_SOURCE_{mod_band}']
+            valid_col = self.bcatalog[f'VALID_SOURCE_{mod_band}']
         except:
             try:
                 mod_band = self.bands[0]
-                valid_col = brick.catalog[f'VALID_SOURCE_{mod_band}']
+                valid_col = self.bcatalog[f'VALID_SOURCE_{mod_band}']
             except:
-                valid_col = brick.catalog[f'VALID_SOURCE']
+                valid_col = self.bcatalog[f'VALID_SOURCE']
         self.logger.info(f'Chosen {valid_col.name} as valid column!')
         # if valid_col.any():
         #     valid_arr = self.bcatalog[f'VALID_SOURCE_{mod_band}']
