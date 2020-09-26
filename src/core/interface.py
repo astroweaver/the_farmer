@@ -2480,6 +2480,13 @@ def runblob_rc(blob_id, fblob, catalog=None, source_id=None):
         if catalog is None:
             raise ValueError('Input catalog not supplied!')
         else:
+            # remove non-unique sources!
+            uniq_src, index_src = np.unique(catalog['source_id'], return_index=True)
+            if len(uniq_src) != len(catalog):
+                n_nonuniq = len(catalog) - len(uniq_src)
+                loggerr.warning(f'Removing {n_nonuniq} sources from catalog!')
+                catalog = catalog[idex_src]
+
             blobmask = np.ones(len(catalog))
             if source_id is not None:
                 # If the user wants to just model a specific source...
