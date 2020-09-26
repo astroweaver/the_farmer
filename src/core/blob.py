@@ -135,6 +135,9 @@ class Blob(Subimage):
                 self.logger.warning('Blob is rejected as no sources are valid!')
                 self.rejected = True
 
+        if not self.rejected:
+            self.logger.info(f'Blob has {np.sum(valid_col)} valid sources')
+
         # print(self.bcatalog['x', 'y'])
         self.bcatalog['x'] -= self.subvector[1]
         self.bcatalog['y'] -= self.subvector[0]
