@@ -270,7 +270,7 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, brick_id=None, in
         logger.info('Making mosaic for detection...')
         detmosaic = Mosaic(conf.DETECTION_NICKNAME, detection=True)
 
-        if conf.NTHREADS > 0:
+        if conf.NTHREADS > 1:
             logger.warning('Parallelization of brick making is currently disabled')
             # BUGGY DUE TO MEM ALLOC
             # logger.info('Making bricks for detection (in parallel)')
@@ -296,7 +296,7 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, brick_id=None, in
             modmosaic._make_psf(xlims=mod_xlims, ylims=mod_ylims)
 
         # Make bricks in parallel
-        if (conf.NTHREADS > 0) & (brick_id is None):
+        if (conf.NTHREADS > 1) & (brick_id is None):
             logger.warning('Parallelization of brick making is currently disabled')
             # BUGGY DUE TO MEM ALLOC
             # if conf.VERBOSE: print('Making bricks for detection (in parallel)')
@@ -356,7 +356,7 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, brick_id=None, in
                 bandmosaic._make_psf(xlims=multi_xlims, ylims=multi_ylims)
 
             # Make bricks in parallel
-            if (conf.NTHREADS > 0)  & (brick_id is None):
+            if (conf.NTHREADS > 1)  & (brick_id is None):
                 logger.info(f'Making bricks for band {sband} (in parallel)')
                 with pa.pools.ProcessPool(ncpus=conf.NTHREADS) as pool:
                     logger.info(f'Parallel processing pool initalized with {conf.NTHREADS} threads.')
@@ -740,7 +740,7 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
     tstart = time.time()
 
     if (source_id is None) & (blob_id is None):
-        if (conf.NBLOBS == 0) & (conf.NTHREADS > 0) & ((conf.PLOT > 0)):
+        if (conf.NBLOBS == 0) & (conf.NTHREADS > 1) & ((conf.PLOT > 0)):
             conf.PLOT = 0
             logger.warning('Plotting not supported while modeling in parallel!')
 
@@ -1016,7 +1016,7 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
 
                 tstart = time.time()
 
-                if conf.NTHREADS > 0:
+                if conf.NTHREADS > 1:
 
                     with pa.pools.ProcessPool(ncpus=conf.NTHREADS) as pool:
                         logger.info(f'Parallel processing pool initalized with {conf.NTHREADS} threads.')
@@ -1267,7 +1267,7 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
 
             tstart = time.time()
 
-            if conf.NTHREADS > 0:
+            if conf.NTHREADS > 1:
 
                 with pa.pools.ProcessPool(ncpus=conf.NTHREADS) as pool:
                     logger.info(f'Parallel processing pool initalized with {conf.NTHREADS} threads.')
@@ -1512,7 +1512,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                 raise ValueError('Source only is set True, but no source is has been provided!')
 
     if (source_id is None) & (blob_id is None):
-        if (conf.NBLOBS == 0) & (conf.NTHREADS > 0) & (conf.PLOT > 0):
+        if (conf.NBLOBS == 0) & (conf.NTHREADS > 1) & (conf.PLOT > 0):
             conf.PLOT = 0
             logger.warning('Plotting not supported while forcing models in parallel!')
 
@@ -1714,7 +1714,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
 
         fblobs = (fbrick.make_blob(i) for i in np.arange(1, run_n_blobs+1))
 
-        if conf.NTHREADS > 0:
+        if conf.NTHREADS > 1:
 
             with pa.pools.ProcessPool(ncpus=conf.NTHREADS) as pool:
                 logger.info(f'Parallel processing pool initalized with {conf.NTHREADS} threads.')
@@ -1737,6 +1737,15 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
         #output_rows = [x for x in output_rows if x is not None]
 
         output_cat = vstack(output_rows)  # HACK -- at some point this should just UPDATE the bcatalog with the new photoms. IF the user sets NBLOBS > 0, the catalog is truncated!
+        uniq_src, idx_src = np.unique(output_cat['source_id'], return_index=True)
+        if len(idx_src) != len(fbrick.catalog):
+            raise RuntimeError(f'Output catalog is truncated! {len(idx_src)} out of {len(fbrick.catalog)}')
+        if len(uniq_src) < len(output_cat):
+            logger.warning(f'Found {len(uniq_src)} unique sources, out of {len(output_cat)} -- CLEANING!')
+            output_cat = output_cat[idx_src]
+        else:
+            logger.debug(f'Found {len(uniq_src)} unique sources, out of {len(output_cat)}')
+
 
         # estimate effective area
         if conf.ESTIMATE_EFF_AREA:

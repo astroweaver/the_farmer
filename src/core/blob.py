@@ -121,16 +121,16 @@ class Blob(Subimage):
             valid_col = brick.catalog[f'VALID_SOURCE_{mod_band}']
         except:
             valid_col = brick.catalog[f'VALID_SOURCE']
-        if valid_col.any():
-            valid_arr = self.bcatalog[f'VALID_SOURCE_{mod_band}']
-            if len(valid_arr) > 1:
-                if (valid_arr == False).all():
-                    self.logger.warning('Blob is rejected as no sources are valid!')
-                    self.rejected = True
-            else:
-                if valid_arr == False:
-                    self.logger.warning('Blob is rejected as no sources are valid!')
-                    self.rejected = True
+        # if valid_col.any():
+        #     valid_arr = self.bcatalog[f'VALID_SOURCE_{mod_band}']
+        if len(valid_col) > 1:
+            if (valid_col == False).all():
+                self.logger.warning('Blob is rejected as no sources are valid!')
+                self.rejected = True
+        else:
+            if valid_col == False:
+                self.logger.warning('Blob is rejected as no sources are valid!')
+                self.rejected = True
 
         # print(self.bcatalog['x', 'y'])
         self.bcatalog['x'] -= self.subvector[1]
