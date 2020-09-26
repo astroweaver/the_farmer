@@ -1555,6 +1555,12 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
         logger.critical(f'All sources in brick #{brick_id} are invalid. Quitting!')
         return
 
+    uniq_src, index_src = np.unique(fbrick.catalog['source_id'], return_index=True)
+    if len(uniq_src) != len(fbrick.catalog):
+        n_nonuniq = len(fbrick.catalog) - len(uniq_src)
+        logger.warning(f'Removing {n_nonuniq} non-unique sources from catalog!')
+        fbrick.catalog = fbrick.catalog[index_src]
+
     if not rao_cramer_only:
         fbrick.add_columns(modeling=False)
     else:
