@@ -119,6 +119,7 @@ class Blob(Subimage):
             mod_band = self.bands[0]
         try:
             valid_col = brick.catalog[f'VALID_SOURCE_{mod_band}']
+            print(valid_col)
         except:
             valid_col = brick.catalog[f'VALID_SOURCE']
         # if valid_col.any():
