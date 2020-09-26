@@ -114,6 +114,7 @@ class Blob(Subimage):
         self.bcatalog = brick.catalog[blob_sourcemask].copy() # working copy
         self.logger.info(f'Blob has {len(self.bcatalog)} sources')
         
+        mod_band = conf.MODELING_NICKNAME
         try:
             valid_col = brick.catalog[f'VALID_SOURCE_{mod_band}']
         except:
