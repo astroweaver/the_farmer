@@ -30,6 +30,8 @@ from scipy.ndimage import zoom
 from scipy import stats
 
 from tractor import NCircularGaussianPSF, PixelizedPSF, PixelizedPsfEx, Image, Tractor, FluxesPhotoCal, NullWCS, ConstantSky, EllipseE, EllipseESoft, Fluxes, PixPos, Catalog
+from tractor.sersic import SersicIndex, SersicGalaxy
+from tractor.sercore import SersicCoreGalaxy
 from tractor.galaxy import ExpGalaxy, DevGalaxy, FixedCompositeGalaxy, SoftenedFracDev
 from tractor.pointsource import PointSource
 from tractor.psf import HybridPixelizedPSF
@@ -70,6 +72,7 @@ class Blob(Subimage):
         self.brick_wcs = brick.wcs.copy()
         self.mosaic_origin = brick.mosaic_origin
         self.brick_id = brick.brick_id
+        self.is_modeling = brick.is_modeling
 
         # Grab blob
         self.blob_id = blob_id
@@ -109,34 +112,42 @@ class Blob(Subimage):
         self.shared_params = brick.shared_params
         self.multiband_model = brick.shared_params # HACK
 
+        if conf.DECISION_TREE == 1:
+            self.idx_models = ((1, 2), (3, 4), (5,))
+            self.max_level = 2
+        if conf.DECISION_TREE == 2:
+            self.idx_models = ((1, 2), (6,), (7,), (5,))
+            self.max_level = 3
+
         # Clean
         blob_sourcemask = np.in1d(brick.catalog['source_id'], blob_sources)
         self.bcatalog = brick.catalog[blob_sourcemask].copy() # working copy
         self.logger.info(f'Blob has {len(self.bcatalog)} sources')
         
         mod_band = conf.MODELING_NICKNAME
-        try:
-            valid_col = self.bcatalog[f'VALID_SOURCE_{mod_band}']
-        except:
+        if not brick.is_modeling:
             try:
-                mod_band = self.bands[0]
                 valid_col = self.bcatalog[f'VALID_SOURCE_{mod_band}']
             except:
-                valid_col = self.bcatalog[f'VALID_SOURCE']
-        self.logger.info(f'Chosen {valid_col.name} as valid column!')
-        # if valid_col.any():
-        #     valid_arr = self.bcatalog[f'VALID_SOURCE_{mod_band}']
-        if len(valid_col) > 1:
-            if (valid_col == False).all():
-                self.logger.warning('Blob is rejected as no sources are valid!')
-                self.rejected = True
-        else:
-            if valid_col == False:
-                self.logger.warning('Blob is rejected as no sources are valid!')
-                self.rejected = True
+                try:
+                    mod_band = self.bands[0]
+                    valid_col = self.bcatalog[f'VALID_SOURCE_{mod_band}']
+                except:
+                    valid_col = self.bcatalog[f'VALID_SOURCE']
+            self.logger.info(f'Chosen {valid_col.name} as valid column!')
+            # if valid_col.any():
+            #     valid_arr = self.bcatalog[f'VALID_SOURCE_{mod_band}']
+            if len(valid_col) > 1:
+                if (valid_col == False).all():
+                    self.logger.warning('Blob is rejected as no sources are valid!')
+                    self.rejected = True
+            else:
+                if valid_col == False:
+                    self.logger.warning('Blob is rejected as no sources are valid!')
+                    self.rejected = True
 
-        if not self.rejected:
-            self.logger.info(f'Blob has {np.sum(valid_col)} valid sources')
+            if not self.rejected:
+                self.logger.info(f'Blob has {np.sum(valid_col)} valid sources')
 
         # print(self.bcatalog['x', 'y'])
         self.bcatalog['x'] -= self.subvector[1]
@@ -153,15 +164,17 @@ class Blob(Subimage):
         self.solved_chisq = np.zeros(self.n_sources)
         self.solved_bic = np.zeros(self.n_sources)
         self.solution_chisq = np.zeros(self.n_sources)
-        self.tr_catalogs = np.zeros((self.n_sources, 3, 2), dtype=object)
-        self.chisq = np.zeros((self.n_sources, 3, 2))
-        self.rchisq = np.zeros((self.n_sources, 3, 2))
-        self.bic = np.zeros((self.n_sources, 3, 2))
+        self.tr_catalogs = np.zeros((self.n_sources, self.max_level + 1, 2), dtype=object)
+        self.chisq = np.zeros((self.n_sources, self.max_level + 1, 2))
+        self.rchisq = np.zeros((self.n_sources, self.max_level + 1, 2))
+        self.bic = np.zeros((self.n_sources, self.max_level + 1, 2))
         self.noise = np.zeros((self.n_sources, self.n_bands))
         # self.norm = np.zeros((self.n_sources, self.n_bands))
         self.chi_mu = np.zeros((self.n_sources, self.n_bands))
         self.chi_sig = np.zeros((self.n_sources, self.n_bands))
         self.k2 = np.zeros((self.n_sources, self.n_bands))
+        self.seg_rawflux = np.zeros((self.n_sources, self.n_bands))
+        self.chisq_nomodel = np.zeros((self.n_sources, self.n_bands))
         # self.position_variance = np.zeros((self.n_sources, 2))
         # self.parameter_variance = np.zeros((self.n_sources, 3))
         # self.forced_variance = np.zeros((self.n_sources, self.n_bands))
@@ -474,6 +487,8 @@ class Blob(Subimage):
             #shape = GalaxyShape(src['a'], src['b'] / src['a'], src['theta'])
             pa = 90 + np.rad2deg(src['theta'])
             shape = EllipseESoft.fromRAbPhi(src['a'], src['b'] / src['a'], pa)
+            nre = SersicIndex(2.5) # Just a guess for the seric index
+            fluxcore = Fluxes(**dict(zip(self.bands, np.zeros(len(self.bands))))) # Just a simple init condition
             # shape = EllipseESoft.fromRAbPhi(3.0, 0.6, 38)
 
             if mid == 1:
@@ -490,16 +505,34 @@ class Blob(Subimage):
                                                 position, flux,
                                                 SoftenedFracDev(0.5),
                                                 shape, shape)
+            elif mid == 6:
+                self.model_catalog[i] = SersicGalaxy(position, flux, shape, nre)
+            elif mid == 7:
+                self.model_catalog[i] = SersicCoreGalaxy(position, flux, shape, nre, fluxcore)
+
+
             if freeze_position & (conf.FREEZE_POSITION):
                 self.model_catalog[i].freezeParams('pos')
                 self.logger.debug(f'Position parameter frozen at {position}')
-            elif conf.USE_POSITION_PRIOR:
-                self.logger.info(f'Setting position prior. X = {src["x"]:2.2f}+/-{conf.POSITION_PRIOR_SIG}; Y = {src["y"]:2.2f}+/-{conf.POSITION_PRIOR_SIG}')
-                self.model_catalog[i].pos.addGaussianPrior('x', src['x'], conf.POSITION_PRIOR_SIG)
-                self.model_catalog[i].pos.addGaussianPrior('y', src['y'], conf.POSITION_PRIOR_SIG)
+            elif conf.USE_MODEL_POSITION_PRIOR:
+                self.logger.info(f'Setting position prior. X = {src["x"]:2.2f}+/-{conf.MODEL_POSITION_PRIOR_SIG/conf.PIXEL_SCALE}; Y = {src["y"]:2.2f}+/-{conf.MODEL_POSITION_PRIOR_SIG/conf.PIXEL_SCALE}')
+                self.model_catalog[i].pos.addGaussianPrior('x', src['x'], conf.MODEL_POSITION_PRIOR_SIG/conf.PIXEL_SCALE)
+                self.model_catalog[i].pos.addGaussianPrior('y', src['y'], conf.MODEL_POSITION_PRIOR_SIG/conf.PIXEL_SCALE)
+
+            if ((mid == 3) | (mid == 4) | (mid == 6) | (mid == 7)) & conf.USE_MODEL_SHAPE_PRIOR:
+                self.logger.info(f'Setting shape prior. Reff = {src["a"]/conf.PIXEL_SCALE:2.2f}+/-{conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE}')
+                self.model_catalog[i].shape.addGaussianPrior('logre', self.model_catalog[i].shape.logre, np.log(conf.MODEL_POSITION_PRIOR_SIG/conf.PIXEL_SCALE))
+
+            elif (mid == 5) & conf.USE_MODEL_SHAPE_PRIOR:
+                self.logger.info(f'Setting shape prior. Reff = {src["a"]/conf.PIXEL_SCALE:2.2f}+/-{conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE}')
+                self.model_catalog[i].shapeExp.addGaussianPrior('logre', self.model_catalog[i].shapeExp.logre, np.log(conf.MODEL_POSITION_PRIOR_SIG/conf.PIXEL_SCALE))
+                self.model_catalog[i].shapeDev.addGaussianPrior('logre', self.model_catalog[i].shapeExp.logre, np.log(conf.MODEL_POSITION_PRIOR_SIG/conf.PIXEL_SCALE))
+
 
             self.logger.debug(f'Source #{src["source_id"]}: {self.model_catalog[i].name} model at {position}')
             self.logger.debug(f'               {flux}') 
+            if mid == 7:
+                self.logger.debug(f'               {fluxcore}')
             if mid not in (1,2):
                 self.logger.debug(f'               {shape}')
 
@@ -548,6 +581,13 @@ class Blob(Subimage):
                 # [print(m.getBrightness()) for m in tr.getCatalog()]
                 plot_iterblob(self, tr, iteration=0, bands=self.bands)
 
+            use_priors = False
+            if self.is_modeling:
+                use_priors = (conf.USE_MODEL_POSITION_PRIOR | conf.USE_MODEL_SHAPE_PRIOR)
+            else:
+                use_priors = (conf.USE_FORCE_POSITION_PRIOR | conf.USE_FORCE_SHAPE_PRIOR)
+
+
             for i in range(conf.TRACTOR_MAXSTEPS):
 
                 # for mod in self.tr.getCatalog():
@@ -566,7 +606,7 @@ class Blob(Subimage):
                         
                         # dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, damp=conf.DAMPING, variance=True, priors=conf.USE_POSITION_PRIOR)
                         dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, damp=conf.DAMPING, 
-                                                    variance=True, priors=conf.USE_POSITION_PRIOR)
+                                                    variance=True, priors=use_priors)
 
                         self.logger.debug(f'    {i+1}) dlnp = {dlnp}')
                         # print(dlnp)
@@ -594,7 +634,7 @@ class Blob(Subimage):
                 else:
 
                     dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, damp=conf.DAMPING, 
-                                                    variance=True, priors=conf.USE_POSITION_PRIOR)
+                                                    variance=True, priors=use_priors)
                     self.logger.debug(f'    {i+1}) dlnp = {dlnp}')
                     if i == 0:
                         dlnp_init = dlnp
@@ -640,8 +680,13 @@ class Blob(Subimage):
                             # gpriors = src.getLogPrior()
                             # print('Log(Prior):', gpriors)
                             src.pos.setParams([xp0, yp0])
-                            if conf.USE_POSITION_PRIOR:
-                                gpxy = 0.1 * conf.POSITION_PRIOR_SIG
+                            if self.is_modeling & conf.USE_MODEL_POSITION_PRIOR:
+                                gpxy = 0.1 * conf.MODEL_POSITION_PRIOR_SIG
+                                self.logger.info(f'Setting position prior. X = {xp0:2.2f}+/-{gpxy}; Y = {yp0:2.2f}+/-{gpxy}')
+                                src.pos.addGaussianPrior('x', xp0, gpxy)
+                                src.pos.addGaussianPrior('y', yp0, gpxy)
+                            elif ~self.is_modeling & conf.USE_FORCE_POSITION_PRIOR:
+                                gpxy = 0.1 * conf.FORCE_POSITION_PRIOR_SIG
                                 self.logger.info(f'Setting position prior. X = {xp0:2.2f}+/-{gpxy}; Y = {yp0:2.2f}+/-{gpxy}')
                                 src.pos.addGaussianPrior('x', xp0, gpxy)
                                 src.pos.addGaussianPrior('y', yp0, gpxy)
@@ -661,11 +706,17 @@ class Blob(Subimage):
 
                             self.logger.warning(f'Source {sid} has escaped its segment!')
                             src.pos.setParams([xp0, yp0])
-                            if conf.USE_POSITION_PRIOR:
-                                gpxy = 0.1 * conf.POSITION_PRIOR_SIG
+                            if self.is_modeling & conf.USE_MODEL_POSITION_PRIOR:
+                                gpxy = 0.1 * conf.MODEL_POSITION_PRIOR_SIG
                                 self.logger.info(f'Setting position prior. X = {xp0:2.2f}+/-{gpxy}; Y = {yp0:2.2f}+/-{gpxy}')
                                 src.pos.addGaussianPrior('x', xp0, gpxy)
                                 src.pos.addGaussianPrior('y', yp0, gpxy)
+                            elif ~self.is_modeling & conf.USE_FORCE_POSITION_PRIOR:
+                                gpxy = 0.1 * conf.FORCE_POSITION_PRIOR_SIG
+                                self.logger.info(f'Setting position prior. X = {xp0:2.2f}+/-{gpxy}; Y = {yp0:2.2f}+/-{gpxy}')
+                                src.pos.addGaussianPrior('x', xp0, gpxy)
+                                src.pos.addGaussianPrior('y', yp0, gpxy)
+
 
                         #     # gpriors = src.getLogPrior()
                         #     # print('Log(Prior):', gpriors)
@@ -683,6 +734,8 @@ class Blob(Subimage):
             self.logger.warning(f'Variance was not output for blob #{self.blob_id}')
             return False
 
+        # print(cat)
+        # print(var)
         cat = tr.getCatalog()
         var_catalog = cat.copy()
         var_catalog.setParams(var)
@@ -719,8 +772,8 @@ class Blob(Subimage):
     def tractor_phot(self):
         """ Determines the best-fit model """
 
-        # TODO: The meaning of the following line is not clear
-        idx_models = ((1, 2), (3, 4), (5,))
+        ### STILL NEED TO UPDATE THE REPORTING TO USER TO INCLUDE SERSIC STUFF!
+
         self.logger.debug(f'Attempting to model {self.n_sources} sources.')
 
         self._solved = self.solution_catalog != 0
@@ -736,17 +789,17 @@ class Blob(Subimage):
         while not self._solved.all():
             self._level += 1
 
-            if self._level > 2:
+            if self._level > self.max_level:
                 self.logger.critical(f'SOURCE LEFT UNSOLVED IN BLOB {self.blob_id}')
                 raise RuntimeError(f'SOURCE LEFT UNSOLVED IN BLOB {self.blob_id}')
 
-            for sublevel in np.arange(len(idx_models[self._level])):
+            for sublevel in np.arange(len(self.idx_models[self._level])):
                 self._sublevel = sublevel
 
                 self.stage = f'Morph Model ({self._level}, {self._sublevel})'
 
                 # prepare models
-                self.mids[~self._solved] = idx_models[self._level][sublevel]
+                self.mids[~self._solved] = self.idx_models[self._level][sublevel]
                 self.stage_models()
 
                 # store
@@ -788,7 +841,7 @@ class Blob(Subimage):
 
                             totalchisq += np.sum((self.tr.getChiImage(k)[self.segmap == src['source_id']])**2)
                             chi2 = np.sum((self.tr.getChiImage(k)[self.segmap == src['source_id']])**2)
-                            nparam = self.model_catalog[i].numberOfParams() - (len(self.bands) - 1)
+                            nparam = self.model_catalog[i].numberOfParams() - (len(self.bands) + 1)
                             ndof = (np.sum(self.segmap == src['source_id']) - nparam)
                             if ndof < 1:
                                 ndof = 1
@@ -815,7 +868,12 @@ class Blob(Subimage):
                         self.logger.debug(f'               Positions: {self.bands[k]}={self.model_catalog[i].getPosition()}') 
                         self.logger.debug(f'               Fluxes: {self.bands[k]}={self.model_catalog[i].getBrightness().getFlux(self.bands[k]):3.3f}+/-{np.sqrt(self.variance[i].brightness.getParams()[k]):3.3f}') 
 
+                        if self.model_catalog[i].name == 'SersicCoreGalaxy':
+                            self.logger.debug(f'               Core Fluxes: {self.bands[k]}={self.model_catalog[i].brightnessPsf.getFlux(self.bands[k]):3.3f}+/-{np.sqrt(self.variance[i].brightnessPsf.getParams()[k]):3.3f}') 
+
                     if self.model_catalog[i].name not in ('PointSource', 'SimpleGalaxy'):
+                        if 'Sersic' in self.model_catalog[i].name:
+                            self.logger.debug(f'               Sersic Index: {self.model_catalog[i].sersicindex.val:3.3f}+/-{np.sqrt(self.variance[i].sersicindex.val):3.3f}')
                         if self.model_catalog[i].name == 'FixedCompositeGalaxy':
                             self.logger.debug(f'               {self.model_catalog[i].shapeExp}')
                             self.logger.debug(f'               {self.model_catalog[i].shapeDev}')
@@ -859,7 +917,7 @@ class Blob(Subimage):
         self.pre_solution_chi_images = np.array([self.tr.getChiImage(i) for i in np.arange(self.n_bands)])
 
         self.stage = 'Final Optimization'
-        # self._level, self._sublevel = 'FO', 'FO'
+        self._level, self._sublevel = self._level+1, self._sublevel+1
         self.logger.debug(self.stage)
         self.status = self.optimize_tractor()
         
@@ -880,7 +938,7 @@ class Blob(Subimage):
         for i, src in enumerate(self.bcatalog):
             for j, band in enumerate(self.bands):
                 totalchisq = np.sum((self.tr.getChiImage(j)[self.segmap == src['source_id']])**2)
-                m_param = self.model_catalog[i].numberOfParams()  # is this bugged?!
+                m_param = self.model_catalog[i].numberOfParams() - (len(self.bands) + 1) # is this bugged?!
                 n_data = np.sum(self.segmap == src['source_id'])
                 ndof = (n_data - m_param)
                 if ndof < 1:
@@ -908,16 +966,25 @@ class Blob(Subimage):
                 chi_seg = chi[self.segmap==sid].flatten()
                 self.chi_sig[i,j] = np.std(chi_seg)
                 self.chi_mu[i,j] = np.mean(chi_seg)
+                self.chisq_nomodel[i,j] = np.sum((self.images[j]*np.sqrt(self.weights[j]))[self.segmap==sid]**2) / n_data
+                self.seg_rawflux[i,j] = np.sum(self.images[j][self.segmap==sid])
 
             self.logger.debug(f'Source #{src["source_id"]}: {self.solution_catalog[i].name} model at {self.solution_catalog[i].pos}')
-            self.logger.debug(f'               Fluxes: {self.bands[0]}={self.solution_catalog[i].getBrightness().getFlux(self.bands[0])}') 
-            if self.solution_catalog[i].name not in ('PointSource', 'SimpleGalaxy'):
-                if self.solution_catalog[i].name == 'FixedCompositeGalaxy':
-                    self.logger.debug(f'               {self.solution_catalog[i].shapeExp}')
-                    self.logger.debug(f'               {self.solution_catalog[i].shapeDev}')
-                else:
-                    self.logger.debug(f'               {self.solution_catalog[i].shape}')
+            for k, band in enumerate(self.bands):
+                self.logger.debug(f'               Positions: {self.bands[k]}={self.model_catalog[i].getPosition()}') 
+                self.logger.debug(f'               Fluxes: {self.bands[k]}={self.model_catalog[i].getBrightness().getFlux(self.bands[k]):3.3f}+/-{np.sqrt(self.variance[i].brightness.getParams()[k]):3.3f}') 
 
+                if self.model_catalog[i].name == 'SersicCoreGalaxy':
+                    self.logger.debug(f'               Core Fluxes: {self.bands[k]}={self.model_catalog[i].brightnessPsf.getFlux(self.bands[k]):3.3f}+/-{np.sqrt(self.variance[i].brightnessPsf.getParams()[k]):3.3f}') 
+
+            if self.model_catalog[i].name not in ('PointSource', 'SimpleGalaxy'):
+                if 'Sersic' in self.model_catalog[i].name:
+                    self.logger.debug(f'               {self.model_catalog[i].sersicindex.val:3.3f}+/-{np.sqrt(self.parameter_variance[i].sersicindex.val):3.3f}')
+                if self.model_catalog[i].name == 'FixedCompositeGalaxy':
+                    self.logger.debug(f'               {self.model_catalog[i].shapeExp}')
+                    self.logger.debug(f'               {self.model_catalog[i].shapeDev}')
+                else:
+                    self.logger.debug(f'               {self.model_catalog[i].shape}')
         # self.rows = np.zeros(len(self.solution_catalog))
         for idx, src in enumerate(self.solution_catalog):
             # row = np.argwhere(self.brick.catalog['source_id'] == sid)[0][0]
@@ -1102,6 +1169,9 @@ class Blob(Subimage):
                     except:
                         self.k2[i,j] = -99
                         self.logger.warning('Normality test FAILED. Setting to -99')
+                self.chisq_nomodel[i,j] = np.sum((self.images[j]*np.sqrt(self.weights[j]))[self.segmap==sid]**2) / n_data
+                self.seg_rawflux[i,j] = np.sum(self.images[j][self.segmap==sid])
+
                 chi_seg = chi[self.segmap==sid].flatten()
                 self.chi_sig[i,j] = np.std(chi_seg)
                 self.chi_mu[i,j] = np.mean(chi_seg)
@@ -1129,7 +1199,10 @@ class Blob(Subimage):
             self.decide_winners_bic()
         else:
             self.logger.debug('Using chisq/N to select best-fit model')
-            self.decide_winners_chisq()
+            if conf.DECISION_TREE == 1:
+                self.decide_winners_chisq_opt1()
+            if conf.DECISION_TREE == 2:
+                self.decide_winners_chisq_opt2()
 
     def decide_winners_bic(self):
         """ Decision tree in BIC. EXPERIMENTAL. """
@@ -1246,7 +1319,7 @@ class Blob(Subimage):
         self.solved_bic[~self._solved] = solved_bic
         self.mids[~self._solved] = mids
 
-    def decide_winners_chisq(self):
+    def decide_winners_chisq_opt1(self):
         """ Decision tree in CHISQ. STABLE. """
 
         # take the model_catalog and chisq and figure out what's what
@@ -1377,6 +1450,161 @@ class Blob(Subimage):
         self.solved_chisq[~self._solved] = solved_chisq
         self.mids[~self._solved] = mids
 
+    def decide_winners_chisq_opt2(self):
+        """ Decision tree in CHISQ. STABLE. """
+
+        # holders - or else it's pure insanity.
+        sid = self.bcatalog['source_id'][~self._solved]
+        chisq = self.rchisq[~self._solved]
+        solution_catalog = self.solution_catalog[~self._solved]
+        solved_chisq = self.solved_chisq[~self._solved]
+        tr_catalogs = self.tr_catalogs[~self._solved]
+        mids = self.mids[~self._solved]
+
+        chisq[:,1,1] = 1E20
+        chisq[:,2,1] = 1E20
+        chisq[:,3,1] = 1E20
+
+        # for i, blob_id in enumerate(sid):
+        #     print(blob_id)
+        #     print(self.chisq[i])
+
+        if self._level == 0:
+            # Which have chi2(PS) < chi2(SG)?
+            for i, blob_id in enumerate(sid):
+                self.logger.debug(f'Source #{blob_id} Chi2 -- PS({chisq[i, 0, 0]:3.3f}) vs. SG({chisq[i, 0, 1]:3.3f}) with thresh of {conf.PS_SG_THRESH:3.3f}')
+
+            chmask = ((abs(chisq[:, 0, 0]) - abs(chisq[:, 0, 1])) < conf.PS_SG_THRESH)
+            chmask[(chisq[:, 0, 0] > conf.CHISQ_FORCE_SERSIC) & (chisq[:, 0, 1] > conf.CHISQ_FORCE_SERSIC)] = False # For these, keep trying! Essentially a back-door for high a/b sources.
+            if chmask.any():
+                solution_catalog[chmask] = tr_catalogs[chmask, 0, 0].copy()
+                solved_chisq[chmask] = chisq[chmask, 0, 0]
+                mids[chmask] = 1
+
+            # So chi2(SG) is min, try more models
+            mids[~chmask] = 3
+
+        if self._level == 1:
+            for i, blob_id in enumerate(sid):
+                self.logger.debug(f'Source #{blob_id} Chi2 -- SERSIC({chisq[i, 1, 0]})')
+
+            # What if it's bad?
+            nextmask = (chisq[:, 1, 0] > conf.CHISQ_FORCE_SERSIC)
+
+            # For which was SG best? Then go back!
+            premask_sg = (chisq[:, 0, 1] < chisq[:, 0, 0]) & (chisq[:, 0, 1] < chisq[:, 1, 0]) & (chisq[:, 0, 1] < conf.CHISQ_FORCE_SERSIC)
+
+            # For which was PS best? The go back!
+            premask_ps = (chisq[:, 0, 0] < chisq[:, 0, 1]) & (chisq[:, 0, 0] < chisq[:, 1, 0]) & (chisq[:, 0, 0] < conf.CHISQ_FORCE_SERSIC)
+
+            # What is solved?
+            sersicmask = ~nextmask & ~(premask_sg | premask_ps)
+
+            # Check solved first
+            if sersicmask.any():
+                solution_catalog[sersicmask] = tr_catalogs[sersicmask, 1, 0].copy()
+                solved_chisq[sersicmask] = chisq[sersicmask, 1, 0]
+                mids[sersicmask] = 6
+
+            # Then which ones might advance
+            if nextmask.any():
+                mids[nextmask] = 7
+
+            # Then which are going back (which can overrwrite)
+            if premask_ps.any():
+                solution_catalog[premask_ps] = tr_catalogs[premask_ps, 0, 0].copy()
+                solved_chisq[premask_ps] = chisq[premask_ps, 0, 0]
+                mids[premask_ps] = 1
+
+            if premask_sg.any():
+                solution_catalog[premask_sg] = tr_catalogs[premask_sg, 0, 1].copy()
+                solved_chisq[premask_sg] = chisq[premask_sg, 0, 1]
+                mids[premask_sg] = 2
+
+        if self._level == 2:
+            for i, blob_id in enumerate(sid):
+                self.logger.debug(f'Source #{blob_id} Chi2 -- SERSICCORE({chisq[i, 2, 0]})')
+
+            # What if it's bad?
+            nextmask = (chisq[:, 2, 0] > conf.CHISQ_FORCE_SERSICCORE)
+
+            # For which was sersic best? Then go back!
+            premask_s = (chisq[:, 1, 0] < chisq[:, 2, 0]) & (chisq[:, 1, 0] < conf.CHISQ_FORCE_SERSIC)
+
+            nextmask &= ~premask_s
+
+            # What is solved?
+            sersiccoremask = ~nextmask & ~premask_s
+
+            # Check solved first
+            if sersiccoremask.any():
+                solution_catalog[sersiccoremask] = tr_catalogs[sersiccoremask, 2, 0].copy()
+                solved_chisq[sersiccoremask] = chisq[sersiccoremask, 2, 0]
+                mids[sersiccoremask] = 7
+
+            # Then which ones might advance
+            if nextmask.any():
+                mids[nextmask] = 5
+
+            # Then which are going back (which can overrwrite)
+            if premask_s.any():
+                solution_catalog[premask_s] = tr_catalogs[premask_s, 1, 0].copy()
+                solved_chisq[premask_s] = chisq[premask_s, 1, 0]
+                mids[premask_s] = 6
+
+        if self._level == 3:
+            for i, blob_id in enumerate(sid):
+                self.logger.debug(f'Source #{blob_id} Chi2 -- COMP({chisq[i, 3, 0]:3.3f})')
+
+            # For which is pointsource better?
+            premask_sc = (chisq[:, 0, 0] <= chisq[:, 3, 0]) & (chisq[:, 0, 0] == np.min(chisq, (1,2)))
+
+            if premask_sc.any():
+                solution_catalog[premask_sc] = tr_catalogs[premask_sc, 0, 0].copy()
+                solved_chisq[premask_sc] = chisq[premask_sc, 0, 0]
+                mids[premask_sc] = 1
+
+            # For which is simplegalaxy better?
+            premask_sc = (chisq[:, 0, 1] <= chisq[:, 3, 0]) & (chisq[:, 0, 1] == np.min(chisq, (1,2)))
+
+            if premask_sc.any():
+                solution_catalog[premask_sc] = tr_catalogs[premask_sc, 0, 1].copy()
+                solved_chisq[premask_sc] = chisq[premask_sc, 0, 1]
+                mids[premask_sc] = 2
+
+            # For which is seric better?
+            # print(chisq)
+            premask_sc = (chisq[:, 1, 0] <= chisq[:, 3, 0])  & (chisq[:, 1, 0] == np.min(chisq, (1,2))) 
+            # print(chisq[:, 1, 0], (chisq[:, 1, 0] == np.min(chisq, (1,2))))
+            # print(premask_sc)
+
+            if premask_sc.any():
+                solution_catalog[premask_sc] = tr_catalogs[premask_sc, 1, 0].copy()
+                solved_chisq[premask_sc] = chisq[premask_sc, 1, 0]
+                mids[premask_sc] = 6
+
+            # For which is seric core better?
+            premask_sc = (chisq[:, 2, 0] <= chisq[:, 3, 0]) & (chisq[:, 2, 0] == np.min(chisq, (1,2)))
+
+            if premask_sc.any():
+                solution_catalog[premask_sc] = tr_catalogs[premask_sc, 2, 0].copy()
+                solved_chisq[premask_sc] = chisq[premask_sc, 2, 0]
+                mids[premask_sc] = 7
+
+            # The rest must surely be the best models then, yes? # TODO check this out! 
+            compmask = chisq[:, 3, 0] == np.min(chisq, (1,2))
+
+            if compmask.any():
+                solution_catalog[compmask] = tr_catalogs[compmask, 3, 0].copy()
+                solved_chisq[compmask] = chisq[compmask, 3, 0]
+                mids[compmask] = 5
+
+        # hand back
+        self.chisq[~self._solved] = chisq
+        self.solution_catalog[~self._solved] = solution_catalog
+        self.solved_chisq[~self._solved] = solved_chisq
+        self.mids[~self._solved] = mids
+
     def aperture_phot(self, band=None, image_type=None, sub_background=False):
         """ Provides post-processing aperture photometry support """
         # Allow user to enter image (i.e. image, residual, model...)
@@ -1385,6 +1613,8 @@ class Blob(Subimage):
         if band is None:
             self.logger.info(f'Performing aperture photometry on {conf.MODELING_NICKNAME} {image_type}...')
         else:
+            if band.startswith(conf.MODELING_NICKNAME):
+                band = band[len(conf.MODELING_NICKNAME)+1:]
             self.logger.info(f'Performing aperture photometry on {band} {image_type}...')
 
         if image_type not in ('image', 'model', 'isomodel', 'residual'):
@@ -1393,7 +1623,7 @@ class Blob(Subimage):
         if band is None:
             idx = 0
         else:
-            idx = np.argwhere(self.bands == band)[0][0]
+            idx = self._band2idx(band)
         use_iso = False
 
         if image_type == 'image':
@@ -1423,8 +1653,10 @@ class Blob(Subimage):
         else:
             thresh = conf.RES_THRESH
             tweight = self.weights[idx].copy()
-            tweight[self.masks[idx]] = 0  # Well this isn't going to go well.
-            var = 1. / tweight # TODO: WRITE TO UTILS
+            var = np.zeros_like(tweight)
+            var[tweight>0] = 1. / tweight[tweight>0] # TODO: WRITE TO UTILS
+            var[self.masks[idx]] = 0
+
         if (band in sub_background) & (not use_iso):
             image -= self.background_images[idx]
 
@@ -1466,6 +1698,7 @@ class Blob(Subimage):
                 else:
                     apflux_err[Iap, i] = p.field('aperture_sum_err') * 10**(-0.4 * (zpt - 23.9))
             for j, src in enumerate(cat):
+                sid = self.bcatalog['source_id'][j]
                 if use_iso: # Run with only one model in image
                     aper = photutils.CircularAperture(apxy[:,j], rad)
                     image = self.solution_tractor.getModelImage(idx, srcs=[src,])
@@ -1484,8 +1717,8 @@ class Blob(Subimage):
 
                 apmag[j, i] = - 2.5 * np.log10( apflux[j,i] ) + 23.9
                 apmag_err[j, i] = 1.09 * apflux_err[j, i] / apflux[j, i]
-                self.logger.debug(f'        Flux({j}, {band}, {apertures_arcsec[i]:2.2f}") = {apflux[j,i]:3.3f}/-{apflux_err[j,i]:3.3f}')
-                self.logger.debug(f'        Mag({j}, {band}, {apertures_arcsec[i]:2.2f}") = {apmag[j, i]:3.3f}/-{apmag_err[j, i]:3.3f}')
+                self.logger.debug(f'        Flux({sid}, {band}, {apertures_arcsec[i]:2.2f}") = {apflux[j,i]:3.3f}/-{apflux_err[j,i]:3.3f}')
+                self.logger.debug(f'        Mag({sid}, {band}, {apertures_arcsec[i]:2.2f}") = {apmag[j, i]:3.3f}/-{apmag_err[j, i]:3.3f}')
 
         # if image_type == 'image':
             
@@ -1528,16 +1761,46 @@ class Blob(Subimage):
 
         self.logger.info(f'Aperture photometry complete ({time.time() - tstart:3.3f}s)')
 
-    def sep_phot(self, band=None, sub_background=False, centroid='MODEL'):
+    def sep_phot(self, band=None, image_type=None, sub_background=False, centroid='MODEL'):
         """ Run Sextractor on the image with either the detection or model centroid, where available! """
+        if band is None:
+            self.logger.info(f'Performing SEP aperture photometry on {conf.MODELING_NICKNAME} {image_type}...')
+        else:
+            if band.startswith(conf.MODELING_NICKNAME):
+                band = band[len(conf.MODELING_NICKNAME)+1:]
+            self.logger.info(f'Performing SEP aperture photometry on {band} {image_type}...')
+
         if band is None:
             idx = 0
         else:
             idx = self._band2idx(band)
-        image = self.images[idx]
+
         tweight = self.weights[idx].copy()
-        tweight[self.masks[idx]] = 0 # OK this isn't going to go well.
-        var = 1. / tweight # TODO: WRITE TO UTILS
+        var = np.zeros_like(tweight)
+        var[tweight>0] = 1. / tweight[tweight>0]
+        var[self.masks[idx]] = 0
+
+        if image_type not in ('image', 'model', 'isomodel', 'residual'):
+            raise TypeError("image_type must be 'image', 'model', 'isomodel', or 'residual'")
+
+        
+        use_iso = False
+
+        if image_type == 'image':
+            image = self.images[idx] 
+
+        elif image_type == 'model':
+            image = self.solution_tractor.getModelImage(idx)
+        
+        elif image_type == 'isomodel':
+            use_iso = True
+
+        elif image_type == 'residual':
+            image = (self.images[idx] - self.solution_tractor.getModelImage(idx))
+        
+        if conf.APER_APPLY_SEGMASK & (not use_iso):
+            image *= self.masks[idx]
+
         background = self.backgrounds[idx]
 
         if (self.weights == 1).all():
@@ -1563,40 +1826,46 @@ class Blob(Subimage):
                 self.logger.warning(f'Could not perform SEP measurements with MODEL centroid for {band}')
                 return 
             else:
-                self.logger.info(f'Performing SEP measurements with MODEL centroid for {band}')
+                self.logger.info(f'Performing SEP measurements with MODEL centroid')
 
         elif centroid == 'DETECTION':
+            self.logger.info(f'DETECTION centroid not yet implemented!')
             return # DONT DO IT
             x, y = self.bcatalog['x'], self.bcatalog['y'] # ARE THESE IN THE RIGHT FRAME!?
-            self.logger.info(f'Performing SEP measurements with DETECTION centroid for {band}')
+            self.logger.info(f'Performing SEP measurements with DETECTION centroid')
 
         a, b, theta = self.bcatalog['a'], self.bcatalog['b'], self.bcatalog['theta']  # This is from the DETECTION IMAGE -- may not be reliable for normal images though...
 
-        # calculate kron radius first
-        kronrad, krflag = sep.kron_radius(image, x, y, a, b, theta, 6.0)
+        if not use_iso:
+            
+            # calculate kron radius first
+            kronrad, krflag = sep.kron_radius(image, x, y, a, b, theta, 6.0)
 
 
-        # Then calculate fluxes
-        flux, fluxerr, flag = sep.sum_ellipse(image, x, y, a, b, theta, conf.PHOT_AUTOPARAMS[0]*kronrad, subpix=1, var=var)
-        flag |= krflag
+            # Then calculate fluxes
+            flux, fluxerr, flag = sep.sum_ellipse(image, x, y, a, b, theta, conf.PHOT_AUTOPARAMS[0]*kronrad, subpix=1, var=var)
+            flag |= krflag
 
-        # If the source is too small, use circles instead
-        use_circle = kronrad * np.sqrt(a * b) < conf.PHOT_AUTOPARAMS[1] / 2.
-        cflux, cfluxerr, cflag = sep.sum_circle(image, x[use_circle], y[use_circle], conf.PHOT_AUTOPARAMS[1] / 2., subpix=1, var=var)
+            # If the source is too small, use circles instead
+            use_circle = kronrad * np.sqrt(a * b) < conf.PHOT_AUTOPARAMS[1] / 2.
+            cflux, cfluxerr, cflag = sep.sum_circle(image, x[use_circle], y[use_circle], conf.PHOT_AUTOPARAMS[1] / 2., subpix=1, var=var)
 
 
-        flux[use_circle] = cflux
-        fluxerr[use_circle] = cfluxerr
-        flag[use_circle] = cflag
+            flux[use_circle] = cflux
+            fluxerr[use_circle] = cfluxerr
+            flag[use_circle] = cflag
 
-        # Flux radii
-        r, rflag = sep.flux_radius(image, x, y, 6.*a, conf.PHOT_FLUXFRAC, normflux=flux, subpix=5)
+            # Flux radii
+            r, rflag = sep.flux_radius(image, x, y, 6.*a, conf.PHOT_FLUXFRAC, normflux=flux, subpix=5)
 
         if band is None:
             band = 'MODELING'
-        for colname in (f'C{centroid}_RAW_FLUX_AUTO_{band}', f'C{centroid}_RAW_FLUXERR_AUTO_{band}', f'C{centroid}_FLUX_AUTO_{band}', f'C{centroid}_FLUXERR_AUTO_{band}', f'C{centroid}_FLUX_AUTO_FLAG_{band}', f'C{centroid}_FLUX_RADIUS_{band}', f'C{centroid}_FLUX_RADIUS_FLAG_{band}'):
+        for colname in (f'C{centroid}_RAW_FLUX_AUTO_{band}_{image_type}', f'C{centroid}_RAW_FLUXERR_AUTO_{band}_{image_type}', 
+                        f'C{centroid}_FLUX_AUTO_{band}_{image_type}', f'C{centroid}_FLUXERR_AUTO_{band}_{image_type}',
+                        f'C{centroid}_FLUX_AUTO_FLAG_{band}_{image_type}', f'C{centroid}_FLUX_RADIUS_{band}_{image_type}',
+                        f'C{centroid}_FLUX_RADIUS_FLAG_{band}_{image_type}'):
             if colname not in self.bcatalog.colnames:
-                    if colname.endswith(f'FLUX_RADIUS_{band}'):
+                    if colname.endswith(f'FLUX_RADIUS_{band}_{image_type}'):
                         self.bcatalog.add_column(Column(-99.*np.ones((len(self.bcatalog), len(conf.PHOT_FLUXFRAC))), name=colname))
                     else:
                         self.bcatalog.add_column(Column(-99.*np.ones(len(self.bcatalog)), name=colname))
@@ -1610,33 +1879,72 @@ class Blob(Subimage):
         else:
             zpt = conf.MULTIBAND_ZPT[self._band2idx(band)]
 
-        for idx, src in enumerate(self.solution_catalog):
-            sid = self.bcatalog['source_id'][idx]
-            row = np.argwhere(self.bcatalog['source_id'] == sid)[0][0]
-            self.bcatalog[row][f'C{centroid}_RAW_FLUX_AUTO_{band}'] = flux[row]
-            self.bcatalog[row][f'C{centroid}_RAW_FLUXERR_AUTO_{band}'] = fluxerr[row]
-            self.bcatalog[row][f'C{centroid}_FLUX_AUTO_{band}'] = flux[row] * 10**(-0.4 * (zpt - 23.9))
-            self.bcatalog[row][f'C{centroid}_FLUXERR_AUTO_{band}'] = fluxerr[row] * 10**(-0.4 * (zpt - 23.9))
-            self.bcatalog[row][f'C{centroid}_FLUX_AUTO_FLAG_{band}'] = flag[row]
-            self.bcatalog[row][f'C{centroid}_FLUX_RADIUS_{band}'] = r[row] * conf.PIXEL_SCALE # in arcsec
-            self.bcatalog[row][f'C{centroid}_FLUX_RADIUS_FLAG_{band}'] = rflag[row]
+        for j, src in enumerate(self.solution_catalog):
 
-            print(self.bcatalog[row][f'C{centroid}_FLUX_AUTO_{band}'], self.bcatalog[row][f'FLUX_{band}'])
-            print(self.bcatalog[row][f'C{centroid}_FLUX_AUTO_{band}']/self.bcatalog[row][f'FLUX_{band}'] )
-            plt.pause(5)
+            if use_iso:
+
+                image = self.solution_tractor.getModelImage(idx, srcs=[src,])
+                if conf.APER_APPLY_SEGMASK:
+                    image *= self.masks[self.band2idx(band)]
+                if sub_background:
+                    image -= self.background_images[idx]
+
+                # calculate kron radius first
+                kronrad, krflag = sep.kron_radius(image, x, y, a, b, theta, 6.0)
+
+
+                # Then calculate fluxes
+                flux, fluxerr, flag = sep.sum_ellipse(image, x, y, a, b, theta, conf.PHOT_AUTOPARAMS[0]*kronrad, subpix=1, var=var)
+                flag |= krflag
+
+                # If the source is too small, use circles instead
+                use_circle = kronrad * np.sqrt(a * b) < conf.PHOT_AUTOPARAMS[1] / 2.
+                cflux, cfluxerr, cflag = sep.sum_circle(image, x[use_circle], y[use_circle], conf.PHOT_AUTOPARAMS[1] / 2., subpix=1, var=var)
+
+
+                flux[use_circle] = cflux
+                fluxerr[use_circle] = cfluxerr
+                flag[use_circle] = cflag
+
+                # Flux radii
+                r, rflag = sep.flux_radius(image, x, y, 6.*a, conf.PHOT_FLUXFRAC, normflux=flux, subpix=5)
+
+            sid = self.bcatalog['source_id'][j]
+            row = np.argwhere(self.bcatalog['source_id'] == sid)[0][0]
+            apflux = flux[row] * 10**(-0.4 * (zpt - 23.9))
+            apflux_err = fluxerr[row] * 10**(-0.4 * (zpt - 23.9))
+            self.bcatalog[row][f'C{centroid}_RAW_FLUX_AUTO_{band}_{image_type}'] = flux[row]
+            self.bcatalog[row][f'C{centroid}_RAW_FLUXERR_AUTO_{band}_{image_type}'] = fluxerr[row]
+            self.bcatalog[row][f'C{centroid}_FLUX_AUTO_{band}_{image_type}'] = apflux
+            self.bcatalog[row][f'C{centroid}_FLUXERR_AUTO_{band}_{image_type}'] = apflux_err
+            self.bcatalog[row][f'C{centroid}_FLUX_AUTO_FLAG_{band}_{image_type}'] = flag[row]
+            self.bcatalog[row][f'C{centroid}_FLUX_RADIUS_{band}_{image_type}'] = r[row] * conf.PIXEL_SCALE # in arcsec
+            self.bcatalog[row][f'C{centroid}_FLUX_RADIUS_FLAG_{band}_{image_type}'] = rflag[row]
+
+            apmag = - 2.5 * np.log10( flux[row] ) + zpt
+            apmag_err = 1.09 * fluxerr[row] / flux[row]
+            self.logger.debug(f'        Flux({sid}, {band}) = {apflux:3.3f}/-{apflux_err:3.3f}')
+            self.logger.debug(f'        Mag({sid}, {band}) = {apmag:3.3f}/-{apmag_err:3.3f}')
+
+            # print(self.bcatalog[row][f'C{centroid}_FLUX_AUTO_{band}_{image_type}'], self.bcatalog[row][f'FLUX_{band}'])
+            # print(self.bcatalog[row][f'C{centroid}_FLUX_AUTO_{band}_{image_type}']/self.bcatalog[row][f'FLUX_{band}'] )
+            # plt.pause(5)
 
     def residual_phot(self, band=None, sub_background=False):
         """ Run Sextractor on the residuals and flag any sources with detections in the parent blob """
         # SHOULD WE STACK THE RESIDUALS? (No?)
         # SHOULD WE DO THIS ON THE MODELING IMAGE TOO? (I suppose we can already...!)
         if band is None:
-            idx = 0
+            self.logger.info(f'Performing aperture photometry on {conf.MODELING_NICKNAME} {image_type}...')
         else:
-            idx = self._band2idx(band)
+            if band.startswith(conf.MODELING_NICKNAME):
+                band = band[len(conf.MODELING_NICKNAME)+1:]
+            self.logger.info(f'Performing aperture photometry on {band} {image_type}...')
         residual = self.images[idx] - self.solution_tractor.getModelImage(idx)
         tweight = self.weights[idx].copy()
-        tweight[self.masks[idx]] = 0 # OK this isn't going to go well.
-        var = 1. / tweight # TODO: WRITE TO UTILS
+        var = np.zeros_like(tweight)
+        var[tweight>0] = 1. / tweight[tweight>0]
+        var[self.masks[idx]] = 0
         background = self.backgrounds[idx]
 
         if (self.weights == 1).all():
@@ -1692,7 +2000,10 @@ class Blob(Subimage):
                 param_var = self.parameter_variance
             elif band.startswith(conf.MODELING_NICKNAME):
                 band_name = band[len(conf.MODELING_NICKNAME)+1:]
-                zpt = conf.MULTIBAND_ZPT[self._band2idx(band_name)]
+                if band_name == conf.MODELING_NICKNAME:
+                    zpt = conf.MODELING_ZPT
+                else:
+                    zpt = conf.MULTIBAND_ZPT[self._band2idx(band_name)]
                 param_var = self.parameter_variance
             else:
                 zpt = conf.MULTIBAND_ZPT[self._band2idx(band)]
@@ -1706,14 +2017,19 @@ class Blob(Subimage):
             self.bcatalog[row]['RAWFLUXERR_'+band] = np.sqrt(param_var[row].brightness.getParams()[i])
             self.bcatalog[row]['FLUX_'+band] = src.getBrightness().getFlux(band) * 10**(-0.4 * (zpt - 23.9))  # Force fluxes to be in uJy!
             self.bcatalog[row]['FLUXERR_'+band] = np.sqrt(param_var[row].brightness.getParams()[i]) * 10**(-0.4 * (zpt - 23.9))
+            if 'SersicCore' in src.name:
+                self.bcatalog[row]['RAWFLUXCORE_'+band] = src.brightnessPsf.getFlux(band)
+                self.bcatalog[row]['RAWFLUXCOREERR_'+band] = np.sqrt(param_var[row].brightnessPsf.getParams()[i])
             self.bcatalog[row]['CHISQ_'+band] = self.solution_chisq[row, i]
             self.bcatalog[row]['BIC_'+band] = self.solution_bic[row, i]
             # self.bcatalog[row]['N_CONVERGE_'+band] = self.n_converge
-            self.bcatalog[row]['SNR_'+band] = self.bcatalog[row]['RAWFLUX_'+band] / self.bcatalog[row]['npix'] / self.noise[row, i]
+            self.bcatalog[row]['SNR_'+band] = self.bcatalog[row]['RAWFLUX_'+band] / self.bcatalog[row]['RAWFLUXERR_'+band]
             # self.bcatalog[row]['NORM_'+band] = self.norm[row, i]
             self.bcatalog[row]['CHI_MU_'+band] = self.chi_mu[row, i]
             self.bcatalog[row]['CHI_SIG_'+band] = self.chi_sig[row, i]
             self.bcatalog[row]['CHI_K2_'+band] = self.k2[row, i]
+            self.bcatalog[row]['SEG_RAWFLUX_'+band] = self.seg_rawflux[row, i]
+            self.bcatalog[row]['CHISQ_NOMODEL_'+band] = self.chisq_nomodel[row, i]
             self.bcatalog[row]['VALID_SOURCE_'+band] = valid_source
 
             if not conf.FREEZE_FORCED_POSITION:
@@ -1731,8 +2047,7 @@ class Blob(Subimage):
                 # Model Parameters
                 self.bcatalog[row][f'VALID_SOURCE_{band}'] = valid_source
 
-
-                if src.name in ('ExpGalaxy', 'DevGalaxy'):
+                if src.name in ('ExpGalaxy', 'DevGalaxy', 'SersicGalaxy', 'SersicCoreGalaxy'):
                     self.bcatalog[row][f'REFF_{band}'] = src.shape.logre
                     self.bcatalog[row][f'REFF_ERR_{band}'] = np.sqrt(param_var[row].shape.getParams()[0])
                     self.bcatalog[row][f'EE1_{band}'] = src.shape.ee1
@@ -1750,6 +2065,12 @@ class Blob(Subimage):
                     self.logger.info(f"    Reff:               {self.bcatalog[row][f'REFF_{band}']:3.3f} +/- {self.bcatalog[row][f'REFF_ERR_{band}']:3.3f}")
                     self.logger.info(f"    a/b:                {self.bcatalog[row][f'AB_{band}']:3.3f} +/- {self.bcatalog[row][f'AB_ERR_{band}']:3.3f}")
                     self.logger.info(f"    pa:                 {self.bcatalog[row][f'THETA_{band}']:3.3f} +/- {self.bcatalog[row][f'THETA_ERR_{band}']:3.3f}")
+
+                    if src.name in ('SersicGalaxy', 'SersicCoreGalaxy'):
+                        self.bcatalog[row][f'N_{band}'] = src.sersicindex.val
+                        self.bcatalog[row][f'N_ERR_{band}'] = np.sqrt(param_var[row].sersicindex.val)
+
+                        self.logger.info(f"   N:                  {self.bcatalog[row][f'N_{band}']:3.3f} +/- {self.bcatalog[row][f'N_ERR_{band}']:3.3f}")
 
                 elif src.name == 'FixedCompositeGalaxy':
                     self.bcatalog[row][f'FRACDEV_{band}'] = src.fracDev.getValue()
@@ -1805,7 +2126,7 @@ class Blob(Subimage):
                 elif src.name not in ('PointSource', 'SimpleGalaxy'): # last resort
                     self.logger.warning(f"Source does not have a valid solution model!")
                     valid_source = False
-                    self.bcatalog[row]['VALID_SOURCE'] = valid_source
+                    self.bcatalog[row][f'VALID_SOURCE_{band}'] = valid_source
 
 
             pos = 0000
@@ -1813,14 +2134,20 @@ class Blob(Subimage):
             flux, fluxerr = self.bcatalog[row]['FLUX_'+band], self.bcatalog[row]['FLUXERR_'+band]
             rawflux, rawfluxerr = self.bcatalog[row]['RAWFLUX_'+band], self.bcatalog[row]['RAWFLUXERR_'+band]
             chisq, bic = self.bcatalog[row]['CHISQ_'+band], self.bcatalog[row]['BIC_'+band]
+            self.logger.info(f"    Model({band}):        {src.name}")
             self.logger.info(f'    Position({band}):     {pos}')
             self.logger.info(f'    Raw Flux({band}):     {rawflux:3.3f} +/- {rawfluxerr:3.3f}')
+            if 'SersicCore' in src.name:
+                rawfluxcore, rawfluxcoreerr = self.bcatalog[row]['RAWFLUXCORE_'+band], self.bcatalog[row]['RAWFLUXCOREERR_'+band]
+                self.logger.info(f'    Raw FluxCore({band}): {rawfluxcore:3.3f} +/- {rawfluxcoreerr:3.3f}')
             self.logger.info(f'    Flux({band}):         {flux:3.3f} +/- {fluxerr:3.3f} uJy')               
             self.logger.info(f'    Mag({band}):          {mag:3.3f} +/- {magerr:3.3f} AB')
             self.logger.info(f'    Chi2({band}):         {chisq:3.3f}')
             self.logger.info(f'    BIC({band}):          {bic:3.3f}')
+            self.logger.info(f'    Chi2 No Model({band}): {self.chisq_nomodel[row,i]:3.3f}')
             self.logger.info(f'    Res. Chi({band}):     {self.chi_mu[row,i]:3.3f}+/-{self.chi_sig[row,i]:3.3f}')
             self.logger.info(f'    DAgostino K2({band}): {self.k2[row,i]:3.3f}')
+            self.logger.info(f'    Seg Raw Flux({band}): {self.seg_rawflux[row,i]:3.3f}')
             self.logger.info(f'    Zpt({band}):          {zpt:3.3f} AB')
             
 
@@ -1874,7 +2201,7 @@ class Blob(Subimage):
             self.bcatalog[row][f'VALID_SOURCE_{mod_band}'] = valid_source
             self.bcatalog[row]['N_BLOB'] = self.n_sources
 
-            if src.name in ('ExpGalaxy', 'DevGalaxy'):
+            if src.name in ('ExpGalaxy', 'DevGalaxy', 'SersicGalaxy', 'SersicCoreGalaxy'):
                 self.bcatalog[row][f'REFF_{mod_band}'] = src.shape.logre
                 self.bcatalog[row][f'REFF_ERR_{mod_band}'] = np.sqrt(self.parameter_variance[row].shape.getParams()[0])
                 self.bcatalog[row][f'EE1_{mod_band}'] = src.shape.ee1
@@ -1892,6 +2219,13 @@ class Blob(Subimage):
                 self.logger.info(f"    Reff:               {self.bcatalog[row][f'REFF_{mod_band}']:3.3f} +/- {self.bcatalog[row][f'REFF_ERR_{mod_band}']:3.3f}")
                 self.logger.info(f"    a/b:                {self.bcatalog[row][f'AB_{mod_band}']:3.3f} +/- {self.bcatalog[row][f'AB_ERR_{mod_band}']:3.3f}")
                 self.logger.info(f"    pa:                 {self.bcatalog[row][f'THETA_{mod_band}']:3.3f} +/- {self.bcatalog[row][f'THETA_ERR_{mod_band}']:3.3f}")
+
+                if src.name in ('SersicGalaxy', 'SersicCoreGalaxy'):
+                    self.bcatalog[row][f'N_{mod_band}'] = src.sersicindex.val
+                    self.bcatalog[row][f'N_ERR_{mod_band}'] = np.sqrt(param_var[row].sersicindex.val)
+
+                    self.logger.info(f"    N:                  {self.bcatalog[row][f'N_{mod_band}']:3.3f} +/- {self.bcatalog[row][f'N_ERR_{mod_band}']:3.3f}")
+
 
             elif src.name == 'FixedCompositeGalaxy':
                 self.bcatalog[row][f'FRACDEV_{mod_band}'] = src.fracDev.getValue()
@@ -1947,7 +2281,7 @@ class Blob(Subimage):
             elif src.name not in ('PointSource', 'SimpleGalaxy'): # last resort
                 self.logger.warning(f"Source does not have a valid solution model!")
                 valid_source = False
-                self.bcatalog[row]['VALID_SOURCE'] = valid_source
+                self.bcatalog[row][f'VALID_SOURCE_{mod_band}'] = valid_source
 
     def rao_cramer(self):
 

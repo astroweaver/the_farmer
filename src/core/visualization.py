@@ -204,6 +204,12 @@ def plot_srcprofile(blob, src, sid, bands=None):
         bidx = [0,]
         bands = [band,]
         outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_S{sid}_{conf.MODELING_NICKNAME}_srcprofile.pdf')
+    elif (len(bands) == 1) & (bands[0] == conf.MODELING_NICKNAME):
+            band = conf.MODELING_NICKNAME
+            nickname = conf.MODELING_NICKNAME
+            bidx = [0,]
+            bands = [band,]
+            outpath = os.path.join(conf.PLOT_DIR, f'T{blob.brick_id}_B{blob.blob_id}_S{sid}_{conf.MODELING_NICKNAME}_srcprofile.pdf')
     else:
         bidx = [blob._band2idx(b, bands=blob.bands) for b in bands]
         if bands[0].startswith(conf.MODELING_NICKNAME):
@@ -225,11 +231,19 @@ def plot_srcprofile(blob, src, sid, bands=None):
         
         if band == conf.MODELING_NICKNAME:
             zpt = conf.MODELING_ZPT
+            rband = conf.MODELING_NICKNAME
         elif band.startswith(conf.MODELING_NICKNAME):
             band_name = band[len(conf.MODELING_NICKNAME)+1:]
-            zpt = conf.MULTIBAND_ZPT[blob._band2idx(band_name)]
+            # zpt = conf.MULTIBAND_ZPT[blob._band2idx(band_name)]
+            if band_name == conf.MODELING_NICKNAME:
+                zpt = conf.MODELING_ZPT
+                rband = band
+            else:
+                zpt = conf.MULTIBAND_ZPT[blob._band2idx(band_name)]
+                rband = conf.MODELING_NICKNAME + '_' + band_name
         else:
             zpt = conf.MULTIBAND_ZPT[blob._band2idx(band)]
+            rband = conf.MODELING_NICKNAME + '_' + band
 
         # information
         bid = blob.blob_id
@@ -251,18 +265,18 @@ def plot_srcprofile(blob, src, sid, bands=None):
         is_resolved = False
         if src.name not in ('PointSource', 'SimpleGalaxy'):
             is_resolved = True
-            try:  # I hate fixes like this... #HACK
-                rband = conf.MODELING_NICKNAME + '_' + band # Does this always work?! No.
-                reff, reff_err = np.exp(bsrc[f'REFF_{rband}'][0])*conf.PIXEL_SCALE, np.exp(bsrc[f'REFF_{rband}'][0])*bsrc[f'REFF_ERR_{rband}'][0]*2.303*conf.PIXEL_SCALE
-            except:
-                rband = conf.MODELING_NICKNAME
-                # print(bsrc.colnames)
-                reff, reff_err = np.exp(bsrc[f'REFF_{rband}'][0])*conf.PIXEL_SCALE, np.exp(bsrc[f'REFF_{rband}'][0])*bsrc[f'REFF_ERR_{rband}'][0]*2.303*conf.PIXEL_SCALE
+            col = np.array(bsrc.colnames)[np.array([tcoln.startswith('REFF') for tcoln in bsrc.colnames])][0]
+            rband = col[len('REFF_'):]
+
+            reff, reff_err = np.exp(bsrc[f'REFF_{rband}'][0])*conf.PIXEL_SCALE, np.exp(bsrc[f'REFF_{rband}'][0])*bsrc[f'REFF_ERR_{rband}'][0]*2.303*conf.PIXEL_SCALE
             ab, ab_err = bsrc[f'AB_{rband}'][0], bsrc[f'AB_ERR_{rband}'][0]
             if ab == -99.0:
                 ab = -99
                 ab_err = -99
             theta, theta_err = bsrc[f'THETA_{rband}'][0], bsrc[f'THETA_ERR_{rband}'][0]
+        
+            if 'Sersic' in src.name:
+                nre, nre_err = bsrc[f'N_{rband}'][0], bsrc[f'N_ERR_{rband}'][0]
 
         # images
         img = blob.images[idx]
@@ -333,7 +347,13 @@ def plot_srcprofile(blob, src, sid, bands=None):
                     s = f'Source: {sid} | Blob: {bid} | Brick: {blob.brick_id} | RA: {ra:6.6f}, Dec: {dec:6.6f}',
                     transform=ax[0,1].transAxes)
         if is_resolved:
-            ax[0,1].text(0, 0.70,
+
+            if 'Sersic' in src.name:
+                ax[0,1].text(0, 0.70,
+                    s = f'{src.name} with Reff: {reff:3.3f}+/-{reff_err:3.3f}, n: {nre:3.3f}+/-{nre_err:3.3f}, A/B: {ab:3.3f}+/-{ab_err:3.3f}, Theta: {theta:3.3f}+/-{theta_err:3.3f}',
+                    transform=ax[0,1].transAxes)
+            else:
+                ax[0,1].text(0, 0.70,
                     s = f'{src.name} with Reff: {reff:3.3f}+/-{reff_err:3.3f}, A/B: {ab:3.3f}+/-{ab_err:3.3f}, and Theta: {theta:3.3f}+/-{theta_err:3.3f}',
                     transform=ax[0,1].transAxes)
         else:
@@ -341,7 +361,7 @@ def plot_srcprofile(blob, src, sid, bands=None):
                     s = f'{src.name}',
                     transform=ax[0,1].transAxes)
         ax[0,1].text(0, 0.50,
-                    s = f'{band} | {flux:3.3f}+/-{flux_err:3.3f} uJy | {mag:3.3f}+/-{mag_err:3.3f} AB | S/N: {snr:3.3f}',
+                    s = f'{band} | {flux:3.3f}+/-{flux_err:3.3f} uJy | {mag:3.3f}+/-{mag_err:3.3f} AB | S/N = {snr:3.3f}',
                     transform=ax[0,1].transAxes)
         ax[0,1].text(0, 0.30,
                     s = f'Chi2/N: {chi2:3.3f} | N_blob: {n_blob} | '+r'$\mu(\chi)$'+f'={chi_mu:3.3f}, '+r'$\sigma(\chi)$'+f'={chi_sig:3.3f} | K2-test: {k2:3.3f}',
@@ -865,10 +885,29 @@ def plot_detblob(blob, fig=None, ax=None, band=None, level=0, sublevel=0, final_
         logger.info(f'Saving figure: {outpath}')
 
     else:
-        if init:
-            nrow = 4 * level + 2 * sublevel + 1
-        else:
-            nrow = 4 * level + 2 * sublevel + 2
+        if conf.DECISION_TREE == 1:
+            if init:
+                nrow = 4 * level + 2 * sublevel + 1
+            else:
+                nrow = 4 * level + 2 * sublevel + 2
+        elif conf.DECISION_TREE == 2:
+            if level == 0:
+                if sublevel == 0:
+                    nrow = 1
+                if sublevel == 1:
+                    nrow = 3
+            if level == 1:
+                if sublevel == 0:
+                    nrow = 5
+            if level == 2:
+                if sublevel == 0:
+                    nrow = 7
+            if level == 3:
+                if sublevel == 0:
+                    nrow = 9
+            if not init:
+                nrow += 1
+        
         residual = blob.images[idx] - blob.tr.getModelImage(idx)
         ax[nrow,0].axis('off')
         ax[nrow,1].imshow(blob.tr.getModelImage(idx), **img_opt)
@@ -876,7 +915,11 @@ def plot_detblob(blob, fig=None, ax=None, band=None, level=0, sublevel=0, final_
         ax[nrow,3].imshow(residual, cmap='RdGy', vmin=-5*rms, vmax=5*rms)
         ax[nrow,4].imshow(blob.tr.getChiImage(idx), cmap='RdGy', vmin = -5, vmax = 5)
 
-        models = {1:'PointSource', 3:'SimpleGalaxy', 5:'ExpGalaxy', 7:'DevGalaxy', 9:'CompositeGalaxy'}
+        if conf.DECISION_TREE == 1:
+            models = {1:'PointSource', 3:'SimpleGalaxy', 5:'ExpGalaxy', 7:'DevGalaxy', 9:'CompositeGalaxy'}
+        elif conf.DECISION_TREE == 2:
+            models = {1:'PointSource', 3:'SimpleGalaxy', 5:'SersicGalaxy', 7:'SersicCoreGalaxy', 9:'CompositeGalaxy'}
+
         if init:
             ax[nrow,1].set_ylabel(models[nrow])
         
@@ -948,19 +991,19 @@ def plot_fblob(blob, band, fig=None, ax=None, final_opt=False, debug=False):
 
         ax[2,1].set_ylabel('Solution')
 
-        bins = np.linspace(np.nanmin(residual), np.nanmax(residual), 30)
+        bins = np.arange(np.nanpercentile(residua, 5), np.nanpercentile(residual, 95), 0.1)
         minx, maxx = 0, 0
         for i, src in enumerate(blob.bcatalog):
             img_seg = blob.images[idx][blob.segmap==src['source_id']].flatten()
-            ax[2,5].hist(img_seg, bins=20, linestyle='dotted', histtype='step', color=colors[i], density=True)
+            ax[2,5].hist(img_seg, bins=bins, linestyle='dotted', histtype='step', color=colors[i], density=True)
             res_seg = residual[blob.segmap==src['source_id']].flatten()
-            ax[2,5].hist(res_seg, bins=20, histtype='step', color=colors[i], density=True)
-            resmin, resmax = np.nanmin(res_seg), np.nanmax(res_seg)
+            ax[2,5].hist(res_seg, bins=bins, histtype='step', color=colors[i], density=True)
+            resmin, resmax = np.nanpercentile(res_seg, 5), np.nnanpercentile(res_seg, 95)
             if resmin < minx:
                 minx = resmin
             if resmax > maxx:
                 maxx = resmax
-        ax[2,5].set_xlim(minx, maxx)
+        ax[2,5].set_xlim(-5, 5) #minx, maxx)
         ax[2,5].axvline(0, c='grey', ls='dotted')
         ax[2,5].set_ylim(bottom=0)
 

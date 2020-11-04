@@ -294,7 +294,7 @@ class Subimage():
             bands = list(bands)
         if band in bands:
             idx = bands.index(band)
-            self.logger.debug(f'subimage._band2idx :: {band} returns idx={idx}')
+            # self.logger.debug(f'subimage._band2idx :: {band} returns idx={idx}')
             return idx
         else:
             raise ValueError(f"{band} is not a valid band.")
@@ -353,23 +353,30 @@ class Subimage():
             self.logger.debug('Background will be subtracted.')
             background = sep.Background(self.images[idx], bw = conf.DETECT_BW, bh = conf.DETECT_BH,
                                 fw = conf.DETECT_FW, fh = conf.DETECT_FH)
-            image -= background.back()
+            if conf.USE_FLAT:
+                image -= background.globalback
+                self.logger.debug(f'Subtracted flat background level ({background.globalback:4.4f})')
+            else:
+                image -= background.back()
 
         var = np.ones_like(var)
         kwargs = dict(var=var, mask=mask, minarea=conf.MINAREA, filter_kernel=convfilt, 
                 filter_type=conf.FILTER_TYPE, segmentation_map=True, 
                 deblend_nthresh=conf.DEBLEND_NTHRESH, deblend_cont=conf.DEBLEND_CONT)
         catalog, segmap = sep.extract(image, thresh, **kwargs)
-        # catalog['y'] -= 0.75 # HACK
-        # catalog['x'] -= 1. #HACK
+        catalog['y'] -= 0.75 # HACK
+        catalog['x'] -= 0.1 #HACK
 
         # plt.ion()
-        # fig = plt.figure()
-        # plt.imshow(image)
-        # plt.scatter(catalog['x'], catalog['y'])
-        # plt.show()
-        # fig.savefig('whoknows.pdf')
-        # plt.pause(1000)
+        # fig, ax = plt.subplots(ncols=2, figsize=(40,20))
+        # from matplotlib.colors import LogNorm
+        # ax[0].imshow(image, norm=LogNorm(), vmin=1E-8, vmax=10, cmap='Greys')
+        # ax[0].scatter(catalog['x'], catalog['y'], s=1)
+        # ax[1].imshow(segmap)
+        # ax[1].scatter(catalog['x'], catalog['y'], s=1)
+        # # plt.show()
+        # fig.savefig(conf.PLOT_DIR + '/checksep.pdf')
+        # plt.close('all')
 
         
         if len(catalog) != 0:

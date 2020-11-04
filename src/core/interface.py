@@ -24,11 +24,13 @@ import time
 from functools import partial
 import shutil
 sys.path.insert(0, os.path.join(os.getcwd(), 'config'))
-import shutil
+import pickle
 
 # Tractor imports
 from tractor import NCircularGaussianPSF, PixelizedPSF, Image, Tractor, FluxesPhotoCal, NullWCS, ConstantSky, EllipseESoft, Fluxes, PixPos
 from tractor.galaxy import ExpGalaxy, DevGalaxy, FixedCompositeGalaxy, SoftenedFracDev, GalaxyShape
+from tractor.sersic import SersicIndex, SersicGalaxy
+from tractor.sercore import SersicCoreGalaxy
 from tractor.pointsource import PointSource
 from tractor.psfex import PixelizedPsfEx, PsfExModel
 from tractor.psf import HybridPixelizedPSF
@@ -558,17 +560,27 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
 
         # Run follow-up phot
         if conf.DO_APPHOT:
-            for img_type in ('image', 'model', 'isomodel', 'residual'):
+            for img_type in ('image', 'model', 'isomodel', 'residual',):
                 for band in modblob.bands:
                     try:
-                        modblob.aperture_phot(band, image_type=img_type, sub_background=conf.SUBTRACT_BACKGROUND)
+                        modblob.aperture_phot(band, img_type, sub_background=conf.SUBTRACT_BACKGROUND)
                     except:
-                        logger.info(f'interface.runblob :: WARNING - Aperture photmetry FAILED for {conf.MODELING_NICKNAME} {img_type}')
+                        logger.warning(f'Aperture photmetry FAILED for {band} {img_type}. Likely a bad blob.')
+        if conf.DO_SEPHOT:
+            for img_type in ('image', 'model', 'isomodel', 'residual',):
+                for band in modblob.bands:
+                    if True:
+                        modblob.sep_phot(band, img_type, centroid='MODEL', sub_background=conf.SUBTRACT_BACKGROUND)
+                        modblob.sep_phot(band, img_type, centroid='DETECTION', sub_background=conf.SUBTRACT_BACKGROUND)
+                    if False: #except:
+                        logger.warning(f'SEP photometry FAILED for {band} {img_type}. Likely a bad blob.')
+
         if conf.DO_SEXPHOT:
-            try:
-                modblob.residual_phot()
-            except:
-                logger.warning(f'Source extraction on the residual blob FAILED for {conf.MODELING_NICKNAME} {img_type}')    
+            for band in modblob.bands:
+                try:
+                    modblob.residual_phot(band, sub_background=conf.SUBTRACT_BACKGROUND)
+                except:
+                    logger.warning(f'SEP residual photmetry FAILED. Likely a bad blob.)')
 
         duration = time.time() - tstart
         logger.info(f'Solution for Blob #{modblob.blob_id} (N={modblob.n_sources}) arrived at in {duration:3.3f}s ({duration/modblob.n_sources:2.2f}s per src)')
@@ -683,22 +695,25 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
         if conf.DO_APPHOT:
             for img_type in ('image', 'model', 'isomodel', 'residual',):
                 for band in fblob.bands:
-                    if True:
+                    try:
                         fblob.aperture_phot(band, img_type, sub_background=conf.SUBTRACT_BACKGROUND)
-                    if False:
+                    except:
                         logger.warning(f'Aperture photmetry FAILED for {band} {img_type}. Likely a bad blob.')
-        if conf.DO_SEXPHOT:
-            if True:
-                [fblob.residual_phot(band) for band in fblob.bands]
-            if False:
-                logger.warning(f'Residual Sextractor photmetry FAILED. Likely a bad blob.)')
-
         if conf.DO_SEPHOT:
-            if True:
-                [fblob.sep_phot(band, centroid='MODEL') for band in fblob.bands]
-                [fblob.sep_phot(band, centroid='DETECTION') for band in fblob.bands]
-            if False:
-                logger.warning(f'SEP photmetry FAILED. Likely a bad blob.)')
+            for img_type in ('image', 'model', 'isomodel', 'residual',):
+                for band in fblob.bands:
+                    if True:
+                        fblob.sep_phot(band, img_type, centroid='MODEL', sub_background=conf.SUBTRACT_BACKGROUND)
+                        fblob.sep_phot(band, img_type, centroid='DETECTION', sub_background=conf.SUBTRACT_BACKGROUND)
+                    if False: #except:
+                        logger.warning(f'SEP photometry FAILED for {band} {img_type}. Likely a bad blob.')
+
+        if conf.DO_SEXPHOT:
+            for band in fblob.bands:
+                try:
+                    fblob.residual_phot(band, sub_background=conf.SUBTRACT_BACKGROUND)
+                except:
+                    logger.warning(f'SEP residual photmetry FAILED. Likely a bad blob.)')
 
         duration = time.time() - tstart
         logger.info(f'Solution for blob {fblob.blob_id} (N={fblob.n_sources}) arrived at in {duration:3.3f}s ({duration/fblob.n_sources:2.2f}s per src)')
@@ -712,8 +727,40 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
     return catout
 
 
-def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, blobmap=None, catalog=None, multiband_model=False, use_mask=True, source_only=False):
-    """ Stage 2. Detect your sources and determine the best model parameters for them """
+def detect_sources(brick_id, catalog=None, segmap=None, blobmap=None, use_mask=True):
+    """Now we can detect stuff and be rid of it!
+
+    Parameters
+    ----------
+    brick_id : [type]
+        [description]
+    catalog : [type], optional
+        [description], by default None
+    segmap : [type], optional
+        [description], by default None
+    blobmap : [type], optional
+        [description], by default None
+    catalog : [type], optional
+        [description], by default None
+    use_mask : bool, optional
+        [description], by default True
+
+    Returns
+    -------
+    [type]
+        [description]
+
+    Raises
+    ------
+    RuntimeError
+        [description]
+    ValueError
+        [description]
+    ValueError
+        [description]
+    ValueError
+        [description]
+    """
 
     if conf.LOGFILE_LOGGING_LEVEL is not None:
         brick_logging_path = os.path.join(conf.LOGGING_DIR, f"B{brick_id}_logfile.log")
@@ -739,11 +786,6 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
     # Create detection brick
     tstart = time.time()
 
-    if (source_id is None) & (blob_id is None):
-        if (conf.NBLOBS == 0) & (conf.NTHREADS > 1) & ((conf.PLOT > 0)):
-            conf.PLOT = 0
-            logger.warning('Plotting not supported while modeling in parallel!')
-
 
     detbrick = stage_brickfiles(brick_id, nickname=conf.DETECTION_NICKNAME, modeling=True, is_detection=True)
     if detbrick is None:
@@ -757,7 +799,7 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
         try:
             detbrick.sextract(conf.DETECTION_NICKNAME, sub_background=conf.DETECTION_SUBTRACT_BACKGROUND, use_mask=use_mask, incl_apphot=conf.DO_APPHOT)
             logger.info(f'Detection brick #{brick_id} sextracted {detbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
-            is_borrowed = False
+            detbrick.is_borrowed = False
         except:
             raise RuntimeError(f'Detection brick #{brick_id} sextraction FAILED. ({time.time() - tstart:3.3f}s)')
             return
@@ -778,22 +820,24 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
                 blobmap = hdul_seg['BLOBMAP'].data
             else:
                 raise ValueError(f'No valid segmentation map was found for {brick_id}')
-        if 'x' in catalog.colnames:
-            if 'x_borrowed' in catalog.colnames:
-                catalog.remove_column('x_borrowed')
-            catalog['x'].name = 'x_borrowed'
-        if 'y' in catalog.colnames:
-            if 'y_borrowed' in catalog.colnames:
-                catalog.remove_column('y_borrowed')
-            catalog['y'].name = 'y_borrowed'
-        catalog[conf.X_COLNAME].name = 'x'
-        catalog[conf.Y_COLNAME].name = 'y'
+        if conf.X_COLNAME is not 'x':
+            if 'x' in catalog.colnames:
+                if 'x_borrowed' in catalog.colnames:
+                    catalog.remove_column('x_borrowed')
+                catalog['x'].name = 'x_borrowed'
+            catalog[conf.X_COLNAME].name = 'x'
+        if conf.Y_COLNAME is not 'y':
+            if 'y' in catalog.colnames:
+                if 'y_borrowed' in catalog.colnames:
+                    catalog.remove_column('y_borrowed')
+                catalog['y'].name = 'y_borrowed'
+            catalog[conf.Y_COLNAME].name = 'y'
         # catalog['x'] = catalog['x'] - detbrick.mosaic_origin[1] + conf.BRICK_BUFFER - 1
         # catalog['y'] = catalog['y'] - detbrick.mosaic_origin[0] + conf.BRICK_BUFFER - 1
         detbrick.catalog = catalog
         detbrick.n_sources = len(catalog)
         detbrick.n_blobs = len(np.unique(catalog['blob_id']))
-        is_borrowed = True
+        detbrick.is_borrowed = True
         detbrick.segmap = segmap
         detbrick.segmask = segmap.copy()
         detbrick.segmask[segmap!=0] = 1 
@@ -802,6 +846,52 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
     else:
         raise ValueError('No valid segmap, blobmap, and catalog provided to override SExtraction!')
         return
+
+    if (~detbrick.is_borrowed):
+        detbrick.cleanup()
+
+    if conf.PLOT > 2:
+        plot_blobmap(detbrick, image=detbrick.images[0], band=conf.DETECTION_NICKNAME)
+
+    # Save segmap and blobmaps
+    if (~detbrick.is_borrowed):
+        tstart = time.time()
+        logger.info('Saving segmentation and blob maps...')
+        outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits')
+        if os.path.exists(outpath) & (~conf.OVERWRITE):
+            logger.warning('Segmentation file exists and I will not overwrite it!')
+        else:
+            hdul = fits.HDUList()
+            hdul.append(fits.PrimaryHDU())
+            hdul.append(fits.ImageHDU(data=detbrick.segmap, name='SEGMAP', header=detbrick.wcs.to_header()))
+            hdul.append(fits.ImageHDU(data=detbrick.blobmap, name='BLOBMAP', header=detbrick.wcs.to_header()))
+            outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits')
+            hdul.writeto(outpath, overwrite=conf.OVERWRITE)
+            hdul.close()
+            logger.info(f'Saved to {outpath} ({time.time() - tstart:3.3f}s)')
+
+            tstart = time.time()
+        
+    else:
+        logger.info(f'You gave me a catalog and segmap, so I am not saving it again.')
+
+    filen = open(os.path.join(conf.INTERIM_DIR, f'detbrick_N{brick_id}.pkl'), 'wb')
+    pickle.dump(detbrick, filen)
+    return detbrick
+
+
+def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=None, multiband_model=len(conf.BANDS)>1, source_only=False):
+    """ Stage 2. Detect your sources and determine the best model parameters for them """
+
+    # Warn user that you cannot plot while running multiprocessing...
+    if (source_id is None) & (blob_id is None):
+        if (conf.NBLOBS == 0) & (conf.NTHREADS > 1) & ((conf.PLOT > 0)):
+            conf.PLOT = 0
+            logger.warning('Plotting not supported while modeling in parallel!')
+
+    if detbrick=='auto':
+        filen = open(os.path.join(conf.INTERIM_DIR, f'detbrick_N{brick_id}.pkl'), 'rb')
+        detbrick = pickle.load(filen)
 
     # Create modbrick
     if band is None:
@@ -835,18 +925,38 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
             modbrick = stage_brickfiles(brick_id, band=mod_band, nickname=mod_nickname, modeling=True)
             if modbrick is None:
                 return
-            if band != conf.MODELING_NICKNAME:
+            if (band is not None) & (band != conf.MODELING_NICKNAME):
                 modbrick.bands = [f'{conf.MODELING_NICKNAME}_{mod_band}',]
                 modbrick.n_bands = len(modbrick.bands)
             else:
                 mod_band = conf.MODELING_NICKNAME
             logger.info(f'Modeling brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
-
-
+            
             if conf.PLOT > 2:
                 plot_brick(modbrick, 0, band=mod_band)
                 plot_background(modbrick, 0, band=mod_band)
                 plot_mask(modbrick, 0, band=mod_band)
+
+            if conf.SAVE_BACKGROUND:
+                outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_BACKGROUNDS.fits')
+                logger.info('Saving background and RMS maps...')
+                if os.path.exists(outpath):
+                    hdul = fits.open(outpath)
+                else:
+                    hdul = fits.HDUList()
+                    hdul.append(fits.PrimaryHDU())
+                for m, mband in enumerate(modbrick.bands):
+                    hdul.append(fits.ImageHDU(data=modbrick.background_images[m], name=f'BACKGROUND_{mband}', header=modbrick.wcs.to_header()))
+                    hdul[f'BACKGROUND_{mband}'].header['BACK_GLOBAL'] = modbrick.backgrounds[m,0]
+                    hdul[f'BACKGROUND_{mband}'].header['BACK_RMS'] = modbrick.backgrounds[m,1]
+                    if (conf.SUBTRACT_BACKGROUND_WITH_MASK|conf.SUBTRACT_BACKGROUND_WITH_DIRECT_MEDIAN):
+                        hdul[f'BACKGROUND_{mband}'].header['MASKEDIMAGE_GLOBAL'] = modbrick.masked_median[m]
+                        hdul[f'BACKGROUND_{mband}'].header['MASKEDIMAGE_RMS'] = modbrick.masked_std[m]
+                    hdul.append(fits.ImageHDU(data=modbrick.background_rms_images[m], name=f'RMS_{mband}', header=modbrick.wcs.to_header()))
+                    hdul.append(fits.ImageHDU(data=1/np.sqrt(modbrick.weights[m]), name=f'UNC_{mband}', header=modbrick.wcs.to_header()))
+                hdul.writeto(outpath, overwrite=conf.OVERWRITE)
+                hdul.close()
+                logger.info(f'Saved to {outpath} ({time.time() - tstart:3.3f}s)')
 
             logger.debug(f'Brick #{brick_id} -- Image statistics for {mod_band}')
             shape, minmax, mean, var = stats.describe(modbrick.images[0], axis=None)[:4]
@@ -867,15 +977,14 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
             modbrick.catalog = detbrick.catalog.copy()
             modbrick.segmap = detbrick.segmap
             modbrick.n_sources = detbrick.n_sources
-            if is_borrowed:
-                modbrick.blobmap = detbrick.blobmap
-                modbrick.n_blobs = detbrick.n_blobs
-                modbrick.segmask = detbrick.segmask
+            modbrick.is_modeling = True
+            # if detbrick.is_borrowed:
+            modbrick.blobmap = detbrick.blobmap
+            modbrick.n_blobs = detbrick.n_blobs
+            modbrick.segmask = detbrick.segmask
 
-            # Cleanup on MODBRICK
+            # Transfer to MODBRICK
             tstart = time.time()
-            if (~is_borrowed) & (band_num == 0):
-                modbrick.cleanup()
             if band_num > 0:
                 modbrick.n_blobs, modbrick.n_sources, modbrick.segmap, modbrick.segmask, modbrick.blobmap, modbrick.catalog = n_blobs, n_sources, segmap, segmask, blobmap, catalog
             if modbrick.n_blobs <= 0:
@@ -886,52 +995,6 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
             
             modbrick.add_columns(modbrick_name=mod_band, multiband_model = False) # doing on detbrick gets column names wrong
             logger.info(f'Modeling brick #{brick_id} gained {modbrick.n_blobs} blobs with {modbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
-
-            if conf.PLOT > 2:
-                plot_blobmap(modbrick)
-                plot_blobmap(modbrick, image=detbrick.images[0], band=conf.DETECTION_NICKNAME)
-
-            # Save segmap and blobmaps
-            if (~is_borrowed) & (band_num == 0):
-                tstart = time.time()
-                logger.info('Saving segmentation and blob maps...')
-                outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits')
-                if os.path.exists(outpath) & (~conf.OVERWRITE):
-                    logger.warning('Segmentation file exists and I will not overwrite it!')
-                else:
-                    hdul = fits.HDUList()
-                    hdul.append(fits.PrimaryHDU())
-                    hdul.append(fits.ImageHDU(data=modbrick.segmap, name='SEGMAP', header=modbrick.wcs.to_header()))
-                    hdul.append(fits.ImageHDU(data=modbrick.blobmap, name='BLOBMAP', header=modbrick.wcs.to_header()))
-                    outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits')
-                    hdul.writeto(outpath, overwrite=conf.OVERWRITE)
-                    hdul.close()
-                    logger.info(f'Saved to {outpath} ({time.time() - tstart:3.3f}s)')
-
-                    tstart = time.time()
-                
-                if conf.SAVE_BACKGROUND:
-                    outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_BACKGROUNDS.fits')
-                    logger.info('Saving background and RMS maps...')
-                    if os.path.exists(outpath):
-                        hdul = fits.open(outpath)
-                    else:
-                        hdul = fits.HDUList()
-                        hdul.append(fits.PrimaryHDU())
-                    for m, mband in enumerate(modbrick.bands):
-                        hdul.append(fits.ImageHDU(data=modbrick.background_images[m], name=f'BACKGROUND_{mband}', header=modbrick.wcs.to_header()))
-                        hdul[f'BACKGROUND_{mband}'].header['BACK_GLOBAL'] = modbrick.backgrounds[m,0]
-                        hdul[f'BACKGROUND_{mband}'].header['BACK_RMS'] = modbrick.backgrounds[m,1]
-                        if (conf.SUBTRACT_BACKGROUND_WITH_MASK|conf.SUBTRACT_BACKGROUND_WITH_DIRECT_MEDIAN):
-                            hdul[f'BACKGROUND_{mband}'].header['MASKEDIMAGE_GLOBAL'] = modbrick.masked_median[m]
-                            hdul[f'BACKGROUND_{mband}'].header['MASKEDIMAGE_RMS'] = modbrick.masked_std[m]
-                        hdul.append(fits.ImageHDU(data=modbrick.background_rms_images[m], name=f'RMS_{mband}', header=modbrick.wcs.to_header()))
-                        hdul.append(fits.ImageHDU(data=1/np.sqrt(modbrick.weights[m]), name=f'UNC_{mband}', header=modbrick.wcs.to_header()))
-                    hdul.writeto(outpath, overwrite=conf.OVERWRITE)
-                    hdul.close()
-                    logger.info(f'Saved to {outpath} ({time.time() - tstart:3.3f}s)')
-            else:
-                logger.info(f'You gave me a catalog and segmap, so I am not saving it again.')
 
             if source_only:
                 if source_id is None:
@@ -957,6 +1020,7 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
 
                 logger.info(f'Running single blob {blob_id}')
                 modblob = modbrick.make_blob(blob_id)
+                modblob.is_modeling=True
 
                 # if source_id is set, then look at only that source
 
@@ -1084,7 +1148,7 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
     elif multiband_model:
         tstart = time.time()
         n_sources, segmap, catalog = detbrick.n_sources, detbrick.segmap, detbrick.catalog
-        if is_borrowed:
+        if detbrick.is_borrowed:
             catalog['x'] = catalog['x'] - detbrick.mosaic_origin[1] + conf.BRICK_BUFFER - 1
             catalog['y'] = catalog['y'] - detbrick.mosaic_origin[0] + conf.BRICK_BUFFER - 1
         modbrick = stage_brickfiles(brick_id, band=img_names, nickname=mod_nickname, modeling=True)
@@ -1095,7 +1159,7 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
         logger.info(f'Multi-band Modeling brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
 
         for i, mod_band in enumerate(modbrick.bands):
-            if conf.PLOT > 2:
+            if conf.PLOT > 3:
                 plot_brick(modbrick, 0, band=mod_band)
                 plot_background(modbrick, 0, band=mod_band)
                 plot_mask(modbrick, 0, band=mod_band)
@@ -1119,34 +1183,25 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
         modbrick.catalog = catalog.copy()
         modbrick.segmap = segmap
         modbrick.n_sources = n_sources
-        if is_borrowed:
-            modbrick.blobmap = detbrick.blobmap
-            modbrick.n_blobs = detbrick.n_blobs
-            modbrick.segmask = detbrick.segmask
+        modbrick.is_modeling = True
+        modbrick.blobmap = detbrick.blobmap
+        modbrick.n_blobs = detbrick.n_blobs
+        modbrick.segmask = detbrick.segmask
+
 
         # Cleanup on MODBRICK
         tstart = time.time()
-        if not is_borrowed:
-            logger.info('Cleaning up brick')
-            modbrick.cleanup()
-        if is_borrowed:
-            if 'VALID_SOURCE' in modbrick.catalog.colnames:
-                    modbrick.catalog['VALID_SOURCE'] = np.zeros(len(modbrick.catalog), dtype=bool)
-        if modbrick.n_blobs <= 0:
-            logger.critical(f'Modeling brick #{brick_id} gained {modbrick.n_blobs} blobs! Quiting.')
-            return
         modbrick.shared_params = True ## CRITICAL THING TO DO HERE!
         modbrick.add_columns(multiband_model=True) # doing on detbrick gets column names wrong
-        logger.info(f'Modeling brick #{brick_id} gained {modbrick.n_blobs} blobs with {modbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
+        logger.info(f'Modeling brick #{brick_id} has {modbrick.n_blobs} blobs with {modbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
 
         modbrick.run_weights()
 
         if conf.PLOT > 2:
             plot_blobmap(modbrick)
-            plot_blobmap(modbrick, image=detbrick.images[0], band=conf.DETECTION_NICKNAME)
 
         # Save segmap and blobmaps
-        if not is_borrowed:
+        if not detbrick.is_borrowed:
             tstart = time.time()
             logger.info('Saving segmentation and blob maps...')
             hdul = fits.HDUList()
@@ -1229,10 +1284,7 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
             for colname in output_cat.colnames:
                 if colname not in outcatalog.colnames:
                     colshape = output_cat[colname].shape
-                    if colname.startswith('FLUX_APER'):
-                        outcatalog.add_column(Column(length=len(outcatalog), dtype=float, shape=(len(conf.APER_PHOT)), name=colname))
-                    else:
-                        outcatalog.add_column(Column(length=len(outcatalog), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
+                    outcatalog.add_column(Column(length=len(outcatalog), dtype=output_cat[colname].dtype, shape=colshape, name=colname))
 
             #outcatalog = join(outcatalog, output_cat, join_type='left', )
             for row in output_cat:
@@ -1296,11 +1348,13 @@ def make_models(brick_id, band=None, source_id=None, blob_id=None, segmap=None, 
                         
             for colname in output_cat.colnames:
                 if colname not in outcatalog.colnames:
-                    colshape = output_cat[colname].shape
-                    if colname.startswith('FLUX_APER'):
-                        outcatalog.add_column(Column(length=len(outcatalog), dtype=float, shape=(len(conf.APER_PHOT)), name=colname))
+                    colshape = np.shape(output_cat[colname])
+                    if len(colshape) == 2:
+                        colshape = colshape[1]
                     else:
-                        outcatalog.add_column(Column(length=len(outcatalog), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
+                        colshape = 1
+                    print(colname, colshape)
+                    outcatalog.add_column(Column(length=len(outcatalog), dtype=output_cat[colname].dtype, shape=colshape, name=colname))
             #outcatalog = join(outcatalog, output_cat, join_type='left', )
             for row in output_cat:
                 outcatalog[np.where(outcatalog['source_id'] == row['source_id'])[0]] = row
@@ -2182,6 +2236,8 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, modeling=False, 
         else:
             sbands = [band,]
         # conf.BANDS = sbands
+    
+    [logger.debug(f' *** {i}') for i in sbands]
 
     if os.path.exists(path_brickfile):
         # Stage things
@@ -2197,7 +2253,7 @@ def stage_brickfiles(brick_id, nickname='MISCBRICK', band=None, modeling=False, 
 
             # Stuff data into arrays
             for i, tband in enumerate(sbands):
-                logger.info(f'Adding {tband} IMAGE, WEIGHT, and MASK arrays to modbrick')
+                logger.info(f'Adding {tband} IMAGE, WEIGHT, and MASK arrays to brick')
                 images[i] = hdul_brick[f"{tband}_IMAGE"].data
                 weights[i] = hdul_brick[f"{tband}_WEIGHT"].data
                 masks[i] = hdul_brick[f"{tband}_MASK"].data
@@ -2361,7 +2417,7 @@ def models_from_catalog(catalog, fblob, unit_flux=False):
             logger.warning(f'Source #{src["source_id"]}: {src[f"SOLMODEL_{best_band}"]} is INVALID.')
             continue
 
-        if (not conf.FREEZE_FORCED_POSITION) & conf.USE_POSITION_PRIOR:
+        if (not conf.FREEZE_FORCED_POSITION) & conf.USE_FORCE_POSITION_PRIOR:
             ffps_x = conf.FORCE_POSITION_PRIOR_SIG
             ffps_y = conf.FORCE_POSITION_PRIOR_SIG
             if conf.FORCE_POSITION_PRIOR_SIG in ('auto', 'AUTO'):
@@ -2388,11 +2444,13 @@ def models_from_catalog(catalog, fblob, unit_flux=False):
         if src[f'SOLMODEL_{best_band}'] not in ('PointSource', 'SimpleGalaxy'):
             #shape = EllipseESoft.fromRAbPhi(src['REFF'], 1./src['AB'], -src['THETA'])  # Reff, b/a, phi
             shape = EllipseESoft(src[f'REFF_{best_band}'], src[f'EE1_{best_band}'], src[f'EE2_{best_band}'])
+            nre = SersicIndex(src[f'N_{best_band}'])
+            fluxcore = flux # Eh, ok.... #HACK
 
             if conf.USE_FORCE_SHAPE_PRIOR:
-                shape.addGaussianPrior('logre', src[f'REFF_{best_band}'], conf.FORCE_REFF_PRIOR_SIG )
-                shape.addGaussianPrior('ee1', src[f'EE1_{best_band}'], conf.FORCE_EE_PRIOR_SIG )
-                shape.addGaussianPrior('ee2', src[f'EE2_{best_band}'], conf.FORCE_EE_PRIOR_SIG )
+                shape.addGaussianPrior('logre', src[f'REFF_{best_band}'], conf.FORCE_REFF_PRIOR_SIG/conf.PIXEL_SCALE )
+                shape.addGaussianPrior('ee1', src[f'EE1_{best_band}'], conf.FORCE_EE_PRIOR_SIG/conf.PIXEL_SCALE )
+                shape.addGaussianPrior('ee2', src[f'EE2_{best_band}'], conf.FORCE_EE_PRIOR_SIG/conf.PIXEL_SCALE )
 
         if src[f'SOLMODEL_{best_band}'] == 'PointSource':
             model_catalog[i] = PointSource(position, flux)
@@ -2403,6 +2461,10 @@ def models_from_catalog(catalog, fblob, unit_flux=False):
             model_catalog[i] = ExpGalaxy(position, flux, shape)
         elif src[f'SOLMODEL_{best_band}'] == 'DevGalaxy':
             model_catalog[i] = DevGalaxy(position, flux, shape)
+        elif src[f'SOLMODEL_{best_band}'] == 'SersicGalaxy':
+            model_catalog[i] = SersicGalaxy(position, flux, shape, nre)
+        elif src[f'SOLMODEL_{best_band}'] == 'SersicCoreGalaxy':
+            model_catalog[i] = SersicCoreGalaxy(position, flux, shape, nre, fluxcore)
         elif src[f'SOLMODEL_{best_band}'] == 'FixedCompositeGalaxy':
             #expshape = EllipseESoft.fromRAbPhi(src['EXP_REFF'], 1./src['EXP_AB'],  -src['EXP_THETA'])
             #devshape = EllipseESoft.fromRAbPhi(src['DEV_REFF'], 1./src['DEV_AB'],  -src['DEV_THETA'])
@@ -2412,6 +2474,8 @@ def models_from_catalog(catalog, fblob, unit_flux=False):
                                             position, flux,
                                             SoftenedFracDev(src[f'FRACDEV_{best_band}']),
                                             expshape, devshape)
+        else:
+            raise RuntimeError('Blob is valid but it is somehow missing a model for a source! Bug...')
 
         logger.debug(f'Source #{src["source_id"]}: {src[f"SOLMODEL_{best_band}"]} model at {position}')
         logger.debug(f'               {flux}') 
@@ -2420,8 +2484,15 @@ def models_from_catalog(catalog, fblob, unit_flux=False):
                 logger.debug(f"    Reff:               {src[f'REFF_{best_band}']:3.3f}")
                 logger.debug(f"    a/b:                {src[f'AB_{best_band}']:3.3f}")
                 logger.debug(f"    pa:                 {src[f'THETA_{best_band}']:3.3f}")
+            
+            if src[f'SOLMODEL_{best_band}'] == 'SersicGalaxy':
+                logger.debug(f"    Nsersic:            {src[f'N_{best_band}']:3.3f}")
+            
+            if src[f'SOLMODEL_{best_band}'] == 'SersicCoreGalaxy':
+                logger.debug(f"    Nsersic:            {src[f'N_{best_band}']:3.3f}")
+                # logger.debug(f"    FluxCore:           {src[f'FLUXCORE_{best_band}']:3.3f}")
 
-            else:
+            if src[f'SOLMODEL_{best_band}'] == 'FixedCompositeGalaxy':
                 logger.debug(f"EXP|Reff:               {src[f'EXP_REFF_{best_band}']:3.3f}")
                 logger.debug(f"    a/b:                {src[f'EXP_AB_{best_band}']:3.3f}")
                 logger.debug(f"    pa:                 {src[f'EXP_THETA_{best_band}']:3.3f}")

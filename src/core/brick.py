@@ -67,6 +67,8 @@ class Brick(Subimage):
         self.psfmodels = psfmodels
         self.bands = np.array(bands)
 
+        self.is_modeling = False
+
         self.generate_backgrounds()
 
 
@@ -105,22 +107,98 @@ class Brick(Subimage):
 
     def cleanup(self):
         """TODO: docstring"""
+
+        self.logger.info('Cleaning catalog...')
+
         self.clean_segmap()
 
         self.clean_catalog()
+
+        # self.new_segmap()
 
         self.dilate()
 
         self.relabel()
 
-        # self.clean_blobmap()
+        self.clean_blobmap()
 
         self.add_ids()
 
         self.run_background()
 
+        self.logger.info('Finished cleaning catalog.')
+
+    def new_segmap(self):
+        """Obtain a new segmap with only pixels within the existing segmap with SNR >= target"""
+        self.logger.info(f'Eroding the segmap to a new target SNR = {conf.SEGMAP_SNR}')
+        segmask_init = self.segmap.copy()
+        segmap = self.segmap.copy()
+        segmask_init[self.segmap > 0] = 1
+        segmask = segmask_init*0
+
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(ncols=2, figsize=(20,10))
+        ax[0].imshow(segmask_init)
+        ax[1].imshow(segmap)
+        ax[0].scatter(self.catalog['x'], self.catalog['y'], s=1)
+        plt.savefig(conf.PLOT_DIR + '/preerosion.pdf')
+        plt.close('all')
+
+        self.logger.info(f'Pre-erosion fraction: {np.sum(segmask_init)/segmask_init.size:3.3f}')
+        snrmap = self.images[0] * np.sqrt(self.weights[0])
+        segmask[(segmask_init == 1) & (snrmap >= conf.SEGMAP_SNR)] = 1
+
+        fig, ax = plt.subplots(ncols=2, figsize=(20,10))
+        ax[0].imshow(segmask)
+        ax[1].imshow(segmap)
+        ax[0].scatter(self.catalog['x'], self.catalog['y'], s=1)
+        plt.savefig(conf.PLOT_DIR + '/inter1erosion.pdf')
+        plt.close('all')
+
+        # Try just cleaning it with an erosion
+        radius = 2
+        struct2 = create_circular_mask(2*abs(radius), 2*abs(radius), radius=abs(radius))
+        segmask = binary_erosion(segmask, structure=struct2)
+
+        fig, ax = plt.subplots(ncols=2, figsize=(20,10))
+        ax[0].imshow(segmask)
+        ax[1].imshow(segmap)
+        ax[0].scatter(self.catalog['x'], self.catalog['y'], s=1)
+        plt.savefig(conf.PLOT_DIR + '/inter2erosion.pdf')
+        plt.close('all')
+
+        # But save the small guys!
+        uniq_id = np.unique(self.segmap)[1:]
+        keep = np.array([np.sum(self.segmap==i) <= conf.SEGMAP_MINAREA for i in uniq_id])
+        # add in all the small ones that could get totally removed
+        for idx in uniq_id[keep]:
+            segmask[self.segmap==idx] = 1
+
+        segmap[segmask==0] == 0
+
+        self.logger.info(f'Post-erosion fraction: {np.sum(segmask)/segmask.size:3.3f}')
+
+        fig, ax = plt.subplots(ncols=2, figsize=(20,10))
+        ax[0].imshow(segmask)
+        ax[1].imshow(segmap)
+        ax[0].scatter(self.catalog['x'], self.catalog['y'], s=1)
+        plt.savefig(conf.PLOT_DIR + '/posterosion.pdf')
+        plt.close('all')
+
+        # make sure every source sits in a segment -- this was not meant to remove any!
+        for idx, (x, y) in enumerate(self.catalog['x', 'y']):
+            if segmap[int(y), int(x)] != idx+1:
+                raise RuntimeError(f'Source #{idx+1} does not have a segment!') 
+
+
+        self.segmask = segmask
+
+        # apply to segmap
+        self.segmap = segmap
+
     def clean_segmap(self):
         """TODO: docstring"""
+        self.logger.info('Removing sources in the border region')
         coords = np.array([self.catalog['x'], self.catalog['y']]).T
         self._allowed_sources = (coords[:,0] > self._buff_left) & (coords[:,0] < self._buff_right )\
                         & (coords[:,1] > self._buff_bottom) & (coords[:,1] < self._buff_top)
@@ -135,6 +213,9 @@ class Brick(Subimage):
         self.catalog.add_column(Column(sid_col.astype(int), name='source_id'), 0)
         self.catalog = self.catalog[self._allowed_sources]
         self.n_sources = len(self.catalog)
+        n_cleaned = np.sum(~self._allowed_sources)
+        pc = n_cleaned / len(self._allowed_sources)
+        self.logger.info(f'Cleaned out {n_cleaned} sources ({pc:3.3f}%)')
 
     def add_columns(self, modeling=True, multiband_model=False, modbrick_name=conf.MODELING_NICKNAME):
         """TODO: docstring"""
@@ -164,6 +245,8 @@ class Brick(Subimage):
                 self.catalog.add_column(Column(filler, name=f'RAWFLUXERR_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'FLUX_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'FLUXERR_{colname}'))
+                self.catalog.add_column(Column(filler, name=f'RAWFLUXCORE_{colname}'))
+                self.catalog.add_column(Column(filler, name=f'RAWFLUXCOREERR_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'CHISQ_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'BIC_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'SNR_{colname}'))
@@ -171,6 +254,8 @@ class Brick(Subimage):
                 self.catalog.add_column(Column(filler, name=f'CHI_MU_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'CHI_SIG_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'CHI_K2_{colname}'))
+                self.catalog.add_column(Column(filler, name=f'SEG_RAWFLUX_{colname}'))
+                self.catalog.add_column(Column(filler, name=f'CHISQ_NOMODEL_{colname}'))
                 self.catalog.add_column(Column(boolfiller, name=f'VALID_SOURCE_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'RAWDIRECTFLUXERR_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'DIRECTFLUXERR_{colname}'))
@@ -186,7 +271,7 @@ class Brick(Subimage):
             except:
                 self.logger.debug(f'Columns already exist for {colname}')
             if (modeling & (not multiband_model)) | (not conf.FREEZE_FORCED_SHAPE):
-                if modeling:
+                if modeling & (colname != conf.MODELING_NICKNAME):
                     self.logger.debug(f'Adding model columns to catalog. (multiband = False)')
                     self.catalog.add_column(Column(boolfiller, name=f'VALID_SOURCE_{conf.MODELING_NICKNAME}'))
 
@@ -195,13 +280,19 @@ class Brick(Subimage):
                             self.catalog.add_column(Column(filler, name=colname_fill))
                         except:
                             pass
-                self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype='S20'), name=f'SOLMODEL_{colname}'))
-                # self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=bool), name=f'VALID_SOURCE_{colname}'))
+                try:
+                    self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype='S20'), name=f'SOLMODEL_{colname}'))
+                except:
+                    pass  # This is a bit silly, but it gets around the issue of an input catalog already having these columns...
                 
                 for colname_fill in [f'{colext}_{colname}' for colext in ('REFF', 'REFF_ERR', 'EE1', 'EE2', 'AB', 'AB_ERR', 'THETA', 'THETA_ERR',
+                            'N', 'N_ERR',
                             'FRACDEV', 'EXP_REFF', 'EXP_REFF_ERR', 'EXP_EE1', 'EXP_EE2', 'EXP_AB', 'EXP_AB_ERR', 'EXP_THETA', 'EXP_THETA_ERR', 
                             'DEV_REFF', 'DEV_REFF_ERR', 'DEV_EE1', 'DEV_EE2', 'DEV_AB', 'DEV_AB_ERR', 'DEV_THETA', 'DEV_THETA_ERR' )]:
-                    self.catalog.add_column(Column(-99. * (1.+filler), name=colname_fill))
+                    try:
+                        self.catalog.add_column(Column(-99. * (1.+filler), name=colname_fill))
+                    except:
+                        pass
 
         if multiband_model:
             colname = modbrick_name
@@ -215,6 +306,7 @@ class Brick(Subimage):
                 # self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype=bool), name=f'VALID_SOURCE_{colname}'))
                 
                 for colname_fill in [f'{colext}_{colname}' for colext in ('REFF', 'REFF_ERR', 'EE1', 'EE2', 'AB', 'AB_ERR', 'THETA', 'THETA_ERR',
+                            'N', 'N_ERR',
                             'FRACDEV', 'EXP_REFF', 'EXP_REFF_ERR', 'EXP_EE1', 'EXP_EE2', 'EXP_AB', 'EXP_AB_ERR', 'EXP_THETA', 'EXP_THETA_ERR', 
                             'DEV_REFF', 'DEV_REFF_ERR', 'DEV_EE1', 'DEV_EE2', 'DEV_AB', 'DEV_AB_ERR', 'DEV_THETA', 'DEV_THETA_ERR' )]:
                     self.catalog.add_column(Column(-99. * (1.+filler), name=colname_fill))
@@ -226,18 +318,30 @@ class Brick(Subimage):
         # Make binary
         segmask = self.segmap.copy()  # I don't see how we can get around this.
         segmask[segmask != 0] = 1
+        segmask_init = segmask.copy()
 
         if radius == 0:
+            self.logger.info('No dilation applied.')
             # exit early!
+            if fill_holes:
+                segmask = binary_fill_holes(segmask).astype(int)
             self.segmask = segmask
             return segmask
         else:
             # Dilate
             struct2 = create_circular_mask(2*abs(radius), 2*abs(radius), radius=abs(radius))
-            if True: #radius > 0: #HACK erosion not ready to go.
-                segmask = binary_dilation(segmask, structure=struct2)
+            if radius > 0:
+                self.logger.info(f'Dilating segments with radius of {radius}px')
+                segmask = binary_dilation(segmask, structure=struct2).astype(int)
             else:
-                segmask = binary_erosion(segmask, structure=struct2)
+                self.logger.info(f'Eroding segments with radius of {radius}px')
+                segmask = binary_erosion(segmask, structure=struct2).astype(int)
+
+            uniq_sm = np.unique(self.segmap)[1:]
+            keep = np.array([np.sum(self.segmap==i) < 50 for i in uniq_sm])
+            self.logger.info(f'Found {np.sum(keep)} segments smaller than {conf.SEGMAP_MINAREA} px2 to re-instate.')
+            for i in uniq_sm[keep]:
+                segmask[self.segmap == i] = 1
 
             if fill_holes:
                 segmask = binary_fill_holes(segmask).astype(int)
@@ -247,29 +351,90 @@ class Brick(Subimage):
 
     def relabel(self):
         self.blobmap, self.n_blobs = label(self.segmask)
+        self.logger.info(f'Found {self.n_blobs} blobs')
 
         return self.blobmap, self.n_blobs
 
     def clean_blobmap(self):
-        """Remove eroded regions without sources"""
+        """Remove regions without sources"""
 
-        for i in np.unique(self.blobmap):
+        if conf.DILATION_RADIUS >= 1:
+            return
+
+        x, y = np.array(self.catalog['x']).astype(int), np.array(self.catalog['y']).astype(int)
+
+        # Check that no sources were cut out!
+        self.logger.info('Checking that all sources have a segment')
+        sxy = []
+        trip = False
+        keep = np.ones(len(self.catalog), dtype=bool)
+        for i, sid in enumerate(self.catalog['source_id']):
+            px, py = x[i], y[i]
+            segval = self.segmap[py, px]
+            if segval != sid:
+                sxy.append((px, py))
+                self.logger.warning(f'Source {sid} is missing a segment, sits on {segval} at ({px}, {py}).')
+                trip = True
+                keep[i] = False
+        
+        self.logger.info('Cleaning blobmap')
+        n_rm = 0
+        pix_rm = 0
+        uniq_bm = np.unique(self.blobmap)
+        
+        for i in uniq_bm:
+            if i == 0:
+                continue
             mask = self.blobmap==i
             n_px = np.sum(mask)
-            print(i, np.sum(mask))
-            if n_px < 70: #HACK
-                self.segmask[mask] = 0
-                print('TINY GUY')
 
-            # for obj in self.catalog:
-            #     x, y = int(obj['x']+conf.BRICK_BUFFER), int(obj['y']+conf.BRICK_BUFFER)
-            #     print(x, y)
-            #     if mask[x, y]: # is there a centroid in the blob?
-            #         print(' ok!')
-            #         break
-            #     else: # NO? kill blob.
-            #         print(' bad blob!')
-            #         self.segmask[mask] = 0
+            if (mask[y, x] == 1).any(): # is there a centroid in the blob?
+                continue
+            else:
+                self.blobmap[mask] = 0
+                sids = np.unique(self.segmap[mask])
+                sids = sids[sids!=0]
+                self.logger.debug(f'   Removed blob #{i} with size {np.sum(mask)} ({sids})')
+                n_rm += 1
+                pix_rm +=1
+                
+                # if np.sum(mask) > 50:
+                #     import matplotlib.pyplot as plt
+                #     plt.figure(figsize=(20,20))
+                #     plt.imshow(mask)
+                #     plt.scatter(x, y, s=1)
+                #     plt.savefig(conf.PLOT_DIR + f'/checkplot_{i}')
+                #     plt.close('all')
+            
+        self.logger.info(f'Cleaned out {n_rm}/{len(uniq_bm)} blobs ({100*pix_rm/mask.size:2.3f}% by area)')
+        
+        self.segmap[self.blobmap == 0] = 0 # blobs are smaller than segs, so just cut away segs...
+        self.segmask[self.blobmap == 0] = 0
+
+        # Check that no sources were cut out!
+        sxy = []
+        trip = False
+        keep = np.ones(len(self.catalog), dtype=bool)
+        for i, sid in enumerate(self.catalog['source_id']):
+            px, py = x[i], y[i]
+            segval = self.segmap[py, px]
+            if segval != sid:
+                sxy.append((px, py))
+                self.logger.warning(f'Source {sid} is missing a segment, sits on {segval} at ({px}, {py}).')
+                trip = True
+                keep[i] = False
+
+        self.catalog = self.catalog[keep]
+        self.n_sources = np.sum(keep)
+
+        if trip:
+            import matplotlib.pyplot as plt
+            plt.figure(figsize=(40, 40))
+            plt.imshow(self.segmask)
+            sxy = np.array(sxy)
+            plt.scatter(sxy.T[0], sxy.T[1], s=1)
+            plt.savefig(conf.PLOT_DIR + '/checkmissing.pdf')
+            # raise RuntimeError('Will not continue!')
 
         self.relabel() # clean it up again.
 

@@ -5,8 +5,8 @@ from astropy.table import Table, Column
 sys.path.insert(0, os.path.join('/Volumes/WD4/Current/COSMOS2020/config'))
 import config as conf
 
-fn = '/Volumes/WD4/Current/COSMOS2020/data/output/catalogs/candide/cosmos_chimeanmodel4/master_forced_photometry_minimal_checkstyle_draft3.fits'
-fnout = '/Volumes/WD4/Current/COSMOS2020/data/output/catalogs/candide/cosmos_chimeanmodel4/master_forced_photometry_minimal_checkstyle_draft3_userfriendly.fits'
+fn = '/Volumes/WD4/Current/COSMOS2020/data/output/catalogs/candide/cosmos_chimeanmodel4/master_join_v1.6/master_forced_photometry_allfixed_291020b.fits'
+fnout = '/Volumes/WD4/Current/COSMOS2020/data/output/catalogs/candide/cosmos_chimeanmodel4/master_join_v1.6/master_forced_photometry_allfixed_291020b_lephare.fits'
 
 OVERWRITE = True
 
@@ -76,10 +76,10 @@ def farmer_to_lephare(tab, sfddir=conf.SFDMAP_DIR, idx=0):
         if colname == 'VALID_SOURCE_MODELING':
             continue
 
-        if ('MODELING' in colname) & (colname != 'VALID_SOURCE_MODELING'):
-            tab.remove_column(colname)
-            print('...Removed!')
-            continue
+        # if ('MODELING' in colname) & (colname != 'VALID_SOURCE_MODELING'):
+        #     tab.remove_column(colname)
+        #     print('...Removed!')
+        #     continue
             
         if colname.startswith('MAG_'):
             name = colname[4:]
@@ -102,12 +102,12 @@ def farmer_to_lephare(tab, sfddir=conf.SFDMAP_DIR, idx=0):
 
         if colname.startswith('DIRECTFLUXERR_'):
             # tab[colname] *= 1E-29
-            name = colname[8:]
-            tab.remove_column(map_dict[name] + '_FLUXERR')
+            name = colname[len('DIRECTFLUXERR_'):]
+            tab.remove_column('FLUXERR_' + name)
             newname = map_dict[name] + '_FLUXERR'
             print(f'{colname}...{newname}')
             tab[colname].name =  newname 
-            tab.remove_column(colname)
+            # tab.remove_column(colname) # KEEP THIS HERE TO REMIND YOU -- ITS ALREADY RENAMED!
 
         for i in ('CHISQ_', 'CHI_MU_', 'CHI_SIG_', 'CHI_K2_', 'X_MODEL_', 'Y_MODEL_',
                 'XERR_MODEL_', 'YERR_MODEL_', 'RA_', 'DEC_'
@@ -135,13 +135,13 @@ def farmer_to_lephare(tab, sfddir=conf.SFDMAP_DIR, idx=0):
         
 
 
-    # tab.add_column(Column(1+np.arange(len(tab)), name='ID'), index=0)        
+    tab.add_column(Column(1+np.arange(len(tab)), name='ID'), index=0)        
 
-    # from sfdmap import SFDMap
+    from sfdmap import SFDMap
 
-    # m = SFDMap(sfddir, scaling=0.86)
-    # ebv = m.ebv(tab['ALPHA_J2000'], tab['DELTA_J2000'], frame='icrs')
-    # tab.add_column(Column(ebv, name='EBV'))
+    m = SFDMap(sfddir, scaling=0.86)
+    ebv = m.ebv(tab['ALPHA_J2000'], tab['DELTA_J2000'], frame='icrs')
+    tab.add_column(Column(ebv, name='EBV'))
 
     return tab
     
@@ -245,7 +245,8 @@ def crossmatch_with_aux(tab):
 
     from catalog_tools import crossmatch
     import astropy.units as u
-    inputs = [fname_galex, fname_fir, fname_xray, fname_acs, fname_laigle,]#[dataset_idx]
+    inputs = [fname_galex, fname_acs,]
+    # inputs = [fname_galex, fname_fir, fname_xray, fname_acs, fname_laigle,]
 
     # fname_galex, fname_fir, f
     for (fname, cols, fmt) in inputs:
@@ -298,6 +299,7 @@ def crossmatch_with_aux(tab):
             aux['DEC'] = aux['DEC'].astype(float)
 
        
+        # crossmatch(tab, aux, thresh=[1*u.arcsec, 0.6*u.arcsec], plot=False, return_idx=True)
 
         mcat_aux, mcat_farmer, idx, sel_thresh = crossmatch(aux, tab, thresh=[1*u.arcsec, 0.6*u.arcsec], plot=False, return_idx=True)
 
@@ -305,23 +307,23 @@ def crossmatch_with_aux(tab):
             # print(coln+' ...')
             col_aux = -99 * np.ones(len(tab))
             # print(col_aux[idx[sel_thresh]])
-            # print(mcat_aux[coln][sel_thresh])
-            try:
-                col_aux[idx[sel_thresh]] = aux[coln][sel_thresh]
-            except:
-                col_aux = np.ones(len(tab), dtype=object) # this is overkill, but OK.
-                col_aux[idx[sel_thresh]] = aux[coln][sel_thresh]
+            # # print(mcat_aux[coln][sel_thresh])
+            # try:
+            #     col_aux[idx[sel_thresh]] = aux[coln][sel_thresh]
+            # except:
+            #     col_aux = np.ones(len(tab), dtype=object) # this is overkill, but OK.
+            #     col_aux[idx[sel_thresh]] = aux[coln][sel_thresh]
 
             # col_aux[idx[sel_thresh]] = mcat_aux[coln][idx]
-            # try:
-            #     col_aux = -99.0 * col_aux
-            #     for idx, val in zip(mcat_farmer['ID'], mcat_aux[coln]):
-            #         col_aux[tab['ID']==idx] = val
-            # except:
-            #     print('column cannot be coverted to float...')
-            #     col_aux = np.ones(len(tab), dtype=object) # this is overkill, but OK.
-            #     for idx, val in zip(mcat_farmer['ID'], mcat_aux[coln]):
-            #         col_aux[tab['ID']==idx] = val
+            try:
+                col_aux = -99.0 * col_aux
+                for idx, val in zip(mcat_farmer['ID'], mcat_aux[coln]):
+                    col_aux[tab['ID']==idx] = val
+            except:
+                print('column cannot be coverted to float...')
+                col_aux = np.ones(len(tab), dtype=object) # this is overkill, but OK.
+                for idx, val in zip(mcat_farmer['ID'], mcat_aux[coln]):
+                    col_aux[tab['ID']==idx] = val
             
             print(f'*** {coln} --> {cols[coln]}')
             tab[cols[coln]] = col_aux
@@ -348,17 +350,17 @@ def add_zspec():
     print('*** DONE.')
 
 
-# tab = Table.read(fn, 1)
+tab = Table.read(fn, 1)
 
-# # farmer_to_lephare(tab)
+farmer_to_lephare(tab)
 
-# crossmatch_with_aux(tab)
+crossmatch_with_aux(tab)
 
 # add_zspec()
 
-# tab['VALID_SOURCE'] = tab['VALID_SOURCE_MODELING'] & (tab['i_CHISQ'] < 100) # sanity
-# tab.remove_column('VALID_SOURCE_MODELING')
+tab['VALID_SOURCE'] = tab['VALID_SOURCE_MODELING'] #& (tab['i_CHISQ'] < 100) # sanity
+tab.remove_column('VALID_SOURCE_MODELING')
 
-# tab.write(fnout, format='fits', overwrite=OVERWRITE)
+tab.write(fnout, format='fits', overwrite=OVERWRITE)
 
 # Then push it to candide and run prepare_input_trac.py

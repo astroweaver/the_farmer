@@ -16,6 +16,8 @@ def find_bandnames(tab):
                 continue
             if 'RAW' in coln:
                 continue
+            if 'APER' in coln:
+                continue
             else:
                 bn = coln[len('FLUX_'):]
                 bandnames.append(bn)
@@ -25,7 +27,10 @@ def find_bandnames(tab):
 # User input
 FN_MAIN_CAT = sys.argv[1]
 FN_EXT_CAT = sys.argv[2]
-
+OUTPATH = 'master_forced_photometry_newferr_mainbands_testmod.fits'
+COLNAME_FLUX = 'FLUX_'
+COLNAME_FLUXERR = 'DIRECTFLUXERR_'
+DRYRUN = False
 
 # Read in files & tell me stuff
 print(f'Loading primary catalog from {FN_MAIN_CAT}')
@@ -74,6 +79,7 @@ n_uniq_cols_ext = len(uniq_cols_ext)
 print(f'Primary catalog has {n_uniq_cols_main} unique columns')
 print(f'Secondary catalog has {n_uniq_cols_ext} unique columns')
 
+print()
 
 print('Calculating unique bricks...')
 uniq_bricks_main = bricks_main[~np.in1d(bricks_main, bricks_ext)]
@@ -84,6 +90,7 @@ print(f'Primary catalog has {n_uniq_bricks_main} unique bricks')
 print(np.array(uniq_bricks_main))
 print(f'Secondary catalog has {n_uniq_bricks_ext} unique bricks')
 
+print()
 
 print('Calculating unique bands...')
 uniq_bands_main = bands_main[~np.in1d(bands_main, bands_ext)]
@@ -95,8 +102,66 @@ print(np.array(uniq_bands_main))
 print(f'Secondary catalog has {n_uniq_bands_ext} unique bands')
 print(np.array(uniq_bands_ext))
 
-
-
+# Need to determine which bricks+bands are present in the second catalog
+# Need to determine which bricks+bands are missing in the first catalog that correspond to the second
 
 # Now loop + add in, with lots of checking!
-# for bid in 
+# Will need to involve the other columns! Do this generally!
+print()
+print('Looping over bricks in EXT, looking for possible updates...')
+has_update = False
+for bid in bricks_ext:
+    sel = MAIN_CAT['brick_id'] == bid
+    sel_ext = EXT_CAT['brick_id'] == bid
+    for band in bands_ext:
+
+        if band not in bands_main:
+            print(f'EXT {band} not in MAIN bands!')
+            print('WARNING -- NEW COL MODE TO DO.')
+            continue
+
+        # Check that the primary catalog doesn't already have this bid+band combination alreadys
+        for colroot in (COLNAME_FLUX, COLNAME_FLUXERR):
+
+            colname = f'{colroot}{band}'
+
+            if colname in MAIN_CAT.colnames:
+                maincol = MAIN_CAT[colname][sel]
+            else:
+                print(f'{colname} not in MAIN bands!')
+                print('WARNING -- NEW COL MODE TO DO.')
+                continue
+
+            if np.sum(maincol > 0) == 0:
+                print(f'MAIN is missing {colname} with {band} in #{bid}')
+            else:
+                continue
+
+            if colname in EXT_CAT.colnames:
+                extcol = EXT_CAT[colname][sel_ext]
+    
+                if np.sum(extcol > 0) == 0:
+                    print(f'EXT is missing {colname} with {band} in #{bid}')
+                    print()
+                    continue
+                else:
+                    print(f'EXT can provide {colname} with {band} in #{bid}')
+                    print()
+            else:
+                print(f'EXT cannot provide {colname} with {band} in #{bid}')
+                print()
+                continue
+
+            print(f'EXT can provide {colname} with {band} in #{bid}')
+
+            MAIN_CAT[colname][sel] = EXT_CAT[colname][sel_ext]
+            assert((MAIN_CAT[colname][sel] == EXT_CAT[colname][sel_ext]).all())
+            has_update = True
+            print('Columns updated!')
+            print()
+
+
+if (not DRYRUN) & has_update:
+    print(f'Writing to file...')
+    MAIN_CAT.write(OUTPATH, overwrite=True)
+    print(f'Wrote out to file: {OUTPATH}')
