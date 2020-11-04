@@ -337,11 +337,11 @@ class Brick(Subimage):
                 self.logger.info(f'Eroding segments with radius of {radius}px')
                 segmask = binary_erosion(segmask, structure=struct2).astype(int)
 
-            uniq_sm = np.unique(self.segmap)[1:]
-            keep = np.array([np.sum(self.segmap==i) < 50 for i in uniq_sm])
-            self.logger.info(f'Found {np.sum(keep)} segments smaller than {conf.SEGMAP_MINAREA} px2 to re-instate.')
-            for i in uniq_sm[keep]:
-                segmask[self.segmap == i] = 1
+                uniq_sm = np.unique(self.segmap)[1:]
+                keep = np.array([np.sum(self.segmap==i) < 50 for i in uniq_sm])
+                self.logger.info(f'Found {np.sum(keep)} segments smaller than {conf.SEGMAP_MINAREA} px2 to re-instate.')
+                for i in uniq_sm[keep]:
+                    segmask[self.segmap == i] = 1
 
             if fill_holes:
                 segmask = binary_fill_holes(segmask).astype(int)
