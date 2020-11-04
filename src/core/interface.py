@@ -25,6 +25,7 @@ from functools import partial
 import shutil
 sys.path.insert(0, os.path.join(os.getcwd(), 'config'))
 import pickle
+import dill
 
 # Tractor imports
 from tractor import NCircularGaussianPSF, PixelizedPSF, Image, Tractor, FluxesPhotoCal, NullWCS, ConstantSky, EllipseESoft, Fluxes, PixPos
@@ -876,7 +877,7 @@ def detect_sources(brick_id, catalog=None, segmap=None, blobmap=None, use_mask=T
         logger.info(f'You gave me a catalog and segmap, so I am not saving it again.')
 
     filen = open(os.path.join(conf.INTERIM_DIR, f'detbrick_N{brick_id}.pkl'), 'wb')
-    pickle.dump(detbrick, filen)
+    dill.dump(detbrick, filen)
     return detbrick
 
 
@@ -891,7 +892,7 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
 
     if detbrick=='auto':
         filen = open(os.path.join(conf.INTERIM_DIR, f'detbrick_N{brick_id}.pkl'), 'rb')
-        detbrick = pickle.load(filen)
+        detbrick = dill.load(filen)
 
     # Create modbrick
     if band is None:
