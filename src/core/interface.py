@@ -851,37 +851,40 @@ def detect_sources(brick_id, catalog=None, segmap=None, blobmap=None, use_mask=T
     if (~detbrick.is_borrowed):
         detbrick.cleanup()
 
-    logger.info('Saving detection catalog...')
-    outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_{conf.DETECTION_NICKNAME}.fits')
-    if os.path.exists(outpath) & (~conf.OVERWRITE):
-        logger.warning('Catalog file exists and I will not overwrite it!')
-    else:
-        catalog.writeto(outpath, overwrite=conf.OVERWRITE)
-
     if conf.PLOT > 2:
         plot_blobmap(detbrick, image=detbrick.images[0], band=conf.DETECTION_NICKNAME)
 
-    # Save segmap and blobmaps
-    if (~detbrick.is_borrowed):
-        tstart = time.time()
-        logger.info('Saving segmentation and blob maps...')
-        outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits')
-        if os.path.exists(outpath) & (~conf.OVERWRITE):
-            logger.warning('Segmentation file exists and I will not overwrite it!')
-        else:
-            hdul = fits.HDUList()
-            hdul.append(fits.PrimaryHDU())
-            hdul.append(fits.ImageHDU(data=detbrick.segmap, name='SEGMAP', header=detbrick.wcs.to_header()))
-            hdul.append(fits.ImageHDU(data=detbrick.blobmap, name='BLOBMAP', header=detbrick.wcs.to_header()))
-            outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits')
-            hdul.writeto(outpath, overwrite=conf.OVERWRITE)
-            hdul.close()
-            logger.info(f'Saved to {outpath} ({time.time() - tstart:3.3f}s)')
 
-            tstart = time.time()
-        
+    logger.info('Saving detection catalog...')
+    outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_{conf.DETECTION_NICKNAME}.fits')
+    tstart = time.time()
+    if os.path.exists(outpath) & (~conf.OVERWRITE):
+        logger.warning('Catalog file exists and I will not overwrite it!')
     else:
-        logger.info(f'You gave me a catalog and segmap, so I am not saving it again.')
+        detbrick.catalog.write(outpath, overwrite=conf.OVERWRITE)
+        logger.info(f'Saved to {outpath} ({time.time() - tstart:3.3f}s)')
+
+    # Save segmap and blobmaps
+    # if (~detbrick.is_borrowed):
+    tstart = time.time()
+    logger.info('Saving segmentation and blob maps...')
+    outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits')
+    if os.path.exists(outpath) & (~conf.OVERWRITE):
+        logger.warning('Segmentation file exists and I will not overwrite it!')
+    else:
+        hdul = fits.HDUList()
+        hdul.append(fits.PrimaryHDU())
+        hdul.append(fits.ImageHDU(data=detbrick.segmap, name='SEGMAP', header=detbrick.wcs.to_header()))
+        hdul.append(fits.ImageHDU(data=detbrick.blobmap, name='BLOBMAP', header=detbrick.wcs.to_header()))
+        outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits')
+        hdul.writeto(outpath, overwrite=conf.OVERWRITE)
+        hdul.close()
+        logger.info(f'Saved to {outpath} ({time.time() - tstart:3.3f}s)')
+
+        tstart = time.time()
+    
+    # else:
+    #     logger.info(f'You gave me a catalog and segmap, so I am not saving it again.')
 
     # filen = open(os.path.join(conf.INTERIM_DIR, f'detbrick_N{brick_id}.pkl'), 'wb')
     # dill.dump(detbrick, filen)
@@ -1211,7 +1214,7 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
         modbrick.n_sources = n_sources
         modbrick.is_modeling = True
         modbrick.blobmap = blobmap
-        modbrick.n_blobs = catalog.meta['n_blobs']
+        modbrick.n_blobs = n_blobs
         modbrick.segmask = segmask
 
 
