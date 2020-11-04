@@ -851,6 +851,13 @@ def detect_sources(brick_id, catalog=None, segmap=None, blobmap=None, use_mask=T
     if (~detbrick.is_borrowed):
         detbrick.cleanup()
 
+    logger.info('Saving detection catalog...')
+    outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_{conf.DETECTION_NICKNAME}.fits')
+    if os.path.exists(outpath) & (~conf.OVERWRITE):
+        logger.warning('Catalog file exists and I will not overwrite it!')
+    else:
+        catalog.writeto(outpath, overwrite=conf.OVERWRITE)
+
     if conf.PLOT > 2:
         plot_blobmap(detbrick, image=detbrick.images[0], band=conf.DETECTION_NICKNAME)
 
@@ -876,8 +883,8 @@ def detect_sources(brick_id, catalog=None, segmap=None, blobmap=None, use_mask=T
     else:
         logger.info(f'You gave me a catalog and segmap, so I am not saving it again.')
 
-    filen = open(os.path.join(conf.INTERIM_DIR, f'detbrick_N{brick_id}.pkl'), 'wb')
-    dill.dump(detbrick, filen)
+    # filen = open(os.path.join(conf.INTERIM_DIR, f'detbrick_N{brick_id}.pkl'), 'wb')
+    # dill.dump(detbrick, filen)
     return detbrick
 
 
@@ -891,8 +898,28 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
             logger.warning('Plotting not supported while modeling in parallel!')
 
     if detbrick=='auto':
-        filen = open(os.path.join(conf.INTERIM_DIR, f'detbrick_N{brick_id}.pkl'), 'rb')
-        detbrick = dill.load(filen)
+        outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_{conf.DETECTION_NICKNAME}.fits')
+        if os.path.exists(outpath):
+            logger.info(f'Loading in catalog from {outpath}')
+            catalog = Table.read(outpath)
+            n_blobs = len(np.unique(catalog['blob_id']))
+            n_sources = len(catalog)
+        else:
+            raise RuntimeError(f'Catalog was not found at {outpath}')
+
+        outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits')
+        if os.path.exists(outpath):
+            logger.info(f'Loading in segmaps from {outpath}')
+            hdul = fits.open(outpath)
+            segmap = hdul['SEGMAP'].data
+            segmask = segmap.copy()
+            segmask[segmap>1] = 1
+            blobmap = hdul['BLOBMAP'].data
+        else:
+            raise RuntimeError(f'Segmaps were not found at {outpath}')
+
+        # filen = open(os.path.join(conf.INTERIM_DIR, f'detbrick_N{brick_id}.pkl'), 'rb')
+        # detbrick = dill.load(filen)
 
     # Create modbrick
     if band is None:
@@ -919,11 +946,9 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
     if not multiband_model:
         for band_num, mod_band in enumerate(img_names):
             tstart = time.time()
-            if band_num > 0:
-                n_blobs, n_sources, segmap, segmask, blobmap, catalog = detbrick.n_blobs, detbrick.n_sources, detbrick.segmap, detbrick.segmask, detbrick.blobmap, detbrick.catalog
-                catalog['x'] = catalog['x'] - detbrick.mosaic_origin[1] + conf.BRICK_BUFFER - 1
-                catalog['y'] = catalog['y'] - detbrick.mosaic_origin[0] + conf.BRICK_BUFFER - 1
             modbrick = stage_brickfiles(brick_id, band=mod_band, nickname=mod_nickname, modeling=True)
+            catalog['x'] = catalog['x'] - modbrick.mosaic_origin[1] + conf.BRICK_BUFFER - 1
+            catalog['y'] = catalog['y'] - modbrick.mosaic_origin[0] + conf.BRICK_BUFFER - 1
             if modbrick is None:
                 return
             if (band is not None) & (band != conf.MODELING_NICKNAME):
@@ -1148,13 +1173,13 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
     # if multiband model is enabled...
     elif multiband_model:
         tstart = time.time()
-        n_sources, segmap, catalog = detbrick.n_sources, detbrick.segmap, detbrick.catalog
-        if detbrick.is_borrowed:
-            catalog['x'] = catalog['x'] - detbrick.mosaic_origin[1] + conf.BRICK_BUFFER - 1
-            catalog['y'] = catalog['y'] - detbrick.mosaic_origin[0] + conf.BRICK_BUFFER - 1
+        
         modbrick = stage_brickfiles(brick_id, band=img_names, nickname=mod_nickname, modeling=True)
         if modbrick is None:
             return
+        # if detbrick.is_borrowed:
+        #     catalog['x'] = catalog['x'] - modbrick.mosaic_origin[1] + conf.BRICK_BUFFER - 1
+        #     catalog['y'] = catalog['y'] - modbrick.mosaic_origin[0] + conf.BRICK_BUFFER - 1
         modbrick.bands = [f'{conf.MODELING_NICKNAME}_{b}' for b in img_names]
         modbrick.n_bands = len(modbrick.bands)
         logger.info(f'Multi-band Modeling brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
@@ -1185,9 +1210,9 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
         modbrick.segmap = segmap
         modbrick.n_sources = n_sources
         modbrick.is_modeling = True
-        modbrick.blobmap = detbrick.blobmap
-        modbrick.n_blobs = detbrick.n_blobs
-        modbrick.segmask = detbrick.segmask
+        modbrick.blobmap = blobmap
+        modbrick.n_blobs = catalog.meta['n_blobs']
+        modbrick.segmask = segmask
 
 
         # Cleanup on MODBRICK
@@ -1201,43 +1226,26 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
         if conf.PLOT > 2:
             plot_blobmap(modbrick)
 
-        # Save segmap and blobmaps
-        if not detbrick.is_borrowed:
-            tstart = time.time()
-            logger.info('Saving segmentation and blob maps...')
-            hdul = fits.HDUList()
-            hdul.append(fits.PrimaryHDU())
-            hdul.append(fits.ImageHDU(data=modbrick.segmap, name='SEGMAP', header=modbrick.wcs.to_header()))
-            hdul.append(fits.ImageHDU(data=modbrick.blobmap, name='BLOBMAP', header=modbrick.wcs.to_header()))
-            outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits')
+        if conf.SAVE_BACKGROUND:
+            outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_BACKGROUNDS.fits')
+            logger.info('Saving background and RMS maps...')
+            if os.path.exists(outpath):
+                hdul = fits.open(outpath)
+            else:
+                hdul = fits.HDUList()
+                hdul.append(fits.PrimaryHDU())
+            for m, mband in enumerate(modbrick.bands):
+                hdul.append(fits.ImageHDU(data=modbrick.background_images[m], name=f'BACKGROUND_{mband}', header=modbrick.wcs.to_header()))
+                hdul[f'BACKGROUND_{mband}'].header['BACK_GLOBAL'] = modbrick.backgrounds[m,0]
+                hdul[f'BACKGROUND_{mband}'].header['BACK_RMS'] = modbrick.backgrounds[m,1]
+                if (conf.SUBTRACT_BACKGROUND_WITH_MASK|conf.SUBTRACT_BACKGROUND_WITH_DIRECT_MEDIAN):
+                    hdul[f'BACKGROUND_{mband}'].header['MASKEDIMAGE_GLOBAL'] = modbrick.masked_median[m]
+                    hdul[f'BACKGROUND_{mband}'].header['MASKEDIMAGE_RMS'] = modbrick.masked_std[m]
+                hdul.append(fits.ImageHDU(data=modbrick.background_rms_images[m], name=f'RMS_{mband}', header=modbrick.wcs.to_header()))
+                hdul.append(fits.ImageHDU(data=1/np.sqrt(modbrick.weights[m]), name=f'UNC_{mband}', header=modbrick.wcs.to_header()))
             hdul.writeto(outpath, overwrite=conf.OVERWRITE)
             hdul.close()
             logger.info(f'Saved to {outpath} ({time.time() - tstart:3.3f}s)')
-
-            if conf.SAVE_BACKGROUND:
-                outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_BACKGROUNDS.fits')
-                logger.info('Saving background and RMS maps...')
-                if os.path.exists(outpath):
-                    hdul = fits.open(outpath)
-                else:
-                    hdul = fits.HDUList()
-                    hdul.append(fits.PrimaryHDU())
-                for m, mband in enumerate(modbrick.bands):
-                    hdul.append(fits.ImageHDU(data=modbrick.background_images[m], name=f'BACKGROUND_{mband}', header=modbrick.wcs.to_header()))
-                    hdul[f'BACKGROUND_{mband}'].header['BACK_GLOBAL'] = modbrick.backgrounds[m,0]
-                    hdul[f'BACKGROUND_{mband}'].header['BACK_RMS'] = modbrick.backgrounds[m,1]
-                    if (conf.SUBTRACT_BACKGROUND_WITH_MASK|conf.SUBTRACT_BACKGROUND_WITH_DIRECT_MEDIAN):
-                        hdul[f'BACKGROUND_{mband}'].header['MASKEDIMAGE_GLOBAL'] = modbrick.masked_median[m]
-                        hdul[f'BACKGROUND_{mband}'].header['MASKEDIMAGE_RMS'] = modbrick.masked_std[m]
-                    hdul.append(fits.ImageHDU(data=modbrick.background_rms_images[m], name=f'RMS_{mband}', header=modbrick.wcs.to_header()))
-                    hdul.append(fits.ImageHDU(data=1/np.sqrt(modbrick.weights[m]), name=f'UNC_{mband}', header=modbrick.wcs.to_header()))
-                hdul.writeto(outpath, overwrite=conf.OVERWRITE)
-                hdul.close()
-                logger.info(f'Saved to {outpath} ({time.time() - tstart:3.3f}s)')
-
-            tstart = time.time()
-        else:
-            logger.info(f'You gave me a catalog and segmap, so I am not saving it again.')
 
         if source_only:
             if source_id is None:
