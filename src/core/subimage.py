@@ -442,7 +442,16 @@ class Subimage():
                     # re-assign!
                     self.backgrounds[i] = background.globalback, background.globalrms
                     self.background_images[i] = background.back()
-                    self.background_rms_images[i] = background.rms()       
+                    self.background_rms_images[i] = background.rms()      
+                    self.logger.info(f'    Band: {conf.BANDS[i]}')
+                    self.logger.info(f'    Mesh size = ({conf.SUBTRACT_BW}, {conf.SUBTRACT_BH})')
+                    self.logger.info(f'    Back Median = {np.nanmedian(self.background_images[i], (0,1))}')
+                    self.logger.info(f'    Back Std = {np.nanstd(self.background_images[i], (0,1))}')
+                    self.logger.info(f'    Back Global = {self.backgrounds[i,0]}')
+                    self.logger.info(f'    RMS Global = {self.backgrounds[i,1]}')
+                    if use_direct_median:
+                        self.logger.info(f'    Direct Median = {self.masked_median}')
+                        self.logger.info(f'    Direct RMS = {self.masked_std}') 
 
             else:
                 img, mask = self.images[idx], self.masks[idx]
@@ -459,6 +468,16 @@ class Subimage():
                 self.background_images[idx] = background.back()
                 self.background_rms_images[idx] = background.rms()  
 
+                self.logger.info(f'    Band: {conf.BANDS[idx]}')
+                self.logger.info(f'    Mesh size = ({conf.SUBTRACT_BW}, {conf.SUBTRACT_BH})')
+                self.logger.info(f'    Back Median = {np.nanmedian(self.background_images[idx], (0,1))}')
+                self.logger.info(f'    Back Std = {np.nanstd(self.background_images[idx], (0,1))}')
+                self.logger.info(f'    Back Global = {self.backgrounds[idx,0]}')
+                self.logger.info(f'    RMS Global = {self.backgrounds[idx,1]}')
+                if use_direct_median:
+                    self.logger.info(f'    Direct Median = {self.masked_median}')
+                    self.logger.info(f'    Direct RMS = {self.masked_std}') 
+
         if apply:
             if use_direct_median:
                 if idx is None:
@@ -473,21 +492,34 @@ class Subimage():
                         self.images -= self.backgrounds[:,0]
                     else:
                         self.images -= self.background_images
+
+                    self.logger.info(f'    Band: {conf.BANDS[i]}')
+                    self.logger.info(f'    Mesh size = ({conf.SUBTRACT_BW}, {conf.SUBTRACT_BH})')
+                    self.logger.info(f'    Back Median = {np.nanmedian(self.background_images, (1,2))}')
+                    self.logger.info(f'    Back Std = {np.nanstd(self.background_images, (1,2))}')
+                    self.logger.info(f'    Back Global = {self.backgrounds[:,0]}')
+                    self.logger.info(f'    RMS Global = {self.backgrounds[:,1]}')
+                    if use_direct_median:
+                        self.logger.info(f'    Direct Median = {self.masked_median}')
+                        self.logger.info(f'    Direct RMS = {self.masked_std}') 
+
                 else:
                     if flat:
                         self.images[idx] -= self.backgrounds[idx][0]
                     else:
                         self.images[idx] -= self.background_images[idx]
+
+                    self.logger.info(f'    Band: {conf.BANDS[idx]}')
+                    self.logger.info(f'    Mesh size = ({conf.SUBTRACT_BW}, {conf.SUBTRACT_BH})')
+                    self.logger.info(f'    Back Median = {np.nanmedian(self.background_images[idx], (0,1))}')
+                    self.logger.info(f'    Back Std = {np.nanstd(self.background_images[idx], (0,1))}')
+                    self.logger.info(f'    Back Global = {self.backgrounds[idx,0]}')
+                    self.logger.info(f'    RMS Global = {self.backgrounds[idx,1]}')
+                    if use_direct_median:
+                        self.logger.info(f'    Direct Median = {self.masked_median}')
+                        self.logger.info(f'    Direct RMS = {self.masked_std}') 
                         
-        if True:
-            self.logger.debug(f'    Mesh size = ({conf.SUBTRACT_BW}, {conf.SUBTRACT_BH})')
-            self.logger.debug(f'    Back Median = {np.nanmedian(self.background_images, (1,2))}')
-            self.logger.debug(f'    Back Std = {np.nanstd(self.background_images, (1,2))}')
-            self.logger.debug(f'    Back Global = {self.backgrounds[:,0]}')
-            self.logger.debug(f'    RMS Global = {self.backgrounds[:,1]}')
-            if use_direct_median:
-                self.logger.debug(f'    Direct Median = {self.masked_median}')
-                self.logger.debug(f'    Direct RMS = {self.masked_std}')
+
 
 
 

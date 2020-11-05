@@ -28,6 +28,7 @@ from astropy.coordinates import SkyCoord
 import astropy.units as u
 from scipy.ndimage import zoom
 from scipy import stats
+from copy import deepcopy
 
 from tractor import NCircularGaussianPSF, PixelizedPSF, PixelizedPsfEx, Image, Tractor, FluxesPhotoCal, NullWCS, ConstantSky, EllipseE, EllipseESoft, Fluxes, PixPos, Catalog
 from tractor.sersic import SersicIndex, SersicGalaxy
@@ -639,6 +640,10 @@ class Blob(Subimage):
                     if i == 0:
                         dlnp_init = dlnp
 
+
+                # cat = tr.getCatalog()
+                # for k, src in enumerate(cat):
+                #     print(k, src)
                 # try:  # HACK -- this sometimes fails!!!
                 #     cat = tr.getCatalog()
                 #     for k, src in enumerate(cat):
@@ -734,29 +739,10 @@ class Blob(Subimage):
             self.logger.warning(f'Variance was not output for blob #{self.blob_id}')
             return False
 
-        # print(cat)
-        # print(var)
         cat = tr.getCatalog()
-        var_catalog = cat.copy()
+        var_catalog = deepcopy(cat)
         var_catalog.setParams(var)
-        # if (cat != 0).all():
-        #     var_catalog = self.solution_catalog.copy()
-        #     var_catalog = var_catalog.setParams(var)
-        # else:
-        #     var_catalog = self.model_catalog.copy()
-
         self.variance = var_catalog
-        # for row in np.arange(len(var_catalog)):
-        #     foo = np.sqrt(var_catalog[row].brightness.getParams())
-        #     for fo in foo:
-        #         print(fo)
-        # counter = 0
-        # for i, src in enumerate(np.arange(self.n_sources)):
-        #     n_params = var_catalog[i].numberOfParams()
-        #     myvar = var[counter: n_params + counter]
-        #     # print(f'{i}) {var_catalog[i].name} has {n_params} params and {len(myvar)} variances: {myvar}')
-        #     counter += n_params
-        #     self.variance.append(myvar)
 
         if np.shape(self.tr.getChiImage(0)) != np.shape(self.segmap):
             self.logger.warning('Chimap and segmap are not the same shape for #{self.blob_id}')
@@ -1020,6 +1006,8 @@ class Blob(Subimage):
 
             ############ self.model_catalog[i].brightness = Fluxes(**dict(zip(self.bands, model.brightness[0] * np.ones(self.n_bands))))
             self.model_catalog[i].freezeAllBut('brightness')
+            if self.model_catalog[i].name == 'SersicCoreGalaxy':
+                self.model_catalog[i].thawParams('brightnessPsf')
             # # self.model_catalog[i].thawParams('sky')
             if not conf.FREEZE_FORCED_POSITION:
                 self.logger.debug('Thawing position...')
@@ -1763,6 +1751,12 @@ class Blob(Subimage):
 
     def sep_phot(self, band=None, image_type=None, sub_background=False, centroid='MODEL'):
         """ Run Sextractor on the image with either the detection or model centroid, where available! """
+
+        if band is None:
+            idx = 0
+        else:
+            idx = self._band2idx(band, bands=self.bands)
+
         if band is None:
             self.logger.info(f'Performing SEP aperture photometry on {conf.MODELING_NICKNAME} {image_type}...')
         else:
@@ -1770,10 +1764,7 @@ class Blob(Subimage):
                 band = band[len(conf.MODELING_NICKNAME)+1:]
             self.logger.info(f'Performing SEP aperture photometry on {band} {image_type}...')
 
-        if band is None:
-            idx = 0
-        else:
-            idx = self._band2idx(band)
+        
 
         tweight = self.weights[idx].copy()
         var = np.zeros_like(tweight)
@@ -1813,8 +1804,8 @@ class Blob(Subimage):
         else:
             thresh = conf.RES_THRESH
 
-        if sub_background:
-            residual -= background.back()
+        # if sub_background:
+        #     image -= background.back()
 
         kwargs = dict(var=var, minarea=conf.RES_MINAREA, segmentation_map=True, deblend_nthresh=conf.RES_DEBLEND_NTHRESH, deblend_cont=conf.RES_DEBLEND_CONT)
         if centroid == 'MODEL':

@@ -493,13 +493,20 @@ class Brick(Subimage):
     def run_background(self):
         # Just stash this here. 
         for i, band in enumerate(self.bands):
+            if band.startswith(conf.MODELING_NICKNAME):
+                band = band[len(conf.MODELING_NICKNAME)+1:]
+            idx = self._band2idx(band)
+
             if band in conf.SUBTRACT_BACKGROUND:
-                self.subtract_background(flat=conf.USE_FLAT, use_masked=(conf.SUBTRACT_BACKGROUND_WITH_MASK|conf.SUBTRACT_BACKGROUND_WITH_DIRECT_MEDIAN), use_direct_median=conf.SUBTRACT_BACKGROUND_WITH_DIRECT_MEDIAN)
+                self.subtract_background(idx=idx, flat=conf.USE_FLAT, use_masked=(conf.SUBTRACT_BACKGROUND_WITH_MASK|conf.SUBTRACT_BACKGROUND_WITH_DIRECT_MEDIAN), use_direct_median=conf.SUBTRACT_BACKGROUND_WITH_DIRECT_MEDIAN)
                 self.logger.debug(f'Subtracted background (flat={conf.USE_FLAT}, masked={conf.SUBTRACT_BACKGROUND_WITH_MASK}, used_direct_median={conf.SUBTRACT_BACKGROUND_WITH_DIRECT_MEDIAN})')
 
             elif band in conf.MANUAL_BACKGROUND.keys():
                 image -= conf.MANUAL_BACKGROUND[band]
                 self.logger.debug(f'Subtracted background manually ({conf.MANUAL_BACKGROUND[band]})')
+            
+            else:
+                self.logger.warning(f'No background is subtracted for {band}!')
 
     def make_model_image(self, catalog, include_chi=True, include_nopsf=False, save=True, use_band_position=False, use_band_shape=False, modeling=False):
 

@@ -1021,6 +1021,7 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
                 return
 
             modbrick.run_weights()
+            modbrick.run_background()
             
             modbrick.add_columns(modbrick_name=mod_band, multiband_model = False) # doing on detbrick gets column names wrong
             logger.info(f'Modeling brick #{brick_id} gained {modbrick.n_blobs} blobs with {modbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
@@ -1225,6 +1226,7 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
         logger.info(f'Modeling brick #{brick_id} has {modbrick.n_blobs} blobs with {modbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
 
         modbrick.run_weights()
+        modbrick.run_background()
 
         if conf.PLOT > 2:
             plot_blobmap(modbrick)
@@ -1526,44 +1528,84 @@ def force_photometry(brick_id, band=None, source_id=None, blob_id=None, insert=T
 
         if conf.PLOT >  0: # COLLECT SRCPROFILES
             logger.info('Collecting srcprofile diagnostic plots...')
-            import glob
-            # find sids
-            files = glob.glob(os.path.join(conf.PLOT_DIR, f'T{brick_id}_B*_S*_*_srcprofile.pdf'))
-            sids= []
-            for f in files:
-                tsid = int(f[len(conf.PLOT_DIR):].split('S')[1].split('_')[0])
-                if tsid not in sids:
-                    sids.append(tsid)
-            for sid in sids:
-                logger.debug(f' * source {sid}')
-                fnames = []
-                files = glob.glob(os.path.join(conf.PLOT_DIR, f'T{brick_id}_B*_S{sid}_*_srcprofile.pdf'))
-                if len(files) == 0:
-                    logger.error('Source {source_id} does not have any srcprofile plots to collect!')
-                    return
-                bid = int(files[0][len(conf.PLOT_DIR):].split('B')[1].split('_')[0])
-                for b in fband:
-                    logger.debug(f' *** adding {b}')
-                    fname = os.path.join(conf.PLOT_DIR, f'T{brick_id}_B{bid}_S{sid}_{b}_srcprofile.pdf')
-                    if os.path.exists(fname):
-                        fnames.append(fname)
-                    else:
-                        logger.warning(f' *** {b} does not exist!')
+            if (blob_id is None) & (source_id is None):
+                import glob
+                # find sids
+                files = glob.glob(os.path.join(conf.PLOT_DIR, f'T{brick_id}_B*_S*_*_srcprofile.pdf'))
+                sids= []
+                for f in files:
+                    tsid = int(f[len(conf.PLOT_DIR):].split('S')[1].split('_')[0])
+                    if tsid not in sids:
+                        sids.append(tsid)
+                for sid in sids:
+                    logger.debug(f' * source {sid}')
+                    fnames = []
+                    files = glob.glob(os.path.join(conf.PLOT_DIR, f'T{brick_id}_B*_S{sid}_*_srcprofile.pdf'))
+                    if len(files) == 0:
+                        logger.error('Source {source_id} does not have any srcprofile plots to collect!')
+                        return
+                    bid = int(files[0][len(conf.PLOT_DIR):].split('B')[1].split('_')[0])
+                    for b in fband:
+                        logger.debug(f' *** adding {b}')
+                        fname = os.path.join(conf.PLOT_DIR, f'T{brick_id}_B{bid}_S{sid}_{b}_srcprofile.pdf')
+                        if os.path.exists(fname):
+                            fnames.append(fname)
+                        else:
+                            logger.warning(f' *** {b} does not exist at {fname}')
 
-                # collect
-                from PyPDF2 import PdfFileMerger
-                merger = PdfFileMerger()
+                    # collect
+                    from PyPDF2 import PdfFileMerger
+                    merger = PdfFileMerger()
 
-                for pdf in fnames:
-                    merger.append(pdf)
+                    for pdf in fnames:
+                        merger.append(pdf)
 
-                logger.debug(f'Writing out combined srcprofile...')
-                merger.write(os.path.join(conf.PLOT_DIR, f'T{brick_id}_B{bid}_S{sid}_srcprofile.pdf'))
-                merger.close()
+                    logger.debug(f'Writing out combined srcprofile...')
+                    merger.write(os.path.join(conf.PLOT_DIR, f'T{brick_id}_B{bid}_S{sid}_srcprofile.pdf'))
+                    merger.close()
 
-                # remove
-                logger.debug(f'Removing individual srcprofiles...')
-                [os.system(f'rm {fname}') for fname in fnames]
+                    # remove
+                    logger.debug(f'Removing individual srcprofiles...')
+                    [os.system(f'rm {fname}') for fname in fnames]
+            else:
+                import glob
+                # find sids
+                files = glob.glob(os.path.join(conf.PLOT_DIR, f'T{brick_id}_B{blob_id}_S*_*_srcprofile.pdf'))
+                sids= []
+                for f in files:
+                    tsid = int(f[len(conf.PLOT_DIR):].split('S')[1].split('_')[0])
+                    if tsid not in sids:
+                        sids.append(tsid)
+                for sid in sids:
+                    logger.debug(f' * source {sid}')
+                    fnames = []
+                    files = glob.glob(os.path.join(conf.PLOT_DIR, f'T{brick_id}_B{blob_id}_S{sid}_*_srcprofile.pdf'))
+                    if len(files) == 0:
+                        logger.error('Source {source_id} does not have any srcprofile plots to collect!')
+                        return
+                    bid = int(files[0][len(conf.PLOT_DIR):].split('B')[1].split('_')[0])
+                    for b in fband:
+                        logger.debug(f' *** adding {b}')
+                        fname = os.path.join(conf.PLOT_DIR, f'T{brick_id}_B{bid}_S{sid}_{b}_srcprofile.pdf')
+                        if os.path.exists(fname):
+                            fnames.append(fname)
+                        else:
+                            logger.warning(f' *** {b} does not exist at {fname}')
+
+                    # collect
+                    from PyPDF2 import PdfFileMerger
+                    merger = PdfFileMerger()
+
+                    for pdf in fnames:
+                        merger.append(pdf)
+
+                    logger.debug(f'Writing out combined srcprofile...')
+                    merger.write(os.path.join(conf.PLOT_DIR, f'T{brick_id}_B{bid}_S{sid}_srcprofile.pdf'))
+                    merger.close()
+
+                    # remove
+                    logger.debug(f'Removing individual srcprofiles...')
+                    [os.system(f'rm {fname}') for fname in fnames]
 
 
 def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True, source_only=False, force_unfixed_pos=(not conf.FREEZE_FORCED_POSITION), use_band_shape=(not conf.FREEZE_FORCED_SHAPE), rao_cramer_only=False):
@@ -2392,7 +2434,9 @@ def models_from_catalog(catalog, fblob, unit_flux=False):
         target_zpt = np.array(conf.MULTIBAND_ZPT)[idx_bands]
         
         if unit_flux:
+            logger.debug('Using unit flux for init fluxes')
             flux = Fluxes(**dict(zip(fblob.bands, np.ones(len(fblob.bands)))))
+            fluxcore = Fluxes(**dict(zip(fblob.bands, np.ones(len(fblob.bands)))))
         else:
             try:
                 # Make initial guess at flux using PSF!
@@ -2405,13 +2449,17 @@ def models_from_catalog(catalog, fblob, unit_flux=False):
                     qflux[j] = max_img / max_psf
 
                 flux = Fluxes(**dict(zip(fblob.bands, qflux)))
+                fluxcore = Fluxes(**dict(zip(fblob.bands, qflux)))
+                logger.debug('Making a guess based off the PSF')
 
 
             except:
+                logger.debug(f'Making a guess based off {best_band} for init fluxes')
                 try:
                     original_zpt = conf.MODELING_ZPT
                     logger.info(f'Converting fluxes from zerpoint {original_zpt} to {target_zpt}')
                     qflux = src[f'RAWFLUX_{best_band}'] * 10 ** (0.4 * (target_zpt - original_zpt))
+                    qfluxcore = src[f'RAWFLUXCORE_{best_band}'] * 10 ** (0.4 * (target_zpt - original_zpt))
                 except:
                     # IF I TRIED MULTIBAND MODELING, THEN I STILL NEED AN INITIAL FLUX. START WITH 0 idx!
                     init_band = f'{conf.MODELING_NICKNAME}_{conf.INIT_FLUX_BAND}'
@@ -2420,8 +2468,10 @@ def models_from_catalog(catalog, fblob, unit_flux=False):
                     logger.warning(f'Coming from multiband model, so using flux from {init_band}')
                     original_zpt = fblob._band2idx(conf.INIT_FLUX_BAND)
                     qflux = src[f'RAWFLUX_{init_band}'] * 10 ** (0.4 * (target_zpt - original_zpt))
+                    qfluxcore = src[f'RAWFLUX_{init_band}'] * 10 ** (0.4 * (target_zpt - original_zpt))
                     
                 flux = Fluxes(**dict(zip(band, qflux)))
+                fluxcore = Fluxes(**dict(zip(band, qfluxcore)))
 
         # Check if valid source
         if not src[f'VALID_SOURCE_{best_band}']:
@@ -2457,7 +2507,6 @@ def models_from_catalog(catalog, fblob, unit_flux=False):
             #shape = EllipseESoft.fromRAbPhi(src['REFF'], 1./src['AB'], -src['THETA'])  # Reff, b/a, phi
             shape = EllipseESoft(src[f'REFF_{best_band}'], src[f'EE1_{best_band}'], src[f'EE2_{best_band}'])
             nre = SersicIndex(src[f'N_{best_band}'])
-            fluxcore = flux # Eh, ok.... #HACK
 
             if conf.USE_FORCE_SHAPE_PRIOR:
                 shape.addGaussianPrior('logre', src[f'REFF_{best_band}'], conf.FORCE_REFF_PRIOR_SIG/conf.PIXEL_SCALE )
