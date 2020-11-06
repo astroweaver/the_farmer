@@ -124,7 +124,7 @@ class Brick(Subimage):
 
         self.add_ids()
 
-        self.run_background()
+        # self.run_background()
 
         self.logger.info('Finished cleaning catalog.')
 

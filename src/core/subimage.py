@@ -493,7 +493,7 @@ class Subimage():
                     else:
                         self.images -= self.background_images
 
-                    self.logger.info(f'    Band: {conf.BANDS[i]}')
+                    self.logger.info(f'    Band: {conf.BANDS}')
                     self.logger.info(f'    Mesh size = ({conf.SUBTRACT_BW}, {conf.SUBTRACT_BH})')
                     self.logger.info(f'    Back Median = {np.nanmedian(self.background_images, (1,2))}')
                     self.logger.info(f'    Back Std = {np.nanstd(self.background_images, (1,2))}')
