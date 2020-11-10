@@ -294,7 +294,7 @@ class Subimage():
             bands = list(bands)
         if band in bands:
             idx = bands.index(band)
-            # self.logger.debug(f'subimage._band2idx :: {band} returns idx={idx}')
+            self.logger.debug(f'subimage._band2idx :: {band} returns idx={idx}')
             return idx
         else:
             raise ValueError(f"{band} is not a valid band.")

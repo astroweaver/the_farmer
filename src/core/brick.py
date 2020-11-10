@@ -493,9 +493,10 @@ class Brick(Subimage):
     def run_background(self):
         # Just stash this here. 
         for i, band in enumerate(self.bands):
+            idx = self._band2idx(band, bands=self.bands)
             if band.startswith(conf.MODELING_NICKNAME):
                 band = band[len(conf.MODELING_NICKNAME)+1:]
-            idx = self._band2idx(band)
+            
 
             if band in conf.SUBTRACT_BACKGROUND:
                 self.subtract_background(idx=idx, flat=conf.USE_FLAT, use_masked=(conf.SUBTRACT_BACKGROUND_WITH_MASK|conf.SUBTRACT_BACKGROUND_WITH_DIRECT_MEDIAN), use_direct_median=conf.SUBTRACT_BACKGROUND_WITH_DIRECT_MEDIAN)

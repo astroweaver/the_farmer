@@ -25,7 +25,6 @@ from functools import partial
 import shutil
 sys.path.insert(0, os.path.join(os.getcwd(), 'config'))
 import pickle
-import dill
 
 # Tractor imports
 from tractor import NCircularGaussianPSF, PixelizedPSF, Image, Tractor, FluxesPhotoCal, NullWCS, ConstantSky, EllipseESoft, Fluxes, PixPos
@@ -893,6 +892,39 @@ def detect_sources(brick_id, catalog=None, segmap=None, blobmap=None, use_mask=T
 
 def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=None, multiband_model=len(conf.BANDS)>1, source_only=False):
     """ Stage 2. Detect your sources and determine the best model parameters for them """
+
+    if band is None:
+        modband = conf.BANDS
+        addName = conf.MULTIBAND_NICKNAME
+    else:
+        if (type(band) == list) | (type(band) == np.ndarray):
+            modband = band
+        elif (type(band) == str) | (type(band) == np.str_):
+            modband = [band,]
+        else:
+            sys.exit('ERROR -- Input band is not a list, array, or string!')
+        
+        addName = '_'.join(modband)
+
+    # create new logging file
+    if conf.LOGFILE_LOGGING_LEVEL is not None:
+        brick_logging_path = os.path.join(conf.LOGGING_DIR, f"B{brick_id}_{addName}_logfile.log")
+        logger.info(f'Logging information will be streamed to console and to {brick_logging_path}\n')
+        # If overwrite is on, remove old logger                                                                                           
+        if conf.OVERWRITE & os.path.exists(brick_logging_path):
+            logger.warning('Existing logfile will be overwritten.')
+            os.remove(brick_logging_path)
+        # close and remove the old file handler                                                                                           
+        #fh.close()                                                                                                         
+        #logger.removeHandler(fh)                                                                                                  
+        
+        # we will add an additional file handler to keep track of brick_id specific information                                                                   
+        # set up the new file handler                                                                                                
+        shutil.copy(logging_path, brick_logging_path)
+        new_fh = logging.FileHandler(brick_logging_path,mode='a')
+        new_fh.setLevel(logging.getLevelName(conf.LOGFILE_LOGGING_LEVEL))
+        new_fh.setFormatter(formatter)
+        logger.addHandler(new_fh)
 
     # Warn user that you cannot plot while running multiprocessing...
     if (source_id is None) & (blob_id is None):
