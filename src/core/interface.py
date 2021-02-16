@@ -993,7 +993,7 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
                 mod_band = conf.MODELING_NICKNAME
             logger.info(f'Modeling brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
             
-            if conf.PLOT > 2:
+            if conf.PLOT > 3:
                 plot_brick(modbrick, 0, band=mod_band)
                 plot_background(modbrick, 0, band=mod_band)
                 plot_mask(modbrick, 0, band=mod_band)

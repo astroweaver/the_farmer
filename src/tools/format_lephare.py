@@ -148,6 +148,8 @@ def farmer_to_lephare(tab, sfddir=conf.SFDMAP_DIR, idx=0):
 
 def crossmatch_with_aux(tab):
 
+    tab = tab.copy()
+
     print('Crossmatching with auxillary catalogs...')
 
     AUX_DIR = '/Volumes/WD4/Current/COSMOS2020/data/external/ancillary/'
@@ -165,7 +167,7 @@ def crossmatch_with_aux(tab):
         },
         'ascii.fixed_width'
     )
-    fname_fir = ('COSMOS_Super_Deblended_FIRmm_Catalog_20180719.fits', \
+    fname_fir = ('COSMOS_Super_Deblended_FIRmm_Catalog_20201010_20cm_correctted.fits', \
         {   'ID' : 'ID_FIR',
             'F24': 'FIR_24_FLUX',
             'DF24': 'FIR_24_FLUXERR',
@@ -187,18 +189,18 @@ def crossmatch_with_aux(tab):
             'DF1200': 'FIR_1200_FLUXERR',
             'F10CM': 'FIR_10CM_FLUX',
             'DF10CM': 'FIR_10CM_FLUXERR',
-            'F20CM': 'FIR_20CM_FLUX',
-            'DF20CM': 'FIR_20CM_FLUXERR',},
+            'F20cm': 'FIR_20CM_FLUX',
+            'DF20cm': 'FIR_20CM_FLUXERR',},
         'fits'
     )
     fname_xray = ('Chandra_COSMOS_Legacy_20151120_4d.fits', \
         {'id_x': 'ID_CHANDRA',
-        'flux_F': 'XF_FLUX',
-        'flux_F_err': 'XF_FLUXERR',
-        'flux_S': 'XS_FLUX',
-        'flux_S_err': 'XS_FLUXERR',
-        'flux_H': 'XH_FLUX',
-        'flux_H_err': 'XH_FLUXERR',
+        # 'flux_F': 'XF_FLUX',
+        # 'flux_F_err': 'XF_FLUXERR',
+        # 'flux_S': 'XS_FLUX',
+        # 'flux_S_err': 'XS_FLUXERR',
+        # 'flux_H': 'XH_FLUX',
+        # 'flux_H_err': 'XH_FLUXERR',
         },
         'fits'
     )
@@ -245,9 +247,9 @@ def crossmatch_with_aux(tab):
 
     from catalog_tools import crossmatch
     import astropy.units as u
-    inputs = [fname_galex, fname_acs,]
+    # inputs = [fname_galex, fname_acs,]
     # inputs = [fname_galex, fname_fir, fname_xray, fname_acs, fname_laigle,]
-
+    inputs = [fname_laigle, fname_galex, fname_fir, fname_acs, fname_xray]
     # fname_galex, fname_fir, f
     for (fname, cols, fmt) in inputs:
 
@@ -321,12 +323,21 @@ def crossmatch_with_aux(tab):
                     col_aux[tab['ID']==idx] = val
             except:
                 print('column cannot be coverted to float...')
-                col_aux = np.ones(len(tab), dtype=object) # this is overkill, but OK.
-                for idx, val in zip(mcat_farmer['ID'], mcat_aux[coln]):
-                    col_aux[tab['ID']==idx] = val
+                if mcat_aux[coln].dtype == 'S9':
+                    col_aux = np.ones(len(tab), dtype='U6') # this is overkill, but OK.
+                    for idx, val in zip(mcat_farmer['ID'], mcat_aux[coln]):
+                        # print(idx, val)
+                        col_aux[tab['ID']==idx] = val
+                        # print(col_aux[tab['ID']==idx])
+                        # print()
+                else:
+                    col_aux = np.ones(len(tab), dtype=mcat_aux[coln].dtype) # this is overkill, but OK.
+                    for idx, val in zip(mcat_farmer['ID'], mcat_aux[coln]):
+                        col_aux[tab['ID']==idx] = val
             
             print(f'*** {coln} --> {cols[coln]}')
-            tab[cols[coln]] = col_aux
+            tab.add_column(Column(col_aux, cols[coln]))
+            # tab[cols[coln]] = col_aux
 
     print('*** DONE.')
     return tab
@@ -350,17 +361,17 @@ def add_zspec():
     print('*** DONE.')
 
 
-tab = Table.read(fn, 1)
+# tab = Table.read(fn, 1)
 
-farmer_to_lephare(tab)
+# farmer_to_lephare(tab)
 
-crossmatch_with_aux(tab)
+# crossmatch_with_aux(tab)
 
-# add_zspec()
+# # add_zspec()
 
-tab['VALID_SOURCE'] = tab['VALID_SOURCE_MODELING'] #& (tab['i_CHISQ'] < 100) # sanity
-tab.remove_column('VALID_SOURCE_MODELING')
+# tab['VALID_SOURCE'] = tab['VALID_SOURCE_MODELING'] #& (tab['i_CHISQ'] < 100) # sanity
+# tab.remove_column('VALID_SOURCE_MODELING')
 
-tab.write(fnout, format='fits', overwrite=OVERWRITE)
+# tab.write(fnout, format='fits', overwrite=OVERWRITE)
 
 # Then push it to candide and run prepare_input_trac.py
