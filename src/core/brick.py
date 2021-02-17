@@ -446,6 +446,13 @@ class Brick(Subimage):
         blob_col = np.array([np.unique(self.blobmap[self.segmap == sid])[0] for sid in self.catalog['source_id']])
         self.catalog.add_column(Column(blob_col.astype(int), name='blob_id'), 1)
 
+        nblob_col = -99*np.ones(len(self.catalog))
+        for bid in np.unique(self.catalog['blob_id']):
+            nbid = np.sum(self.catalog['blob_id'] == bid)
+            nblob_col[self.catalog['blob_id'] == bid] = nbid
+
+        self.catalog.add_column(Column(nblob_col.astype(int), name='N_BLOB'), 1)
+
     def make_blob(self, blob_id):
 
         if blob_id < 1:
@@ -1644,7 +1651,10 @@ class Brick(Subimage):
 
             if modeling:
                 raw_fluxes = src[f'FLUX_{conf.MODELING_NICKNAME}_{band}']
-                solmodel = src[f'SOLMODEL_{conf.MODELING_NICKNAME}_{band}']
+                try:
+                    solmodel = src[f'SOLMODEL_{conf.MODELING_NICKNAME}_{band}']
+                except:
+                    solmodel = src[f'SOLMODEL_{conf.MODELING_NICKNAME}']
             else:
                 raw_fluxes = src[f'FLUX_{band}']
                 solmodel = src[f'SOLMODEL_{conf.MODELING_NICKNAME}']

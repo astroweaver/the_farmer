@@ -384,7 +384,7 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, brick_id=None, in
     return
 
   
-def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=None, source_only=False):
+def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=None, source_only=False, blob_only=False):
     """ Essentially a private function. Runs each individual blob and handles the bulk of the work. """
 
     # if conf.NTHREADS != 0:
@@ -442,15 +442,16 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
             modblob.bic = np.zeros((modblob.n_sources, 3, 2))
             assert(len(modblob.bcatalog) > 0)
 
-        if (conf.MODEL_PHOT_MAX_NBLOB > 0) & (modblob.n_sources > conf.MODEL_PHOT_MAX_NBLOB):
-            logger.info('Number of sources exceeds set limit. Skipping!')
-            # if conf.NTHREADS != 0:
-            #     logger.removeHandler(fh)
-            catout = modblob.bcatalog.copy()
-            catout['x'] += modblob.subvector[1]
-            catout['y'] += modblob.subvector[0]
-            del modblob
-            return catout
+        if not blob_only:
+            if (conf.MODEL_PHOT_MAX_NBLOB > 0) & (modblob.n_sources > conf.MODEL_PHOT_MAX_NBLOB):
+                logger.info('Number of sources exceeds set limit. Skipping!')
+                # if conf.NTHREADS != 0:
+                #     logger.removeHandler(fh)
+                catout = modblob.bcatalog.copy()
+                catout['x'] += modblob.subvector[1]
+                catout['y'] += modblob.subvector[0]
+                del modblob
+                return catout
 
         # Run models
         if conf.ITERATIVE_SUBTRACTION_THRESH is None:
@@ -992,6 +993,15 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
             else:
                 mod_band = conf.MODELING_NICKNAME
             logger.info(f'Modeling brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
+
+            # Inform the user about the blob occupation distribution
+            logger.info('Blob Occupation Distribution')
+            for i in np.arange(5)+1:
+                n_blob = np.sum(catalog['N_BLOB'] == i)
+                logger.info(f'   {i}: {n_blob}/{n_blobs} ({n_blob/n_blobs*100:2.2f}%)')
+            n_blob = np.sum(catalog['N_BLOB'] > i)
+            logger.info(f'   >{i}: {n_blob}/{n_blobs} ({n_blob/n_blobs*100:2.2f}%)')
+
             
             if conf.PLOT > 3:
                 plot_brick(modbrick, 0, band=mod_band)
@@ -1220,6 +1230,16 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
         modbrick.n_bands = len(modbrick.bands)
         logger.info(f'Multi-band Modeling brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
 
+        # Inform the user about the blob occupation distribution
+        logger.info('Blob Occupation Distribution')
+        __, idx = np.unique(catalog['blob_id'], return_index=True)
+        for i in np.arange(5)+1:
+            n_blob = np.sum(catalog['N_BLOB'][idx] == i)
+            logger.info(f'   {i}: {n_blob}/{n_blobs} ({n_blob/n_blobs*100:2.2f}%)')
+        n_blob = np.sum(catalog['N_BLOB'][idx] > i)
+        logger.info(f'   >{i}: {n_blob}/{n_blobs} ({n_blob/n_blobs*100:2.2f}%)')
+
+
         for i, mod_band in enumerate(modbrick.bands):
             if conf.PLOT > 3:
                 plot_brick(modbrick, 0, band=mod_band)
@@ -1289,6 +1309,7 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
                 raise ValueError('Source only is set True, but no source is has been provided!')
         
         # Run a specific source or blob
+        blob_only=False
         if (source_id is not None) | (blob_id is not None):
             # conf.PLOT = True
             outcatalog = modbrick.catalog.copy()
@@ -1305,25 +1326,16 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
             if blob_id is not None:
                 if blob_id not in outcatalog['blob_id']:
                     raise ValueError(f'No blobs exist for requested blob id {blob_id}')
+                blob_only=True
 
             logger.info(f'Running single blob for blob {blob_id}')
             modblob = modbrick.make_blob(blob_id)
             
-
-            # if source_id is set, then look at only that source
-
-
-
             
             if modblob.rejected:
                 raise ValueError('Requested blob is invalid')
-            if source_only & (source_id not in modblob.bcatalog['source_id']):
-                logger.warning('Requested source is not in blob!')
-                for source in modblob.bcatalog:
-                    logger.warning(source['source_id'], source['cflux'])
-                raise ValueError('Requested source is not in blob!')
 
-            output_rows = runblob(blob_id, modblob, modeling=True, plotting=conf.PLOT, source_id=source_id)
+            output_rows = runblob(blob_id, modblob, modeling=True, plotting=conf.PLOT, source_id=source_id, blob_only=blob_only)
 
             output_cat = vstack(output_rows)
                     
@@ -1346,12 +1358,19 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
         
         # Else, production mode -- all objects in brick are to be run.
         else:
-            
             if conf.NBLOBS > 0:
                 run_n_blobs = conf.NBLOBS
+                bid_arr = np.arange(1, run_n_blobs+1)
+            elif conf.MODEL_PHOT_MAX_NBLOB > 0:
+                bid_arr = np.unique(modbrick.catalog['blob_id'][modbrick.catalog['N_BLOB'] <= conf.MODEL_PHOT_MAX_NBLOB])
+                run_n_blobs = len(bid_arr)
+                if conf.NBLOBS > 0:
+                    bid_arr = bid_arr[:conf.NBLOBS]
+                    run_n_blobs = len(bid_arr)
             else:
                 run_n_blobs = modbrick.n_blobs
-            logger.info(f'Preparing to run {run_n_blobs} blobs.')
+                bid_arr = np.arange(1, run_n_blobs+1)
+            logger.info(f'Preparing to run {run_n_blobs}/{modbrick.n_blobs} blobs.')
             
             outcatalog = modbrick.catalog.copy()
             mosaic_origin = modbrick.mosaic_origin
@@ -1359,7 +1378,7 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
 
             logger.info('Generating blobs...')
             astart = time.time()
-            modblobs = (modbrick.make_blob(i) for i in np.arange(1, run_n_blobs+1))
+            modblobs = (modbrick.make_blob(i) for i in bid_arr)
             logger.info(f'{run_n_blobs} blobs generated ({time.time() - astart:3.3f}s)')
             #del modbrick
 
@@ -1369,14 +1388,14 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
 
                 with pa.pools.ProcessPool(ncpus=conf.NTHREADS) as pool:
                     logger.info(f'Parallel processing pool initalized with {conf.NTHREADS} threads.')
-                    result = pool.uimap(partial(runblob, modeling=True, plotting=conf.PLOT, source_only=source_only), np.arange(1, run_n_blobs+1), modblobs)
+                    result = pool.uimap(partial(runblob, modeling=True, plotting=conf.PLOT), bid_arr, modblobs)
                     output_rows = list(result)
                     logger.info('Parallel processing complete.')
 
 
             else:
                 logger.info('Serial processing initalized.')
-                output_rows = [runblob(kblob_id+1, kblob, modeling=True, plotting=conf.PLOT, source_only=source_only) for kblob_id, kblob in enumerate(modblobs)]
+                output_rows = [runblob(kblob_id+1, kblob, modeling=True, plotting=conf.PLOT) for kblob_id, kblob in enumerate(modblobs)]
 
             
             output_cat = vstack(output_rows)
@@ -1396,10 +1415,9 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
                 if colname not in outcatalog.colnames:
                     colshape = np.shape(output_cat[colname])
                     if len(colshape) == 2:
-                        colshape = colshape[1]
+                        colshape = (colshape[1],)
                     else:
-                        colshape = 1
-                    print(colname, colshape)
+                        colshape = (1,)
                     outcatalog.add_column(Column(length=len(outcatalog), dtype=output_cat[colname].dtype, shape=colshape, name=colname))
             #outcatalog = join(outcatalog, output_cat, join_type='left', )
             for row in output_cat:
@@ -1477,7 +1495,7 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
         if eff_area is not None:
             for b, band in enumerate(conf.BANDS):
                 if band in img_names:
-                    eff_area_deg = eff_area[b] * (conf.PIXEL_SCALE / 3600)**2
+                    eff_area_deg = eff_area[band] * (conf.PIXEL_SCALE / 3600)**2
                     hdr.set(f'AREA{b}', eff_area_deg, f'{conf.MODELING_NICKNAME} {band} EFF_AREA (deg2)')
         hdu_info = fits.ImageHDU(header=hdr, name='CONFIG')
         hdu_table = fits.table_to_hdu(modbrick.catalog)
@@ -2056,12 +2074,12 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                     
                 for colname in output_cat.colnames:
                     if colname not in fbrick.catalog.colnames:
-                        if colname.startswith('FLUX_APER') | colname.startswith('MAG_APER'):
-                            fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
-                        elif colname.endswith('FLUX_RADIUS'):
-                            fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=float, shape=(len(conf.PHOT_FLUXFRAC),), name=colname))
+                        colshape = np.shape(output_cat[colname])
+                        if len(colshape) == 2:
+                            colshape = (colshape[1],)
                         else:
-                            fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
+                            colshape = (1,)
+                        fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=output_cat[colname].dtype, shape=colshape, name=colname))
                 #fbrick.catalog = join(fbrick.catalog, output_cat, join_type='left', )
                 for row in output_cat:
                     fbrick.catalog[np.where(fbrick.catalog['source_id'] == row['source_id'])[0]] = row

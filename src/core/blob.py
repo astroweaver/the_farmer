@@ -2190,7 +2190,7 @@ class Blob(Subimage):
             # Model Parameters
             self.bcatalog[row][f'SOLMODEL_{mod_band}'] = src.name
             self.bcatalog[row][f'VALID_SOURCE_{mod_band}'] = valid_source
-            self.bcatalog[row]['N_BLOB'] = self.n_sources
+            # self.bcatalog[row]['N_BLOB'] = self.n_sources
 
             if src.name in ('ExpGalaxy', 'DevGalaxy', 'SersicGalaxy', 'SersicCoreGalaxy'):
                 self.bcatalog[row][f'REFF_{mod_band}'] = src.shape.logre
