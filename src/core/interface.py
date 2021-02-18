@@ -891,7 +891,7 @@ def detect_sources(brick_id, catalog=None, segmap=None, blobmap=None, use_mask=T
     return detbrick
 
 
-def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=None, multiband_model=len(conf.BANDS)>1, source_only=False):
+def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=None, multiband_model=len(conf.MODELING_BANDS)>1, source_only=False):
     """ Stage 2. Detect your sources and determine the best model parameters for them """
 
     if band is None:

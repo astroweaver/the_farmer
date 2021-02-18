@@ -430,9 +430,9 @@ class Blob(Subimage):
                             wcs=NullWCS(),
                             photocal=FluxesPhotoCal(band),
                             sky=ConstantSky(0))
-            # modelminval = 0.1 * np.nanmedian(1/np.sqrt(tweight[tweight>0]))
-            # timages[i].modelMinval = 1. #modelminval
-            # print(f'Setting minval to {modelminval} in img pixel units.')
+            modelminval = 0.1 * np.nanmedian(1/np.sqrt(tweight[tweight>0]))
+            timages[i].modelMinval = modelminval
+            print(f'Setting minval to {modelminval} in img pixel units.')
 
             # some pickling
             # import pickle
