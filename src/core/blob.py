@@ -430,9 +430,9 @@ class Blob(Subimage):
                             wcs=NullWCS(),
                             photocal=FluxesPhotoCal(band),
                             sky=ConstantSky(0))
-            modelminval = 0.1 * np.nanmedian(1/np.sqrt(tweight[tweight>0]))
-            timages[i].modelMinval = modelminval
-            print(f'Setting minval to {modelminval} in img pixel units.')
+            # modelminval = 0.1 * np.nanmedian(1/np.sqrt(tweight[tweight>0]))
+            # timages[i].modelMinval = modelminval
+            # print(f'Setting minval to {modelminval} in img pixel units.')
 
             # some pickling
             # import pickle
@@ -605,32 +605,18 @@ class Blob(Subimage):
                 if conf.TRY_OPTIMIZATION:
                     try:
                         
-                        # dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, damp=conf.DAMPING, variance=True, priors=conf.USE_POSITION_PRIOR)
+                        # dlnp, X, alpha, var = tr.optimize() #shared_params=self.shared_params, damp=conf.DAMPING, variance=True, priors=conf.USE_POSITION_PRIOR)
                         dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, damp=conf.DAMPING, 
                                                     variance=True, priors=use_priors)
 
                         self.logger.debug(f'    {i+1}) dlnp = {dlnp}')
-                        # print(dlnp)
-                        # print(X)
-                        # print(alpha)
-                        # print(var)
-                        # [print(m.getShape()) for m in tr.getCatalog()]
-                        # [print(m.getBrightness().getFlux(self.bands[0])) for m in tr.getCatalog()]
-                        # [print(m.getThawedParams()) for m in tr.getCatalog()]
-                        # [print(m.getFrozenParams()) for m in tr.getCatalog()]
-                        # print()
-                        
 
-
+                    
                         if i == 0:
                             dlnp_init = dlnp
                     except:
                         self.logger.warning(f'WARNING - Optimization failed on step {i} for blob #{self.blob_id}')
                         return False
-                        # tr = tr_old
-                        # self.logger.info(f'Blob #{self.blob_id} failed to converged in {i+1} steps ({time.time() - tstart:3.3f}s)')
-                        # self.n_converge = i
-                        # break
 
                 else:
 
@@ -639,6 +625,16 @@ class Blob(Subimage):
                     self.logger.debug(f'    {i+1}) dlnp = {dlnp}')
                     if i == 0:
                         dlnp_init = dlnp
+
+                    # print(dlnp)
+                    # print(X)
+                    # print(alpha)
+                    # print(var)
+                    # # [print(m.getShape()) for m in tr.getCatalog()]
+                    # # [print(m.getBrightness().getFlux(self.bands[0])) for m in tr.getCatalog()]
+                    # # [print(m.getThawedParams()) for m in tr.getCatalog()]
+                    # # [print(m.getFrozenParams()) for m in tr.getCatalog()]
+                    # print()
 
 
                 # cat = tr.getCatalog()

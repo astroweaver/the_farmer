@@ -1280,7 +1280,7 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
         modbrick.run_weights()
         modbrick.run_background()
 
-        if conf.PLOT > 2:
+        if conf.PLOT > 3:
             plot_blobmap(modbrick)
 
         if conf.SAVE_BACKGROUND:
