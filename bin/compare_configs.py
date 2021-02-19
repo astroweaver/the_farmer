@@ -39,15 +39,12 @@ if len(in2_notin1) > 0:
 if len(in1_notin2) > 0:
     warnings.append(f"- {name_conf2} is missing the following params included in {name_conf1}: {in1_notin2} \n")
 
-matching_params1 = list(np.array(config1_keys)[np.isin(config1_keys,config2_keys)])
-matching_params2 = list(np.array(config2_keys)[np.isin(config2_keys,config1_keys)])
-matching_params1.extend(matching_params2)
+matching_params = list(np.array(config1_keys)[np.isin(config1_keys,config2_keys)])
 
-matching_params = list(set(matching_params1))
 
 for m in matching_params:
     val1,val2 = conf1.__dict__[m], conf2.__dict__[m]
-    if ("__" not in m) and ("WORKING" not in m):
+    if ("__" not in m) and ("DIR" not in m):
         if val1 != val2:
             warnings.append(f"- Param value < {m} > differs: {name_conf1} has {m} = {val1}, {name_conf2} has {m} = {val2}")
 
