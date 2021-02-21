@@ -1203,8 +1203,8 @@ class Blob(Subimage):
         if self._level == 0:
             # Which have chi2(PS) < chi2(SG) and both are chi2 > 3?
             for i, blob_id in enumerate(sid):
-                self.logger.debug(f'Source #{blob_id} BIC -- PS({bic[i, 0, 0]:3.3f}) vs. SG({bic[i, 0, 1]:3.3f}) with thresh of {conf.PS_SG_THRESH:3.3f}')
-            chmask = (bic[:, 0, 0] - bic[:, 0, 1] < conf.PS_SG_THRESH)
+                self.logger.debug(f'Source #{blob_id} BIC -- PS({bic[i, 0, 0]:3.3f}) vs. SG({bic[i, 0, 1]:3.3f}) with thresh of {conf.PS_SG_THRESH1:3.3f}')
+            chmask = (bic[:, 0, 0] - bic[:, 0, 1] < conf.PS_SG_THRESH1)
             chmask[(rchisq[:, 0, 0] > conf.CHISQ_FORCE_EXP_DEV) & (rchisq[:, 0, 1] > conf.CHISQ_FORCE_EXP_DEV)] = False # For these, keep trying! Essentially a back-door for high a/b sources.
             if chmask.any():
                 solution_catalog[chmask] = tr_catalogs[chmask, 0, 0].copy()
@@ -1325,8 +1325,8 @@ class Blob(Subimage):
         if self._level == 0:
             # Which have chi2(PS) < chi2(SG)?
             for i, blob_id in enumerate(sid):
-                self.logger.debug(f'Source #{blob_id} Chi2 -- PS({chisq[i, 0, 0]:3.3f}) vs. SG({chisq[i, 0, 1]:3.3f}) with thresh of {conf.PS_SG_THRESH:3.3f}')
-            chmask = ((abs(chisq_exp - chisq[:, 0, 0]) - abs(chisq_exp - chisq[:, 0, 1])) < conf.PS_SG_THRESH)
+                self.logger.debug(f'Source #{blob_id} Chi2 -- PS({chisq[i, 0, 0]:3.3f}) vs. SG({chisq[i, 0, 1]:3.3f}) with thresh of {conf.PS_SG_THRESH1:3.3f}')
+            chmask = ((abs(chisq_exp - chisq[:, 0, 0]) - abs(chisq_exp - chisq[:, 0, 1])) < conf.PS_SG_THRESH1)
             chmask[(chisq[:, 0, 0] > conf.CHISQ_FORCE_EXP_DEV) & (chisq[:, 0, 1] > conf.CHISQ_FORCE_EXP_DEV)] = False # For these, keep trying! Essentially a back-door for high a/b sources.
             if chmask.any():
                 solution_catalog[chmask] = tr_catalogs[chmask, 0, 0].copy()
@@ -1456,9 +1456,9 @@ class Blob(Subimage):
         if self._level == 0:
             # Which have chi2(PS) < chi2(SG)?
             for i, blob_id in enumerate(sid):
-                self.logger.debug(f'Source #{blob_id} Chi2 -- PS({chisq[i, 0, 0]:3.3f}) vs. SG({chisq[i, 0, 1]:3.3f}) with thresh of {conf.PS_SG_THRESH:3.3f}')
+                self.logger.debug(f'Source #{blob_id} Chi2 -- PS({chisq[i, 0, 0]:3.3f}) vs. SG({chisq[i, 0, 1]:3.3f}) with thresh of {conf.PS_SG_THRESH2:3.3f}')
 
-            chmask = ((abs(chisq[:, 0, 0]) - abs(chisq[:, 0, 1])) < conf.PS_SG_THRESH)
+            chmask = ((abs(chisq[:, 0, 0]) - abs(chisq[:, 0, 1])) < conf.PS_SG_THRESH2)
             chmask[(chisq[:, 0, 0] > conf.CHISQ_FORCE_SERSIC) & (chisq[:, 0, 1] > conf.CHISQ_FORCE_SERSIC)] = False # For these, keep trying! Essentially a back-door for high a/b sources.
             if chmask.any():
                 solution_catalog[chmask] = tr_catalogs[chmask, 0, 0].copy()
