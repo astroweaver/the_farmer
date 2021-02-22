@@ -620,6 +620,14 @@ class Blob(Subimage):
 
                 else:
 
+                    # try:
+                    #     [print(m.getBrightness().getFlux(self.bands[0])) for m in tr.getCatalog()]
+                    #     [print(m.getThawedParams()) for m in tr.getCatalog()]
+                    #     [print(m.getFrozenParams()) for m in tr.getCatalog()]
+                    #     [print(m.getShape()) for m in tr.getCatalog()]
+                    # except:
+                    #     pass
+
                     dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, damp=conf.DAMPING, 
                                                     variance=True, priors=use_priors)
                     self.logger.debug(f'    {i+1}) dlnp = {dlnp}')
@@ -630,10 +638,13 @@ class Blob(Subimage):
                     # print(X)
                     # print(alpha)
                     # print(var)
-                    # # [print(m.getShape()) for m in tr.getCatalog()]
-                    # # [print(m.getBrightness().getFlux(self.bands[0])) for m in tr.getCatalog()]
-                    # # [print(m.getThawedParams()) for m in tr.getCatalog()]
-                    # # [print(m.getFrozenParams()) for m in tr.getCatalog()]
+                    # try:
+                    #     [print(m.getBrightness().getFlux(self.bands[0])) for m in tr.getCatalog()]
+                    #     [print(m.getThawedParams()) for m in tr.getCatalog()]
+                    #     [print(m.getFrozenParams()) for m in tr.getCatalog()]
+                    #     [print(m.getShape()) for m in tr.getCatalog()]
+                    # except:
+                    #     pass
                     # print()
 
 
@@ -663,11 +674,61 @@ class Blob(Subimage):
                 if conf.PLOT > 2:
                     plot_iterblob(self, tr, iteration=i+1, bands=self.bands)
 
-                
+                trip2 = False
+                if conf.REFF_MIN > 0:
+                    # Now we catch trivial solutions...
+                    cat = tr.getCatalog()[:len(self.bcatalog)]
+                    for idx, (src, bsrc) in enumerate(zip(cat, self.bcatalog)):
+                        sid = self.bcatalog['source_id'][idx]
+                        # if you are resolved...
+                        if src.name in ('ExpGalaxy', 'DevGalaxy', 'SersicGalaxy', 'SersicCoreGalaxy'):
+                            logre = src.shape.logre
+                            if np.log(conf.REFF_MIN/conf.PIXEL_SCALE) > logre:
+                                # gotcha.
+                                trip2 = True
+                                self.logger.warning(f'Source {sid} has a tiny Reff --  e^{logre}. Resetting!')
+                                # housekeeping...
+                                pa = 90 + np.rad2deg(bsrc['theta'])
+                                shape = EllipseESoft.fromRAbPhi(bsrc['a'], bsrc['b'] / bsrc['a'], pa)
+                                src.shape = shape # I hope.
+                                # if use priors, add back priors
+                                if self.is_modeling & conf.USE_MODEL_SHAPE_PRIOR:
+                                    self.logger.info(f'Setting shape prior. Reff = {src["a"]/conf.PIXEL_SCALE:2.2f}+/-{conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE}')
+                                    src.shape.addGaussianPrior('logre', src.shape.logre, np.log(conf.MODEL_POSITION_PRIOR_SIG/conf.PIXEL_SCALE))
+                                elif ~self.is_modeling & conf.USE_FORCE_SHAPE_PRIOR:
+                                    self.logger.info(f'Setting shape prior. Reff = {src["a"]/conf.PIXEL_SCALE:2.2f}+/-{conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE}')
+                                    src.shape.addGaussianPrior('logre', src.shape.logre, np.log(conf.MODEL_POSITION_PRIOR_SIG/conf.PIXEL_SCALE))
+
+                        if src.name == 'FixedCompositeGalaxy':
+                            logre = np.min([src.shapeExp.logre, src.shapeDev.logre])
+                            if np.log(conf.REFF_MIN/conf.PIXEL_SCALE) > logre:
+                                # gotcha.
+                                trip2 = True
+                                self.logger.warning(f'Source {sid} has a tiny Reff --  e^{logre}. Resetting!')
+                                # housekeeping...
+                                pa = 90 + np.rad2deg(bsrc['theta'])
+                                shape = EllipseESoft.fromRAbPhi(bsrc['a'], bsrc['b'] / bsrc['a'], pa)
+                                src.shapeExp = shape # I hope.
+                                src.shapeDev = shape
+                                # if use priors, add back priors
+                                if self.is_modeling & conf.USE_MODEL_SHAPE_PRIOR:
+                                    self.logger.info(f'Setting shape prior. Reff = {src["a"]/conf.PIXEL_SCALE:2.2f}+/-{conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE}')
+                                    src.shapeExp.addGaussianPrior('logre', src.shapeExp.logre, np.log(conf.MODEL_POSITION_PRIOR_SIG/conf.PIXEL_SCALE))
+                                    src.shapeDev.addGaussianPrior('logre', src.shapeDev.logre, np.log(conf.MODEL_POSITION_PRIOR_SIG/conf.PIXEL_SCALE))
+
+                                elif ~self.is_modeling & conf.USE_FORCE_SHAPE_PRIOR:
+                                    self.logger.info(f'Setting shape prior. Reff = {src["a"]/conf.PIXEL_SCALE:2.2f}+/-{conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE}')
+                                    src.shapeExp.addGaussianPrior('logre', src.shapeExp.logre, np.log(conf.MODEL_POSITION_PRIOR_SIG/conf.PIXEL_SCALE))
+                                    src.shapeDev.addGaussianPrior('logre', src.shapeDev.logre, np.log(conf.MODEL_POSITION_PRIOR_SIG/conf.PIXEL_SCALE))
+
+                    if trip2:
+                        tr.setCatalog(Catalog(*cat))   
+
+
+                trip = False
                 if conf.CORRAL_SOURCES:
                     # check if any sources have left their segment
                     cat = tr.getCatalog()[:len(self.bcatalog)]
-                    trip = False
                     for idx, src in enumerate(cat):
                         sid = self.bcatalog['source_id'][idx]
                         xp, yp = src.pos[0], src.pos[1]
@@ -681,6 +742,7 @@ class Blob(Subimage):
                             # gpriors = src.getLogPrior()
                             # print('Log(Prior):', gpriors)
                             src.pos.setParams([xp0, yp0])
+                            self.logger.info(f'Resetting position. X = {xp0:2.2f}; Y = {yp0:2.2f}')
                             if self.is_modeling & conf.USE_MODEL_POSITION_PRIOR:
                                 gpxy = 0.1 * conf.MODEL_POSITION_PRIOR_SIG
                                 self.logger.info(f'Setting position prior. X = {xp0:2.2f}+/-{gpxy}; Y = {yp0:2.2f}+/-{gpxy}')
@@ -724,6 +786,11 @@ class Blob(Subimage):
 
                     if trip:
                         tr.setCatalog(Catalog(*cat))
+
+
+                    if trip | trip2:
+                        if conf.PLOT > 2:
+                            plot_iterblob(self, tr, iteration=i+1, bands=self.bands)
 
                 if (dlnp == 0) | ( (dlnp < conf.TRACTOR_CONTHRESH) & (~trip) ):
                     self.logger.info(f'Blob #{self.blob_id} converged in {i+1} steps ({dlnp_init:2.2f} --> {dlnp:2.2f}) ({time.time() - tstart:3.3f}s)')
