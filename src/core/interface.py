@@ -563,17 +563,17 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
         if conf.DO_APPHOT:
             for img_type in ('image', 'model', 'isomodel', 'residual',):
                 for band in modblob.bands:
-                    try:
+                    if True: #try:
                         modblob.aperture_phot(band, img_type, sub_background=conf.SUBTRACT_BACKGROUND)
-                    except:
+                    else:
                         logger.warning(f'Aperture photmetry FAILED for {band} {img_type}. Likely a bad blob.')
         if conf.DO_SEPHOT:
             for img_type in ('image', 'model', 'isomodel', 'residual',):
                 for band in modblob.bands:
-                    if True:
+                    try:
                         modblob.sep_phot(band, img_type, centroid='MODEL', sub_background=conf.SUBTRACT_BACKGROUND)
                         modblob.sep_phot(band, img_type, centroid='DETECTION', sub_background=conf.SUBTRACT_BACKGROUND)
-                    if False: #except:
+                    except:
                         logger.warning(f'SEP photometry FAILED for {band} {img_type}. Likely a bad blob.')
 
         if conf.DO_SEXPHOT:
@@ -1507,10 +1507,10 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
 
     # If user wants model and/or residual images made:
     if conf.MAKE_RESIDUAL_IMAGE:
-        cleancatalog = outcatalog[outcatalog[f'VALID_SOURCE']]
+        cleancatalog = outcatalog[outcatalog[f'VALID_SOURCE_{conf.MODELING_NICKNAME}']]
         modbrick.make_residual_image(catalog=cleancatalog, use_band_position=False, modeling=True)
     elif conf.MAKE_MODEL_IMAGE:
-        cleancatalog = outcatalog[outcatalog[f'VALID_SOURCE']]
+        cleancatalog = outcatalog[outcatalog[f'VALID_SOURCE_{conf.MODELING_NICKNAME}']]
         modbrick.make_model_image(catalog=cleancatalog, use_band_position=False, modeling=True)
 
     # close the brick_id specific file handlers         
@@ -2202,6 +2202,8 @@ def make_residual_image(brick_id, band, catalog=None, use_band_position=(not con
         modeling=False
 
     brick = stage_brickfiles(brick_id, nickname=nickname, band=sband)
+    # if modeling:
+    #     brick.bands = np.array([f'{conf.MODELING_NICKNAME}_{s}' for s in [band,]])
 
     if catalog is not None:
         brick.catalog = catalog

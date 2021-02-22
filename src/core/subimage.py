@@ -489,7 +489,8 @@ class Subimage():
 
                 if idx is None:
                     if flat:
-                        self.images -= self.backgrounds[:,0]
+                        for k, bkg in enumerate(self.backgrounds):
+                            self.images[k] -= bkg[0]
                     else:
                         self.images -= self.background_images
 

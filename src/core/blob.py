@@ -522,12 +522,12 @@ class Blob(Subimage):
 
             if ((mid == 3) | (mid == 4) | (mid == 6) | (mid == 7)) & conf.USE_MODEL_SHAPE_PRIOR:
                 self.logger.info(f'Setting shape prior. Reff = {src["a"]/conf.PIXEL_SCALE:2.2f}+/-{conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE}')
-                self.model_catalog[i].shape.addGaussianPrior('logre', self.model_catalog[i].shape.logre, np.log(conf.MODEL_POSITION_PRIOR_SIG/conf.PIXEL_SCALE))
+                self.model_catalog[i].shape.addGaussianPrior('logre', self.model_catalog[i].shape.logre, np.log(conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE))
 
             elif (mid == 5) & conf.USE_MODEL_SHAPE_PRIOR:
                 self.logger.info(f'Setting shape prior. Reff = {src["a"]/conf.PIXEL_SCALE:2.2f}+/-{conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE}')
-                self.model_catalog[i].shapeExp.addGaussianPrior('logre', self.model_catalog[i].shapeExp.logre, np.log(conf.MODEL_POSITION_PRIOR_SIG/conf.PIXEL_SCALE))
-                self.model_catalog[i].shapeDev.addGaussianPrior('logre', self.model_catalog[i].shapeExp.logre, np.log(conf.MODEL_POSITION_PRIOR_SIG/conf.PIXEL_SCALE))
+                self.model_catalog[i].shapeExp.addGaussianPrior('logre', self.model_catalog[i].shapeExp.logre, np.log(conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE))
+                self.model_catalog[i].shapeDev.addGaussianPrior('logre', self.model_catalog[i].shapeExp.logre, np.log(conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE))
 
 
             self.logger.debug(f'Source #{src["source_id"]}: {self.model_catalog[i].name} model at {position}')
@@ -638,15 +638,13 @@ class Blob(Subimage):
                     # print(X)
                     # print(alpha)
                     # print(var)
-                    # try:
-                    #     [print(m.getBrightness().getFlux(self.bands[0])) for m in tr.getCatalog()]
-                    #     [print(m.getThawedParams()) for m in tr.getCatalog()]
-                    #     [print(m.getFrozenParams()) for m in tr.getCatalog()]
-                    #     [print(m.getShape()) for m in tr.getCatalog()]
-                    # except:
-                    #     pass
-                    # print()
-
+                    # for midx, m in enumerate(tr.getCatalog()):
+                    #     print(f'{midx}: {m.name}')
+                    #     print(m.getBrightness().getFlux(self.bands[0]))
+                    #     try:
+                    #         print(m.getShape())
+                    #     except:
+                    #         pass
 
                 # cat = tr.getCatalog()
                 # for k, src in enumerate(cat):
@@ -693,11 +691,11 @@ class Blob(Subimage):
                                 src.shape = shape # I hope.
                                 # if use priors, add back priors
                                 if self.is_modeling & conf.USE_MODEL_SHAPE_PRIOR:
-                                    self.logger.info(f'Setting shape prior. Reff = {src["a"]/conf.PIXEL_SCALE:2.2f}+/-{conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE}')
-                                    src.shape.addGaussianPrior('logre', src.shape.logre, np.log(conf.MODEL_POSITION_PRIOR_SIG/conf.PIXEL_SCALE))
+                                    self.logger.info(f'Setting shape prior. Reff = {np.exp(src.shape.logre):2.2f}+/-{conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE}')
+                                    src.shape.addGaussianPrior('logre', src.shape.logre, np.log(conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE))
                                 elif ~self.is_modeling & conf.USE_FORCE_SHAPE_PRIOR:
-                                    self.logger.info(f'Setting shape prior. Reff = {src["a"]/conf.PIXEL_SCALE:2.2f}+/-{conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE}')
-                                    src.shape.addGaussianPrior('logre', src.shape.logre, np.log(conf.MODEL_POSITION_PRIOR_SIG/conf.PIXEL_SCALE))
+                                    self.logger.info(f'Setting shape prior. Reff = {np.exp(src.shape.logre):2.2f}+/-{conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE}')
+                                    src.shape.addGaussianPrior('logre', src.shape.logre, np.log(conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE))
 
                         if src.name == 'FixedCompositeGalaxy':
                             logre = np.min([src.shapeExp.logre, src.shapeDev.logre])
@@ -713,13 +711,13 @@ class Blob(Subimage):
                                 # if use priors, add back priors
                                 if self.is_modeling & conf.USE_MODEL_SHAPE_PRIOR:
                                     self.logger.info(f'Setting shape prior. Reff = {src["a"]/conf.PIXEL_SCALE:2.2f}+/-{conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE}')
-                                    src.shapeExp.addGaussianPrior('logre', src.shapeExp.logre, np.log(conf.MODEL_POSITION_PRIOR_SIG/conf.PIXEL_SCALE))
-                                    src.shapeDev.addGaussianPrior('logre', src.shapeDev.logre, np.log(conf.MODEL_POSITION_PRIOR_SIG/conf.PIXEL_SCALE))
+                                    src.shapeExp.addGaussianPrior('logre', src.shapeExp.logre, np.log(conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE))
+                                    src.shapeDev.addGaussianPrior('logre', src.shapeDev.logre, np.log(conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE))
 
                                 elif ~self.is_modeling & conf.USE_FORCE_SHAPE_PRIOR:
                                     self.logger.info(f'Setting shape prior. Reff = {src["a"]/conf.PIXEL_SCALE:2.2f}+/-{conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE}')
-                                    src.shapeExp.addGaussianPrior('logre', src.shapeExp.logre, np.log(conf.MODEL_POSITION_PRIOR_SIG/conf.PIXEL_SCALE))
-                                    src.shapeDev.addGaussianPrior('logre', src.shapeDev.logre, np.log(conf.MODEL_POSITION_PRIOR_SIG/conf.PIXEL_SCALE))
+                                    src.shapeExp.addGaussianPrior('logre', src.shapeExp.logre, np.log(conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE))
+                                    src.shapeDev.addGaussianPrior('logre', src.shapeDev.logre, np.log(conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE))
 
                     if trip2:
                         tr.setCatalog(Catalog(*cat))   
@@ -769,6 +767,7 @@ class Blob(Subimage):
 
                             self.logger.warning(f'Source {sid} has escaped its segment!')
                             src.pos.setParams([xp0, yp0])
+                            self.logger.info(f'Resetting position. X = {xp0:2.2f}; Y = {yp0:2.2f}')
                             if self.is_modeling & conf.USE_MODEL_POSITION_PRIOR:
                                 gpxy = 0.1 * conf.MODEL_POSITION_PRIOR_SIG
                                 self.logger.info(f'Setting position prior. X = {xp0:2.2f}+/-{gpxy}; Y = {yp0:2.2f}+/-{gpxy}')
@@ -1665,7 +1664,7 @@ class Blob(Subimage):
             self.logger.info(f'Performing aperture photometry on {conf.MODELING_NICKNAME} {image_type}...')
         else:
             if band.startswith(conf.MODELING_NICKNAME):
-                band = band[len(conf.MODELING_NICKNAME)+1:]
+                sband = band[len(conf.MODELING_NICKNAME)+1:]
             self.logger.info(f'Performing aperture photometry on {band} {image_type}...')
 
         if image_type not in ('image', 'model', 'isomodel', 'residual'):
@@ -1674,7 +1673,8 @@ class Blob(Subimage):
         if band is None:
             idx = 0
         else:
-            idx = self._band2idx(band)
+            idx = self._band2idx(band, bands=self.bands)
+            # print(self.bands)
         use_iso = False
 
         if image_type == 'image':
@@ -1708,11 +1708,11 @@ class Blob(Subimage):
             var[tweight>0] = 1. / tweight[tweight>0] # TODO: WRITE TO UTILS
             var[self.masks[idx]] = 0
 
-        if (band in sub_background) & (not use_iso):
+        if (sband in sub_background) & (not use_iso):
             image -= self.background_images[idx]
 
         cat = self.solution_catalog
-        xxyy = np.vstack([src.getPosition() for src in cat]).T
+        xxyy = np.vstack([src.getPosition() for src in cat])
         apxy = xxyy - 1.
 
         apertures_arcsec = np.array(conf.APER_PHOT)
@@ -1724,22 +1724,26 @@ class Blob(Subimage):
         apmag_err = np.zeros((len(cat), len(apertures)), np.float32)
 
         H,W = self.images[0].shape
-        Iap = np.flatnonzero((apxy[0,:] >= 0)   * (apxy[1,:] >= 0) *
-                            (apxy[0,:] <= W-1) * (apxy[1,:] <= H-1))
+        Iap = np.flatnonzero((apxy[:,0] >= 0)   * (apxy[:,0] >= 0) *
+                            (apxy[:,0] <= W-1) * (apxy[:,0] <= H-1))
 
         if band is None:
             zpt = conf.MODELING_ZPT
         else:   
-            zpt = conf.MULTIBAND_ZPT[self._band2idx(band)]
+            zpt = conf.MULTIBAND_ZPT[self._band2idx(sband)]
 
         if var is None:
             imgerr = None
         else:
             imgerr = np.sqrt(var)
+        print(np.shape(apxy))
+        print(np.shape(apflux))
+        # print(apxy[Iap])
 
         for i, rad in enumerate(apertures):
             if not use_iso: # Run with all models in image
-                aper = photutils.CircularAperture(apxy[:,Iap], rad)
+                aper = photutils.CircularAperture(apxy[Iap], rad)
+                # print(aper)
                 self.logger.debug(f'Measuring {apertures_arcsec[i]:2.2f}" aperture flux on {len(cat)} sources.')
                 p = photutils.aperture_photometry(image, aper, error=imgerr)
                 # aper.plot()
@@ -1751,10 +1755,10 @@ class Blob(Subimage):
             for j, src in enumerate(cat):
                 sid = self.bcatalog['source_id'][j]
                 if use_iso: # Run with only one model in image
-                    aper = photutils.CircularAperture(apxy[:,j], rad)
+                    aper = photutils.CircularAperture(apxy[j], rad)
                     image = self.solution_tractor.getModelImage(idx, srcs=[src,])
                     if conf.APER_APPLY_SEGMASK:
-                        image *= self.masks[self.band2idx(band)]
+                        image *= self.masks[self.band2idx(sband)]
                     if sub_background:
                         image -= self.background_images[idx]
                     self.logger.debug(f'Measuring {apertures_arcsec[i]:2.2f}" aperture flux on 1 source of {len(cat)}.')
@@ -1793,10 +1797,10 @@ class Blob(Subimage):
             band = 'MODELING'
         band = band.replace(' ', '_')
         if f'FLUX_APER_{band}_{image_type}' not in self.bcatalog.colnames:
-            self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, shape=len(apertures), name=f'FLUX_APER_{band}_{image_type}'))
-            self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, shape=len(apertures), name=f'FLUX_APER_{band}_{image_type}_err'))
-            self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, shape=len(apertures), name=f'MAG_APER_{band}_{image_type}'))
-            self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, shape=len(apertures), name=f'MAG_APER_{band}_{image_type}_err'))
+            self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, shape=np.shape(apertures), name=f'FLUX_APER_{band}_{image_type}'))
+            self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, shape=np.shape(apertures), name=f'FLUX_APER_{band}_{image_type}_err'))
+            self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, shape=np.shape(apertures), name=f'MAG_APER_{band}_{image_type}'))
+            self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, shape=np.shape(apertures), name=f'MAG_APER_{band}_{image_type}_err'))
             # self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, name=f'MAG_TOTAL_{band}_{image_type}'))
             # self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, name=f'MAG_TOTAL_{band}_{image_type}_err'))
 

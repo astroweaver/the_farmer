@@ -1312,6 +1312,10 @@ class Brick(Subimage):
         for i, src in enumerate(catalog):
             
             best_band = conf.MODELING_NICKNAME
+            # if modeling:
+            #     addon = f'{conf.MODELING_NICKNAME}_'
+            # else:
+            #     addon = ''
             # if (catalog['BEST_MODEL_BAND'] == '').all():
             #     self.logger.debug('No best models chosen yet.')
             #     best_band = self.bands[0]
