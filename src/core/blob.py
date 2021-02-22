@@ -710,12 +710,12 @@ class Blob(Subimage):
                                 src.shapeDev = shape
                                 # if use priors, add back priors
                                 if self.is_modeling & conf.USE_MODEL_SHAPE_PRIOR:
-                                    self.logger.info(f'Setting shape prior. Reff = {src["a"]/conf.PIXEL_SCALE:2.2f}+/-{conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE}')
+                                    self.logger.info(f'Setting shape prior. ExpReff = {np.exp(src.shapeExp.logre)/conf.PIXEL_SCALE:2.2f}+/-{conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE}')
                                     src.shapeExp.addGaussianPrior('logre', src.shapeExp.logre, np.log(conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE))
                                     src.shapeDev.addGaussianPrior('logre', src.shapeDev.logre, np.log(conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE))
 
                                 elif ~self.is_modeling & conf.USE_FORCE_SHAPE_PRIOR:
-                                    self.logger.info(f'Setting shape prior. Reff = {src["a"]/conf.PIXEL_SCALE:2.2f}+/-{conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE}')
+                                    self.logger.info(f'Setting shape prior. ExpReff = {np.exp(src.shapeExp.logre)/conf.PIXEL_SCALE:2.2f}+/-{conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE}')
                                     src.shapeExp.addGaussianPrior('logre', src.shapeExp.logre, np.log(conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE))
                                     src.shapeDev.addGaussianPrior('logre', src.shapeDev.logre, np.log(conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE))
 
