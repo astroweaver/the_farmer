@@ -703,10 +703,10 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
         if conf.DO_SEPHOT:
             for img_type in ('image', 'model', 'isomodel', 'residual',):
                 for band in fblob.bands:
-                    if True:
+                    try:
                         fblob.sep_phot(band, img_type, centroid='MODEL', sub_background=conf.SUBTRACT_BACKGROUND)
                         fblob.sep_phot(band, img_type, centroid='DETECTION', sub_background=conf.SUBTRACT_BACKGROUND)
-                    if False: #except:
+                    except:
                         logger.warning(f'SEP photometry FAILED for {band} {img_type}. Likely a bad blob.')
 
         if conf.DO_SEXPHOT:

@@ -1665,6 +1665,8 @@ class Blob(Subimage):
         else:
             if band.startswith(conf.MODELING_NICKNAME):
                 sband = band[len(conf.MODELING_NICKNAME)+1:]
+            else:
+                sband = band
             self.logger.info(f'Performing aperture photometry on {band} {image_type}...')
 
         if image_type not in ('image', 'model', 'isomodel', 'residual'):
