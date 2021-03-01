@@ -42,15 +42,14 @@ def header_from_dict(params):
             value = params[attr]
             if type(value) == str:
                 # store normally
-                hdr.set(attr[:8], value, attr)
+                hdr.set(f'CONF{i+1}', value, attr)
             if type(value) in (float, int):
                 # store normally
-                hdr.set(attr[:8], value, attr)
+                hdr.set(f'CONF{i+1}', value, attr)
             if type(value) in (list, tuple):
                 # freak out.
                 for j, val in enumerate(value):
-                    nnum = len(f'{j+1}') + 1
-                    hdr.set(f'{attr[:(8-nnum)]}_{j+1}', str(val), f'{attr}_{j+1}')
+                    hdr.set(f'CONF{i+1}_{j+1}', str(val), f'{attr}_{j+1}')
             
     logger.debug(f'header_from_dict :: Completed writing header ({time() - tstart:2.3f}s)')
     return hdr
@@ -68,6 +67,7 @@ def create_circular_mask(h, w, center=None, radius=None):
     mask = np.zeros((h, w), dtype=int)
     mask[dist_from_center <= radius] = 1
     return mask
+    
 class SimpleGalaxy(ExpGalaxy):
     '''This defines the 'SIMP' galaxy profile -- an exponential profile
     with a fixed shape of a 0.45 arcsec effective radius and spherical

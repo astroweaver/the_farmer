@@ -27,6 +27,7 @@ from astropy.table import Table, Column
 from astropy.wcs import WCS
 import sep
 from astropy.wcs.utils import proj_plane_pixel_scales
+from astropy.stats import sigma_clip
 
 import config as conf
 
@@ -116,18 +117,23 @@ class Subimage():
         self.dims = self.shape[1:]
         self.n_bands = self.shape[0]
 
+    def generate_backgrounds(self):
         # Generate backgrounds
-        if (self.shape[1] * self.shape[2]) < 1E8:
+        self.logger.info('Generating image backgrounds')
+        if ((self.shape[1] * self.shape[2]) < 1E8):
             self.backgrounds = np.zeros((self.n_bands, 2), dtype=float)
             self.background_images = np.zeros_like(self._images) 
+            self.background_rms_images = np.zeros_like(self._images)
             for i, img in enumerate(self._images):
                 background = sep.Background(img, bw = conf.SUBTRACT_BW, bh = conf.SUBTRACT_BH, fw = conf.SUBTRACT_FW, fh = conf.SUBTRACT_FH)
                 self.backgrounds[i] = background.globalback, background.globalrms
                 self.background_images[i] = background.back()
+                self.background_rms_images[i] = background.rms()
 
         else:
             self.backgrounds = None
             self.background_images = None
+            self.background_rms_images = None
 
         # if conf.VERBOSE2:
         #     print('--- Image Details ---')
@@ -180,7 +186,8 @@ class Subimage():
     @masks.setter
     def masks(self, array):
         if array is None:
-            self._masks = np.zeros_like(self._images, dtype=bool)
+            # self._masks = np.zeros_like(self._images, dtype=bool)
+            self.masks = self.weights == 0
         else:
             try:
                 ndim = np.ndim(array)
@@ -189,10 +196,10 @@ class Subimage():
                 raise TypeError('Not a valid image array.')
 
             if ndim == 2:
-                self._masks = array[None, :, :]
+                self._masks = array[None, :, :] | (self.weights == 0)
 
             elif ndim == 3:
-                self._masks = array
+                self._masks = array | (self.weights == 0)
 
             else:
                 raise ValueError(f'Masks found with invalid dimensions (ndim = {ndim})')
@@ -269,7 +276,8 @@ class Subimage():
         submasks[self.slicepix]= self.masks[self.slicepos]
 
         if self.wcs is not None:
-            subwcs = self.wcs.slice(self.slice[::-1])
+            # subwcs = self.wcs.slice(self.slice[::-1])
+            subwcs = self.wcs.slice(self.slice)
 
             # subwcs.wcs.crpix -= (left, bottom)
             # subwcs.array_shape = subshape[1:]
@@ -342,14 +350,34 @@ class Subimage():
         sep.set_extract_pixstack(conf.PIXSTACK_SIZE)
 
         if sub_background:
+            self.logger.debug('Background will be subtracted.')
             background = sep.Background(self.images[idx], bw = conf.DETECT_BW, bh = conf.DETECT_BH,
                                 fw = conf.DETECT_FW, fh = conf.DETECT_FH)
-            image -= background.back()
+            if conf.USE_FLAT:
+                image -= background.globalback
+                self.logger.debug(f'Subtracted flat background level ({background.globalback:4.4f})')
+            else:
+                image -= background.back()
 
+        var = np.ones_like(var)
         kwargs = dict(var=var, mask=mask, minarea=conf.MINAREA, filter_kernel=convfilt, 
                 filter_type=conf.FILTER_TYPE, segmentation_map=True, 
                 deblend_nthresh=conf.DEBLEND_NTHRESH, deblend_cont=conf.DEBLEND_CONT)
         catalog, segmap = sep.extract(image, thresh, **kwargs)
+        catalog['y'] -= 0.75 # HACK
+        catalog['x'] -= 0.1 #HACK
+
+        # plt.ion()
+        # fig, ax = plt.subplots(ncols=2, figsize=(40,20))
+        # from matplotlib.colors import LogNorm
+        # ax[0].imshow(image, norm=LogNorm(), vmin=1E-8, vmax=10, cmap='Greys')
+        # ax[0].scatter(catalog['x'], catalog['y'], s=1)
+        # ax[1].imshow(segmap)
+        # ax[1].scatter(catalog['x'], catalog['y'], s=1)
+        # # plt.show()
+        # fig.savefig(conf.PLOT_DIR + '/checksep.pdf')
+        # plt.close('all')
+
         
         if len(catalog) != 0:
             catalog = Table(catalog)
@@ -357,7 +385,10 @@ class Subimage():
             catalog.add_column(Column(catalog['y'], name='y_orig' ))
             
             if self.wcs is not None:
-                skyc = self.wcs.all_pix2world(catalog['x_orig'], catalog['y_orig'], 0)
+                wx = catalog['x_orig'] + self.mosaic_origin[1] - conf.BRICK_BUFFER
+                wy = catalog['y_orig'] + self.mosaic_origin[0] - conf.BRICK_BUFFER
+                wwx, wwy = wx - self.mosaic_origin[0] + conf.BRICK_BUFFER, wy - self.mosaic_origin[1] + conf.BRICK_BUFFER
+                skyc = self.wcs.all_pix2world(wwx, wwy, 0)
                 catalog.add_column(Column(skyc[0], name=f'RA_{conf.DETECTION_NICKNAME}'))
                 catalog.add_column(Column(skyc[1], name=f'DEC_{conf.DETECTION_NICKNAME}'))
 
@@ -388,24 +419,108 @@ class Subimage():
         else:
             raise ValueError('No objects found by SExtractor.')
 
-    def subtract_background(self, idx=None, flat=False):
-        self.logger.info(f'Subtracting background. (flat={flat})')
-        if idx is None:
-            if flat:
-                self.images -= self.backgrounds[0][0]
-            else:
-                self.images -= self.background_images
-        else:
-            if flat:
-                self.images[idx] -= self.backgrounds[idx][0]
-            else:
-                self.images[idx] -= self.background_images[idx]
+    def subtract_background(self, idx=None, flat=False, use_masked=False, use_direct_median=False, apply=True):
+        if apply:
+            self.logger.info(f'Subtracting background. (flat={flat}, use_masked={use_masked}, use_direct_median={use_direct_median})')
 
-        self.logger.debug(f'    Mesh size = ({conf.SUBTRACT_BW}, {conf.SUBTRACT_BH})')
-        self.logger.debug(f'    Mean = {np.mean(self.background_images, (1,2))}')
-        self.logger.debug(f'    Std = {np.std(self.background_images, (1,2))}')
-        self.logger.debug(f'    Global = {self.backgrounds[:,0]}')
-        self.logger.debug(f'    RMS = {self.backgrounds[:,1]}')
+        self.masked_median = np.zeros((self.n_bands), dtype=float)
+        self.masked_std = np.zeros((self.n_bands), dtype=float)
+
+        if use_masked: # need to redo everything!
+            # apply segmap
+            if idx is None:
+                for i, (img, mask) in enumerate(zip(self.images, self.masks)):
+                    img_masked = img.copy()
+                    # fill with 1st pass background median
+                    img_masked[(self.segmask == 1) | mask] = np.nan 
+                    # get direct median
+                    img_masked_stat = sigma_clip(img_masked.flatten(), 3, masked=False)
+                    self.masked_median[i] = np.nanmedian(img_masked_stat)
+                    self.masked_std[i] = np.nanstd(img_masked_stat)
+                    # re-derive
+                    background = sep.Background(img_masked, bw = conf.SUBTRACT_BW, bh = conf.SUBTRACT_BH, fw = conf.SUBTRACT_FW, fh = conf.SUBTRACT_FH)
+                    # re-assign!
+                    self.backgrounds[i] = background.globalback, background.globalrms
+                    self.background_images[i] = background.back()
+                    self.background_rms_images[i] = background.rms()      
+                    self.logger.info(f'    Band: {conf.BANDS[i]}')
+                    self.logger.info(f'    Mesh size = ({conf.SUBTRACT_BW}, {conf.SUBTRACT_BH})')
+                    self.logger.info(f'    Back Median = {np.nanmedian(self.background_images[i], (0,1))}')
+                    self.logger.info(f'    Back Std = {np.nanstd(self.background_images[i], (0,1))}')
+                    self.logger.info(f'    Back Global = {self.backgrounds[i,0]}')
+                    self.logger.info(f'    RMS Global = {self.backgrounds[i,1]}')
+                    if use_direct_median:
+                        self.logger.info(f'    Direct Median = {self.masked_median}')
+                        self.logger.info(f'    Direct RMS = {self.masked_std}') 
+
+            else:
+                img, mask = self.images[idx], self.masks[idx]
+                img_masked = img.copy()
+                # fill with 1st pass background median
+                img_masked[(self.segmask==1) | mask] = np.nan 
+                img_masked_stat = sigma_clip(img_masked.flatten(), 3, masked=False)
+                self.masked_median[idx] = np.nanmedian(img_masked_stat)
+                self.masked_std[idx] = np.nanstd(img_masked_stat)
+                # re-derive
+                background = sep.Background(img_masked, bw = conf.SUBTRACT_BW, bh = conf.SUBTRACT_BH, fw = conf.SUBTRACT_FW, fh = conf.SUBTRACT_FH)
+                # re-assign!
+                self.backgrounds[idx] = background.globalback, background.globalrms
+                self.background_images[idx] = background.back()
+                self.background_rms_images[idx] = background.rms()  
+
+                self.logger.info(f'    Band: {conf.BANDS[idx]}')
+                self.logger.info(f'    Mesh size = ({conf.SUBTRACT_BW}, {conf.SUBTRACT_BH})')
+                self.logger.info(f'    Back Median = {np.nanmedian(self.background_images[idx], (0,1))}')
+                self.logger.info(f'    Back Std = {np.nanstd(self.background_images[idx], (0,1))}')
+                self.logger.info(f'    Back Global = {self.backgrounds[idx,0]}')
+                self.logger.info(f'    RMS Global = {self.backgrounds[idx,1]}')
+                if use_direct_median:
+                    self.logger.info(f'    Direct Median = {self.masked_median}')
+                    self.logger.info(f'    Direct RMS = {self.masked_std}') 
+
+        if apply:
+            if use_direct_median:
+                if idx is None:
+                    self.images -= self.masked_median
+                else:
+                    self.images[idx] -= self.masked_median[idx]
+
+            else:
+
+                if idx is None:
+                    if flat:
+                        for k, bkg in enumerate(self.backgrounds):
+                            self.images[k] -= bkg[0]
+                    else:
+                        self.images -= self.background_images
+
+                    self.logger.info(f'    Band: {conf.BANDS}')
+                    self.logger.info(f'    Mesh size = ({conf.SUBTRACT_BW}, {conf.SUBTRACT_BH})')
+                    self.logger.info(f'    Back Median = {np.nanmedian(self.background_images, (1,2))}')
+                    self.logger.info(f'    Back Std = {np.nanstd(self.background_images, (1,2))}')
+                    self.logger.info(f'    Back Global = {self.backgrounds[:,0]}')
+                    self.logger.info(f'    RMS Global = {self.backgrounds[:,1]}')
+                    if use_direct_median:
+                        self.logger.info(f'    Direct Median = {self.masked_median}')
+                        self.logger.info(f'    Direct RMS = {self.masked_std}') 
+
+                else:
+                    if flat:
+                        self.images[idx] -= self.backgrounds[idx][0]
+                    else:
+                        self.images[idx] -= self.background_images[idx]
+
+                    self.logger.info(f'    Band: {conf.BANDS[idx]}')
+                    self.logger.info(f'    Mesh size = ({conf.SUBTRACT_BW}, {conf.SUBTRACT_BH})')
+                    self.logger.info(f'    Back Median = {np.nanmedian(self.background_images[idx], (0,1))}')
+                    self.logger.info(f'    Back Std = {np.nanstd(self.background_images[idx], (0,1))}')
+                    self.logger.info(f'    Back Global = {self.backgrounds[idx,0]}')
+                    self.logger.info(f'    RMS Global = {self.backgrounds[idx,1]}')
+                    if use_direct_median:
+                        self.logger.info(f'    Direct Median = {self.masked_median}')
+                        self.logger.info(f'    Direct RMS = {self.masked_std}') 
+                        
+
 
 
 

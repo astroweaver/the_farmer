@@ -34,7 +34,7 @@ from astropy.io import ascii, fits
 out_dir = sys.argv[1]
 
 cat_prefix = 'B'
-cat_suffix = 'cat'
+cat_suffix = sys.argv[2]
 overwrite = True
 
 import logging
@@ -56,7 +56,13 @@ skip_count = 0
 total_count = 0
 first_stack = True
 for i, fname in enumerate(walk_through_files(out_dir, cat_prefix, cat_suffix)):
+
     print('addding {}'.format(fname))
+    if '/' in fname[2:]:
+        print('')
+        continue
+
+    
     try:
         cat = Table.read(fname, 1, memmap=True)
         total_count += 1
@@ -67,10 +73,16 @@ for i, fname in enumerate(walk_through_files(out_dir, cat_prefix, cat_suffix)):
     if i == 0:
         hdu_info = fits.open(fname)['CONFIG']
 
-    if (cat['SOLMODEL']=='').all():
+    if (cat['SOLMODEL_MODELING']=='').all():
         print('BAD SOL MODEL. SKIPPING.')
         skip_count += 1
         continue
+
+    id = np.array([f'{bid}_{sid}' for bid, sid in zip(cat['brick_id'], cat['source_id'])])
+    uniq, idx_unique, counts = np.unique(id,  return_index=True, return_counts=True)
+    print(f'Found {len(uniq)} unique entires. ({len(uniq)/len(cat)*100:3.3f}%)')
+    print(f'removing {np.sum(counts>1)} non-unique sources. ({np.sum(np.isin(id, uniq[counts>1]))} entires!)')
+    cat = cat[idx_unique]
 
     # for band in conf.BANDS:
 
@@ -116,10 +128,8 @@ for i, fname in enumerate(walk_through_files(out_dir, cat_prefix, cat_suffix)):
         try:
             tab = vstack((tab, cat))
             print('stack successful!')
-            continue
         except:
             print('Failed to stack!')
-            continue
         
     del cat
     
