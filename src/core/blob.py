@@ -1669,8 +1669,8 @@ class Blob(Subimage):
                 sband = band
             self.logger.info(f'Performing aperture photometry on {band} {image_type}...')
 
-        if image_type not in ('image', 'model', 'isomodel', 'residual'):
-            raise TypeError("image_type must be 'image', 'model', 'isomodel', or 'residual'")
+        if image_type not in ('image', 'model', 'isomodel', 'residual', 'weight', 'chisq'):
+            raise TypeError("image_type must be 'image', 'model', 'isomodel', 'residual', 'weight', or 'chisq'")
 
         if band is None:
             idx = 0
@@ -1690,6 +1690,12 @@ class Blob(Subimage):
 
         elif image_type == 'residual':
             image = (self.images[idx] - self.solution_tractor.getModelImage(idx))
+
+        elif image_type == 'weight':
+            image = self.weights[idx]
+
+        elif image_type == 'chisq':
+            image = (self.images[idx] - self.solution_tractor.getModelImage(idx)) * np.sqrt(self.weights[idx])
         
         if conf.APER_APPLY_SEGMASK & (not use_iso):
             image *= self.masks[idx]
@@ -1738,9 +1744,7 @@ class Blob(Subimage):
             imgerr = None
         else:
             imgerr = np.sqrt(var)
-        print(np.shape(apxy))
-        print(np.shape(apflux))
-        # print(apxy[Iap])
+
 
         for i, rad in enumerate(apertures):
             if not use_iso: # Run with all models in image
@@ -2397,3 +2401,75 @@ class Blob(Subimage):
                 self.logger.warning(f'Failed to derive Rao-Cramer estimate for blob #{self.blob_id}')
 
         return True # i.e. status
+
+    def estimate_error_corr(self, bands=None, n_pos=100):
+        # For a given source, calculate scaling coeff between image and model for N random positions
+
+        blobmask = self.brick.blobmap
+        blobmask[blobmask > 1] = 1
+        nx, ny = np.shape(blobmask)
+
+        # TO DO
+        # 2. images must be from the brick!
+
+        # Build a list of positions
+        self.logger.info(f'Building list of {n_pos} positions...')
+        rx, ry = np.zeros(n_pos), np.zeros(n_pos)
+        i = 0
+        while nok <= n_pos:
+            ix, iy = nx * np.random.randn(), ny * np.randn()
+
+            if blobmask[int(ix), int(iy)]:
+                continue
+            else:
+                i+=1
+                rx[i], ry[i] = ix, iy
+
+        if bands is None:
+            bands = self.bands
+
+        # Loop over bands
+        for i, band in enumerate(bands):
+            idx = self.__band2idx(band, self.bands)
+            wgt_rms = 1. / np.sqrt(np.nanmedian(self.timages[idx].invarr))
+            bkg_rms = self.backgrounds[idx, 1]
+            self.logger.info(f'Computing empty apertures for {band} (<wgt-rms>={wgt_rms:3.3f}, <bkg-rms>={bkg_rms:3.3f}')
+            # try:
+
+            if True:
+
+                # Loop over sources
+                for j, (sid, model) in enumerate(zip(self.bcatalog['source_id'], self.model_catalog)):
+                    self.logger.info(f'Source #{sid}')
+
+                    a_coeff = np.zeros(n_pos)
+                    
+                    # Loop over positions
+                    for k, (irx, iry) in enumerate(zip(rx, ry)):
+                        scatalog = self.bcatalog[k].copy()
+                        scatalog['']
+
+                        self.brick.make_model_image(self, scatalog, save=False)
+
+                        # Divide + store alpha (which is our empty flux)
+                        a_coeff[k] = np.nanmedian(self.timages[idx] / self.model_images(idx))
+
+                        del self.model_images
+
+                    # Calculate alpha percentiles, K2, etc.
+                    # eh just do mean, std for now...
+                    mean, med, std = sigma_clipped_stats(a_coeff)
+                    self.logger.info(f'{band} :: {mean:3.3f}/{med:3.3f}/{std:3.3f}')
+                    self.logger.info(f'    Est. boosting factor: {std/wgt_rms:3.3f}')
+
+                    if f'EFLUX_MEAN_{band}' not in self.bcatalog.colnames:
+                        self.bcatalog[f'EFLUX_MEAN_{band}'] = np.zeros(len(self.bcatalog))
+                        self.bcatalog[f'EFLUX_MED_{band}'] = np.zeros(len(self.bcatalog))
+                        self.bcatalog[f'EFLUX_STD_{band}'] = np.zeros(len(self.bcatalog))
+
+                    self.bcatalog[f'EFLUX_MEAN_{band}'][j] = mean
+                    self.bcatalog[f'EFLUX_MED_{band}'][j] = med
+                    self.bcatalog[f'EFLUX_STD_{band}'][j] = std
+
+        return True
+

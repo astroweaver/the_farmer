@@ -561,14 +561,14 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
 
         # Run follow-up phot
         if conf.DO_APPHOT:
-            for img_type in ('image', 'model', 'isomodel', 'residual',):
+            for img_type in ('image', 'model', 'isomodel', 'residual', 'weight', 'chisq',):
                 for band in modblob.bands:
                     if True: #try:
                         modblob.aperture_phot(band, img_type, sub_background=conf.SUBTRACT_BACKGROUND)
                     else:
                         logger.warning(f'Aperture photmetry FAILED for {band} {img_type}. Likely a bad blob.')
         if conf.DO_SEPHOT:
-            for img_type in ('image', 'model', 'isomodel', 'residual',):
+            for img_type in ('image', 'model', 'isomodel', 'residual'):
                 for band in modblob.bands:
                     try:
                         modblob.sep_phot(band, img_type, centroid='MODEL', sub_background=conf.SUBTRACT_BACKGROUND)
@@ -677,8 +677,6 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
             return catout
 
         # Forced phot
-        
-
         astart = time.time() 
         logger.info(f'Starting forced photometry...')
         status = fblob.forced_phot()
@@ -692,9 +690,16 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
 
         logger.info(f'Force photometry complete. ({time.time() - astart:3.3f})s')
 
+        # # Estimate covariance
+        # astart = time.time() 
+        # logger.info(f'Starting covariance estimation...')
+        # status = fblob.estimate_error_corr()
+
+        # logger.info(f'Covariance estimation complete. ({time.time() - astart:3.3f})s')
+
         # Run follow-up phot
         if conf.DO_APPHOT:
-            for img_type in ('image', 'model', 'isomodel', 'residual',):
+            for img_type in ('image', 'model', 'isomodel', 'residual', 'weight', 'chisq',):
                 for band in fblob.bands:
                     try:
                         fblob.aperture_phot(band, img_type, sub_background=conf.SUBTRACT_BACKGROUND)
