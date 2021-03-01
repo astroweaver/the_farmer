@@ -95,6 +95,10 @@ class Blob(Subimage):
         # FIXME: too many return values
         self.images, self.weights, self.masks, self.psfmodels, self.bands, self.wcs, self.subvector, self.slicepix, self.slice = blob_comps
 
+        if (len(self.bands) == 1) & self.masks.all():
+            self.logger.warning('Blob has no unmasked pixels! -- skipping!')
+            self.rejected = True
+
         self.masks[self.slicepix] = np.logical_not(blobmask[self.slice], dtype=bool)
         self.segmap = brick.segmap[self.slice]
         self.backgrounds = np.array([back for back in brick.backgrounds])
@@ -1121,55 +1125,55 @@ class Blob(Subimage):
 
         # Rao-cramer direct estimate
 
-        tr = Tractor(self.timages, self.solution_catalog)
+        # tr = Tractor(self.timages, self.solution_catalog)
 
-        for i, band in enumerate(self.bands): # this will really just be one band.
-            # Prepare matrix
-            try:
-                im = tr.getImage(i).data
-                inverr = np.sqrt(tr.getImage(i).invvar)
-                store_mod = np.zeros_like(self.model_catalog)
-                for j, m in enumerate(self.model_catalog):
-                    trm = Tractor([tr.getImage(i),], [m,])
-                    # trm.freezeParams('images') # Not doing tractor here...
-                    store_mod[j] = trm.getModelImage(i).flatten()
+        # for i, band in enumerate(self.bands): # this will really just be one band.
+        #     # Prepare matrix
+        #     try:
+        #         im = tr.getImage(i).data
+        #         inverr = np.sqrt(tr.getImage(i).invvar)
+        #         store_mod = np.zeros_like(self.model_catalog)
+        #         for j, m in enumerate(self.model_catalog):
+        #             trm = Tractor([tr.getImage(i),], [m,])
+        #             # trm.freezeParams('images') # Not doing tractor here...
+        #             store_mod[j] = trm.getModelImage(i).flatten()
 
-                # More prep work
-                _A = np.vstack(store_mod)
-                renorm = _A.sum(axis=1)
-                # print(renorm)
-                _A = (_A.T/renorm).T
+        #         # More prep work
+        #         _A = np.vstack(store_mod)
+        #         renorm = _A.sum(axis=1)
+        #         # print(renorm)
+        #         _A = (_A.T/renorm).T
 
-                # print(_A.shape)
-                _Ax = (_A*inverr.flatten()).T
-                _yx = (im*inverr).flatten()
+        #         # print(_A.shape)
+        #         _Ax = (_A*inverr.flatten()).T
+        #         _yx = (im*inverr).flatten()
 
-                # _coeffs = np.linalg.lstsq(_Ax, _yx, rcond=None)
+        #         # _coeffs = np.linalg.lstsq(_Ax, _yx, rcond=None)
 
-                # collect + output
-                # flux = _coeffs[0]  ## WE ARE NOT RUNNING FLUXES!
-                flux = -99.0 * np.ones(len(self.bcatalog))
-                covar = np.matrix(np.dot(_Ax.T, _Ax)).I.A
-                err = np.sqrt(covar.diagonal())
+        #         # collect + output
+        #         # flux = _coeffs[0]  ## WE ARE NOT RUNNING FLUXES!
+        #         flux = -99.0 * np.ones(len(self.bcatalog))
+        #         covar = np.matrix(np.dot(_Ax.T, _Ax)).I.A
+        #         err = np.sqrt(covar.diagonal())
 
-                zpt = conf.MULTIBAND_ZPT[self._band2idx(band)]
+        #         zpt = conf.MULTIBAND_ZPT[self._band2idx(band)]
 
-                # self.bcatalog[f'RAWDIRECTFLUX_{band}'] = flux
-                self.bcatalog[f'RAWDIRECTFLUXERR_{band}'] = err
-                # self.bcatalog[f'DIRECTFLUX_{band}'] = flux * 10**(-0.4 * (zpt - 23.9))
-                self.bcatalog[f'DIRECTFLUXERR_{band}'] = err * 10**(-0.4 * (zpt - 23.9))
+        #         # self.bcatalog[f'RAWDIRECTFLUX_{band}'] = flux
+        #         self.bcatalog[f'RAWDIRECTFLUXERR_{band}'] = err
+        #         # self.bcatalog[f'DIRECTFLUX_{band}'] = flux * 10**(-0.4 * (zpt - 23.9))
+        #         self.bcatalog[f'DIRECTFLUXERR_{band}'] = err * 10**(-0.4 * (zpt - 23.9))
 
-                for b in self.bcatalog:
-                    f, ferr = b[f'DIRECTFLUX_{band}'], b[f'DIRECTFLUXERR_{band}']
-                    self.logger.info(f'#{b["source_id"]}: DFlux({band}) = {f:3.3f}+/-{ferr:3.3f} uJy')
+        #         for b in self.bcatalog:
+        #             f, ferr = b[f'DIRECTFLUX_{band}'], b[f'DIRECTFLUXERR_{band}']
+        #             self.logger.info(f'#{b["source_id"]}: DFlux({band}) = {f:3.3f}+/-{ferr:3.3f} uJy')
 
-            except:
-                # self.bcatalog[f'RAW_DIRECTFLUX_{band}'] = -99.0 * np.ones(len(self.bcatalog))
-                self.bcatalog[f'RAW_DIRECTFLUXERR_{band}'] = -99.0 * np.ones(len(self.bcatalog))
-                # self.bcatalog[f'DIRECTFLUX_{band}'] = -99.0 * np.ones(len(self.bcatalog))
-                self.bcatalog[f'DIRECTFLUXERR_{band}'] = -99.0 * np.ones(len(self.bcatalog))
+        #     except:
+        #         # self.bcatalog[f'RAW_DIRECTFLUX_{band}'] = -99.0 * np.ones(len(self.bcatalog))
+        #         self.bcatalog[f'RAW_DIRECTFLUXERR_{band}'] = -99.0 * np.ones(len(self.bcatalog))
+        #         # self.bcatalog[f'DIRECTFLUX_{band}'] = -99.0 * np.ones(len(self.bcatalog))
+        #         self.bcatalog[f'DIRECTFLUXERR_{band}'] = -99.0 * np.ones(len(self.bcatalog))
 
-                self.logger.warning(f'Failed to derive Rao-Cramer estimate for blob #{self.blob_id}')
+        #         self.logger.warning(f'Failed to derive Rao-Cramer estimate for blob #{self.blob_id}')
 
 
         self.logger.info(f'Resulting model parameters for blob #{self.blob_id}')
@@ -2194,12 +2198,13 @@ class Blob(Subimage):
 
 
             pos = 0000
-            mag, magerr = self.bcatalog[row]['MAG_'+band], self.bcatalog[row]['MAGERR_'+band]
-            flux, fluxerr = self.bcatalog[row]['FLUX_'+band], self.bcatalog[row]['FLUXERR_'+band]
-            rawflux, rawfluxerr = self.bcatalog[row]['RAWFLUX_'+band], self.bcatalog[row]['RAWFLUXERR_'+band]
-            chisq, bic = self.bcatalog[row]['CHISQ_'+band], self.bcatalog[row]['BIC_'+band]
+            mag, magerr = self.bcatalog[row]['MAG_'+band][0], self.bcatalog[row]['MAGERR_'+band][0]
+            flux, fluxerr = self.bcatalog[row]['FLUX_'+band][0], self.bcatalog[row]['FLUXERR_'+band][0]
+            rawflux, rawfluxerr = self.bcatalog[row]['RAWFLUX_'+band][0], self.bcatalog[row]['RAWFLUXERR_'+band][0]
+            chisq, bic = self.bcatalog[row]['CHISQ_'+band][0], self.bcatalog[row]['BIC_'+band][0]
             self.logger.info(f"    Model({band}):        {src.name}")
             self.logger.info(f'    Position({band}):     {pos}')
+            # print(self.bcatalog[row]['RAWFLUX_'+band])
             self.logger.info(f'    Raw Flux({band}):     {rawflux:3.3f} +/- {rawfluxerr:3.3f}')
             if 'SersicCore' in src.name:
                 rawfluxcore, rawfluxcoreerr = self.bcatalog[row]['RAWFLUXCORE_'+band], self.bcatalog[row]['RAWFLUXCOREERR_'+band]
@@ -2402,74 +2407,4 @@ class Blob(Subimage):
 
         return True # i.e. status
 
-    def estimate_error_corr(self, bands=None, n_pos=100):
-        # For a given source, calculate scaling coeff between image and model for N random positions
-
-        blobmask = self.brick.blobmap
-        blobmask[blobmask > 1] = 1
-        nx, ny = np.shape(blobmask)
-
-        # TO DO
-        # 2. images must be from the brick!
-
-        # Build a list of positions
-        self.logger.info(f'Building list of {n_pos} positions...')
-        rx, ry = np.zeros(n_pos), np.zeros(n_pos)
-        i = 0
-        while nok <= n_pos:
-            ix, iy = nx * np.random.randn(), ny * np.randn()
-
-            if blobmask[int(ix), int(iy)]:
-                continue
-            else:
-                i+=1
-                rx[i], ry[i] = ix, iy
-
-        if bands is None:
-            bands = self.bands
-
-        # Loop over bands
-        for i, band in enumerate(bands):
-            idx = self.__band2idx(band, self.bands)
-            wgt_rms = 1. / np.sqrt(np.nanmedian(self.timages[idx].invarr))
-            bkg_rms = self.backgrounds[idx, 1]
-            self.logger.info(f'Computing empty apertures for {band} (<wgt-rms>={wgt_rms:3.3f}, <bkg-rms>={bkg_rms:3.3f}')
-            # try:
-
-            if True:
-
-                # Loop over sources
-                for j, (sid, model) in enumerate(zip(self.bcatalog['source_id'], self.model_catalog)):
-                    self.logger.info(f'Source #{sid}')
-
-                    a_coeff = np.zeros(n_pos)
-                    
-                    # Loop over positions
-                    for k, (irx, iry) in enumerate(zip(rx, ry)):
-                        scatalog = self.bcatalog[k].copy()
-                        scatalog['']
-
-                        self.brick.make_model_image(self, scatalog, save=False)
-
-                        # Divide + store alpha (which is our empty flux)
-                        a_coeff[k] = np.nanmedian(self.timages[idx] / self.model_images(idx))
-
-                        del self.model_images
-
-                    # Calculate alpha percentiles, K2, etc.
-                    # eh just do mean, std for now...
-                    mean, med, std = sigma_clipped_stats(a_coeff)
-                    self.logger.info(f'{band} :: {mean:3.3f}/{med:3.3f}/{std:3.3f}')
-                    self.logger.info(f'    Est. boosting factor: {std/wgt_rms:3.3f}')
-
-                    if f'EFLUX_MEAN_{band}' not in self.bcatalog.colnames:
-                        self.bcatalog[f'EFLUX_MEAN_{band}'] = np.zeros(len(self.bcatalog))
-                        self.bcatalog[f'EFLUX_MED_{band}'] = np.zeros(len(self.bcatalog))
-                        self.bcatalog[f'EFLUX_STD_{band}'] = np.zeros(len(self.bcatalog))
-
-                    self.bcatalog[f'EFLUX_MEAN_{band}'][j] = mean
-                    self.bcatalog[f'EFLUX_MED_{band}'][j] = med
-                    self.bcatalog[f'EFLUX_STD_{band}'][j] = std
-
-        return True
-
+   

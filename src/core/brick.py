@@ -491,7 +491,7 @@ class Brick(Subimage):
                 self.logger.info('Using the RMS image to scale the weight!')
                 wgt = self.weights[i]
                 median_wrms = np.median(1/rms**2)
-                median_wgt = np.median(wgt)
+                median_wgt = np.median(wgt[wgt>0])
                 self.logger.debug(f' Median rms weight: {median_wrms:3.6f}, and in RMS: {1./np.sqrt(median_wrms):3.6f}')
                 self.logger.debug(f' Median input weight: {median_wgt:3.6f}, and in RMS: {1./np.sqrt(median_wgt):3.6f}')
                 self.logger.debug(f' Will apply a factor of {median_wrms/median_wgt:6.6f} to scale input weights.')
@@ -1329,7 +1329,6 @@ class Brick(Subimage):
             #     if not src[f'VALID_SOURCE_{best_band}']:
 
             #         continue
-
             raw_fluxes = np.array([src[f'RAWFLUX_{band}'] for band in self.bands[idx]])
 
             
@@ -1707,3 +1706,116 @@ class Brick(Subimage):
         
 
         return good_area_pix, inner_area_pix
+
+    def estimate_error_corr(self, bands=None, n_pos=100, use_band_position=False, use_band_shape=False, modeling=False):
+        return True
+        # NOTE: WE ARE NOT IMPLEMENTING THIS YET!
+        # For a given source, calculate scaling coeff between image and model for N random positions
+
+        from astropy.table import Table
+        from astropy.stats import sigma_clipped_stats
+
+        blobmask = self.blobmap
+        blobmask[blobmask > 1] = 1
+        nx, ny = np.shape(blobmask)
+
+        # TO DO
+        # 2. images must be from the brick!
+
+        # Build a list of positions
+        self.logger.info(f'Building list of {n_pos} positions...')
+        rx, ry = np.zeros(n_pos), np.zeros(n_pos)
+        i = -1
+        while i < n_pos-1:
+            ix, iy = nx * np.random.uniform(), ny * np.random.uniform()
+
+            if not blobmask[int(ix), int(iy)]:
+                i+=1
+                rx[i], ry[i] = ix, iy
+                self.logger.debug(f'   {ix:3.3f}, {iy:3.3f}')
+
+                if i == n_pos-1:
+                    break
+
+        self.logger.info('...done.')
+
+        if bands is None:
+            bands = self.bands
+
+        best_band = conf.MODELING_NICKNAME
+
+        
+
+        # Loop over sources
+        for j, bsrc in enumerate(self.bcatalog):
+            sid = bsrc['source_id']
+            self.logger.info(f'Source #{sid}')
+
+            a_coeff = np.zeros((len(bands), n_pos))
+
+            
+            bsrc = Table(bsrc)
+
+            # Doing this now means we leverage the PSF/PRF assignment automatically.
+            self.make_model_image(bsrc, save=False, use_band_position=use_band_position, use_band_shape=use_band_shape, modeling=modeling)
+
+            # Grab the source of interest...
+            src = self.tr.getCatalog()[0]
+
+            # Loop over positions
+            for k, (irx, iry) in enumerate(zip(rx, ry)):
+                
+                src.setPosition(PixPos(irx, iry))
+                src.setBrightness(Fluxes(**dict(zip(bands, np.ones(len(bands))))))
+
+                tr = Tractor(self.timages, [src,])
+
+                self.logger.debug(f'Assigning random position: {irx:3.3f}, {iry:3.3f}')
+
+                # Loop over bands
+                for i, band in enumerate(bands):
+                    idx = self._band2idx(band, self.bands)
+                    wgt_rms = np.nanmedian(1. / np.sqrt(self.weights[idx]))
+                    bkg_rms = self.backgrounds[idx, 1]
+                    self.logger.info(f'Computing empty apertures for {band} (<wgt-rms>={wgt_rms:3.3f}, <bkg-rms>={bkg_rms:3.3f})')
+
+                    # Divide + store alpha (which is our empty flux)
+                    model = tr.getModelImage(i)
+                    level = 0.01*np.nanmax(model)
+                    ok_pix = model > level
+                    a = np.average(self.images[idx][ok_pix], weights=model[ok_pix])
+                    self.logger.debug(f'{band} :: {a:3.3f} (over {np.sum(ok_pix)} pixels with <val> = {np.nanmedian(self.images[idx][ok_pix]):3.3f})')
+                    a_coeff[i, k] = a
+
+                    # import matplotlib.pyplot as plt
+                    # from matplotlib.colors import LogNorm
+                    # fig, ax = plt.subplots(ncols=4, figsize=(40, 10))
+                    # ax[0].imshow(self.images[idx][int(iry)-100:int(iry)+100, int(irx)-100: int(irx)+100], vmin=-3, vmax=3)
+                    # ax[1].imshow(model[int(iry)-100:int(iry)+100, int(irx)-100:int(irx)+100])
+                    # ax[2].imshow((self.images[idx] + a*model)[int(iry)-100:int(iry)+100, int(irx)-100: int(irx)+100], vmin=-3, vmax=3)
+                    # ax[3].imshow(blobmask[int(iry)-100:int(iry)+100, int(irx)-100:int(irx)+100])
+                    # plt.savefig(f'whoknows_{k}.pdf')
+                    # plt.pause(30)
+
+
+
+                    
+
+            # Calculate alpha percentiles, K2, etc.
+            # eh just do mean, std for now...
+            for i, band in enumerate(bands):
+                mean, med, std = sigma_clipped_stats(a_coeff[i])
+                self.logger.info(f'{band} :: {mean:3.3f}/{med:3.3f}/{std:3.3f}')
+                self.logger.info(f'    Est. boosting factor: {std/wgt_rms:3.3f}')
+
+                if f'EFLUX_MEAN_{band}' not in self.bcatalog.colnames:
+                    self.bcatalog[f'EFLUX_MEAN_{band}'] = np.zeros(len(self.bcatalog))
+                    self.bcatalog[f'EFLUX_MED_{band}'] = np.zeros(len(self.bcatalog))
+                    self.bcatalog[f'EFLUX_STD_{band}'] = np.zeros(len(self.bcatalog))
+
+                self.bcatalog[f'EFLUX_MEAN_{band}'][j] = mean
+                self.bcatalog[f'EFLUX_MED_{band}'][j] = med
+                self.bcatalog[f'EFLUX_STD_{band}'][j] = std
+
+        return True
+
