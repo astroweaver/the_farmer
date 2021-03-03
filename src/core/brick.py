@@ -220,6 +220,7 @@ class Brick(Subimage):
     def add_columns(self, modeling=True, multiband_model=False, modbrick_name=conf.MODELING_NICKNAME):
         """TODO: docstring"""
         filler = np.zeros(len(self.catalog))
+        filler5 = np.zeros((len(self.catalog), 5))
         boolfiller = np.zeros(len(self.catalog), dtype=bool)
         if 'N_BLOB' not in self.catalog.colnames:
             self.catalog.add_column(Column(-99*np.ones(len(self.catalog), dtype=int), name='N_BLOB'))
@@ -254,6 +255,7 @@ class Brick(Subimage):
                 self.catalog.add_column(Column(filler, name=f'CHI_MU_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'CHI_SIG_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'CHI_K2_{colname}'))
+                self.catalog.add_column(Column(filler5, name=f'CHI_PERCENT_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'SEG_RAWFLUX_{colname}'))
                 self.catalog.add_column(Column(filler, name=f'CHISQ_NOMODEL_{colname}'))
                 self.catalog.add_column(Column(boolfiller, name=f'VALID_SOURCE_{colname}'))
