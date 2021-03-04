@@ -1230,7 +1230,7 @@ class Blob(Subimage):
                 chi_seg = chi[self.segmap==sid].flatten()
                 self.chi_sig[i,j] = np.std(chi_seg)
                 self.chi_mu[i,j] = np.mean(chi_seg)
-                self.chi_pc[i,j] = np.percentiles(chi_seg, q=[5, 16, 50, 84, 95])
+                self.chi_pc[i,j] = np.percentile(chi_seg, q=[5, 16, 50, 84, 95])
 
                 if conf.PLOT > 2:
                     for k, ssrc in enumerate(self.solution_catalog):
@@ -2098,7 +2098,7 @@ class Blob(Subimage):
             self.bcatalog[row]['CHI_MU_'+band] = self.chi_mu[row, i]
             self.bcatalog[row]['CHI_SIG_'+band] = self.chi_sig[row, i]
             self.bcatalog[row]['CHI_K2_'+band] = self.k2[row, i]
-            self.bcatalog[row]['CHI_PERCENT_'+band] = self.chi_pc[row, i]
+            # self.bcatalog[row]['CHI_PERCENT_'+band] = self.chi_pc[row, i]
             self.bcatalog[row]['SEG_RAWFLUX_'+band] = self.seg_rawflux[row, i]
             self.bcatalog[row]['CHISQ_NOMODEL_'+band] = self.chisq_nomodel[row, i]
             self.bcatalog[row]['VALID_SOURCE_'+band] = valid_source

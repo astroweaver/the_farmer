@@ -1776,11 +1776,12 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
         logger.debug(f'    Limits: {minmax[0]:6.6f} - {minmax[1]:6.6f}')
         logger.debug(f'    Mean: {mean:6.6f}+/-{np.sqrt(var):6.6f}\n')
         logger.debug(f'Brick #{brick_id} -- Weight statistics for {vb_band}')
-        shape, minmax, mean, var = stats.describe(fbrick.weights[i], axis=None)[:4]
+        ok = fbrick.weights[i] > 0
+        shape, minmax, mean, var = stats.describe(fbrick.weights[i][ok].flatten(), axis=None)[:4]
         logger.debug(f'    Limits: {minmax[0]:6.6f} - {minmax[1]:6.6f}')
         logger.debug(f'    Mean: {mean:6.6f}+/-{np.sqrt(var):6.6f}\n')
         logger.debug(f'Brick #{brick_id} -- Error statistics for {vb_band}')
-        shape, minmax, mean, var = stats.describe(1/np.sqrt(np.nonzero(fbrick.weights[i].flatten())), axis=None)[:4]
+        shape, minmax, mean, var = stats.describe(1/np.sqrt(fbrick.weights[i][ok].flatten()), axis=None)[:4]
         logger.debug(f'    Limits: {minmax[0]:6.6f} - {minmax[1]:6.6f}')
         logger.debug(f'    Mean: {mean:6.6f}+/-{np.sqrt(var):6.6f}\n')
         logger.debug(f'Brick #{brick_id} -- Background statistics for {vb_band}')
