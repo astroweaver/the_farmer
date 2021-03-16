@@ -558,7 +558,6 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
 
             logger.debug(f'Morphology determined. ({time.time() - astart:3.3f})s')
 
-
         # Run follow-up phot
         if conf.DO_APPHOT:
             for img_type in ('image', 'model', 'isomodel', 'residual', 'weight', 'chisq',):
@@ -689,13 +688,6 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
             return catout
 
         logger.info(f'Force photometry complete. ({time.time() - astart:3.3f})s')
-
-        # # Estimate covariance
-        # astart = time.time() 
-        # logger.info(f'Starting covariance estimation...')
-        # status = fblob.estimate_error_corr()
-
-        # logger.info(f'Covariance estimation complete. ({time.time() - astart:3.3f})s')
 
         # Run follow-up phot
         if conf.DO_APPHOT:
@@ -1172,6 +1164,14 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
 
                 output_cat = vstack(output_rows)
 
+                # Estimate covariance
+                modbrick.bcatalog = output_cat
+                astart = time.time() 
+                logger.info(f'Starting covariance estimation...')
+                status = modbrick.estimate_error_corr(use_band_position=force_unfixed_pos, use_band_shape=use_band_shape, modeling=True)
+
+                logger.info(f'Covariance estimation complete. ({time.time() - astart:3.3f})s')
+
                 # estimate effective area
                 if conf.ESTIMATE_EFF_AREA:
                     eff_area = np.zeros(len(img_names))
@@ -1343,6 +1343,14 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
             output_rows = runblob(blob_id, modblob, modeling=True, plotting=conf.PLOT, source_id=source_id, blob_only=blob_only)
 
             output_cat = vstack(output_rows)
+
+            # Estimate covariance
+            modbrick.bcatalog = output_cat
+            astart = time.time() 
+            logger.info(f'Starting covariance estimation...')
+            status = modbrick.estimate_error_corr(use_band_position=force_unfixed_pos, use_band_shape=use_band_shape, modeling=True)
+
+            logger.info(f'Covariance estimation complete. ({time.time() - astart:3.3f})s')
                     
             for colname in output_cat.colnames:
                 if colname not in outcatalog.colnames:
@@ -1407,6 +1415,14 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
 
             ttotal = time.time() - tstart
             logger.info(f'Completed {run_n_blobs} blobs with {len(output_cat)} sources in {ttotal:3.3f}s (avg. {ttotal/len(output_cat):2.2f}s per source)')
+
+            # Estimate covariance
+            modbrick.bcatalog = output_cat
+            astart = time.time() 
+            logger.info(f'Starting covariance estimation...')
+            status = modbrick.estimate_error_corr(use_band_position=force_unfixed_pos, use_band_shape=use_band_shape, modeling=True)
+
+            logger.info(f'Covariance estimation complete. ({time.time() - astart:3.3f})s')
 
             # estimate effective area
             if conf.ESTIMATE_EFF_AREA:
@@ -1760,11 +1776,12 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
         logger.debug(f'    Limits: {minmax[0]:6.6f} - {minmax[1]:6.6f}')
         logger.debug(f'    Mean: {mean:6.6f}+/-{np.sqrt(var):6.6f}\n')
         logger.debug(f'Brick #{brick_id} -- Weight statistics for {vb_band}')
-        shape, minmax, mean, var = stats.describe(fbrick.weights[i], axis=None)[:4]
+        ok = fbrick.weights[i] > 0
+        shape, minmax, mean, var = stats.describe(fbrick.weights[i][ok].flatten(), axis=None)[:4]
         logger.debug(f'    Limits: {minmax[0]:6.6f} - {minmax[1]:6.6f}')
         logger.debug(f'    Mean: {mean:6.6f}+/-{np.sqrt(var):6.6f}\n')
         logger.debug(f'Brick #{brick_id} -- Error statistics for {vb_band}')
-        shape, minmax, mean, var = stats.describe(1/np.sqrt(np.nonzero(fbrick.weights[i].flatten())), axis=None)[:4]
+        shape, minmax, mean, var = stats.describe(1/np.sqrt(fbrick.weights[i][ok].flatten()), axis=None)[:4]
         logger.debug(f'    Limits: {minmax[0]:6.6f} - {minmax[1]:6.6f}')
         logger.debug(f'    Mean: {mean:6.6f}+/-{np.sqrt(var):6.6f}\n')
         logger.debug(f'Brick #{brick_id} -- Background statistics for {vb_band}')
@@ -1815,10 +1832,20 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
         else:
             output_rows = runblob(blob_id, fblob, modeling=False, catalog=fbrick.catalog, plotting=conf.PLOT, source_id=source_id)
 
+        output_cat = vstack(output_rows)
+        fbrick.bcatalog = output_cat
+
+        # Estimate covariance
+        astart = time.time() 
+        logger.info(f'Starting covariance estimation...')
+        status = fbrick.estimate_error_corr(use_band_position=force_unfixed_pos, use_band_shape=use_band_shape, modeling=False)
+
+        logger.info(f'Covariance estimation complete. ({time.time() - astart:3.3f})s')
+
         if not conf.OUTPUT:
             logging.warning('OUTPUT is DISABLED! Quitting...')
         else:
-            output_cat = vstack(output_rows)
+            
 
             if insert & conf.OVERWRITE & (conf.NBLOBS==0):
                 # open old cat
@@ -1915,6 +1942,15 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
         else:
             logger.debug(f'Found {len(uniq_src)} unique sources, out of {len(output_cat)}')
 
+
+    
+        # Estimate covariance
+        fbrick.bcatalog = output_cat
+        astart = time.time() 
+        logger.info(f'Starting covariance estimation...')
+        status = fbrick.estimate_error_corr(use_band_position=force_unfixed_pos, use_band_shape=use_band_shape, modeling=False)
+
+        logger.info(f'Covariance estimation complete. ({time.time() - astart:3.3f})s')
 
         # estimate effective area
         if conf.ESTIMATE_EFF_AREA:

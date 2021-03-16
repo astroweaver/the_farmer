@@ -335,7 +335,7 @@ class Subimage():
             dirname = os.path.dirname(__file__)
             filename = os.path.join(dirname, '../../config/conv_filters/'+conf.FILTER_KERNEL)
             if os.path.exists(filename):
-                convfilt = np.array(np.array(ascii.read(filename, data_start=2)).tolist())
+                convfilt = np.array(np.array(ascii.read(filename, data_start=1)).tolist())
             else:
                 raise FileExistsError(f"Convolution file at {filename} does not exist!")
 
