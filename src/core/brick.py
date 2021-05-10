@@ -1223,6 +1223,7 @@ class Brick(Subimage):
             if b not in conf.PRFMAP_PSF:
                 idx.append(i)
 
+
         # Make Images
         self.logger.info(f'Making a model image for {self.bands[idx]}')
 
@@ -1311,6 +1312,17 @@ class Brick(Subimage):
         # Make models
         self.model_catalog = np.zeros(len(catalog), dtype=object)
         self.model_mask = np.zeros(len(catalog), dtype=bool)
+        print(self.bands)
+        nb = []
+        for ix in np.arange(len(self.bands)):
+            if ~self.bands[ix].startswith(conf.MODELING_NICKNAME) & (ix in idx) & modeling:
+                print(ix, f'{conf.MODELING_NICKNAME}_{self.bands[ix]}')
+                nb.append(f'{conf.MODELING_NICKNAME}_{self.bands[ix]}')
+            else:
+                nb.append(self.bands[ix])
+        self.mbands = np.array(nb)
+        print(self.mbands)
+
         for i, src in enumerate(catalog):
             
             best_band = conf.MODELING_NICKNAME
@@ -1331,12 +1343,13 @@ class Brick(Subimage):
             #     if not src[f'VALID_SOURCE_{best_band}']:
 
             #         continue
-            raw_fluxes = np.array([src[f'RAWFLUX_{band}'] for band in self.bands[idx]])
+            # print(self.bands)
+            raw_fluxes = np.array([src[f'RAWFLUX_{band}'] for band in self.mbands[idx]])
 
             
             rejected = False
             if conf.RESIDUAL_CHISQ_REJECTION is not None:
-                for j, band in enumerate(self.bands[idx]):
+                for j, band in enumerate(self.mbands[idx]):
                     chisq_band = src[f'CHISQ_{band}']
                     if chisq_band > conf.RESIDUAL_CHISQ_REJECTION:
                         raw_fluxes[j] = 0.0
@@ -1362,7 +1375,7 @@ class Brick(Subimage):
             if (conf.RESIDUAL_AB_REJECTION is not None) & (src[f'SOLMODEL_{best_band}'] not in ('PointSource', 'SimpleGalaxy')):  # HACK -- does NOT apply to unfixed shapes!
                 
                 if src[f'SOLMODEL_{best_band}'] in ('ExpGalaxy', 'DevGalaxy'):
-                    ab = np.array([src[f'AB_{best_band}'] for band in self.bands[idx]])
+                    ab = np.array([src[f'AB_{best_band}'] for band in self.mbands[idx]])
                     if (ab > conf.RESIDUAL_AB_REJECTION).all() | (ab <= 0).all():
 
                         self.logger.debug('Source has exessive a/b in all bands. Rejecting!')
@@ -1372,7 +1385,7 @@ class Brick(Subimage):
                         raw_fluxes[ab <= 0] = 0.0
                         self.logger.debug('Source has exessive a/b in some bands.')
                 else:
-                    ab_exp = np.array([src[f'EXP_AB_{best_band}'] for band in self.bands[idx]])
+                    ab_exp = np.array([src[f'EXP_AB_{best_band}'] for band in self.mbands[idx]])
                     if (ab_exp > conf.RESIDUAL_AB_REJECTION).all() | (ab_exp <= 0).all():
 
                         self.logger.debug('Source has exessive exp a/b in all bands. Rejecting!')
@@ -1382,7 +1395,7 @@ class Brick(Subimage):
                         raw_fluxes[ab_exp <= 0] = 0.0
                         self.logger.debug('Source has exessive exp a/b in some bands.')
 
-                    ab_dev = np.array([src[f'DEV_AB_{best_band}'] for band in self.bands[idx]])
+                    ab_dev = np.array([src[f'DEV_AB_{best_band}'] for band in self.mbands[idx]])
                     if (ab_dev > conf.RESIDUAL_AB_REJECTION).all() | (ab_dev <= 0).all():
 
                         self.logger.debug('Source has exessive dev a/b in all bands. Rejecting!')
@@ -1477,7 +1490,7 @@ class Brick(Subimage):
                 self.logger.info(f'Saving image(s) to existing file, {self.auxhdu_path}')
                 # Save to file
                 hdul = fits.open(self.auxhdu_path, mode='update')
-                for i, band in enumerate(self.bands[idx]):
+                for i, band in enumerate(self.mbands[idx]):
                     hdu_img = fits.ImageHDU(data=self.images[i], name=f'{band}_IMAGE', header=self.wcs.to_header())
                     hdul.append(hdu_img)
                     hdu_mod = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL', header=self.wcs.to_header())
@@ -1507,7 +1520,7 @@ class Brick(Subimage):
                 self.logger.info(f'Saving image(s) to new file, {self.auxhdu_path}')
                 # Save to file
                 hdul = fits.HDUList()
-                for i, band in enumerate(self.bands[idx]):
+                for i, band in enumerate(self.mbands[idx]):
                     hdu_img = fits.ImageHDU(data=self.images[i], name=f'{band}_IMAGE', header=self.wcs.to_header())
                     hdul.append(hdu_img)
                     hdu_mod = fits.ImageHDU(data=self.model_images[i], name=f'{band}_MODEL', header=self.wcs.to_header())

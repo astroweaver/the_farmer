@@ -359,7 +359,7 @@ class Subimage():
             else:
                 image -= background.back()
 
-        var = np.ones_like(var)
+        # var = np.ones_like(var)
         kwargs = dict(var=var, mask=mask, minarea=conf.MINAREA, filter_kernel=convfilt, 
                 filter_type=conf.FILTER_TYPE, segmentation_map=True, 
                 deblend_nthresh=conf.DEBLEND_NTHRESH, deblend_cont=conf.DEBLEND_CONT)
@@ -442,8 +442,8 @@ class Subimage():
                     # re-assign!
                     self.backgrounds[i] = background.globalback, background.globalrms
                     self.background_images[i] = background.back()
-                    self.background_rms_images[i] = background.rms()      
-                    self.logger.info(f'    Band: {conf.BANDS[i]}')
+                    self.background_rms_images[i] = background.rms()     
+                    self.logger.info(f'    Band: {self.bands[i]}')
                     self.logger.info(f'    Mesh size = ({conf.SUBTRACT_BW}, {conf.SUBTRACT_BH})')
                     self.logger.info(f'    Back Median = {np.nanmedian(self.background_images[i], (0,1))}')
                     self.logger.info(f'    Back Std = {np.nanstd(self.background_images[i], (0,1))}')
@@ -468,7 +468,7 @@ class Subimage():
                 self.background_images[idx] = background.back()
                 self.background_rms_images[idx] = background.rms()  
 
-                self.logger.info(f'    Band: {conf.BANDS[idx]}')
+                self.logger.info(f'    Band: {self.bands[idx]}')
                 self.logger.info(f'    Mesh size = ({conf.SUBTRACT_BW}, {conf.SUBTRACT_BH})')
                 self.logger.info(f'    Back Median = {np.nanmedian(self.background_images[idx], (0,1))}')
                 self.logger.info(f'    Back Std = {np.nanstd(self.background_images[idx], (0,1))}')
@@ -494,7 +494,7 @@ class Subimage():
                     else:
                         self.images -= self.background_images
 
-                    self.logger.info(f'    Band: {conf.BANDS}')
+                    self.logger.info(f'    Band: {self.bands}')
                     self.logger.info(f'    Mesh size = ({conf.SUBTRACT_BW}, {conf.SUBTRACT_BH})')
                     self.logger.info(f'    Back Median = {np.nanmedian(self.background_images, (1,2))}')
                     self.logger.info(f'    Back Std = {np.nanstd(self.background_images, (1,2))}')
@@ -510,7 +510,7 @@ class Subimage():
                     else:
                         self.images[idx] -= self.background_images[idx]
 
-                    self.logger.info(f'    Band: {conf.BANDS[idx]}')
+                    self.logger.info(f'    Band: {self.bands[idx]}')
                     self.logger.info(f'    Mesh size = ({conf.SUBTRACT_BW}, {conf.SUBTRACT_BH})')
                     self.logger.info(f'    Back Median = {np.nanmedian(self.background_images[idx], (0,1))}')
                     self.logger.info(f'    Back Std = {np.nanstd(self.background_images[idx], (0,1))}')

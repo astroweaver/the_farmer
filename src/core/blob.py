@@ -427,7 +427,10 @@ class Blob(Subimage):
                 plot_psf(psfimg, psfplotband, show_gaussian=False)
 
             psfmodel.img = psfmodel.img.astype('float32') # This may be redundant, but it's super important!
-                    
+            
+            # from astropy.io import fits
+            # fits.ImageHDU(data=psfmodel.img).writeto('hsc_i_mod.psf')
+
             self.logger.debug('Making image...')
             timages[i] = Image(data=image,
                             invvar=tweight,
@@ -609,7 +612,8 @@ class Blob(Subimage):
                 # tr_old = tr
                 if conf.TRY_OPTIMIZATION:
                     try:
-                        
+                        from tractor.constrained_optimizer import ConstrainedOptimizer
+                        tr.optimizer = ConstrainedOptimizer()
                         # dlnp, X, alpha, var = tr.optimize() #shared_params=self.shared_params, damp=conf.DAMPING, variance=True, priors=conf.USE_POSITION_PRIOR)
                         dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, damp=conf.DAMPING, 
                                                     variance=True, priors=use_priors)
@@ -1021,6 +1025,8 @@ class Blob(Subimage):
                 self.chi_mu[i,j] = np.mean(chi_seg)
                 self.chisq_nomodel[i,j] = np.sum((self.images[j]*np.sqrt(self.weights[j]))[self.segmap==sid]**2) / n_data
                 self.seg_rawflux[i,j] = np.sum(self.images[j][self.segmap==sid])
+                if self.chisq_nomodel[i,j] < self.solution_chisq[i,j]:
+                    self.logger.info(f'WARNING -- Source has better fit without model! Likely spurious...')
 
             self.logger.debug(f'Source #{src["source_id"]}: {self.solution_catalog[i].name} model at {self.solution_catalog[i].pos}')
             for k, band in enumerate(self.bands):
@@ -2201,10 +2207,10 @@ class Blob(Subimage):
 
 
             pos = 0000
-            mag, magerr = self.bcatalog[row]['MAG_'+band][0], self.bcatalog[row]['MAGERR_'+band][0]
-            flux, fluxerr = self.bcatalog[row]['FLUX_'+band][0], self.bcatalog[row]['FLUXERR_'+band][0]
-            rawflux, rawfluxerr = self.bcatalog[row]['RAWFLUX_'+band][0], self.bcatalog[row]['RAWFLUXERR_'+band][0]
-            chisq, bic = self.bcatalog[row]['CHISQ_'+band][0], self.bcatalog[row]['BIC_'+band][0]
+            mag, magerr = self.bcatalog[row]['MAG_'+band], self.bcatalog[row]['MAGERR_'+band]
+            flux, fluxerr = self.bcatalog[row]['FLUX_'+band], self.bcatalog[row]['FLUXERR_'+band]
+            rawflux, rawfluxerr = self.bcatalog[row]['RAWFLUX_'+band], self.bcatalog[row]['RAWFLUXERR_'+band]
+            chisq, bic = self.bcatalog[row]['CHISQ_'+band], self.bcatalog[row]['BIC_'+band]
             self.logger.info(f"    Model({band}):        {src.name}")
             self.logger.info(f'    Position({band}):     {pos}')
             # print(self.bcatalog[row]['RAWFLUX_'+band])

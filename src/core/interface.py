@@ -300,6 +300,7 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, brick_id=None, in
         # Make bricks in parallel
         if (conf.NTHREADS > 1) & (brick_id is None):
             logger.warning('Parallelization of brick making is currently disabled')
+
             # BUGGY DUE TO MEM ALLOC
             # if conf.VERBOSE: print('Making bricks for detection (in parallel)')
             # pool = mp.ProcessingPool(processes=conf.NTHREADS)
@@ -359,11 +360,12 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, brick_id=None, in
 
             # Make bricks in parallel
             if (conf.NTHREADS > 1)  & (brick_id is None):
-                logger.info(f'Making bricks for band {sband} (in parallel)')
-                with pa.pools.ProcessPool(ncpus=conf.NTHREADS) as pool:
-                    logger.info(f'Parallel processing pool initalized with {conf.NTHREADS} threads.')
-                    pool.uimap(partial(bandmosaic._make_brick, detection=False, overwrite=overwrite), np.arange(0, bandmosaic.n_bricks()))
-                    logger.info('Parallel processing complete.')
+                logger.warning('Parallelization of brick making is currently disabled')
+                # logger.info(f'Making bricks for band {sband} (in parallel)')
+                # with pa.pools.ProcessPool(ncpus=conf.NTHREADS) as pool:
+                #     logger.info(f'Parallel processing pool initalized with {conf.NTHREADS} threads.')
+                #     pool.uimap(partial(bandmosaic._make_brick, detection=False, overwrite=overwrite), np.arange(0, bandmosaic.n_bricks()))
+                #     logger.info('Parallel processing complete.')
             # Make bricks in serial
             else:
                 if brick_id is not None:
@@ -1042,14 +1044,13 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
             logger.debug(f'    Global: {modbrick.backgrounds[0, 0]:6.6f}')
             logger.debug(f'    RMS: {modbrick.backgrounds[0, 1]:6.6f}\n')
 
-            modbrick.catalog = detbrick.catalog.copy()
-            modbrick.segmap = detbrick.segmap
-            modbrick.n_sources = detbrick.n_sources
+            modbrick.catalog = catalog.copy()
+            modbrick.segmap = segmap
+            modbrick.n_sources = n_sources
             modbrick.is_modeling = True
-            # if detbrick.is_borrowed:
-            modbrick.blobmap = detbrick.blobmap
-            modbrick.n_blobs = detbrick.n_blobs
-            modbrick.segmask = detbrick.segmask
+            modbrick.blobmap = blobmap
+            modbrick.n_blobs = n_blobs
+            modbrick.segmask = segmask
 
             # Transfer to MODBRICK
             tstart = time.time()
@@ -1110,11 +1111,8 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
                         
                 for colname in output_cat.colnames:
                     if colname not in outcatalog.colnames:
-                        colshape = output_cat[colname].shape
-                        if colname.startswith('FLUX_APER'):
-                            outcatalog.add_column(Column(length=len(outcatalog), dtype=float, shape=(len(conf.APER_PHOT)), name=colname))
-                        else:
-                            outcatalog.add_column(Column(length=len(outcatalog), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
+                        shape = np.shape(output_cat[colname][0])
+                        outcatalog.add_column(Column(length=len(outcatalog), dtype=output_cat[colname].dtype, shape=shape, name=colname))
 
                 #outcatalog = join(outcatalog, output_cat, join_type='left', )
                 for row in output_cat:
@@ -1183,11 +1181,9 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
                         
                 for colname in output_cat.colnames:
                     if colname not in outcatalog.colnames:
-                        colshape = output_cat[colname].shape
-                        if colname.startswith('FLUX_APER'):
-                            outcatalog.add_column(Column(length=len(outcatalog), dtype=float, shape=(len(conf.APER_PHOT)), name=colname))
-                        else:
-                            outcatalog.add_column(Column(length=len(outcatalog), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
+                        shape = np.shape(output_cat[colname][0])
+                        outcatalog.add_column(Column(length=len(outcatalog), dtype=output_cat[colname].dtype, shape=shape, name=colname))
+
                 #outcatalog = join(outcatalog, output_cat, join_type='left', )
                 for row in output_cat:
                     outcatalog[np.where(outcatalog['source_id'] == row['source_id'])[0]] = row
@@ -1346,11 +1342,11 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
 
             # Estimate covariance
             modbrick.bcatalog = output_cat
-            astart = time.time() 
-            logger.info(f'Starting covariance estimation...')
-            status = modbrick.estimate_error_corr(use_band_position=force_unfixed_pos, use_band_shape=use_band_shape, modeling=True)
+            # astart = time.time() 
+            # logger.info(f'Starting covariance estimation...')
+            # status = modbrick.estimate_error_corr(use_band_position=force_unfixed_pos, use_band_shape=use_band_shape, modeling=True)
 
-            logger.info(f'Covariance estimation complete. ({time.time() - astart:3.3f})s')
+            # logger.info(f'Covariance estimation complete. ({time.time() - astart:3.3f})s')
                     
             for colname in output_cat.colnames:
                 if colname not in outcatalog.colnames:
@@ -1418,11 +1414,11 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
 
             # Estimate covariance
             modbrick.bcatalog = output_cat
-            astart = time.time() 
-            logger.info(f'Starting covariance estimation...')
-            status = modbrick.estimate_error_corr(use_band_position=force_unfixed_pos, use_band_shape=use_band_shape, modeling=True)
+            # astart = time.time() 
+            # logger.info(f'Starting covariance estimation...')
+            # status = modbrick.estimate_error_corr(use_band_position=force_unfixed_pos, use_band_shape=use_band_shape, modeling=True)
 
-            logger.info(f'Covariance estimation complete. ({time.time() - astart:3.3f})s')
+            # logger.info(f'Covariance estimation complete. ({time.time() - astart:3.3f})s')
 
             # estimate effective area
             if conf.ESTIMATE_EFF_AREA:
@@ -1859,10 +1855,8 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                     for colname in np.array(output_cat.colnames)[newcols]:
                         #mastercat.add_column(output_cat[colname])
                         if colname not in mastercat.colnames:
-                            if colname.startswith('FLUX_APER') | colname.startswith('MAG_APER'):
-                                mastercat.add_column(Column(length=len(mastercat), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
-                            else:
-                                mastercat.add_column(Column(length=len(mastercat), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
+                            shape = np.shape(output_cat[colname][0])
+                            mastercat.add_column(Column(length=len(mastercat), dtype=output_cat[colname].dtype, shape=shape, name=colname))
 
                     for row in output_cat:
                         mastercat[np.where(mastercat['source_id'] == row['source_id'])[0]] = row
@@ -1876,11 +1870,8 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                     
                 for colname in output_cat.colnames:
                     if colname not in fbrick.catalog.colnames:
-                        
-                        if colname.startswith('FLUX_APER') | colname.startswith('MAG_APER'):
-                            fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
-                        else:
-                            fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
+                        shape = np.shape(output_cat[colname][0])
+                        fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=output_cat[colname].dtype, shape=shape, name=colname))
 
                 #fbrick.catalog = join(fbrick.catalog, output_cat, join_type='left', )
                 for row in output_cat:
@@ -1974,10 +1965,9 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                     # make fillers
                     for colname in np.array(output_cat.colnames)[newcols]:
                         if colname not in mastercat.colnames:
-                            if colname.startswith('FLUX_APER') | colname.startswith('MAG_APER'):
-                                mastercat.add_column(Column(length=len(mastercat), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
-                            else:
-                                mastercat.add_column(Column(length=len(mastercat), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
+                            colshape = mastercat[colname].shape
+                            mastercat.add_column(Column(length=len(outcatalog), dtype=output_cat[colname].dtype, shape=colshape, name=colname))
+
                     for row in output_cat:
                         mastercat[np.where(mastercat['source_id'] == row['source_id'])[0]] = row
                     # coordinate correction
@@ -2181,6 +2171,7 @@ def make_model_image(brick_id, band, catalog=None, use_band_position=(not conf.F
         modeling=False
 
     brick = stage_brickfiles(brick_id, nickname=nickname, band=sband)
+    # print(brick.bands)
 
     if catalog is not None:
         brick.catalog = catalog

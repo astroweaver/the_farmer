@@ -1104,10 +1104,11 @@ def plot_blobmap(brick, image=None, band=None, catalog=None):
     imgs_marked = find_boundaries(brick.blobmap, mode='thick').astype(int)
     imgs_marked[imgs_marked==0] = -99
     backlevel, noisesigma = brick.backgrounds[0]
-    vmin, vmax = np.max([backlevel + noisesigma, 1E-5]), brick.images[0].max()
-    norm = LogNorm(np.max([backlevel + noisesigma, 1E-5]), 0.9*np.max(image), clip='True')
-    ax.imshow(image, cmap='Greys', origin='lower', norm=norm)
-    mycmap = plt.cm.magma
+    # vmin, vmax = np.max([backlevel + noisesigma, 1E-5]), brick.images[0].max()
+    # norm = LogNorm(np.max([backlevel + noisesigma, 1E-5]), 0.9*np.max(image), clip='True')
+    # ax.imshow(image, cmap='Greys', origin='lower', norm=norm)
+    ax.imshow(image - backlevel, cmap='RdGy', origin='lower', vmin=-3*noisesigma, vmax=3*noisesigma)
+    mycmap = plt.cm.Greens
     mycmap.set_under('k', alpha=0)
     ax.imshow(imgs_marked, alpha=0.9, cmap=mycmap, vmin=0, zorder=2, origin='lower')
     ax.scatter(catalog['x'], catalog['y'], marker='+', color='limegreen', s=0.1)

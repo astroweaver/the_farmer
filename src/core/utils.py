@@ -98,3 +98,29 @@ class SimpleGalaxy(ExpGalaxy):
         if pname == 'shape':
             return True
         return super(SimpleGalaxy, self).isParamFrozen(pname)   
+
+
+def make_weights(fn):
+
+    # Grab an image, estimate rms, make weight map fits file
+
+    import sys
+    from astropy.stats import sigma_clipped_stats
+
+
+    hdul = fits.open(fn)
+
+    print(hdul.info())
+
+    __, __, rms = sigma_clipped_stats(hdul[0].data)
+
+    wgt = np.zeros_like(hdul[0].data)
+    wgt[rms>0] = 1/rms**2
+
+    hdul[0].data = wgt
+
+    p = fn.split('.fits')
+    fout = p[0]+conf.WEIGHT_EXT+'.fits'
+    print('Writing weight map to ', fout)
+    hdul.writeto(fout)
+
