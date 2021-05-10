@@ -1042,14 +1042,13 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
             logger.debug(f'    Global: {modbrick.backgrounds[0, 0]:6.6f}')
             logger.debug(f'    RMS: {modbrick.backgrounds[0, 1]:6.6f}\n')
 
-            modbrick.catalog = detbrick.catalog.copy()
-            modbrick.segmap = detbrick.segmap
-            modbrick.n_sources = detbrick.n_sources
+            modbrick.catalog = catalog.copy()
+            modbrick.segmap = segmap
+            modbrick.n_sources = n_sources
             modbrick.is_modeling = True
-            # if detbrick.is_borrowed:
-            modbrick.blobmap = detbrick.blobmap
-            modbrick.n_blobs = detbrick.n_blobs
-            modbrick.segmask = detbrick.segmask
+            modbrick.blobmap = blobmap
+            modbrick.n_blobs = n_blobs
+            modbrick.segmask = segmask
 
             # Transfer to MODBRICK
             tstart = time.time()
