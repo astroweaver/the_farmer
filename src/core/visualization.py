@@ -1132,7 +1132,7 @@ def plot_blobmap(brick, image=None, band=None, catalog=None):
     ax.axis('off')
     ax.margins(0,0)
     fig.suptitle(brick.bands[0])
-    fig.savefig(out_path, dpi = 300, overwrite=True, pad_inches=0.0)
+    fig.savefig(out_path, dpi = 900, overwrite=True, pad_inches=0.0)
     plt.close()
     logger.info(f'Saving figure: {out_path}')
 

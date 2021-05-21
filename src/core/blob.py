@@ -29,6 +29,7 @@ import astropy.units as u
 from scipy.ndimage import zoom
 from scipy import stats
 from copy import deepcopy
+from scipy.ndimage import binary_dilation
 
 from tractor import NCircularGaussianPSF, PixelizedPSF, PixelizedPsfEx, Image, Tractor, FluxesPhotoCal, NullWCS, ConstantSky, EllipseE, EllipseESoft, Fluxes, PixPos, Catalog
 from tractor.sersic import SersicIndex, SersicGalaxy
@@ -636,7 +637,8 @@ class Blob(Subimage):
                     #     [print(m.getShape()) for m in tr.getCatalog()]
                     # except:
                     #     pass
-
+                    from tractor.constrained_optimizer import ConstrainedOptimizer      
+                    tr.optimizer = ConstrainedOptimizer()
                     dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, damp=conf.DAMPING, 
                                                     variance=True, priors=use_priors)
                     self.logger.debug(f'    {i+1}) dlnp = {dlnp}')
@@ -740,7 +742,9 @@ class Blob(Subimage):
                         sid = self.bcatalog['source_id'][idx]
                         xp, yp = src.pos[0], src.pos[1]
                         xp0, yp0 = x_orig[idx], y_orig[idx]
-                        srcseg = self.segmap == sid
+                        radius = 1
+                        struct1 = create_circular_mask(2*abs(radius), 2*abs(radius), radius=abs(radius))
+                        srcseg = binary_dilation(self.segmap == sid, structure=struct1).astype(bool)
                         maxy, maxx = np.shape(self.segmap)
                         if (xp > maxx) | (xp < 0) | (yp < 0) | (yp > maxy):
                             self.logger.warning(f'Source {sid} has escaped the blob!')
@@ -1776,7 +1780,7 @@ class Blob(Subimage):
                     aper = photutils.CircularAperture(apxy[j], rad)
                     image = self.solution_tractor.getModelImage(idx, srcs=[src,])
                     if conf.APER_APPLY_SEGMASK:
-                        image *= self.masks[self.band2idx(sband)]
+                        image *= self.masks[self._band2idx(sband)]
                     if sub_background:
                         image -= self.background_images[idx]
                     self.logger.debug(f'Measuring {apertures_arcsec[i]:2.2f}" aperture flux on 1 source of {len(cat)}.')

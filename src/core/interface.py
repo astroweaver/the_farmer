@@ -695,10 +695,20 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
         if conf.DO_APPHOT:
             for img_type in ('image', 'model', 'isomodel', 'residual', 'weight', 'chisq',):
                 for band in fblob.bands:
-                    try:
-                        fblob.aperture_phot(band, img_type, sub_background=conf.SUBTRACT_BACKGROUND)
-                    except:
-                        logger.warning(f'Aperture photmetry FAILED for {band} {img_type}. Likely a bad blob.')
+                    # try:
+                    fblob.aperture_phot(band, img_type, sub_background=conf.SUBTRACT_BACKGROUND)
+                    # except:
+                        # logger.warning(f'Aperture photmetry FAILED for {band} {img_type}. Likely a bad blob.')
+            if conf.PLOT > 0:
+                for i, sid in enumerate(fblob.bcatalog['source_id']):
+                    for band in fblob.bands:
+                        fig, ax = plt.subplots()
+                        ax.plot(conf.APER_PHOT, fblob.bcatalog[f'FLUX_APER_{band}_image'][i], c='k', ls='dashed')
+                        ax.plot(conf.APER_PHOT, fblob.bcatalog[f'FLUX_APER_{band}_model'][i], c='b')
+                        ax.plot(conf.APER_PHOT, fblob.bcatalog[f'FLUX_APER_{band}_isomodel'][i], c='g')
+                        ax.plot(conf.APER_PHOT, fblob.bcatalog[f'FLUX_APER_{band}_residual'][i], c='r')
+                        fig.savefig(os.path.join(conf.PLOT_DIR, f'aper_{band}_{sid}.pdf'))
+                
         if conf.DO_SEPHOT:
             for img_type in ('image', 'model', 'isomodel', 'residual',):
                 for band in fblob.bands:
@@ -1965,8 +1975,8 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                     # make fillers
                     for colname in np.array(output_cat.colnames)[newcols]:
                         if colname not in mastercat.colnames:
-                            colshape = mastercat[colname].shape
-                            mastercat.add_column(Column(length=len(outcatalog), dtype=output_cat[colname].dtype, shape=colshape, name=colname))
+                            colshape = output_cat[colname].shape
+                            mastercat.add_column(Column(length=len(mastercat), dtype=output_cat[colname].dtype, shape=colshape, name=colname))
 
                     for row in output_cat:
                         mastercat[np.where(mastercat['source_id'] == row['source_id'])[0]] = row
