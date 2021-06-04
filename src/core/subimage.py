@@ -279,7 +279,11 @@ class Subimage():
             # subwcs = self.wcs.slice(self.slice[::-1])
             subwcs = self.wcs.slice(self.slice)
 
-            # subwcs.wcs.crpix -= (left, bottom)
+            if left < 0:
+                subwcs.wcs.crpix[1] += buffer
+            if bottom < 0:
+                subwcs.wcs.crpix[0] += buffer
+
             # subwcs.array_shape = subshape[1:]
         else:
             subwcs = None
@@ -359,7 +363,7 @@ class Subimage():
             else:
                 image -= background.back()
 
-        var = np.ones_like(var)
+        # var = np.ones_like(var)
         kwargs = dict(var=var, mask=mask, minarea=conf.MINAREA, filter_kernel=convfilt, 
                 filter_type=conf.FILTER_TYPE, segmentation_map=True, 
                 deblend_nthresh=conf.DEBLEND_NTHRESH, deblend_cont=conf.DEBLEND_CONT)
@@ -385,10 +389,12 @@ class Subimage():
             catalog.add_column(Column(catalog['y'], name='y_orig' ))
             
             if self.wcs is not None:
-                wx = catalog['x_orig'] + self.mosaic_origin[1] - conf.BRICK_BUFFER
-                wy = catalog['y_orig'] + self.mosaic_origin[0] - conf.BRICK_BUFFER
-                wwx, wwy = wx - self.mosaic_origin[0] + conf.BRICK_BUFFER, wy - self.mosaic_origin[1] + conf.BRICK_BUFFER
+                wx = catalog['x_orig'] #+ self.mosaic_origin[1] - conf.BRICK_BUFFER
+                wy = catalog['y_orig'] #+ self.mosaic_origin[0] - conf.BRICK_BUFFER
+                wwx, wwy = wx, wy
+                # wwx, wwy = wx - self.mosaic_origin[0] + conf.BRICK_BUFFER, wy - self.mosaic_origin[1] + conf.BRICK_BUFFER
                 skyc = self.wcs.all_pix2world(wwx, wwy, 0)
+                # print(- self.mosaic_origin[0] + conf.BRICK_BUFFER, - self.mosaic_origin[1] + conf.BRICK_BUFFER)
                 catalog.add_column(Column(skyc[0], name=f'RA_{conf.DETECTION_NICKNAME}'))
                 catalog.add_column(Column(skyc[1], name=f'DEC_{conf.DETECTION_NICKNAME}'))
 
@@ -442,8 +448,8 @@ class Subimage():
                     # re-assign!
                     self.backgrounds[i] = background.globalback, background.globalrms
                     self.background_images[i] = background.back()
-                    self.background_rms_images[i] = background.rms()      
-                    self.logger.info(f'    Band: {conf.BANDS[i]}')
+                    self.background_rms_images[i] = background.rms()     
+                    self.logger.info(f'    Band: {self.bands[i]}')
                     self.logger.info(f'    Mesh size = ({conf.SUBTRACT_BW}, {conf.SUBTRACT_BH})')
                     self.logger.info(f'    Back Median = {np.nanmedian(self.background_images[i], (0,1))}')
                     self.logger.info(f'    Back Std = {np.nanstd(self.background_images[i], (0,1))}')
@@ -468,7 +474,7 @@ class Subimage():
                 self.background_images[idx] = background.back()
                 self.background_rms_images[idx] = background.rms()  
 
-                self.logger.info(f'    Band: {conf.BANDS[idx]}')
+                self.logger.info(f'    Band: {self.bands[idx]}')
                 self.logger.info(f'    Mesh size = ({conf.SUBTRACT_BW}, {conf.SUBTRACT_BH})')
                 self.logger.info(f'    Back Median = {np.nanmedian(self.background_images[idx], (0,1))}')
                 self.logger.info(f'    Back Std = {np.nanstd(self.background_images[idx], (0,1))}')
@@ -494,7 +500,7 @@ class Subimage():
                     else:
                         self.images -= self.background_images
 
-                    self.logger.info(f'    Band: {conf.BANDS}')
+                    self.logger.info(f'    Band: {self.bands}')
                     self.logger.info(f'    Mesh size = ({conf.SUBTRACT_BW}, {conf.SUBTRACT_BH})')
                     self.logger.info(f'    Back Median = {np.nanmedian(self.background_images, (1,2))}')
                     self.logger.info(f'    Back Std = {np.nanstd(self.background_images, (1,2))}')
@@ -510,7 +516,7 @@ class Subimage():
                     else:
                         self.images[idx] -= self.background_images[idx]
 
-                    self.logger.info(f'    Band: {conf.BANDS[idx]}')
+                    self.logger.info(f'    Band: {self.bands[idx]}')
                     self.logger.info(f'    Mesh size = ({conf.SUBTRACT_BW}, {conf.SUBTRACT_BH})')
                     self.logger.info(f'    Back Median = {np.nanmedian(self.background_images[idx], (0,1))}')
                     self.logger.info(f'    Back Std = {np.nanstd(self.background_images[idx], (0,1))}')
