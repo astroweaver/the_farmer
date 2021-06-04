@@ -412,7 +412,6 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
         fblob = weakref.proxy(blobs)
     logger.debug(f'Weakref made ({time.time() - tstart:3.3f})s')
 
-
     # Make blob with modeling image 
     if modblob is not None:
         logger.debug(f'Making blob with {conf.MODELING_NICKNAME}')
@@ -861,7 +860,8 @@ def detect_sources(brick_id, catalog=None, segmap=None, blobmap=None, use_mask=T
         detbrick.cleanup()
 
     if conf.PLOT > 2:
-        plot_blobmap(detbrick, image=detbrick.images[0], band=conf.DETECTION_NICKNAME)
+        plot_blobmap(detbrick, image=detbrick.images[0], band=conf.DETECTION_NICKNAME, mode='log')
+        plot_blobmap(detbrick, image=detbrick.images[0], band=conf.DETECTION_NICKNAME, mode='rms')
 
 
     logger.info('Saving detection catalog...')
@@ -1115,7 +1115,7 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
                         logger.warning(source['source_id'], source['cflux'])
                     raise ValueError('Requested source is not in blob!')
 
-                output_rows = runblob(blob_id, modblob, modeling=True, plotting=conf.PLOT, source_id=source_id)
+                output_rows = runblob(blob_id, modblob, modeling=True, plotting=conf.PLOT, source_id=source_id, source_only=source_only)
 
                 output_cat = vstack(output_rows)
                         
@@ -1346,7 +1346,7 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
             if modblob.rejected:
                 raise ValueError('Requested blob is invalid')
 
-            output_rows = runblob(blob_id, modblob, modeling=True, plotting=conf.PLOT, source_id=source_id, blob_only=blob_only)
+            output_rows = runblob(blob_id, modblob, modeling=True, plotting=conf.PLOT, source_id=source_id, blob_only=blob_only, source_only=source_only)
 
             output_cat = vstack(output_rows)
 
@@ -1761,7 +1761,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
 
     logger.info(f'{conf.MULTIBAND_NICKNAME} brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
 
-    if conf.PLOT > 2:
+    if conf.PLOT > 3:
         for plt_band in fband:
             if (len(fband) == 1) | force_unfixed_pos:
                 idx = 0
@@ -1819,6 +1819,9 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
 
     logger.info(f'Forcing models on {len(fband)} {conf.MULTIBAND_NICKNAME} bands')
 
+    # if conf.FORCE_SHARE_PARAMS:
+    #     fbrick.shared_params = True
+
     tstart = time.time()
     if (source_id is not None) | (blob_id is not None):
         # conf.PLOT = True
@@ -1847,7 +1850,6 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
         status = fbrick.estimate_error_corr(use_band_position=force_unfixed_pos, use_band_shape=use_band_shape, modeling=False)
 
         logger.info(f'Covariance estimation complete. ({time.time() - astart:3.3f})s')
-
         if not conf.OUTPUT:
             logging.warning('OUTPUT is DISABLED! Quitting...')
         else:
@@ -2256,18 +2258,18 @@ def make_residual_image(brick_id, band, catalog=None, use_band_position=(not con
         search_fn = os.path.join(conf.CATALOG_DIR, f'B{brick_id}.cat')
         search_fn2 = os.path.join(conf.CATALOG_DIR, f'B{brick_id}_{conf.MULTIBAND_NICKNAME}.cat') # this means the band was run by itself!
         search_fn3 = os.path.join(conf.CATALOG_DIR, f'B{brick_id}_{band}.cat')
-        if os.path.exists(search_fn) & ~(use_band_position | use_band_shape):
+        if os.path.exists(search_fn) & ~(use_band_position | use_band_shape) & (band in conf.MODELING_BANDS):
             brick.logger.info(f'Adopting catalog from {search_fn}')
             brick.catalog = Table(fits.open(search_fn)[1].data)
             brick.n_sources = len(brick.catalog)
             brick.n_blobs = brick.catalog['blob_id'].max()
             use_band_position=False
-        elif os.path.exists(search_fn2) & (use_band_position | use_band_shape):
+        elif os.path.exists(search_fn2) & ((band not in conf.MODELING_BANDS) | (use_band_position | use_band_shape)):
             brick.logger.info(f'Adopting catalog from {search_fn2}')   # Tries to find BXXX_MULTIBAND.fits
             brick.catalog = Table(fits.open(search_fn2)[1].data)
             brick.n_sources = len(brick.catalog)
             brick.n_blobs = brick.catalog['blob_id'].max()
-            use_band_position=True
+            use_band_position=('X_MODEL_{band}' in brick.catalog.colnames)
         elif os.path.exists(search_fn3) & (use_band_position | use_band_shape):
             brick.logger.info(f'Adopting catalog from {search_fn3}')  # Tries to find BXXX_BAND.fits
             brick.catalog = Table(fits.open(search_fn3)[1].data)
@@ -2537,9 +2539,9 @@ def models_from_catalog(catalog, fblob, unit_flux=False):
                 # This will UNDERESTIMATE for exp/dev models!
                 qflux = np.zeros(len(fblob.bands))
                 src_seg = fblob.segmap==src['source_id']
-                for j, (img, band) in enumerate(zip(fblob.images, fblob.bands)):
+                for j, (img, iband) in enumerate(zip(fblob.images, fblob.bands)):
                     max_img = np.nanmax(img * src_seg)                                              # TODO THESE ARENT ALWAYS THE SAME SHAPE!
-                    max_psf = np.nanmax(fblob.psfimg[band])
+                    max_psf = np.nanmax(fblob.psfimg[iband])
                     qflux[j] = max_img / max_psf
 
                 flux = Fluxes(**dict(zip(fblob.bands, qflux)))
@@ -2560,12 +2562,13 @@ def models_from_catalog(catalog, fblob, unit_flux=False):
                     if conf.INIT_FLUX_BAND is None:
                         conf.INIT_FLUX_BAND = fblob.bands[0]
                     logger.warning(f'Coming from multiband model, so using flux from {init_band}')
-                    original_zpt = fblob._band2idx(conf.INIT_FLUX_BAND)
+                    original_zpt = np.array(conf.MULTIBAND_ZPT)[fblob._band2idx(conf.INIT_FLUX_BAND)]
                     qflux = src[f'RAWFLUX_{init_band}'] * 10 ** (0.4 * (target_zpt - original_zpt))
                     qfluxcore = src[f'RAWFLUX_{init_band}'] * 10 ** (0.4 * (target_zpt - original_zpt))
                     
                 flux = Fluxes(**dict(zip(band, qflux)))
                 fluxcore = Fluxes(**dict(zip(band, qfluxcore)))
+
 
         # Check if valid source
         if not src[f'VALID_SOURCE_{best_band}']:
@@ -2592,7 +2595,7 @@ def models_from_catalog(catalog, fblob, unit_flux=False):
                     ffps_x, ffps_y = dx / 1, dy / 1
                 # print(snr, ffps)
                 # conf.FORCE_POSITION_PRIOR_SIG = 1 - np.exp(-0.5*src[f'CHISQ_{conf.MODELING_NICKNAME}_{conf.INIT_FLUX_BAND}'])
-            logger.info(f'Setting position prior. X = {inpos[0]:2.2f}+/-{ffps_x}; Y = {inpos[1]:2.2f}+/-{ffps_y}')
+            logger.debug(f'Setting position prior. X = {inpos[0]:2.2f}+/-{ffps_x}; Y = {inpos[1]:2.2f}+/-{ffps_y}')
             position.addGaussianPrior('x', inpos[0], ffps_x)
             position.addGaussianPrior('y', inpos[1], ffps_y)
 

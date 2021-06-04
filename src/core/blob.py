@@ -128,7 +128,7 @@ class Blob(Subimage):
         # Clean
         blob_sourcemask = np.in1d(brick.catalog['source_id'], blob_sources)
         self.bcatalog = brick.catalog[blob_sourcemask].copy() # working copy
-        self.logger.info(f'Blob has {len(self.bcatalog)} sources')
+        self.logger.debug(f'Blob has {len(self.bcatalog)} sources')
         
         mod_band = conf.MODELING_NICKNAME
         if not brick.is_modeling:
@@ -140,7 +140,7 @@ class Blob(Subimage):
                     valid_col = self.bcatalog[f'VALID_SOURCE_{mod_band}']
                 except:
                     valid_col = self.bcatalog[f'VALID_SOURCE']
-            self.logger.info(f'Chosen {valid_col.name} as valid column!')
+            self.logger.debug(f'Chosen {valid_col.name} as valid column!')
             # if valid_col.any():
             #     valid_arr = self.bcatalog[f'VALID_SOURCE_{mod_band}']
             if len(valid_col) > 1:
@@ -153,7 +153,7 @@ class Blob(Subimage):
                     self.rejected = True
 
             if not self.rejected:
-                self.logger.info(f'Blob has {np.sum(valid_col)} valid sources')
+                self.logger.debug(f'Blob has {np.sum(valid_col)} valid sources')
 
         # print(self.bcatalog['x', 'y'])
         self.bcatalog['x'] -= self.subvector[1]
@@ -175,7 +175,8 @@ class Blob(Subimage):
         self.rchisq = np.zeros((self.n_sources, self.max_level + 1, 2))
         self.bic = np.zeros((self.n_sources, self.max_level + 1, 2))
         self.noise = np.zeros((self.n_sources, self.n_bands))
-        # self.norm = np.zeros((self.n_sources, self.n_bands))
+        self.nconv = np.zeros((self.n_sources, self.n_bands))
+        self.norm = np.zeros((self.n_sources, self.n_bands))
         self.chi_mu = np.zeros((self.n_sources, self.n_bands))
         self.chi_sig = np.zeros((self.n_sources, self.n_bands))
         self.k2 = np.zeros((self.n_sources, self.n_bands))
@@ -228,20 +229,23 @@ class Blob(Subimage):
             psfplotband = band
 
             if (band_strip in conf.CONSTANT_PSF) & (psf is not None):
-                psfmodel = psf.constantPsfAt(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.) # if not spatially varying psfex model, this won't matter.
+                psfmodel = deepcopy(psf.constantPsfAt(conf.MOSAIC_WIDTH/2., conf.MOSAIC_HEIGHT/2.)) # if not spatially varying psfex model, this won't matter.
                 pw, ph = np.shape(psfmodel.img)
                 if remove_background_psf & (not conf.FORCE_GAUSSIAN_PSF):
                     self.logger.debug('Removing PSF background.')
                     cmask = create_circular_mask(pw, ph, radius=conf.PSF_MASKRAD / conf.PIXEL_SCALE)
                     bcmask = ~cmask.astype(bool) & (psfmodel.img > 0)
+                    if np.sum(bcmask) == 0:
+                        self.logger.error(f'PSF masking has left no valid pixels for {band}! PSF stamp is {pw}x{ph}px with a mask diameter of {2*conf.PSF_MASKRAD/conf.PIXEL_SCALE:3.3f}px. Consider setting PSF_MASKRAD to a larger value.')
                     psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
                     # psfmodel.img[np.isnan(psfmodel.img)] = 0
                     # psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
                     psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
 
                 if conf.PSF_RADIUS > 0:
-                    self.logger.debug(f'Clipping PSF ({conf.PSF_RADIUS}px radius)')
-                    psfmodel.img = psfmodel.img[int(pw/2.-conf.PSF_RADIUS):int(pw/2+conf.PSF_RADIUS), int(ph/2.-conf.PSF_RADIUS):int(ph/2+conf.PSF_RADIUS)]
+                    psf_rad_pix = int(conf.PSF_RADIUS / conf.PIXEL_SCALE)
+                    self.logger.debug(f'Clipping PSF ({psf_rad_pix}px radius)')
+                    psfmodel.img = psfmodel.img[int(pw/2.-psf_rad_pix):int(pw/2+psf_rad_pix), int(ph/2.-psf_rad_pix):int(ph/2+psf_rad_pix)]
                     self.logger.debug(f'New shape: {np.shape(psfmodel.img)}')
 
                 if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
@@ -307,8 +311,9 @@ class Blob(Subimage):
                     psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
 
                 if conf.PSF_RADIUS > 0:
-                    self.logger.debug(f'Clipping PRF ({conf.PSF_RADIUS}px radius)')
-                    psfmodel.img = psfmodel.img[int(pw/2.-conf.PSF_RADIUS):int(pw/2+conf.PSF_RADIUS), int(ph/2.-conf.PSF_RADIUS):int(ph/2+conf.PSF_RADIUS)]
+                    psf_rad_pix = int(conf.PSF_RADIUS / conf.PIXEL_SCALE)
+                    self.logger.debug(f'Clipping PSF ({psf_rad_pix}px radius)')
+                    psfmodel.img = psfmodel.img[int(pw/2.-psf_rad_pix):int(pw/2+psf_rad_pix), int(ph/2.-psf_rad_pix):int(ph/2+psf_rad_pix)]
                     self.logger.debug(f'New shape: {np.shape(psfmodel.img)}')
 
                 if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
@@ -525,16 +530,16 @@ class Blob(Subimage):
                 self.model_catalog[i].freezeParams('pos')
                 self.logger.debug(f'Position parameter frozen at {position}')
             elif conf.USE_MODEL_POSITION_PRIOR:
-                self.logger.info(f'Setting position prior. X = {src["x"]:2.2f}+/-{conf.MODEL_POSITION_PRIOR_SIG/conf.PIXEL_SCALE}; Y = {src["y"]:2.2f}+/-{conf.MODEL_POSITION_PRIOR_SIG/conf.PIXEL_SCALE}')
+                self.logger.debug(f'Setting position prior. X = {src["x"]:2.2f}+/-{conf.MODEL_POSITION_PRIOR_SIG/conf.PIXEL_SCALE}; Y = {src["y"]:2.2f}+/-{conf.MODEL_POSITION_PRIOR_SIG/conf.PIXEL_SCALE}')
                 self.model_catalog[i].pos.addGaussianPrior('x', src['x'], conf.MODEL_POSITION_PRIOR_SIG/conf.PIXEL_SCALE)
                 self.model_catalog[i].pos.addGaussianPrior('y', src['y'], conf.MODEL_POSITION_PRIOR_SIG/conf.PIXEL_SCALE)
 
             if ((mid == 3) | (mid == 4) | (mid == 6) | (mid == 7)) & conf.USE_MODEL_SHAPE_PRIOR:
-                self.logger.info(f'Setting shape prior. Reff = {src["a"]/conf.PIXEL_SCALE:2.2f}+/-{conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE}')
+                self.logger.debug(f'Setting shape prior. Reff = {src["a"]/conf.PIXEL_SCALE:2.2f}+/-{conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE}')
                 self.model_catalog[i].shape.addGaussianPrior('logre', self.model_catalog[i].shape.logre, np.log(conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE))
 
             elif (mid == 5) & conf.USE_MODEL_SHAPE_PRIOR:
-                self.logger.info(f'Setting shape prior. Reff = {src["a"]/conf.PIXEL_SCALE:2.2f}+/-{conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE}')
+                self.logger.debug(f'Setting shape prior. Reff = {src["a"]/conf.PIXEL_SCALE:2.2f}+/-{conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE}')
                 self.model_catalog[i].shapeExp.addGaussianPrior('logre', self.model_catalog[i].shapeExp.logre, np.log(conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE))
                 self.model_catalog[i].shapeDev.addGaussianPrior('logre', self.model_catalog[i].shapeExp.logre, np.log(conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE))
 
@@ -572,7 +577,7 @@ class Blob(Subimage):
 
         else:
 
-            self.logger.debug(f'Starting lsqr optimization ({conf.TRACTOR_MAXSTEPS}, {conf.TRACTOR_CONTHRESH}) (shared_params={self.shared_params})') 
+            self.logger.info(f'Starting lsqr optimization ({conf.TRACTOR_MAXSTEPS}, {conf.TRACTOR_CONTHRESH}) (shared_params={self.shared_params})') 
 
             self.n_converge = 0
             dlnp_init = 'NaN'
@@ -657,24 +662,22 @@ class Blob(Subimage):
                     #     except:
                     #         pass
 
-                # cat = tr.getCatalog()
-                # for k, src in enumerate(cat):
-                #     print(k, src)
-                # try:  # HACK -- this sometimes fails!!!
-                #     cat = tr.getCatalog()
-                #     for k, src in enumerate(cat):
-                #         sid = self.bcatalog['source_id'][k]
-                #         for j, band in enumerate(self.bands):
-                #             p = np.sum(cat[k].getUnitFluxModelPatches(tr.getImage(j))[0].patch)
-                #             # m = np.max(cat[k].getUnitFluxModelPatches(tr.getImage(j))[0].patch)
-                #             # self.logger.debug(f'Max of PSF convolved patch for {sid} in {band}: {m:4.4f}')
-                #             # self.logger.debug(f'Max of PSF: {np.max(tr.getImage(j).getPsf().img):4.4f}')
-                #             # self.logger.debug(f'Max of Model: {np.max(tr.getModelImage(j)):4.4f}')
-                #             # self.logger.debug(f'Sum of PSF convolved patch for {sid} in {band}: {p:4.4f}')
-                #             # self.logger.debug(f'Sum of PSF: {np.sum(tr.getImage(j).getPsf().img):4.4f}')
-                #             self.norm[k, j] = p
-                #             if 1. - p > conf.NORMALIZATION_THRESH:
-                #                 self.logger.critical(f'The final model for {sid} in {band} is NOT normalized within threshold ({conf.NORMALIZATION_THRESH})')
+                if conf.CONSOLE_LOGGING_LEVEL == 'DEBUG':
+                    cat = tr.getCatalog()
+                    for k, src in enumerate(cat):
+                        sid = self.bcatalog['source_id'][k]
+                        print(self.bands)
+                        for j, band in enumerate(self.bands):
+                            p = np.sum(cat[k].getUnitFluxModelPatches(tr.getImage(j))[0].patch)
+                            m = np.max(cat[k].getUnitFluxModelPatches(tr.getImage(j))[0].patch)
+                            self.logger.debug(f'Max of PSF convolved patch for {sid} in {band}: {m:4.4f}')
+                            self.logger.debug(f'Max of PSF: {np.max(tr.getImage(j).getPsf().img):4.4f}')
+                            self.logger.debug(f'Max of Model: {np.max(tr.getModelImage(j)):4.4f}')
+                            self.logger.debug(f'Sum of PSF convolved patch for {sid} in {band}: {p:4.4f}')
+                            self.logger.debug(f'Sum of PSF: {np.sum(tr.getImage(j).getPsf().img):4.4f}')
+                            # self.norm[k, j] = p
+                            if 1. - p > conf.NORMALIZATION_THRESH:
+                                self.logger.critical(f'The final model for {sid} in {band} is NOT normalized within threshold ({conf.NORMALIZATION_THRESH})')
                                 
 
                 # except:
@@ -702,10 +705,10 @@ class Blob(Subimage):
                                 src.shape = shape # I hope.
                                 # if use priors, add back priors
                                 if self.is_modeling & conf.USE_MODEL_SHAPE_PRIOR:
-                                    self.logger.info(f'Setting shape prior. Reff = {np.exp(src.shape.logre):2.2f}+/-{conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE}')
+                                    self.logger.debug(f'Setting shape prior. Reff = {np.exp(src.shape.logre):2.2f}+/-{conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE}')
                                     src.shape.addGaussianPrior('logre', src.shape.logre, np.log(conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE))
                                 elif ~self.is_modeling & conf.USE_FORCE_SHAPE_PRIOR:
-                                    self.logger.info(f'Setting shape prior. Reff = {np.exp(src.shape.logre):2.2f}+/-{conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE}')
+                                    self.logger.debug(f'Setting shape prior. Reff = {np.exp(src.shape.logre):2.2f}+/-{conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE}')
                                     src.shape.addGaussianPrior('logre', src.shape.logre, np.log(conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE))
 
                         if src.name == 'FixedCompositeGalaxy':
@@ -721,12 +724,12 @@ class Blob(Subimage):
                                 src.shapeDev = shape
                                 # if use priors, add back priors
                                 if self.is_modeling & conf.USE_MODEL_SHAPE_PRIOR:
-                                    self.logger.info(f'Setting shape prior. ExpReff = {np.exp(src.shapeExp.logre)/conf.PIXEL_SCALE:2.2f}+/-{conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE}')
+                                    self.logger.debug(f'Setting shape prior. ExpReff = {np.exp(src.shapeExp.logre)/conf.PIXEL_SCALE:2.2f}+/-{conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE}')
                                     src.shapeExp.addGaussianPrior('logre', src.shapeExp.logre, np.log(conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE))
                                     src.shapeDev.addGaussianPrior('logre', src.shapeDev.logre, np.log(conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE))
 
                                 elif ~self.is_modeling & conf.USE_FORCE_SHAPE_PRIOR:
-                                    self.logger.info(f'Setting shape prior. ExpReff = {np.exp(src.shapeExp.logre)/conf.PIXEL_SCALE:2.2f}+/-{conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE}')
+                                    self.logger.debug(f'Setting shape prior. ExpReff = {np.exp(src.shapeExp.logre)/conf.PIXEL_SCALE:2.2f}+/-{conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE}')
                                     src.shapeExp.addGaussianPrior('logre', src.shapeExp.logre, np.log(conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE))
                                     src.shapeDev.addGaussianPrior('logre', src.shapeDev.logre, np.log(conf.MODEL_REFF_PRIOR_SIG/conf.PIXEL_SCALE))
 
@@ -747,21 +750,21 @@ class Blob(Subimage):
                         srcseg = binary_dilation(self.segmap == sid, structure=struct1).astype(bool)
                         maxy, maxx = np.shape(self.segmap)
                         if (xp > maxx) | (xp < 0) | (yp < 0) | (yp > maxy):
-                            self.logger.warning(f'Source {sid} has escaped the blob!')
+                            self.logger.warning(f'Source {sid} has escaped the blob on step #{i+1}!')
                             trip = True
 
                             # gpriors = src.getLogPrior()
                             # print('Log(Prior):', gpriors)
                             src.pos.setParams([xp0, yp0])
-                            self.logger.info(f'Resetting position. X = {xp0:2.2f}; Y = {yp0:2.2f}')
+                            self.logger.debug(f'Resetting position. X = {xp0:2.2f}; Y = {yp0:2.2f}')
                             if self.is_modeling & conf.USE_MODEL_POSITION_PRIOR:
                                 gpxy = 0.1 * conf.MODEL_POSITION_PRIOR_SIG
-                                self.logger.info(f'Setting position prior. X = {xp0:2.2f}+/-{gpxy}; Y = {yp0:2.2f}+/-{gpxy}')
+                                self.logger.debug(f'Setting position prior. X = {xp0:2.2f}+/-{gpxy}; Y = {yp0:2.2f}+/-{gpxy}')
                                 src.pos.addGaussianPrior('x', xp0, gpxy)
                                 src.pos.addGaussianPrior('y', yp0, gpxy)
                             elif ~self.is_modeling & conf.USE_FORCE_POSITION_PRIOR:
                                 gpxy = 0.1 * conf.FORCE_POSITION_PRIOR_SIG
-                                self.logger.info(f'Setting position prior. X = {xp0:2.2f}+/-{gpxy}; Y = {yp0:2.2f}+/-{gpxy}')
+                                self.logger.debug(f'Setting position prior. X = {xp0:2.2f}+/-{gpxy}; Y = {yp0:2.2f}+/-{gpxy}')
                                 src.pos.addGaussianPrior('x', xp0, gpxy)
                                 src.pos.addGaussianPrior('y', yp0, gpxy)
 
@@ -778,17 +781,17 @@ class Blob(Subimage):
                             # gpriors = src.getLogPrior()
                             # print('Log(Prior):', gpriors)
 
-                            self.logger.warning(f'Source {sid} has escaped its segment!')
+                            self.logger.warning(f'Source {sid} has escaped its segment on step #{i+1}!')
                             src.pos.setParams([xp0, yp0])
-                            self.logger.info(f'Resetting position. X = {xp0:2.2f}; Y = {yp0:2.2f}')
+                            self.logger.debug(f'Resetting position. X = {xp0:2.2f}; Y = {yp0:2.2f}')
                             if self.is_modeling & conf.USE_MODEL_POSITION_PRIOR:
                                 gpxy = 0.1 * conf.MODEL_POSITION_PRIOR_SIG
-                                self.logger.info(f'Setting position prior. X = {xp0:2.2f}+/-{gpxy}; Y = {yp0:2.2f}+/-{gpxy}')
+                                self.logger.debug(f'Setting position prior. X = {xp0:2.2f}+/-{gpxy}; Y = {yp0:2.2f}+/-{gpxy}')
                                 src.pos.addGaussianPrior('x', xp0, gpxy)
                                 src.pos.addGaussianPrior('y', yp0, gpxy)
                             elif ~self.is_modeling & conf.USE_FORCE_POSITION_PRIOR:
                                 gpxy = 0.1 * conf.FORCE_POSITION_PRIOR_SIG
-                                self.logger.info(f'Setting position prior. X = {xp0:2.2f}+/-{gpxy}; Y = {yp0:2.2f}+/-{gpxy}')
+                                self.logger.debug(f'Setting position prior. X = {xp0:2.2f}+/-{gpxy}; Y = {yp0:2.2f}+/-{gpxy}')
                                 src.pos.addGaussianPrior('x', xp0, gpxy)
                                 src.pos.addGaussianPrior('y', yp0, gpxy)
 
@@ -820,7 +823,7 @@ class Blob(Subimage):
         self.variance = var_catalog
 
         if np.shape(self.tr.getChiImage(0)) != np.shape(self.segmap):
-            self.logger.warning('Chimap and segmap are not the same shape for #{self.blob_id}')
+            self.logger.warning(f'Chimap and segmap are not the same shape for #{self.blob_id}')
             return False
 
         # expvar = np.sum([var_catalog[i].numberOfParams() for i in np.arange(len(var_catalog))])
@@ -1242,7 +1245,7 @@ class Blob(Subimage):
                 self.chi_mu[i,j] = np.mean(chi_seg)
                 self.chi_pc[i,j] = np.percentile(chi_seg, q=[5, 16, 50, 84, 95])
 
-                if conf.PLOT > 2:
+                if conf.PLOT > 3:
                     for k, ssrc in enumerate(self.solution_catalog):
                         sid = self.bcatalog['source_id'][k]
                         plot_xsection(self, band, ssrc, sid)
@@ -1529,7 +1532,7 @@ class Blob(Subimage):
 
         chisq[:,1,1] = 1E20
         chisq[:,2,1] = 1E20
-        chisq[:,3,1] = 1E20
+        # chisq[:,3,1] = 1E20
 
         # for i, blob_id in enumerate(sid):
         #     print(blob_id)
@@ -1705,13 +1708,17 @@ class Blob(Subimage):
             use_iso = True
 
         elif image_type == 'residual':
-            image = (self.images[idx] - self.solution_tractor.getModelImage(idx))
+            model = self.solution_tractor.getModelImage(idx)
+            model[np.isnan(model)] = 0
+            image = (self.images[idx] - model)
 
         elif image_type == 'weight':
             image = self.weights[idx]
 
         elif image_type == 'chisq':
-            image = (self.images[idx] - self.solution_tractor.getModelImage(idx)) * np.sqrt(self.weights[idx])
+            model = self.solution_tractor.getModelImage(idx)
+            model[np.isnan(model)] = 0
+            image = (self.images[idx] - model)**2 * self.weights[idx]
         
         if conf.APER_APPLY_SEGMASK & (not use_iso):
             image *= self.masks[idx]
@@ -1779,10 +1786,11 @@ class Blob(Subimage):
                 if use_iso: # Run with only one model in image
                     aper = photutils.CircularAperture(apxy[j], rad)
                     image = self.solution_tractor.getModelImage(idx, srcs=[src,])
+                    image[np.isnan(image)] = 0
                     if conf.APER_APPLY_SEGMASK:
                         image *= self.masks[self._band2idx(sband)]
-                    if sub_background:
-                        image -= self.background_images[idx]
+                    # if sub_background:
+                    #     image -= self.background_images[idx]
                     self.logger.debug(f'Measuring {apertures_arcsec[i]:2.2f}" aperture flux on 1 source of {len(cat)}.')
                     p = photutils.aperture_photometry(image, aper, error=imgerr)
                     # aper.plot()
@@ -2102,9 +2110,9 @@ class Blob(Subimage):
                 self.bcatalog[row]['RAWFLUXCOREERR_'+band] = np.sqrt(param_var[row].brightnessPsf.getParams()[i])
             self.bcatalog[row]['CHISQ_'+band] = self.solution_chisq[row, i]
             self.bcatalog[row]['BIC_'+band] = self.solution_bic[row, i]
-            # self.bcatalog[row]['N_CONVERGE_'+band] = self.n_converge
+            self.bcatalog[row]['N_CONVERGE_'+band] = self.n_converge
             self.bcatalog[row]['SNR_'+band] = self.bcatalog[row]['RAWFLUX_'+band] / self.bcatalog[row]['RAWFLUXERR_'+band]
-            # self.bcatalog[row]['NORM_'+band] = self.norm[row, i]
+            self.bcatalog[row]['NORM_'+band] = self.norm[row, i]
             self.bcatalog[row]['CHI_MU_'+band] = self.chi_mu[row, i]
             self.bcatalog[row]['CHI_SIG_'+band] = self.chi_sig[row, i]
             self.bcatalog[row]['CHI_K2_'+band] = self.k2[row, i]

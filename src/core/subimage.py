@@ -279,7 +279,11 @@ class Subimage():
             # subwcs = self.wcs.slice(self.slice[::-1])
             subwcs = self.wcs.slice(self.slice)
 
-            # subwcs.wcs.crpix -= (left, bottom)
+            if left < 0:
+                subwcs.wcs.crpix[1] += buffer
+            if bottom < 0:
+                subwcs.wcs.crpix[0] += buffer
+
             # subwcs.array_shape = subshape[1:]
         else:
             subwcs = None
@@ -385,10 +389,12 @@ class Subimage():
             catalog.add_column(Column(catalog['y'], name='y_orig' ))
             
             if self.wcs is not None:
-                wx = catalog['x_orig'] + self.mosaic_origin[1] - conf.BRICK_BUFFER
-                wy = catalog['y_orig'] + self.mosaic_origin[0] - conf.BRICK_BUFFER
-                wwx, wwy = wx - self.mosaic_origin[0] + conf.BRICK_BUFFER, wy - self.mosaic_origin[1] + conf.BRICK_BUFFER
+                wx = catalog['x_orig'] #+ self.mosaic_origin[1] - conf.BRICK_BUFFER
+                wy = catalog['y_orig'] #+ self.mosaic_origin[0] - conf.BRICK_BUFFER
+                wwx, wwy = wx, wy
+                # wwx, wwy = wx - self.mosaic_origin[0] + conf.BRICK_BUFFER, wy - self.mosaic_origin[1] + conf.BRICK_BUFFER
                 skyc = self.wcs.all_pix2world(wwx, wwy, 0)
+                # print(- self.mosaic_origin[0] + conf.BRICK_BUFFER, - self.mosaic_origin[1] + conf.BRICK_BUFFER)
                 catalog.add_column(Column(skyc[0], name=f'RA_{conf.DETECTION_NICKNAME}'))
                 catalog.add_column(Column(skyc[1], name=f'DEC_{conf.DETECTION_NICKNAME}'))
 
