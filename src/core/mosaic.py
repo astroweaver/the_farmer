@@ -244,7 +244,7 @@ class Mosaic(Subimage):
         if detection:
             nickname = conf.DETECTION_NICKNAME
         elif modeling:
-            nickname = conf.MODELING_NICKNAMEwww
+            nickname = conf.MODELING_NICKNAME
         else:
             nickname = conf.MULTIBAND_NICKNAME
 
