@@ -668,17 +668,19 @@ class Blob(Subimage):
                         sid = self.bcatalog['source_id'][k]
                         print(self.bands)
                         for j, band in enumerate(self.bands):
-                            p = np.sum(cat[k].getUnitFluxModelPatches(tr.getImage(j))[0].patch)
-                            m = np.max(cat[k].getUnitFluxModelPatches(tr.getImage(j))[0].patch)
-                            self.logger.debug(f'Max of PSF convolved patch for {sid} in {band}: {m:4.4f}')
-                            self.logger.debug(f'Max of PSF: {np.max(tr.getImage(j).getPsf().img):4.4f}')
-                            self.logger.debug(f'Max of Model: {np.max(tr.getModelImage(j)):4.4f}')
-                            self.logger.debug(f'Sum of PSF convolved patch for {sid} in {band}: {p:4.4f}')
-                            self.logger.debug(f'Sum of PSF: {np.sum(tr.getImage(j).getPsf().img):4.4f}')
-                            # self.norm[k, j] = p
-                            if 1. - p > conf.NORMALIZATION_THRESH:
-                                self.logger.critical(f'The final model for {sid} in {band} is NOT normalized within threshold ({conf.NORMALIZATION_THRESH})')
-                                
+                            try:
+                                p = np.sum(cat[k].getUnitFluxModelPatches(tr.getImage(j))[0].patch)
+                                m = np.max(cat[k].getUnitFluxModelPatches(tr.getImage(j))[0].patch)
+                                self.logger.debug(f'Max of PSF convolved patch for {sid} in {band}: {m:4.4f}')
+                                self.logger.debug(f'Max of PSF: {np.max(tr.getImage(j).getPsf().img):4.4f}')
+                                self.logger.debug(f'Max of Model: {np.max(tr.getModelImage(j)):4.4f}')
+                                self.logger.debug(f'Sum of PSF convolved patch for {sid} in {band}: {p:4.4f}')
+                                self.logger.debug(f'Sum of PSF: {np.sum(tr.getImage(j).getPsf().img):4.4f}')
+                                # self.norm[k, j] = p
+                                if 1. - p > conf.NORMALIZATION_THRESH:
+                                    self.logger.critical(f'The final model for {sid} in {band} is NOT normalized within threshold ({conf.NORMALIZATION_THRESH})')
+                            except:
+                                self.logger.warning('Could not assess the PSF for de-bugging purposes. Ignore this message usually.')
 
                 # except:
                 #     return False
