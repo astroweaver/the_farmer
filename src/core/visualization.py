@@ -1092,7 +1092,7 @@ def plot_fblob(blob, band, fig=None, ax=None, final_opt=False, debug=False):
     
     return fig, ax
 
-def plot_blobmap(brick, image=None, band=None, catalog=None):
+def plot_blobmap(brick, image=None, band=None, catalog=None, mode='rms'):
     if image is None:
         image = brick.images[0]
     if band is None:
@@ -1104,10 +1104,12 @@ def plot_blobmap(brick, image=None, band=None, catalog=None):
     imgs_marked = find_boundaries(brick.blobmap, mode='thick').astype(int)
     imgs_marked[imgs_marked==0] = -99
     backlevel, noisesigma = brick.backgrounds[0]
-    # vmin, vmax = np.max([backlevel + noisesigma, 1E-5]), brick.images[0].max()
-    # norm = LogNorm(np.max([backlevel + noisesigma, 1E-5]), 0.9*np.max(image), clip='True')
-    # ax.imshow(image, cmap='Greys', origin='lower', norm=norm)
-    ax.imshow(image - backlevel, cmap='RdGy', origin='lower', vmin=-3*noisesigma, vmax=3*noisesigma)
+    if mode == 'log':
+        vmin, vmax = np.max([backlevel + noisesigma, 1E-5]), brick.images[0].max()
+        norm = LogNorm(np.max([backlevel + noisesigma, 1E-5]), 0.9*np.max(image), clip='True')
+        ax.imshow(image, cmap='Greys', origin='lower', norm=norm)
+    elif mode == 'rms':
+        ax.imshow(image - backlevel, cmap='RdGy', origin='lower', vmin=-3*noisesigma, vmax=3*noisesigma)
     mycmap = plt.cm.Greens
     mycmap.set_under('k', alpha=0)
     ax.imshow(imgs_marked, alpha=0.9, cmap=mycmap, vmin=0, zorder=2, origin='lower')
@@ -1128,11 +1130,11 @@ def plot_blobmap(brick, image=None, band=None, catalog=None):
 
     # Add collection to axes
     #ax.axis('off')
-    out_path = os.path.join(conf.PLOT_DIR, f'B{brick.brick_id}_{band}_blobmaster.pdf')
+    out_path = os.path.join(conf.PLOT_DIR, f'B{brick.brick_id}_{band}_{mode}_blobmaster.pdf')
     ax.axis('off')
     ax.margins(0,0)
     fig.suptitle(brick.bands[0])
-    fig.savefig(out_path, dpi = 900, overwrite=True, pad_inches=0.0)
+    fig.savefig(out_path, dpi = 300, overwrite=True, pad_inches=0.0)
     plt.close()
     logger.info(f'Saving figure: {out_path}')
 
