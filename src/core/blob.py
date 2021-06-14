@@ -1739,8 +1739,8 @@ class Blob(Subimage):
             var[tweight>0] = 1. / tweight[tweight>0] # TODO: WRITE TO UTILS
             var[self.masks[idx]] = 0
 
-        if (sband in sub_background) & (not use_iso):
-            image -= self.background_images[idx]
+        # if (sband in sub_background) & (not use_iso) & (image_type=='image'):
+        #     image -= self.background_images[idx]
 
         cat = self.solution_catalog
         xxyy = np.vstack([src.getPosition() for src in cat])
