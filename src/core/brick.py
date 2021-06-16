@@ -275,7 +275,7 @@ class Brick(Subimage):
                 self.logger.debug(f'Columns already exist for {colname}')
             if (modeling & (not multiband_model)) | (not conf.FREEZE_FORCED_SHAPE):
                 if modeling & (colname != conf.MODELING_NICKNAME):
-                    self.logger.debug(f'Adding model columns to catalog. (multiband = False)')
+                    self.logger.debug(f'Adding model columns to catalog. (Using MODELING band)')
                     self.catalog.add_column(Column(boolfiller, name=f'VALID_SOURCE_{conf.MODELING_NICKNAME}'))
 
                     for colname_fill in [f'{colext}_{colname}' for colext in ('X_MODEL', 'Y_MODEL', 'XERR_MODEL', 'YERR_MODEL', 'RA', 'DEC')]:
@@ -300,7 +300,7 @@ class Brick(Subimage):
         if multiband_model:
             colname = modbrick_name
             try:
-                self.logger.debug(f'Adding model columns to catalog. (multiband = True)')
+                self.logger.debug(f'Adding model columns to catalog. (Using MULTIBAND band(s))')
                 for colname_fill in [f'{colext}_{colname}' for colext in ('X_MODEL', 'Y_MODEL', 'XERR_MODEL', 'YERR_MODEL', 'RA', 'DEC')]:
                     self.catalog.add_column(Column(filler, name=colname_fill))
                 self.catalog.add_column(Column(np.zeros(len(self.catalog), dtype='S20'), name=f'SOLMODEL_{colname}'))

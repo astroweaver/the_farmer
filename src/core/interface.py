@@ -284,7 +284,7 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, brick_id=None, in
             detmosaic._make_brick(bid, detection=True, overwrite=True)
 
     # Make bricks for the modeling image
-    elif (image_type==conf.MODELING_NICKNAME) | (image_type is None):
+    if (image_type==conf.MODELING_NICKNAME) | (image_type is None):
         # Modeling
         logger.info('Making mosaic for modeling...')
         modmosaic = Mosaic(conf.MODELING_NICKNAME, modeling=True)
@@ -319,7 +319,7 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, brick_id=None, in
                     modmosaic._make_brick(bid, modeling=True, overwrite=True)
     
     # Make bricks for one or more multiband images
-    elif (image_type==conf.MULTIBAND_NICKNAME) | (image_type is None):
+    if (image_type==conf.MULTIBAND_NICKNAME) | (image_type is None):
 
         # One variable list
         if band is not None:
@@ -903,13 +903,19 @@ def detect_sources(brick_id, catalog=None, segmap=None, blobmap=None, use_mask=T
 def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=None, multiband_model=len(conf.MODELING_BANDS)>1, source_only=False):
     """ Stage 2. Detect your sources and determine the best model parameters for them """
 
-    if band is None:
-        modband = conf.BANDS
+    if (band is None) & (len(conf.MODELING_BANDS) > 0):
+        modband = conf.MODELING_BANDS
         addName = conf.MULTIBAND_NICKNAME
+        multiband_model = True
+        if (type(modband) == str) | (type(modband) == np.str_):
+            modband = [modband,]
     else:
+        logger.warning(f'Disregarding MODELING_BANDS config parameter. Using {band} for modelling instead!')
         if (type(band) == list) | (type(band) == np.ndarray):
+            multiband_model = True
             modband = band
         elif (type(band) == str) | (type(band) == np.str_):
+            multiband_model = False
             modband = [band,]
         else:
             sys.exit('ERROR -- Input band is not a list, array, or string!')
@@ -991,9 +997,9 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
     if not multiband_model:
         for band_num, mod_band in enumerate(img_names):
             tstart = time.time()
-            modbrick = stage_brickfiles(brick_id, band=mod_band, nickname=mod_nickname, modeling=True)
-            catalog['x'] = catalog['x'] - modbrick.mosaic_origin[1] + conf.BRICK_BUFFER - 1
-            catalog['y'] = catalog['y'] - modbrick.mosaic_origin[0] + conf.BRICK_BUFFER - 1
+            modbrick = stage_brickfiles(brick_id, band=mod_band, nickname=mod_nickname, modeling=~(modband[band_num] in conf.BANDS))
+            # catalog['x'] = catalog['x'] - modbrick.mosaic_origin[1] + conf.BRICK_BUFFER - 1
+            # catalog['y'] = catalog['y'] - modbrick.mosaic_origin[0] + conf.BRICK_BUFFER - 1
             if modbrick is None:
                 return
             if (band is not None) & (band != conf.MODELING_NICKNAME):
