@@ -1552,7 +1552,7 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
         logger.removeHandler(new_fh)
 
 
-def force_photometry(brick_id, band=None, source_id=None, blob_id=None, insert=True, source_only=False, unfix_bandwise_positions=(not conf.FREEZE_FORCED_POSITION), unfix_bandwise_shapes=(not conf.FREEZE_FORCED_SHAPE), rao_cramer_only=False):
+def force_photometry(brick_id, band=None, source_id=None, blob_id=None, insert=False, source_only=False, unfix_bandwise_positions=(not conf.FREEZE_FORCED_POSITION), unfix_bandwise_shapes=(not conf.FREEZE_FORCED_SHAPE), rao_cramer_only=False):
 
     if band is None:
         fband = conf.BANDS

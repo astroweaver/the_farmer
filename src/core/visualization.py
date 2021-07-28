@@ -1167,13 +1167,13 @@ def plot_psf(psfmodel, band, show_gaussian=False):
     fig, ax = plt.subplots(ncols=3, figsize=(30,10))
     norm = LogNorm(1e-8, 0.1*np.nanmax(psfmodel), clip='True')
     img_opt = dict(cmap='Blues', norm=norm)
-    ax[0].imshow(psfmodel, **img_opt, extent=0.15 *np.array([-np.shape(psfmodel)[0]/2,  np.shape(psfmodel)[0]/2, -np.shape(psfmodel)[0]/2,  np.shape(psfmodel)[0]/2,]))
+    ax[0].imshow(psfmodel, **img_opt, extent=conf.PIXEL_SCALE *np.array([-np.shape(psfmodel)[0]/2,  np.shape(psfmodel)[0]/2, -np.shape(psfmodel)[0]/2,  np.shape(psfmodel)[0]/2,]))
     ax[0].set(xlim=(-15,15), ylim=(-15, 15))
     ax[0].axvline(0, color='w', ls='dotted')
     ax[0].axhline(0, color='w', ls='dotted')
 
     xax = np.arange(-np.shape(psfmodel)[0]/2 + 0.5,  np.shape(psfmodel)[0]/2+0.5)
-    [ax[1].plot(xax * 0.15, psfmodel[x], c='royalblue', alpha=0.5) for x in np.arange(0, np.shape(psfmodel)[1])]
+    [ax[1].plot(xax * conf.PIXEL_SCALE, psfmodel[x], c='royalblue', alpha=0.5) for x in np.arange(0, np.shape(psfmodel)[1])]
     ax[1].axvline(0, ls='dotted', c='k')
     ax[1].set(xlim=(-15, 15), yscale='log', ylim=(1E-6, 1E-1), xlabel='arcsec')
 
@@ -1185,17 +1185,17 @@ def plot_psf(psfmodel, band, show_gaussian=False):
         mean = 0
         sigma = 1
 
-        ax[1].plot(xax * 0.15,psfmodel[int(np.shape(psfmodel)[1]/2)], 'r')
-        popt,pcov = curve_fit(gaus,xax * 0.15,psfmodel[int(np.shape(psfmodel)[1]/2)],p0=[1,mean,sigma])
+        ax[1].plot(xax * conf.PIXEL_SCALE,psfmodel[int(np.shape(psfmodel)[1]/2)], 'r')
+        popt,pcov = curve_fit(gaus,xax * conf.PIXEL_SCALE,psfmodel[int(np.shape(psfmodel)[1]/2)],p0=[1,mean,sigma])
 
-        ax[1].plot(xax*0.15,gaus(xax*0.15,*popt),'green')
+        ax[1].plot(xax*conf.PIXEL_SCALE,gaus(xax*conf.PIXEL_SCALE,*popt),'green')
 
     x = xax
     y = x.copy()
     xv, yv = np.meshgrid(x, y)
     radius = np.sqrt(xv**2 + xv**2)
     cumcurve = [np.sum(psfmodel[radius<i]) for i in np.arange(0, np.shape(psfmodel)[0]/2)]
-    ax[2].plot(np.arange(0, np.shape(psfmodel)[0]/2) * 0.15, cumcurve)
+    ax[2].plot(np.arange(0, np.shape(psfmodel)[0]/2) * conf.PIXEL_SCALE, cumcurve)
 
     fig.suptitle(band)
 
