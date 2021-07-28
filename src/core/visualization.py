@@ -329,7 +329,6 @@ def plot_srcprofile(blob, src, sid, bands=None):
         fig, ax = plt.subplots(ncols=4, nrows=4, figsize=(15, 15))
 
         # row 1 -- image, info
-       
         if rms > 0.95*np.nanmax(img):
             normmin = 1.05*np.nanmin(abs(img))
         else:
