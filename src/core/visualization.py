@@ -334,7 +334,11 @@ def plot_srcprofile(blob, src, sid, bands=None):
             normmin = 1.05*np.nanmin(abs(img))
         else:
             normmin = rms
-        norm = LogNorm(normmin, 0.95*np.nanmax(img), clip='True')
+        normmax = 0.95*np.nanmax(img)
+        if normmin != normmax:
+            norm = LogNorm(normmin, normmax, clip='True')
+        else:
+            norm=None
         ax[0,0].imshow(img, norm=norm, cmap='Greys', extent=extent)
         ax[0,0].text(0.05, 1.03, band, transform=ax[0,0].transAxes)
         ax[0,0].scatter(xp0, yp0, c='purple', marker='+', alpha=0.5)
