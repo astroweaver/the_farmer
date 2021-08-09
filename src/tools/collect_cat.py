@@ -58,9 +58,9 @@ first_stack = True
 for i, fname in enumerate(walk_through_files(out_dir, cat_prefix, cat_suffix)):
 
     print('addding {}'.format(fname))
-    if '/' in fname[2:]:
-        print('')
-        continue
+    # if '/' in fname[2:]:
+    #     print('')
+    #     continue
 
     
     try:

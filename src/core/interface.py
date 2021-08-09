@@ -273,7 +273,7 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, brick_id=None, in
         detmosaic = Mosaic(conf.DETECTION_NICKNAME, detection=True)
 
         if conf.NTHREADS > 1:
-            logger.warning('Parallelization of brick making is currently disabled')
+            logger.warning('Parallelization of brick making is currently not supported. Continuing anyways...')
             # BUGGY DUE TO MEM ALLOC
             # logger.info('Making bricks for detection (in parallel)')
             # pool = mp.ProcessingPool(processes=conf.NTHREADS)
@@ -299,24 +299,24 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, brick_id=None, in
 
         # Make bricks in parallel
         if (conf.NTHREADS > 1) & (brick_id is None):
-            logger.warning('Parallelization of brick making is currently disabled')
+             logger.warning('Parallelization of brick making is currently not supported. Continuing anyways...')
 
             # BUGGY DUE TO MEM ALLOC
             # if conf.VERBOSE: print('Making bricks for detection (in parallel)')
             # pool = mp.ProcessingPool(processes=conf.NTHREADS)
             # pool.map(partial(modmosaic._make_brick, detection=True, overwrite=True), np.arange(0, modmosaic.n_bricks()))
 
-        # Make bricks in serial
+        # # Make bricks in serial
+        # else:
+        if brick_id is not None:
+            logger.info(f'Making brick #{brick_id} for modeling (in serial)')
+            modmosaic._make_brick(brick_id, modeling=True, overwrite=True)
         else:
-            if brick_id is not None:
-                logger.info(f'Making brick #{brick_id} for modeling (in serial)')
-                modmosaic._make_brick(brick_id, modeling=True, overwrite=True)
-            else:
-                logger.info('Making bricks for modeling (in serial)')
-                if max_bricks is None:
-                    max_bricks = modmosaic.n_bricks()
-                for bid in np.arange(1, max_bricks+1):
-                    modmosaic._make_brick(bid, modeling=True, overwrite=True)
+            logger.info('Making bricks for modeling (in serial)')
+            if max_bricks is None:
+                max_bricks = modmosaic.n_bricks()
+            for bid in np.arange(1, max_bricks+1):
+                modmosaic._make_brick(bid, modeling=True, overwrite=True)
     
     # Make bricks for one or more multiband images
     if (image_type==conf.MULTIBAND_NICKNAME) | (image_type is None):
@@ -360,23 +360,23 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, brick_id=None, in
 
             # Make bricks in parallel
             if (conf.NTHREADS > 1)  & (brick_id is None):
-                logger.warning('Parallelization of brick making is currently disabled')
+                 logger.warning('Parallelization of brick making is currently not supported. Continuing anyways...')
                 # logger.info(f'Making bricks for band {sband} (in parallel)')
                 # with pa.pools.ProcessPool(ncpus=conf.NTHREADS) as pool:
                 #     logger.info(f'Parallel processing pool initalized with {conf.NTHREADS} threads.')
                 #     pool.uimap(partial(bandmosaic._make_brick, detection=False, overwrite=overwrite), np.arange(0, bandmosaic.n_bricks()))
                 #     logger.info('Parallel processing complete.')
             # Make bricks in serial
+            # else:
+            if brick_id is not None:
+                logger.info(f'Making brick #{brick_id} for multiband (in serial)')
+                bandmosaic._make_brick(brick_id, detection=False, overwrite=overwrite)
             else:
-                if brick_id is not None:
-                    logger.info(f'Making brick #{brick_id} for multiband (in serial)')
-                    bandmosaic._make_brick(brick_id, detection=False, overwrite=overwrite)
-                else:
-                    logger.info(f'Making bricks for band {sband} (in serial)')
-                    if max_bricks is None:
-                        max_bricks = bandmosaic.n_bricks()
-                    for bid in np.arange(1, max_bricks+1):
-                        bandmosaic._make_brick(bid, detection=False, overwrite=overwrite)
+                logger.info(f'Making bricks for band {sband} (in serial)')
+                if max_bricks is None:
+                    max_bricks = bandmosaic.n_bricks()
+                for bid in np.arange(1, max_bricks+1):
+                    bandmosaic._make_brick(bid, detection=False, overwrite=overwrite)
 
 
     # image type is invalid
@@ -1873,7 +1873,10 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                     for colname in np.array(output_cat.colnames)[newcols]:
                         #mastercat.add_column(output_cat[colname])
                         if colname not in mastercat.colnames:
-                            shape = np.shape(output_cat[colname][0])
+                            if np.ndim(output_cat[colname]) > 1:
+                                shape = np.shape(output_cat[colname][1])
+                            else:
+                                shape = 1
                             mastercat.add_column(Column(length=len(mastercat), dtype=output_cat[colname].dtype, shape=shape, name=colname))
 
                     for row in output_cat:
@@ -1888,7 +1891,10 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                     
                 for colname in output_cat.colnames:
                     if colname not in fbrick.catalog.colnames:
-                        shape = np.shape(output_cat[colname][0])
+                        if np.ndim(output_cat[colname]) > 1:
+                                shape = np.shape(output_cat[colname][1])
+                        else:
+                            shape = 1
                         fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=output_cat[colname].dtype, shape=shape, name=colname))
 
                 #fbrick.catalog = join(fbrick.catalog, output_cat, join_type='left', )
@@ -1983,7 +1989,10 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                     # make fillers
                     for colname in np.array(output_cat.colnames)[newcols]:
                         if colname not in mastercat.colnames:
-                            colshape = output_cat[colname].shape
+                            if np.ndim(output_cat[colname]) > 1:
+                                colshape = np.shape(output_cat[colname][1])
+                            else:
+                                colshape = 1
                             mastercat.add_column(Column(length=len(mastercat), dtype=output_cat[colname].dtype, shape=colshape, name=colname))
 
                     for row in output_cat:
