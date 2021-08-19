@@ -23,7 +23,10 @@ import sys
 import time
 from functools import partial
 import shutil
-sys.path.insert(0, os.path.join(os.getcwd(), 'config'))
+if os.path.exists(os.path.join(os.getcwd(), 'config')): # You're 1 up from config?
+    sys.path.insert(0, os.path.join(os.getcwd(), 'config'))
+else: # You're working from a directory parallel with config?
+    sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), '../config')))
 import pickle
 
 # Tractor imports
