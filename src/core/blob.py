@@ -483,7 +483,7 @@ class Blob(Subimage):
                 position = PixPos(src['x'], src['y'])
             
             if conf.USE_SEP_INITIAL_FLUX:
-                flux = Fluxes(**dict(zip(self.bands, src['flux'] * np.ones(len(self.bands)))))
+                flux = Fluxes(**dict(zip(self.bands, src['flux'] * np.ones(len(self.bands)))), order=self.bands)
 
             else:
                 try:  # THIS DOES NOT WORK FOR non-CONSTANT PSFS! #TODO
@@ -493,17 +493,17 @@ class Blob(Subimage):
                         max_img = np.nanmax(img * src_seg)
                         max_psf = np.nanmax(psf.img)
                         qflux[j] = max_img / max_psf
-                    flux = Fluxes(**dict(zip(self.bands, qflux)))
+                    flux = Fluxes(**dict(zip(self.bands, qflux)), order=self.bands)
                 except:
                     self.logger.warning('Failed to estimate inital flux a priori. Falling back on SEP...')
-                    flux = Fluxes(**dict(zip(self.bands, src['flux'] * np.ones(len(self.bands)))))
+                    flux = Fluxes(**dict(zip(self.bands, src['flux'] * np.ones(len(self.bands)))), order=self.bands)
                 
 
             #shape = GalaxyShape(src['a'], src['b'] / src['a'], src['theta'])
             pa = 90 + np.rad2deg(src['theta'])
             shape = EllipseESoft.fromRAbPhi(src['a'], src['b'] / src['a'], pa)
             nre = SersicIndex(2.5) # Just a guess for the seric index
-            fluxcore = Fluxes(**dict(zip(self.bands, np.zeros(len(self.bands))))) # Just a simple init condition
+            fluxcore = Fluxes(**dict(zip(self.bands, np.zeros(len(self.bands)))), order=self.bands) # Just a simple init condition
             # shape = EllipseESoft.fromRAbPhi(3.0, 0.6, 38)
 
             if mid == 1:

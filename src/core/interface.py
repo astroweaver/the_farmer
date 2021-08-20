@@ -2549,8 +2549,8 @@ def models_from_catalog(catalog, fblob, unit_flux=False):
         
         if unit_flux:
             logger.debug('Using unit flux for init fluxes')
-            flux = Fluxes(**dict(zip(fblob.bands, np.ones(len(fblob.bands)))))
-            fluxcore = Fluxes(**dict(zip(fblob.bands, np.ones(len(fblob.bands)))))
+            flux = Fluxes(**dict(zip(fblob.bands, np.ones(len(fblob.bands)))), order=fblob.bands)
+            fluxcore = Fluxes(**dict(zip(fblob.bands, np.ones(len(fblob.bands)))), order=fblob.bands)
         else:
             try:
                 # Make initial guess at flux using PSF!
@@ -2562,8 +2562,8 @@ def models_from_catalog(catalog, fblob, unit_flux=False):
                     max_psf = np.nanmax(fblob.psfimg[iband])
                     qflux[j] = max_img / max_psf
 
-                flux = Fluxes(**dict(zip(fblob.bands, qflux)))
-                fluxcore = Fluxes(**dict(zip(fblob.bands, qflux)))
+                flux = Fluxes(**dict(zip(fblob.bands, qflux)), order=fblob.bands)
+                fluxcore = Fluxes(**dict(zip(fblob.bands, qflux)), order=fblob.bands)
                 logger.debug('Making a guess based off the PSF')
 
 
@@ -2584,8 +2584,8 @@ def models_from_catalog(catalog, fblob, unit_flux=False):
                     qflux = src[f'RAWFLUX_{init_band}'] * 10 ** (0.4 * (target_zpt - original_zpt))
                     qfluxcore = src[f'RAWFLUX_{init_band}'] * 10 ** (0.4 * (target_zpt - original_zpt))
                     
-                flux = Fluxes(**dict(zip(band, qflux)))
-                fluxcore = Fluxes(**dict(zip(band, qfluxcore)))
+                flux = Fluxes(**dict(zip(band, qflux)), order=band)
+                fluxcore = Fluxes(**dict(zip(band, qfluxcore)), order=band)
 
 
         # Check if valid source

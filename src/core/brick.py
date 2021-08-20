@@ -758,7 +758,7 @@ class Brick(Subimage):
                     by_model = src[f'Y_MODEL_{best_band}'] - self.mosaic_origin[0] + conf.BRICK_BUFFER
 
                 position = PixPos(bx_model, by_model)
-                flux = Fluxes(**dict(zip(self.bands[idx], raw_fluxes))) # IMAGES ARE IN NATIVE ZPT, USE RAWFLUXES!
+                flux = Fluxes(**dict(zip(self.bands[idx], raw_fluxes)), order=self.bands[idx]) # IMAGES ARE IN NATIVE ZPT, USE RAWFLUXES!
 
                 if src[f'SOLMODEL_{best_band}'] == "PointSource":
                     self.model_catalog[m] = PointSource(position, flux)
@@ -1082,7 +1082,7 @@ class Brick(Subimage):
                     by_model = src[f'Y_MODEL_{best_band}'] - self.mosaic_origin[0] + conf.BRICK_BUFFER
 
                 position = PixPos(bx_model, by_model)
-                flux = Fluxes(**dict(zip(self.bands[idx], raw_fluxes))) # IMAGES ARE IN NATIVE ZPT, USE RAWFLUXES!
+                flux = Fluxes(**dict(zip(self.bands[idx], raw_fluxes)), order=self.bands[idx]) # IMAGES ARE IN NATIVE ZPT, USE RAWFLUXES!
 
                 if src[f'SOLMODEL_{best_band}'] == "PointSource":
                     self.model_catalog[m] = PointSource(position, flux)
@@ -1419,7 +1419,7 @@ class Brick(Subimage):
                 by_model = src[f'Y_MODEL_{best_band}'] - self.mosaic_origin[0] + conf.BRICK_BUFFER
 
             position = PixPos(bx_model, by_model)
-            flux = Fluxes(**dict(zip(self.bands[idx], raw_fluxes))) # IMAGES ARE IN NATIVE ZPT, USE RAWFLUXES!
+            flux = Fluxes(**dict(zip(self.bands[idx], raw_fluxes)), order=self.bands[idx]) # IMAGES ARE IN NATIVE ZPT, USE RAWFLUXES!
 
             if src[f'SOLMODEL_{best_band}'] == "PointSource":
                 self.model_catalog[i] = PointSource(position, flux)
