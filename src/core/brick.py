@@ -513,7 +513,7 @@ class Brick(Subimage):
                 self.logger.debug(f'Subtracted background (flat={conf.USE_FLAT}, masked={conf.SUBTRACT_BACKGROUND_WITH_MASK}, used_direct_median={conf.SUBTRACT_BACKGROUND_WITH_DIRECT_MEDIAN})')
 
             elif band in conf.MANUAL_BACKGROUND.keys():
-                image -= conf.MANUAL_BACKGROUND[band]
+                self.images[idx] -= conf.MANUAL_BACKGROUND[band]
                 self.logger.debug(f'Subtracted background manually ({conf.MANUAL_BACKGROUND[band]})')
             
             else:

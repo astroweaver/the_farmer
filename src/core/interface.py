@@ -287,7 +287,7 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, brick_id=None, in
             detmosaic._make_brick(bid, detection=True, overwrite=True)
 
     # Make bricks for the modeling image
-    if (image_type==conf.MODELING_NICKNAME) | (image_type is None):
+    elif (image_type==conf.MODELING_NICKNAME) | (image_type is None):
         # Modeling
         logger.info('Making mosaic for modeling...')
         modmosaic = Mosaic(conf.MODELING_NICKNAME, modeling=True)
@@ -322,7 +322,7 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, brick_id=None, in
                 modmosaic._make_brick(bid, modeling=True, overwrite=True)
     
     # Make bricks for one or more multiband images
-    if (image_type==conf.MULTIBAND_NICKNAME) | (image_type is None):
+    elif (image_type==conf.MULTIBAND_NICKNAME) | (image_type is None):
 
         # One variable list
         if band is not None:
@@ -1729,7 +1729,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
     if os.path.exists(search_fn):
         fbrick.catalog = Table(fits.open(search_fn)[1].data)
         fbrick.n_sources = len(fbrick.catalog)
-        fbrick.n_blobs = fbrick.catalog['blob_id'].max()
+        fbrick.n_blobs = np.unique(fbrick.catalog['blob_id']) #.max()
     else:
         logger.critical(f'No valid catalog was found for {brick_id}')
         return
@@ -1926,7 +1926,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
         else:
             run_n_blobs = fbrick.n_blobs
 
-        fblobs = (fbrick.make_blob(i) for i in np.arange(1, run_n_blobs+1))
+        fblobs = (fbrick.make_blob(i) for i in np.unique(fbrick.catalog['blob_id']))
 
         if conf.NTHREADS > 1:
 
@@ -2529,6 +2529,7 @@ def models_from_catalog(catalog, fblob, unit_flux=False):
             continue
 
         inpos = [src[f'X_MODEL_{best_band}'], src[f'Y_MODEL_{best_band}']]
+        # print(best_band)
 
         # for col in src.colnames:
         #     print(f"  {col} :: {src[col]}")
@@ -2621,7 +2622,7 @@ def models_from_catalog(catalog, fblob, unit_flux=False):
         if src[f'SOLMODEL_{best_band}'] not in ('PointSource', 'SimpleGalaxy'):
             #shape = EllipseESoft.fromRAbPhi(src['REFF'], 1./src['AB'], -src['THETA'])  # Reff, b/a, phi
             shape = EllipseESoft(src[f'REFF_{best_band}'], src[f'EE1_{best_band}'], src[f'EE2_{best_band}'])
-            nre = SersicIndex(src[f'N_{best_band}'])
+            # nre = SersicIndex(src[f'N_{best_band}'])
 
             if conf.USE_FORCE_SHAPE_PRIOR:
                 shape.addGaussianPrior('logre', src[f'REFF_{best_band}'], conf.FORCE_REFF_PRIOR_SIG/conf.PIXEL_SCALE )
