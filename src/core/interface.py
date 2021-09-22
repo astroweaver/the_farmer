@@ -1926,7 +1926,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
         else:
             run_n_blobs = fbrick.n_blobs
 
-        fblobs = (fbrick.make_blob(i) for i in np.unique(fbrick.catalog['blob_id']))
+        fblobs = (fbrick.make_blob(i) for i in np.unique(fbrick.catalog['blob_id'].data))
 
         if conf.NTHREADS > 1:
 
