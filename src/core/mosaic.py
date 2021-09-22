@@ -307,8 +307,8 @@ class Mosaic(Subimage):
             exist_hdul.close()
 
     def _get_origin(self, brick_id, brick_width=conf.BRICK_WIDTH, brick_height=conf.BRICK_HEIGHT):
-        x0 = int(((brick_id - 1) * brick_width) % self.dims[0])
-        y0 = int(((brick_id - 1) * brick_height) / self.dims[1]) * brick_height
+        x0 = int(((brick_id - 1) * brick_width) % self.dims[1])
+        y0 = int(((brick_id - 1) * brick_height) / self.dims[0]) * brick_height
         return np.array([x0, y0])
 
     def n_bricks(self, brick_width=conf.BRICK_WIDTH, brick_height=conf.BRICK_HEIGHT):
