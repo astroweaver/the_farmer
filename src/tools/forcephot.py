@@ -71,7 +71,7 @@ def _get_origin(brick_id, brick_width=conf.BRICK_WIDTH, brick_height=conf.BRICK_
         
 
 INPUT_CAT = '/n07data/weaver/COSMOS2020/data_iracout/irac-resid_v2_visual-class.fits'
-MASTER_CAT = '/n07data/COSMOS2020/RELEASES/R1_v2.0_20210625/COSMOS2020_FARMER_R1_v2.0.fits'
+MASTER_CAT = '/n07data/COSMOS2020/RELEASES/R1_v2.0_2021007/COSMOS2020_FARMER_R1_v2.0.fits'
 
 SHOW_PLOT = False
 
@@ -274,6 +274,11 @@ with open(f'{conf.INTERIM_DIR}/masterbids.npy', 'wb') as f:
 #     interface.force_photometry(brickid, blob_id=bid)
 
 # # Lastly need to grab catalogs, isolate the ones we ran again, and combine them into a new catalog
-# for iid, fid, bid, brickid in master_bids:
-#     ctab = Table.read(DIR_OUTPUT+f'{brickid}_MULTIBAND.cat')
-#     # ... stack
+# tab = Table.read(fn[0])
+#     ...: for f in fn[1:]:
+#     ...:     t = Table.read(f)
+#     ...:     newcols = []
+#     ...:     for coln in t.colnames:
+#     ...:         if coln not in tab.colnames:
+#     ...:             newcols.append(coln)
+#     ...:     tab = hstack([tab, t[newcols]])

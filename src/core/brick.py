@@ -215,7 +215,7 @@ class Brick(Subimage):
         self.n_sources = len(self.catalog)
         n_cleaned = np.sum(~self._allowed_sources)
         pc = n_cleaned / len(self._allowed_sources)
-        self.logger.info(f'Cleaned out {n_cleaned} sources ({pc:3.3f}%)')
+        self.logger.info(f'Cleaned out {n_cleaned} sources ({100*pc:3.3f}%)')
 
     def add_columns(self, modeling=True, multiband_model=False, modbrick_name=conf.MODELING_NICKNAME):
         """TODO: docstring"""
@@ -469,10 +469,11 @@ class Brick(Subimage):
         
         use_rms_weights = conf.USE_RMS_WEIGHTS
         scale_weights = conf.SCALE_WEIGHTS
+        median_weights = conf.MEDIAN_WEIGHTS
         for i, band in enumerate(self.bands):
             if band.startswith(conf.MODELING_NICKNAME):
                 band = band[len(conf.MODELING_NICKNAME)+1:]
-            if (band not in use_rms_weights) & (band not in scale_weights):
+            if (band not in use_rms_weights) & (band not in scale_weights) & (band not in median_weights):
                 continue
             self.logger.info(f'Performing any weight corrections for {band}')
             rms = self.background_rms_images[i]
@@ -490,6 +491,15 @@ class Brick(Subimage):
                 ok_weights = rms > 0
                 self.weights[i] = np.zeros_like(rms)
                 self.weights[i][ok_weights] = 1./(rms[ok_weights]**2)
+            elif band in median_weights:
+                self.logger.info('Using the RMS image to scale the weight!')
+                wgt = self.weights[i]
+                median_wrms = np.median(1/rms**2)
+                median_wgt = np.median(wgt[wgt>0])
+                self.logger.debug(f' Median rms weight: {median_wrms:3.6f}, and in RMS: {1./np.sqrt(median_wrms):3.6f}')
+                self.logger.debug(f' Median input weight: {median_wgt:3.6f}, and in RMS: {1./np.sqrt(median_wgt):3.6f}')
+                self.logger.info(f' Will flatten non-zero weights to {median_wgt:6.6f}.')
+                self.weights[i] = median_wgt
             elif band in scale_weights:
                 self.logger.info('Using the RMS image to scale the weight!')
                 wgt = self.weights[i]
@@ -497,7 +507,7 @@ class Brick(Subimage):
                 median_wgt = np.median(wgt[wgt>0])
                 self.logger.debug(f' Median rms weight: {median_wrms:3.6f}, and in RMS: {1./np.sqrt(median_wrms):3.6f}')
                 self.logger.debug(f' Median input weight: {median_wgt:3.6f}, and in RMS: {1./np.sqrt(median_wgt):3.6f}')
-                self.logger.debug(f' Will apply a factor of {median_wrms/median_wgt:6.6f} to scale input weights.')
+                self.logger.info(f' Will apply a factor of {median_wrms/median_wgt:6.6f} to scale input weights.')
                 self.weights[i] *= median_wrms / median_wgt
 
     def run_background(self):

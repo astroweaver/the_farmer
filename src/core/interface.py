@@ -106,6 +106,7 @@ if not len(logger.handlers):
     else:
         logging_level = logging.DEBUG
     logger.setLevel(logging_level)
+    logger.propagate = False
     formatter = logging.Formatter('[%(asctime)s] %(name)s :: %(levelname)s - %(message)s', '%H:%M:%S')
 
     # Logging to the console at logging level
@@ -587,7 +588,7 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
                     logger.warning(f'SEP residual photmetry FAILED. Likely a bad blob.)')
 
         duration = time.time() - tstart
-        logger.info(f'Solution for Blob #{modblob.blob_id} (N={modblob.n_sources}) arrived at in {duration:3.3f}s ({duration/modblob.n_sources:2.2f}s per src)')
+        logger.critical(f'Solution for Blob #{modblob.blob_id} (N={modblob.n_sources}) arrived at in {duration:3.3f}s ({duration/modblob.n_sources:2.2f}s per src)')
     
         catout = modblob.bcatalog.copy()
         del modblob
@@ -728,7 +729,7 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
                     logger.warning(f'SEP residual photmetry FAILED. Likely a bad blob.)')
 
         duration = time.time() - tstart
-        logger.info(f'Solution for blob {fblob.blob_id} (N={fblob.n_sources}) arrived at in {duration:3.3f}s ({duration/fblob.n_sources:2.2f}s per src)')
+        logger.critical(f'Solution for blob {fblob.blob_id} (N={fblob.n_sources}) arrived at in {duration:3.3f}s ({duration/fblob.n_sources:2.2f}s per src)')
 
 
         catout = fblob.bcatalog.copy()
@@ -810,7 +811,7 @@ def detect_sources(brick_id, catalog=None, segmap=None, blobmap=None, use_mask=T
     if (segmap is None) & (catalog is None):
         try:
             detbrick.sextract(conf.DETECTION_NICKNAME, sub_background=conf.DETECTION_SUBTRACT_BACKGROUND, use_mask=use_mask, incl_apphot=conf.DO_APPHOT)
-            logger.info(f'Detection brick #{brick_id} sextracted {detbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
+            logger.critical(f'Detection brick #{brick_id} sextracted {detbrick.n_sources} objects ({time.time() - tstart:3.3f}s)')
             detbrick.is_borrowed = False
         except:
             raise RuntimeError(f'Detection brick #{brick_id} sextraction FAILED. ({time.time() - tstart:3.3f}s)')
@@ -1181,13 +1182,13 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
 
                 output_cat = vstack(output_rows)
 
-                # Estimate covariance
-                modbrick.bcatalog = output_cat
-                astart = time.time() 
-                logger.info(f'Starting covariance estimation...')
-                status = modbrick.estimate_error_corr(use_band_position=force_unfixed_pos, use_band_shape=use_band_shape, modeling=True)
+                # # Estimate covariance
+                # modbrick.bcatalog = output_cat
+                # astart = time.time() 
+                # logger.info(f'Starting covariance estimation...')
+                # status = modbrick.estimate_error_corr(use_band_position=force_unfixed_pos, use_band_shape=use_band_shape, modeling=True)
 
-                logger.info(f'Covariance estimation complete. ({time.time() - astart:3.3f})s')
+                # logger.info(f'Covariance estimation complete. ({time.time() - astart:3.3f})s')
 
                 # estimate effective area
                 if conf.ESTIMATE_EFF_AREA:
@@ -1729,7 +1730,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
     if os.path.exists(search_fn):
         fbrick.catalog = Table(fits.open(search_fn)[1].data)
         fbrick.n_sources = len(fbrick.catalog)
-        fbrick.n_blobs = np.unique(fbrick.catalog['blob_id']) #.max()
+        fbrick.n_blobs = len(np.unique(fbrick.catalog['blob_id'])) #.max()
     else:
         logger.critical(f'No valid catalog was found for {brick_id}')
         return
@@ -1879,7 +1880,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                             if np.ndim(output_cat[colname]) > 1:
                                 shape = np.shape(output_cat[colname][1])
                             else:
-                                shape = 1
+                                shape = (1,)
                             mastercat.add_column(Column(length=len(mastercat), dtype=output_cat[colname].dtype, shape=shape, name=colname))
 
                     for row in output_cat:
@@ -1897,7 +1898,7 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                         if np.ndim(output_cat[colname]) > 1:
                                 shape = np.shape(output_cat[colname][1])
                         else:
-                            shape = 1
+                            shape = (1,)
                         fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=output_cat[colname].dtype, shape=shape, name=colname))
 
                 #fbrick.catalog = join(fbrick.catalog, output_cat, join_type='left', )
@@ -1927,6 +1928,8 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
             run_n_blobs = fbrick.n_blobs
 
         fblobs = (fbrick.make_blob(i) for i in np.unique(fbrick.catalog['blob_id'].data))
+
+        assert(fbrick.n_blobs == len(np.unique(fbrick.catalog['blob_id'].data)))
 
         if conf.NTHREADS > 1:
 
@@ -2769,6 +2772,7 @@ def runblob_rc(blob_id, fblob, catalog=None, source_id=None):
 
             band = fblob.bands[0] # HACK!
             # replace the main x/y columns with the forced phot solution position!
+            # print(catalog.colnames[::-1])
             orig_xcol, orig_ycol = catalog[f'X_MODEL'].copy(), catalog[f'Y_MODEL'].copy()
             catalog[f'X_MODEL'] = catalog[f'X_MODEL_{band}'] - fblob.subvector[1] + fblob.mosaic_origin[1] - conf.BRICK_BUFFER + 1
             catalog[f'Y_MODEL'] = catalog[f'Y_MODEL_{band}'] - fblob.subvector[0] + fblob.mosaic_origin[0] - conf.BRICK_BUFFER + 1
@@ -2817,3 +2821,10 @@ def runblob_rc(blob_id, fblob, catalog=None, source_id=None):
         del fblob
 
     return catout
+
+
+def farm(brick_id):
+
+    detect_sources(brick_id)
+    make_models(brick_id)
+    force_photometry(brick_id)

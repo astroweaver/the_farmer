@@ -1245,7 +1245,7 @@ class Blob(Subimage):
                 chi_seg = chi[self.segmap==sid].flatten()
                 self.chi_sig[i,j] = np.std(chi_seg)
                 self.chi_mu[i,j] = np.mean(chi_seg)
-                self.chi_pc[i,j] = np.percentile(chi_seg, q=[5, 16, 50, 84, 95])
+                # self.chi_pc[i,j] = np.percentile(chi_seg, q=[5, 16, 50, 84, 95])
 
                 if conf.PLOT > 3:
                     for k, ssrc in enumerate(self.solution_catalog):
@@ -1261,6 +1261,7 @@ class Blob(Subimage):
                 sid = self.bcatalog['source_id'][idx]
                 plot_srcprofile(self, src, sid, self.bands)
 
+        self.rao_cramer()
         return status
 
     def decide_winners(self, use_bic=conf.USE_BIC):
@@ -2243,9 +2244,6 @@ class Blob(Subimage):
             self.logger.info(f'    Zpt({band}):          {zpt:3.3f} AB')
             
 
-            
-            
-
         # # Just do the positions again - more straightforward to do it here than in interface.py
         # # Why do we need this!? Should we not be adding in extra X/Y if the force_position is turned off?
         # self.bcatalog[row]['x'] = self.bcatalog[row]['x'] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
@@ -2375,12 +2373,14 @@ class Blob(Subimage):
                 valid_source = False
                 self.bcatalog[row][f'VALID_SOURCE_{mod_band}'] = valid_source
 
-    def rao_cramer(self):
+    def rao_cramer(self, bands=None):
 
+        if bands is None:
+            bands = self.bands
         # tractorize
         tr = Tractor(self.timages, self.model_catalog)
 
-        for i, band in enumerate(self.bands): # this will really just be one band.
+        for i, band in enumerate(bands): # this will really just be one band.
             # Prepare matrix
             try:
                 im = tr.getImage(i).data
@@ -2399,13 +2399,13 @@ class Blob(Subimage):
 
                 # print(_A.shape)
                 _Ax = (_A*inverr.flatten()).T
-                # _yx = (im*inverr).flatten()
+                _yx = (im*inverr).flatten()
 
-                # _coeffs = np.linalg.lstsq(_Ax, _yx, rcond=None)
+                _coeffs = np.linalg.lstsq(_Ax, _yx, rcond=None)
 
                 # collect + output
-                # flux = _coeffs[0]  ## WE ARE NOT RUNNING FLUXES!
-                flux = -99.0 * np.ones(len(self.bcatalog))
+                flux = _coeffs[0]  ## WE ARE NOT RUNNING FLUXES!
+                # flux = -99.0 * np.ones(len(self.bcatalog))
                 covar = np.matrix(np.dot(_Ax.T, _Ax)).I.A
                 err = np.sqrt(covar.diagonal())
 
