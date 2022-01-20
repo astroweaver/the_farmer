@@ -71,6 +71,8 @@ class Blob(Subimage):
             self.logger.warning('Blob is rejected as mask is sparse - likely an artefact issue.')
             self.rejected = True
 
+        
+
         self.brick_wcs = brick.wcs.copy()
         self.mosaic_origin = brick.mosaic_origin
         self.brick_id = brick.brick_id
@@ -80,6 +82,11 @@ class Blob(Subimage):
         self.blob_id = blob_id
         self.blobmask = blobmask
         blob_sources = np.unique(brick.segmap[blobmask])
+
+        source_density =  len(blob_sources) / blobmask.sum() # N/px2
+        if (conf.BLOB_DENSITY_LIMIT > 0) & (source_density > conf.BLOB_DENSITY_LIMIT):
+            self.logger.warning(f'Blob is rejected as being too dense ({source_density:2.2f} src/px2) - likely an artefact issue.')
+            self.rejected = True
 
         # Dimensions
         idx, idy = blobmask.nonzero()
