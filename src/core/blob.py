@@ -71,8 +71,6 @@ class Blob(Subimage):
             self.logger.warning('Blob is rejected as mask is sparse - likely an artefact issue.')
             self.rejected = True
 
-        
-
         self.brick_wcs = brick.wcs.copy()
         self.mosaic_origin = brick.mosaic_origin
         self.brick_id = brick.brick_id
