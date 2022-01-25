@@ -173,30 +173,32 @@ DILATION_RADIUS = 1																			# Dialation structure function radius to e
 SEGMAP_MINAREA = 50
 
 ###### SOURCE DETECTION ######
-USE_DETECTION_WEIGHT = True																	# If True, the weight associated with the detection map will be used
-DETECTION_SUBTRACT_BACKGROUND = True															# If True, the background of the detection map will be subtracted
-SUBTRACT_BACKGROUND = BANDS
+USE_DETECTION_WEIGHT = False		
+POST_DETECTION_MASK = False #uses no mask to detect, applies to centroids later!															# If True, the weight associated with the detection map will be used
+DETECTION_SUBTRACT_BACKGROUND = False															# If True, the background of the detection map will be subtracted
+SUBTRACT_BACKGROUND = [] #'irac_ch1', 'irac_ch2']
 SUBTRACT_BACKGROUND_WITH_MASK = False
 SUBTRACT_BACKGROUND_WITH_DIRECT_MEDIAN = False
-MANUAL_BACKGROUND = {}
+MANUAL_BACKGROUND = {'irac_ch1': 0.004, 'irac_ch2': 0.004}
 SAVE_BACKGROUND = False																		# If True, the background of each brick will be subtracted
-DETECT_BW = 128																					# Detection mesh box width
-DETECT_BH = 128																					# Detection mesh box height
-DETECT_FW = 3																					# Detection filter box width
-DETECT_FH = 3																					# Detection filter box height
-SUBTRACT_BW = 128																				# Background mesh box width
-SUBTRACT_BH = 128																				# Background mesh box height
+DETECT_BW = 32																					# Detection mesh box width
+DETECT_BH = 32																					# Detection mesh box height
+DETECT_FW = 2																					# Detection filter box width
+DETECT_FH = 2																					# Detection filter box height
+SUBTRACT_BW = 64																				# Background mesh box width
+SUBTRACT_BH = 64																				# Background mesh box height
 SUBTRACT_FW = 3																					# Background filter box width
 SUBTRACT_FH = 3																					# Background filter box height
 USE_FLAT = True																		# If True, will use brick-global background level in subtraction
-THRESH = 1.5																					# If weight is used, this is a relative threshold in sigma. If not, then absolute.
-MINAREA = 2																				# Minumum contiguous area above threshold required for detection
+THRESH = 1.0																					# If weight is used, this is a relative threshold in sigma. If not, then absolute.
+MINAREA = 3
+CLEAN = True
+CLEAN_PARAM = 1.0																				# Minumum contiguous area above threshold required for detection
 FILTER_KERNEL = 'gauss_2.0_5x5.conv'															# Detection convolution kernel
 FILTER_TYPE = 'matched' 																		# Detection convolution kernel type
-DEBLEND_NTHRESH = 2**8																		# Debelnding n-threshold
+DEBLEND_NTHRESH = 2**6																		# Debelnding n-threshold
 DEBLEND_CONT = 1E-10																		# Deblending continuous threshold
-PIXSTACK_SIZE = 1000000																			# Allowed number of pixels in a single detection image
-
+PIXSTACK_SIZE = 1000000	
 
 
 ##### APERTURE PHOTOMETRY #####

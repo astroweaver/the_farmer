@@ -806,6 +806,10 @@ def detect_sources(brick_id, catalog=None, segmap=None, blobmap=None, use_mask=T
 
     logger.info(f'Detection brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
 
+    if conf.POST_DETECTION_MASK:
+        use_mask = False
+        logger.warning(f'Detection will be done WITHOUT a mask. The mask will be applied during cleaning.')
+
     # Sextract sources 
     tstart = time.time()
     if (segmap is None) & (catalog is None):

@@ -112,6 +112,9 @@ class Brick(Subimage):
 
         self.clean_segmap()
 
+        if conf.POST_DETECTION_MASK:
+            self.clean_segmap_withmask()
+
         self.clean_catalog()
 
         # self.new_segmap()
@@ -203,6 +206,20 @@ class Brick(Subimage):
         self._allowed_sources = (coords[:,0] > self._buff_left) & (coords[:,0] < self._buff_right )\
                         & (coords[:,1] > self._buff_bottom) & (coords[:,1] < self._buff_top)
         
+        idx = np.where(~self._allowed_sources)[0]
+        for i in idx:
+            self.segmap[self.segmap == i+1] = 0
+
+    def clean_segmap_withmask(self):
+        """TODO: docstring"""
+        self.logger.info('Removing sources in the mask')
+        coords = np.array([self.catalog['x'], self.catalog['y']]).T
+        # self._allowed_sources = ...$
+        for i, coord in enumerate(coords):
+            ix, iy = np.round(coord, 0).astype(int)
+            if self.masks[0][ix, iy]:
+                self._allowed_sources[i] = False
+
         idx = np.where(~self._allowed_sources)[0]
         for i in idx:
             self.segmap[self.segmap == i+1] = 0
