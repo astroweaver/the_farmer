@@ -366,6 +366,7 @@ class Subimage():
         # var = np.ones_like(var)
         kwargs = dict(var=var, mask=mask, minarea=conf.MINAREA, filter_kernel=convfilt, 
                 filter_type=conf.FILTER_TYPE, segmentation_map=True, 
+                clean = conf.CLEAN, clean_param = conf.CLEAN_PARAM,
                 deblend_nthresh=conf.DEBLEND_NTHRESH, deblend_cont=conf.DEBLEND_CONT)
         catalog, segmap = sep.extract(image, thresh, **kwargs)
         catalog['y'] -= 0.75 # HACK
