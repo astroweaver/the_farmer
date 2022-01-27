@@ -497,6 +497,7 @@ class Blob(Subimage):
                     src_seg = self.segmap==src['source_id']
                     for j, (img, psf) in enumerate(zip(self.images, self.psfmodels)):
                         max_img = np.nanmax(img * src_seg)
+                        print(psf)
                         max_psf = np.nanmax(psf.img)
                         qflux[j] = max_img / max_psf
                     flux = Fluxes(**dict(zip(self.bands, qflux)), order=self.bands)
