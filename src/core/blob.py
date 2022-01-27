@@ -491,20 +491,19 @@ class Blob(Subimage):
                 flux = Fluxes(**dict(zip(self.bands, src['flux'] * np.ones(len(self.bands)))), order=self.bands)
 
             else:
-                # try:  # THIS DOES NOT WORK FOR non-CONSTANT PSFS! #TODO
-                if True:
+                try:  # THIS DOES NOT WORK FOR non-CONSTANT PSFS! #TODO
+                # if True:
                     qflux = np.zeros(len(self.bands))
                     src_seg = self.segmap==src['source_id']
                     for j, (img, psf) in enumerate(zip(self.images, self.psfmodels)):
                         max_img = np.nanmax(img * src_seg)
-                        print(psf)
                         max_psf = np.nanmax(psf.img)
                         qflux[j] = max_img / max_psf
                     flux = Fluxes(**dict(zip(self.bands, qflux)), order=self.bands)
                 
-                # except:
-                #     self.logger.warning('Failed to estimate inital flux a priori. Falling back on SEP...')
-                #     flux = Fluxes(**dict(zip(self.bands, src['flux'] * np.ones(len(self.bands)))), order=self.bands)
+                except:
+                    self.logger.warning('Failed to estimate inital flux a priori. Falling back on SEP...')
+                    flux = Fluxes(**dict(zip(self.bands, src['flux'] * np.ones(len(self.bands)))), order=self.bands)
                 
 
             #shape = GalaxyShape(src['a'], src['b'] / src['a'], src['theta'])
