@@ -216,7 +216,7 @@ class Brick(Subimage):
         coords = np.array([self.catalog['x'], self.catalog['y']]).T
         # self._allowed_sources = ...$
         for i, coord in enumerate(coords):
-            ix, iy = np.round(coord, 0).astype(int)
+            iy, ix = np.round(coord, 0).astype(int)
             if self.masks[0][ix, iy]:
                 self._allowed_sources[i] = False
 
