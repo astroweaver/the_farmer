@@ -383,8 +383,9 @@ class Blob(Subimage):
                     psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
 
                 if conf.PSF_RADIUS > 0:
-                    self.logger.debug(f'Clipping PRF ({conf.PSF_RADIUS}px radius)')
-                    psfmodel.img = psfmodel.img[int(pw/2.-conf.PSF_RADIUS):int(pw/2+conf.PSF_RADIUS), int(ph/2.-conf.PSF_RADIUS):int(ph/2+conf.PSF_RADIUS)]
+                    psf_rad_pix = int(conf.PSF_RADIUS / conf.PIXEL_SCALE)
+                    self.logger.debug(f'Clipping PRF ({psf_rad_pix}px radius)')
+                    psfmodel.img = psfmodel.img[int(pw/2.-psf_rad_pix):int(pw/2+psf_rad_pix), int(ph/2.-psf_rad_pix):int(ph/2+psf_rad_pix)]
                     self.logger.debug(f'New shape: {np.shape(psfmodel.img)}')
 
                 if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
@@ -405,9 +406,11 @@ class Blob(Subimage):
                     # psfmodel.img[np.isnan(psfmodel.img)] = 0
                     # psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
                     psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
+
                 if conf.PSF_RADIUS > 0:
-                    self.logger.debug(f'Clipping PRF ({conf.PSF_RADIUS}px radius)')
-                    psfmodel.img = psfmodel.img[int(pw/2.-conf.PSF_RADIUS):int(pw/2+conf.PSF_RADIUS), int(ph/2.-conf.PSF_RADIUS):int(ph/2+conf.PSF_RADIUS)]
+                    psf_rad_pix = int(conf.PSF_RADIUS / conf.PIXEL_SCALE)
+                    self.logger.debug(f'Clipping PRF ({psf_rad_pix}px radius)')
+                    psfmodel.img = psfmodel.img[int(pw/2.-psf_rad_pix):int(pw/2+psf_rad_pix), int(ph/2.-psf_rad_pix):int(ph/2+psf_rad_pix)]
                     self.logger.debug(f'New shape: {np.shape(psfmodel.img)}')
                     
                 if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
