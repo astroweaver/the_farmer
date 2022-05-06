@@ -282,10 +282,13 @@ def make_bricks(image_type=conf.MULTIBAND_NICKNAME, band=None, brick_id=None, in
             # logger.info('Making bricks for detection (in parallel)')
             # pool = mp.ProcessingPool(processes=conf.NTHREADS)
             # pool.map(partial(detmosaic._make_brick, detection=True, overwrite=True), np.arange(0, detmosaic.n_bricks()))
-
-        logger.info('Making bricks for detection (in serial)')
-        for bid in np.arange(1, detmosaic.n_bricks()+1):
-            detmosaic._make_brick(bid, detection=True, overwrite=True)
+        if brick_id is not None:
+            logger.info(f'Making brick #{brick_id} for detection (in serial)')
+            detmosaic._make_brick(brick_id, detection=True, overwrite=True)
+        else:
+            logger.info('Making bricks for detection (in serial)')
+            for bid in np.arange(1, detmosaic.n_bricks()+1):
+                detmosaic._make_brick(bid, detection=True, overwrite=True)
 
     # Make bricks for the modeling image
     elif (image_type==conf.MODELING_NICKNAME) | (image_type is None):
@@ -1931,6 +1934,8 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
         else:
             run_n_blobs = fbrick.n_blobs
 
+        # valid = fbrick.catalog['VALID_SOURCE']
+
         fblobs = (fbrick.make_blob(i) for i in np.unique(fbrick.catalog['blob_id'].data))
 
         assert(fbrick.n_blobs == len(np.unique(fbrick.catalog['blob_id'].data)))
@@ -2831,4 +2836,4 @@ def farm(brick_id):
 
     detect_sources(brick_id)
     make_models(brick_id)
-    force_photometry(brick_id)
+    # force_photometry(brick_id)

@@ -235,7 +235,8 @@ class Subimage():
         subvector = (left, bottom)
 
         # Check if corrections are necessary
-        subshape = (self.n_bands, subdims[0], subdims[1])
+        subshape = (self.n_bands, int(subdims[0]), int(subdims[1]))
+        # print(subshape)
         subimages = np.zeros(subshape)
         subweights = np.zeros(subshape)
         submasks = np.ones(subshape, dtype=bool)

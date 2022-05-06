@@ -1455,10 +1455,10 @@ class Blob(Subimage):
             nextmask |= badmask
 
             # For which was SG best? Then go back!
-            premask_sg = ~expmask & ~devmask & (chisq[:, 0, 1] < chisq[:, 0, 0])
+            premask_sg = ~expmask & ~devmask & (chisq[:, 0, 1] + conf.PS_SG_THRESH < chisq[:, 0, 0])
 
             # For which was PS best? The go back!
-            premask_ps = (chisq[:, 0, 0] < chisq[:, 0, 1]) & (chisq[:, 0, 0] < chisq[:, 1, 0]) & (chisq[:, 0, 0] < chisq[:, 1, 1])
+            premask_ps = (chisq[:, 0, 0] < chisq[:, 0, 1] + conf.PS_SG_THRESH) & (chisq[:, 0, 0] < chisq[:, 1, 0]) & (chisq[:, 0, 0] < chisq[:, 1, 1])
 
             # If Exp beats Dev by a lot
             nexpmask = expmask & ~movemask & (abs(chisq_exp - chisq[:, 1, 0])  <  abs(chisq_exp - chisq[:, 1, 1])) & ~badmask
