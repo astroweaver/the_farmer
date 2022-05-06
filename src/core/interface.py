@@ -2572,7 +2572,7 @@ def models_from_catalog(catalog, fblob, unit_flux=False):
                 src_seg = fblob.segmap==src['source_id']
                 for j, (img, iband) in enumerate(zip(fblob.images, fblob.bands)):
                     max_img = np.nanmax(img * src_seg)                                              # TODO THESE ARENT ALWAYS THE SAME SHAPE!
-                    max_psf = np.nanmax(fblob.psfimg[iband])
+                    max_psf = np.nanmax(img.psf.img)
                     qflux[j] = max_img / max_psf
 
                 flux = Fluxes(**dict(zip(fblob.bands, qflux)), order=fblob.bands)
