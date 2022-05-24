@@ -1935,8 +1935,10 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
             run_n_blobs = fbrick.n_blobs
 
         # valid = fbrick.catalog['VALID_SOURCE']
-
-        fblobs = (fbrick.make_blob(i) for i in np.unique(fbrick.catalog['blob_id'].data))
+        blob_ids = np.unique(fbrick.catalog['blob_id'].data)
+        if conf.NBLOBS > 0:
+            blob_ids = blob_ids[:conf.NBLOBS]
+        fblobs = (fbrick.make_blob(i) for i in blob_ids)
 
         assert(fbrick.n_blobs == len(np.unique(fbrick.catalog['blob_id'].data)))
 
@@ -1945,18 +1947,18 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
             with pa.pools.ProcessPool(ncpus=conf.NTHREADS) as pool:
                 logger.info(f'Parallel processing pool initalized with {conf.NTHREADS} threads.')
                 if rao_cramer_only:
-                    result = pool.uimap(partial(runblob_rc, catalog=fbrick.catalog), np.arange(1, run_n_blobs+1), fblobs)
+                    result = pool.uimap(partial(runblob_rc, catalog=fbrick.catalog), blob_ids, fblobs)
                 else:
-                    result = pool.uimap(partial(runblob, modeling=False, catalog=fbrick.catalog, plotting=conf.PLOT), np.arange(1, run_n_blobs+1), fblobs)
+                    result = pool.uimap(partial(runblob, modeling=False, catalog=fbrick.catalog, plotting=conf.PLOT), blob_ids, fblobs)
                 output_rows = list(result)
                 logger.info('Parallel processing complete.')
 
 
         else:
             if rao_cramer_only:
-                output_rows = [runblob_rc(kblob_id, fbrick.make_blob(kblob_id), catalog=fbrick.catalog) for kblob_id in np.arange(1, run_n_blobs+1)]
+                output_rows = [runblob_rc(kblob_id, fbrick.make_blob(kblob_id), catalog=fbrick.catalog) for kblob_id in blob_ids]
             else:
-                output_rows = [runblob(kblob_id, fbrick.make_blob(kblob_id), modeling=False, catalog=fbrick.catalog, plotting=conf.PLOT) for kblob_id in np.arange(1, run_n_blobs+1)]
+                output_rows = [runblob(kblob_id, fbrick.make_blob(kblob_id), modeling=False, catalog=fbrick.catalog, plotting=conf.PLOT) for kblob_id in blob_ids]
 
         logger.info(f'Completed {run_n_blobs} blobs in {time.time() - tstart:3.3f}s')
 
