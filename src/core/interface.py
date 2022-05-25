@@ -419,7 +419,7 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
         fblob = weakref.proxy(blobs)
     logger.debug(f'Weakref made ({time.time() - tstart:3.3f})s')
 
-    assert(fblob.blob_id == blob_id, 'This is not the blob I thought it was!')
+    # assert(fblob.blob_id == blob_id, 'This is not the blob I thought it was!')
 
     # Make blob with modeling image 
     if modblob is not None:
