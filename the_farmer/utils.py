@@ -72,6 +72,7 @@ class SimpleGalaxy(ExpGalaxy):
     '''This defines the 'SIMP' galaxy profile -- an exponential profile
     with a fixed shape of a 0.45 arcsec effective radius and spherical
     shape.  It is used to detect marginally-resolved galaxies.
+    Modified from LegacySurvey Pipeline.
     '''
     shape = EllipseE(0.45 / conf.PIXEL_SCALE, 0., 0.)
 

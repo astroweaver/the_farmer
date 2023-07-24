@@ -1,25 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-
-Authors
--------
-John Weaver <john.weaver.astro@gmail.com>
-
-
-About
------
-Class to handle mosaics (PSF + bricking)
-
-Known Issues
-------------
-None
-
-
-"""
-
-# ------------------------------------------------------------------------------
-# Standard Packages
-# ------------------------------------------------------------------------------
 import os
 import sys
 import numpy as np
@@ -102,7 +81,6 @@ class Mosaic(Subimage):
                         self.weights = hdu_weight[1].data
                 path = self.path_weight
             else:
-                #raise ValueError(f'No weight found at {self.path_weight}')
                 self.weights = None
                 path = 'None found. Assuming equal weights.'
             self.logger.info(f'Added weight in {time()-tstart:3.3f}s. ({path})')
@@ -307,8 +285,6 @@ class Mosaic(Subimage):
             exist_hdul.close()
 
     def _get_origin(self, brick_id, brick_width=conf.BRICK_WIDTH, brick_height=conf.BRICK_HEIGHT):
-        # x0 = int(((brick_id - 1) * brick_width) % self.dims[1])
-        # y0 = int(((brick_id - 1) * brick_height) / self.dims[0]) * brick_height
         x0 = int(((brick_id - 1) * brick_height) % self.dims[0]) # Gene edit
         y0 = int(((brick_id - 1) * brick_height) / self.dims[0]) * brick_width # Gene edit
         return np.array([x0, y0])

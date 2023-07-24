@@ -83,7 +83,7 @@ f"""
 M O D E L   P H O T O M E T R Y   W I T H   T H E   T R A C T O R   
 --------------------------------------------------------------------
                                                                     
-    (C) 2020 -- J. Weaver (DAWN, University of Copenhagen)          
+    (C) 2018 - 2023 -- J. Weaver (DAWN, University of Copenhagen)          
 ====================================================================
 
 CONSOLE_LOGGING_LEVEL ..... {conf.CONSOLE_LOGGING_LEVEL}			
@@ -746,39 +746,7 @@ def runblob(blob_id, blobs, modeling=None, catalog=None, plotting=0, source_id=N
 
 
 def detect_sources(brick_id, catalog=None, segmap=None, blobmap=None, use_mask=True):
-    """Now we can detect stuff and be rid of it!
-
-    Parameters
-    ----------
-    brick_id : [type]
-        [description]
-    catalog : [type], optional
-        [description], by default None
-    segmap : [type], optional
-        [description], by default None
-    blobmap : [type], optional
-        [description], by default None
-    catalog : [type], optional
-        [description], by default None
-    use_mask : bool, optional
-        [description], by default True
-
-    Returns
-    -------
-    [type]
-        [description]
-
-    Raises
-    ------
-    RuntimeError
-        [description]
-    ValueError
-        [description]
-    ValueError
-        [description]
-    ValueError
-        [description]
-    """
+    """Now we can detect stuff and be rid of it!"""
 
     if conf.LOGFILE_LOGGING_LEVEL is not None:
         brick_logging_path = os.path.join(conf.LOGGING_DIR, f"B{brick_id}_logfile.log")
@@ -788,9 +756,6 @@ def detect_sources(brick_id, catalog=None, segmap=None, blobmap=None, use_mask=T
             logging.warning('Existing logfile will be overwritten.')
             os.remove(brick_logging_path)
 
-        # close and remove the old file handler
-        #fh.close()
-        #logger.removeHandler(fh)
 
         # we will add an additional file handler to keep track of brick_id specific information
         # set up the new file handler
@@ -887,7 +852,6 @@ def detect_sources(brick_id, catalog=None, segmap=None, blobmap=None, use_mask=T
         logger.info(f'Saved to {outpath} ({time.time() - tstart:3.3f}s)')
 
     # Save segmap and blobmaps
-    # if (~detbrick.is_borrowed):
     tstart = time.time()
     logger.info('Saving segmentation and blob maps...')
     outpath = os.path.join(conf.INTERIM_DIR, f'B{brick_id}_SEGMAPS.fits')
@@ -905,11 +869,6 @@ def detect_sources(brick_id, catalog=None, segmap=None, blobmap=None, use_mask=T
 
         tstart = time.time()
     
-    # else:
-    #     logger.info(f'You gave me a catalog and segmap, so I am not saving it again.')
-
-    # filen = open(os.path.join(conf.INTERIM_DIR, f'detbrick_N{brick_id}.pkl'), 'wb')
-    # dill.dump(detbrick, filen)
     return detbrick
 
 
@@ -1147,12 +1106,6 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
                 for row in output_cat:
                     outcatalog[np.where(outcatalog['source_id'] == row['source_id'])[0]] = row
 
-                # vs = outcatalog['VALID_SOURCE']
-                # scoords = SkyCoord(ra=outcatalog[vs]['RA'], dec=outcatalog[vs]['DEC'], unit='degree')
-                # ebmv = m.ebv(scoords)
-                # col_ebmv = Column(np.zeros_like(outcatalog['RA']), name='EBV')
-                # col_ebmv[vs] = ebmv
-                # outcatalog.add_column(col_ebmv)
                 modbrick.catalog = outcatalog
             
             # Else, production mode -- all objects in brick are to be run.
@@ -1191,14 +1144,6 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
 
                 output_cat = vstack(output_rows)
 
-                # # Estimate covariance
-                # modbrick.bcatalog = output_cat
-                # astart = time.time() 
-                # logger.info(f'Starting covariance estimation...')
-                # status = modbrick.estimate_error_corr(use_band_position=force_unfixed_pos, use_band_shape=use_band_shape, modeling=True)
-
-                # logger.info(f'Covariance estimation complete. ({time.time() - astart:3.3f})s')
-
                 # estimate effective area
                 if conf.ESTIMATE_EFF_AREA:
                     eff_area = np.zeros(len(img_names))
@@ -1217,12 +1162,6 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
                 for row in output_cat:
                     outcatalog[np.where(outcatalog['source_id'] == row['source_id'])[0]] = row
 
-                # vs = outcatalog['VALID_SOURCE']
-                # scoords = SkyCoord(ra=outcatalog[vs]['RA'], dec=outcatalog[vs]['DEC'], unit='degree')
-                # ebmv = m.ebv(scoords)
-                # col_ebmv = Column(np.zeros_like(outcatalog['RA']), name='EBV')
-                # col_ebmv[vs] = ebmv
-                # outcatalog.add_column(col_ebmv)
                 modbrick.catalog = outcatalog
 
                 # open again and add
@@ -1237,14 +1176,6 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
 
             # Reconstuct mosaic positions of invalid sources 
             invalid = ~modbrick.catalog[f'VALID_SOURCE_{modbrick.bands[0]}']
-            # modbrick.catalog[invalid][f'X_MODEL_{modbrick.bands[0]}'] = modbrick.catalog[invalid]['x_orig'] + modbrick.mosaic_origin[1] - conf.BRICK_BUFFER
-            # modbrick.catalog[invalid][f'Y_MODEL_{modbrick.bands[0]}'] = modbrick.catalog[invalid]['y_orig'] + modbrick.mosaic_origin[0] - conf.BRICK_BUFFER
-
-            # print(np.sum(invalid), len(invalid))
-            # plt.pause(10)
-            # idx = np.argwhere(invalid)[:20]
-            # print(modbrick.catalog[idx][f'X_MODEL_{modbrick.bands[0]}'],  np.array(modbrick.catalog[idx]['x_orig']) + modbrick.mosaic_origin[1] - conf.BRICK_BUFFER)
-
    
     # if multiband model is enabled...
     elif multiband_model:
@@ -1253,9 +1184,6 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
         modbrick = stage_brickfiles(brick_id, band=img_names, nickname=mod_nickname, modeling=True)
         if modbrick is None:
             return
-        # if detbrick.is_borrowed:
-        #     catalog['x'] = catalog['x'] - modbrick.mosaic_origin[1] + conf.BRICK_BUFFER - 1
-        #     catalog['y'] = catalog['y'] - modbrick.mosaic_origin[0] + conf.BRICK_BUFFER - 1
         modbrick.bands = [f'{conf.MODELING_NICKNAME}_{b}' for b in img_names]
         modbrick.n_bands = len(modbrick.bands)
         logger.info(f'Multi-band Modeling brick #{brick_id} created ({time.time() - tstart:3.3f}s)')
@@ -1369,29 +1297,16 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
 
             output_cat = vstack(output_rows)
 
-            # Estimate covariance
             modbrick.bcatalog = output_cat
-            # astart = time.time() 
-            # logger.info(f'Starting covariance estimation...')
-            # status = modbrick.estimate_error_corr(use_band_position=force_unfixed_pos, use_band_shape=use_band_shape, modeling=True)
 
-            # logger.info(f'Covariance estimation complete. ({time.time() - astart:3.3f})s')
-                    
             for colname in output_cat.colnames:
                 if colname not in outcatalog.colnames:
                     colshape = output_cat[colname].shape
                     outcatalog.add_column(Column(length=len(outcatalog), dtype=output_cat[colname].dtype, shape=colshape, name=colname))
 
-            #outcatalog = join(outcatalog, output_cat, join_type='left', )
             for row in output_cat:
                 outcatalog[np.where(outcatalog['source_id'] == row['source_id'])[0]] = row
 
-            # vs = outcatalog['VALID_SOURCE']
-            # scoords = SkyCoord(ra=outcatalog[vs]['RA'], dec=outcatalog[vs]['DEC'], unit='degree')
-            # ebmv = m.ebv(scoords)
-            # col_ebmv = Column(np.zeros_like(outcatalog['RA']), name='EBV')
-            # col_ebmv[vs] = ebmv
-            # outcatalog.add_column(col_ebmv)
             modbrick.catalog = outcatalog
         
         # Else, production mode -- all objects in brick are to be run.
@@ -1441,13 +1356,7 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
             ttotal = time.time() - tstart
             logger.info(f'Completed {run_n_blobs} blobs with {len(output_cat)} sources in {ttotal:3.3f}s (avg. {ttotal/len(output_cat):2.2f}s per source)')
 
-            # Estimate covariance
             modbrick.bcatalog = output_cat
-            # astart = time.time() 
-            # logger.info(f'Starting covariance estimation...')
-            # status = modbrick.estimate_error_corr(use_band_position=force_unfixed_pos, use_band_shape=use_band_shape, modeling=True)
-
-            # logger.info(f'Covariance estimation complete. ({time.time() - astart:3.3f})s')
 
             # estimate effective area
             if conf.ESTIMATE_EFF_AREA:
@@ -1465,16 +1374,9 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
                     else:
                         colshape = (1,)
                     outcatalog.add_column(Column(length=len(outcatalog), dtype=output_cat[colname].dtype, shape=colshape, name=colname))
-            #outcatalog = join(outcatalog, output_cat, join_type='left', )
             for row in output_cat:
                 outcatalog[np.where(outcatalog['source_id'] == row['source_id'])[0]] = row
 
-            # vs = outcatalog['VALID_SOURCE']
-            # scoords = SkyCoord(ra=outcatalog[vs]['RA'], dec=outcatalog[vs]['DEC'], unit='degree')
-            # ebmv = m.ebv(scoords)
-            # col_ebmv = Column(np.zeros_like(outcatalog['RA']), name='EBV')
-            # col_ebmv[vs] = ebmv
-            # outcatalog.add_column(col_ebmv)
             modbrick.catalog = outcatalog
            
 
@@ -1511,18 +1413,9 @@ def make_models(brick_id, detbrick='auto', band=None, source_id=None, blob_id=No
         modbrick.catalog['X_MODEL'][~argmin_zero] = [modband_opt[k] for modband_opt, k in zip(xmodel_arr[~argmin_zero], argmin_score[~argmin_zero])]
         modbrick.catalog['Y_MODEL'][~argmin_zero] = [modband_opt[k] for modband_opt, k in zip(ymodel_arr[~argmin_zero], argmin_score[~argmin_zero])]
         modbrick.catalog['VALID_SOURCE'][~argmin_zero] = [modband_opt[k] for modband_opt, k in zip(valid_arr[~argmin_zero], argmin_score[~argmin_zero])]
-        # if modbrick.wcs is not None:
-        #         skyc = self.brick_wcs.all_pix2world(modbrick.catalog[f'X_MODEL'] - modbrick.mosaic_origin[0] + conf.BRICK_BUFFER, modbrick.catalog[f'Y_MODEL'] - modbrick.mosaic_origin[1] + conf.BRICK_BUFFER, 0)
-        #         modbrick.bcatalog[row][f'RA'] = skyc[0]
-        #         modbrick.bcatalog[row][f'DEC'] = skyc[1]
-        #         logger.info(f"    Sky Model RA, Dec:   {skyc[0]:6.6f} deg, {skyc[1]:6.6f} deg")
 
     elif (len(img_names) > 1) & multiband_model:
         modbrick.catalog['BEST_MODEL_BAND'] = conf.MODELING_NICKNAME
-        # modbrick.catalog['X_MODEL']
-        # modbrick.catalog['Y_MODEL'] # ???? WHAT
-        # modbrick.catalog['VALID_SOURCE']
-
     
     elif img_names[0] != conf.MODELING_NICKNAME:
         modbrick.catalog['BEST_MODEL_BAND'] = f'{conf.MODELING_NICKNAME}_{img_names[0]}'
@@ -1587,10 +1480,7 @@ def force_photometry(brick_id, band=None, source_id=None, blob_id=None, insert=F
         # If overwrite is on, remove old logger                                                                                           
         if conf.OVERWRITE & os.path.exists(brick_logging_path):
             logger.warning('Existing logfile will be overwritten.')
-            os.remove(brick_logging_path)
-        # close and remove the old file handler                                                                                           
-        #fh.close()                                                                                                         
-        #logger.removeHandler(fh)                                                                                                  
+            os.remove(brick_logging_path)                                                                                           
         
         # we will add an additional file handler to keep track of brick_id specific information                                                                   
         # set up the new file handler                                                                                                
@@ -1838,9 +1728,6 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
 
     logger.info(f'Forcing models on {len(fband)} {conf.MULTIBAND_NICKNAME} bands')
 
-    # if conf.FORCE_SHARE_PARAMS:
-    #     fbrick.shared_params = True
-
     tstart = time.time()
     if (source_id is not None) | (blob_id is not None):
         # conf.PLOT = True
@@ -1894,10 +1781,6 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
 
                     for row in output_cat:
                         mastercat[np.where(mastercat['source_id'] == row['source_id'])[0]] = row
-                    # coordinate correction
-                    # fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
-                    # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
-                    # save
                     mastercat.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}.cat'), format='fits', overwrite=conf.OVERWRITE)
                     logger.info(f'Saving results for brick #{fbrick.brick_id} to existing catalog file.')
             else:
@@ -1922,8 +1805,6 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                         mode_ext = conf.MULTIBAND_NICKNAME
 
                 # write out cat
-                # fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
-                # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
                 if conf.OUTPUT:
                     fbrick.catalog.write(os.path.join(conf.CATALOG_DIR, f'B{fbrick.brick_id}_{mode_ext}.cat'), format='fits', overwrite=conf.OVERWRITE)
                     logger.info(f'Saving results for brick #{fbrick.brick_id} to new {mode_ext} catalog file.')
@@ -1935,8 +1816,6 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
             run_n_blobs = conf.NBLOBS
         else:
             run_n_blobs = fbrick.n_blobs
-
-        # valid = fbrick.catalog['VALID_SOURCE']
         blob_ids = np.unique(fbrick.catalog['blob_id'].data)
         if conf.NBLOBS > 0:
             blob_ids = blob_ids[:conf.NBLOBS]
@@ -1964,12 +1843,8 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
 
         logger.info(f'Completed {run_n_blobs} blobs in {time.time() - tstart:3.3f}s')
 
-        #output_rows = [x for x in output_rows if x is not None]
-
         output_cat = vstack(output_rows)  # HACK -- at some point this should just UPDATE the bcatalog with the new photoms. IF the user sets NBLOBS > 0, the catalog is truncated!
         uniq_src, idx_src = np.unique(output_cat['source_id'], return_index=True)
-        # if len(idx_src) != len(fbrick.catalog):
-        #     raise RuntimeError(f'Output catalog is truncated! {len(idx_src)} out of {len(fbrick.catalog)}')
         if len(uniq_src) < len(output_cat):
             logger.warning(f'Found {len(uniq_src)} unique sources, out of {len(output_cat)} -- CLEANING!')
             output_cat = output_cat[idx_src]
@@ -2016,9 +1891,6 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
 
                     for row in output_cat:
                         mastercat[np.where(mastercat['source_id'] == row['source_id'])[0]] = row
-                    # coordinate correction
-                    # fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
-                    # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
                     # save
                     hdr = fits.open(path_mastercat)['CONFIG'].header
                     lastb = 0
@@ -2075,39 +1947,6 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                         join_cat.add_column(output_cat['source_id'])
                         mastercat = join(mastercat, join_cat, keys='source_id', join_type='left')
 
-                        # # add new columns, filled.
-                        # newcolnames = []
-                        # for colname in np.array(output_cat.colnames)[newcols]:
-                        #     if colname not in mastercat.colnames:
-                        #         if colname.startswith('FLUX_APER') | colname.startswith('MAG_APER'):
-                        #             mastercat.add_column(Column(length=len(mastercat), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
-                        #         else:
-                        #             mastercat.add_column(Column(length=len(mastercat), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
-                        #         newcolnames.append(colname)
-                        # #         if colname.startswith('FLUX_APER') | colname.startswith('MAG_APER'):
-                        # #             mastercat.add_column(Column(length=len(mastercat), dtype=float, shape=(len(conf.APER_PHOT),), name=colname))
-                        # #         else:
-                        # #             mastercat.add_column(Column(length=len(mastercat), dtype=output_cat[colname].dtype, shape=(1,), name=colname))
-                        # # [print(j) for j in mastercat.colnames]
-                        # # [print(j) for j in output_cat.colnames]
-
-
-                        # # count = 0
-                        # # for row in output_cat:
-                        # #     idx = np.where(mastercat['source_id'] == row['source_id'])[0]
-                        # for colname in newcolnames:
-                        #     mastercat[colname][idx] = output_cat[colname]
-
-                        #     # print(mastercat[np.where(mastercat['source_id'] == row['source_id'])[0]][newcolnames])
-                        #     # print(newcolnames)
-                        #     # print(row[newcolnames])
-                        #     # print(np.where(mastercat['source_id'] == row['source_id'])[0])
-                            
-
-                        #     mastercat[newcolnames][idx] = row[newcolnames]
-
-                        #     count+=1
-
                         hdr = fits.open(path_mastercat)['CONFIG'].header
                         lastb = 0
                         for b in np.arange(99):
@@ -2127,10 +1966,6 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                 else:
                     mastercat = output_cat
                     hdr = header_from_dict(conf.__dict__)
-                    # hdr = fits.open(path_mastercat)['CONFIG'].header
-                    # lastb = 0
-                    # for b in np.arange(99):
-                    #     if 'AREA{b}' not in hdr.keys():
                     lastb = 0
                     if eff_area is not None:
                         for b, band in enumerate(conf.BANDS):
@@ -2157,7 +1992,6 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
                         else:
                             colshape = (1,)
                         fbrick.catalog.add_column(Column(length=len(fbrick.catalog), dtype=output_cat[colname].dtype, shape=colshape, name=colname))
-                #fbrick.catalog = join(fbrick.catalog, output_cat, join_type='left', )
                 for row in output_cat:
                     fbrick.catalog[np.where(fbrick.catalog['source_id'] == row['source_id'])[0]] = row
 
@@ -2168,8 +2002,6 @@ def force_models(brick_id, band=None, source_id=None, blob_id=None, insert=True,
 
                 # write out cat
                 mastercat = fbrick.catalog
-                # fbrick.catalog['x'] = fbrick.catalog['x'] + fbrick.mosaic_origin[1] - conf.BRICK_BUFFER + 1.
-                # fbrick.catalog['y'] = fbrick.catalog['y'] + fbrick.mosaic_origin[0] - conf.BRICK_BUFFER + 1.
                 hdr = header_from_dict(conf.__dict__)
                 
                 lastb = 0
@@ -2280,8 +2112,6 @@ def make_residual_image(brick_id, band, catalog=None, use_band_position=(not con
         modeling=False
 
     brick = stage_brickfiles(brick_id, nickname=nickname, band=sband)
-    # if modeling:
-    #     brick.bands = np.array([f'{conf.MODELING_NICKNAME}_{s}' for s in [band,]])
 
     if catalog is not None:
         brick.catalog = catalog
@@ -2545,22 +2375,12 @@ def models_from_catalog(catalog, fblob, unit_flux=False):
             continue
 
         inpos = [src[f'X_MODEL_{best_band}'], src[f'Y_MODEL_{best_band}']]
-        # print(best_band)
-
-        # for col in src.colnames:
-        #     print(f"  {col} :: {src[col]}")
-        # print(inpos)
-        # print(fblob.subvector)
-        # print(fblob.mosaic_origin)
 
         inpos[0] -= (fblob.subvector[1] + fblob.mosaic_origin[1] - conf.BRICK_BUFFER)
         inpos[1] -= (fblob.subvector[0] + fblob.mosaic_origin[0] - conf.BRICK_BUFFER)
 
         position = PixPos(inpos[0], inpos[1])
-        
-        # src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER
-        #     self.bcatalog[row][f'Y_MODEL_{mod_band}'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER
-       
+
         idx_bands = [fblob._band2idx(b) for b in fblob.bands]
         target_zpt = np.array(conf.MULTIBAND_ZPT)[idx_bands]
         
@@ -2575,7 +2395,7 @@ def models_from_catalog(catalog, fblob, unit_flux=False):
                 qflux = np.zeros(len(fblob.bands))
                 src_seg = fblob.segmap==src['source_id']
                 for j, (img, iband) in enumerate(zip(fblob.images, fblob.bands)):
-                    max_img = np.nanmax(img * src_seg)                                              # TODO THESE ARENT ALWAYS THE SAME SHAPE!
+                    max_img = np.nanmax(img * src_seg)                                         
                     max_psf = np.nanmax(img.psf.img)
                     qflux[j] = max_img / max_psf
 
@@ -2628,17 +2448,12 @@ def models_from_catalog(catalog, fblob, unit_flux=False):
                     xpix, ypix = np.nonzero(seg)
                     dx, dy = (np.max(xpix) - np.min(xpix)) / 2., (np.max(ypix) - np.min(ypix)) / 2.
                     ffps_x, ffps_y = dx / 1, dy / 1
-                # print(snr, ffps)
-                # conf.FORCE_POSITION_PRIOR_SIG = 1 - np.exp(-0.5*src[f'CHISQ_{conf.MODELING_NICKNAME}_{conf.INIT_FLUX_BAND}'])
             logger.debug(f'Setting position prior. X = {inpos[0]:2.2f}+/-{ffps_x}; Y = {inpos[1]:2.2f}+/-{ffps_y}')
             position.addGaussianPrior('x', inpos[0], ffps_x)
             position.addGaussianPrior('y', inpos[1], ffps_y)
 
-        #shape = GalaxyShape(src['REFF'], 1./src['AB'], src['theta'])
         if src[f'SOLMODEL_{best_band}'] not in ('PointSource', 'SimpleGalaxy'):
-            #shape = EllipseESoft.fromRAbPhi(src['REFF'], 1./src['AB'], -src['THETA'])  # Reff, b/a, phi
             shape = EllipseESoft(src[f'REFF_{best_band}'], src[f'EE1_{best_band}'], src[f'EE2_{best_band}'])
-            # nre = SersicIndex(src[f'N_{best_band}'])
 
             if conf.USE_FORCE_SHAPE_PRIOR:
                 shape.addGaussianPrior('logre', src[f'REFF_{best_band}'], conf.FORCE_REFF_PRIOR_SIG/conf.PIXEL_SCALE )
@@ -2704,14 +2519,6 @@ def models_from_catalog(catalog, fblob, unit_flux=False):
 def runblob_rc(blob_id, fblob, catalog=None, source_id=None):
     """ Essentially a private function. Runs each individual blob and handles the bulk of the work. """
 
-    # if conf.NTHREADS != 0:
-    #     fh = logging.FileHandler(f'B{blob_id}.log')
-    #     fh.setLevel(logging.getLevelName(conf.LOGFILE_LOGGING_LEVEL))
-    #     formatter = logging.Formatter('[%(asctime)s] %(name)s :: %(levelname)s - %(message)s', '%H:%M:%S')
-    #     fh.setFormatter(formatter)
-
-    #     logger = pathos.logger(level=logging.getLevelName(conf.LOGFILE_LOGGING_LEVEL), handler=fh)
-
     logger = logging.getLogger(f'farmer.blob.{blob_id}')
     logger.info(f'Starting on Blob #{blob_id}')
 
@@ -2727,8 +2534,6 @@ def runblob_rc(blob_id, fblob, catalog=None, source_id=None):
 
         if fblob.rejected:
             logger.info('Blob has been rejected!')
-            # if conf.NTHREADS != 0:
-            #     logger.removeHandler(fh)
             catout = fblob.bcatalog.copy()
             del fblob
             return catout
@@ -2736,8 +2541,6 @@ def runblob_rc(blob_id, fblob, catalog=None, source_id=None):
         astart = time.time() 
         status = fblob.stage_images()
         if not status:
-            # if conf.NTHREADS != 0:
-            #     logger.removeHandler(fh)
             catout = fblob.bcatalog.copy()
             del fblob
             return catout
@@ -2835,9 +2638,3 @@ def runblob_rc(blob_id, fblob, catalog=None, source_id=None):
 
     return catout
 
-
-def farm(brick_id):
-
-    detect_sources(brick_id)
-    make_models(brick_id)
-    # force_photometry(brick_id)

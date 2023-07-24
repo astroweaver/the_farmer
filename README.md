@@ -1,26 +1,2 @@
-tractor_photometry
-==============================
+Welcome to The Farmer's documentation!
 
-Force Photometry with the Tractor
-
-    .
-    ├── AUTHORS.md
-    ├── LICENSE
-    ├── README.md
-    ├── bin
-    ├── config
-    ├── data
-    │   ├── external
-    │   ├── interim
-    │   ├── processed
-    │   └── raw
-    ├── docs
-    ├── notebooks
-    ├── reports
-    │   └── figures
-    └── src
-        ├── core
-        ├── external
-        ├── models
-        ├── tools
-        └── visualization

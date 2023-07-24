@@ -1,22 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-
-Authors
--------
-John Weaver <john.weaver.astro@gmail.com>
-
-
-About
------
-Basic class for images. Mainly used for creating further subimages.
-
-Known Issues
-------------
-None
-
-
-"""
-
 import os
 import sys
 
@@ -135,19 +117,6 @@ class Subimage():
             self.background_images = None
             self.background_rms_images = None
 
-        # if conf.VERBOSE2:
-        #     print('--- Image Details ---')
-        #     print(f'Mean = {np.mean(self._images, (1,2))}')
-        #     print(f'Std = {np.std(self._images, (1,2))}')
-
-        #     print('--- Background Details ---')
-        #     print(f'Mesh size = ({conf.SUBTRACT_BW}, {conf.SUBTRACT_BH})')
-        #     print(f'Mean = {np.mean(self.background_images, (1,2))}')
-        #     print(f'Std = {np.std(self.background_images, (1,2))}')
-        #     print(f'Global = {self.backgrounds[:,0]}')
-        #     print(f'RMS = {self.backgrounds[:,1]}')
-
-
     ### DATA VALIDATION - WEIGHTS
     @property
     def weights(self):
@@ -186,7 +155,6 @@ class Subimage():
     @masks.setter
     def masks(self, array):
         if array is None:
-            # self._masks = np.zeros_like(self._images, dtype=bool)
             self.masks = self.weights == 0
         else:
             try:
@@ -236,7 +204,6 @@ class Subimage():
 
         # Check if corrections are necessary
         subshape = (self.n_bands, int(subdims[0]), int(subdims[1]))
-        # print(subshape)
         subimages = np.zeros(subshape)
         subweights = np.zeros(subshape)
         submasks = np.ones(subshape, dtype=bool)
@@ -271,13 +238,11 @@ class Subimage():
         self.slicepix = tuple([slice(0, self.n_bands), slice(leftpix, rightpix), slice(bottompix, toppix)])
         self.slice = tuple(self.slice)
 
-        # print(self.slicepix, self.slicepos)
         subimages[self.slicepix] = self.images[self.slicepos]
         subweights[self.slicepix] = self.weights[self.slicepos]
         submasks[self.slicepix]= self.masks[self.slicepos]
 
         if self.wcs is not None:
-            # subwcs = self.wcs.slice(self.slice[::-1])
             subwcs = self.wcs.slice(self.slice)
 
             if left < 0:
@@ -285,7 +250,6 @@ class Subimage():
             if bottom < 0:
                 subwcs.wcs.crpix[0] += buffer
 
-            # subwcs.array_shape = subshape[1:]
         else:
             subwcs = None
 
@@ -327,9 +291,7 @@ class Subimage():
         if (self.weights == 1).all() | (conf.USE_DETECTION_WEIGHT == False) :
             # No weight supplied by user
             var = None
-            thresh = conf.THRESH #* background[1]  # WTF is this about?!
-            # if not sub_background:
-            #     thresh += background[0]
+            thresh = conf.THRESH
 
             self.logger.debug(f'Detection is to be performed with weights? {conf.USE_DETECTION_WEIGHT}')
         else:
@@ -373,30 +335,16 @@ class Subimage():
         catalog['y'] -= 0.75 # HACK
         catalog['x'] -= 0.1 #HACK
 
-        # plt.ion()
-        # fig, ax = plt.subplots(ncols=2, figsize=(40,20))
-        # from matplotlib.colors import LogNorm
-        # ax[0].imshow(image, norm=LogNorm(), vmin=1E-8, vmax=10, cmap='Greys')
-        # ax[0].scatter(catalog['x'], catalog['y'], s=1)
-        # ax[1].imshow(segmap)
-        # ax[1].scatter(catalog['x'], catalog['y'], s=1)
-        # # plt.show()
-        # fig.savefig(conf.PLOT_DIR + '/checksep.pdf')
-        # plt.close('all')
-
-        
         if len(catalog) != 0:
             catalog = Table(catalog)
             catalog.add_column(Column(catalog['x'], name='x_orig' ))
             catalog.add_column(Column(catalog['y'], name='y_orig' ))
             
             if self.wcs is not None:
-                wx = catalog['x_orig'] #+ self.mosaic_origin[1] - conf.BRICK_BUFFER
-                wy = catalog['y_orig'] #+ self.mosaic_origin[0] - conf.BRICK_BUFFER
+                wx = catalog['x_orig']
+                wy = catalog['y_orig']
                 wwx, wwy = wx, wy
-                # wwx, wwy = wx - self.mosaic_origin[0] + conf.BRICK_BUFFER, wy - self.mosaic_origin[1] + conf.BRICK_BUFFER
                 skyc = self.wcs.all_pix2world(wwx, wwy, 0)
-                # print(- self.mosaic_origin[0] + conf.BRICK_BUFFER, - self.mosaic_origin[1] + conf.BRICK_BUFFER)
                 catalog.add_column(Column(skyc[0], name=f'RA_{conf.DETECTION_NICKNAME}'))
                 catalog.add_column(Column(skyc[1], name=f'DEC_{conf.DETECTION_NICKNAME}'))
 

@@ -86,12 +86,6 @@ class Brick(Subimage):
         self._buff_bottom = self._buffer
         self._buff_top = self.dims[1] - self._buffer
 
-        # Replace mask
-        # self._masks[:, :, :self._buff_left] = True
-        # self._masks[:, :, self._buff_right:] = True
-        # self._masks[:, :self._buff_bottom] = True
-        # self._masks[:, self._buff_top:] = True
-
         x0 = int(((brick_id - 1) * conf.BRICK_WIDTH) % conf.MOSAIC_WIDTH)
         y0 = int(((brick_id - 1) * conf.BRICK_HEIGHT) / conf.MOSAIC_HEIGHT) * conf.BRICK_HEIGHT
         self.mosaic_origin = np.array([x0, y0])
@@ -117,8 +111,6 @@ class Brick(Subimage):
 
         self.clean_catalog()
 
-        # self.new_segmap()
-
         self.dilate()
 
         self.relabel()
@@ -126,8 +118,6 @@ class Brick(Subimage):
         self.clean_blobmap()
 
         self.add_ids()
-
-        # self.run_background()
 
         self.logger.info('Finished cleaning catalog.')
 
@@ -574,8 +564,6 @@ class Brick(Subimage):
             self.logger.info('Making Models for PRF images')
             self.make_model_image_prfmap(catalog, include_chi=include_chi, include_nopsf=include_nopsf, save=save, use_band_position=use_band_position, use_band_shape=use_band_shape, modeling=modeling)
 
-        # if not (np.in1d(self.bands, conf.BANDS).any() & ~np.in1d(self.bands, conf.PRFMAP_PSF).any() | np.in1d(self.bands, conf.PRFMAP_PSF).any()):
-        #     raise ValueError('')
 
     def make_model_image_prfmap(self, catalog, include_chi=True, include_nopsf=False, save=True, use_band_position=False, use_band_shape=False, modeling=False):
 
@@ -640,8 +628,6 @@ class Brick(Subimage):
                 hdul = fits.open(path_prffile)
                 from scipy.ndimage.interpolation import rotate
                 img = hdul[0].data
-                # img = 1E-31 * np.ones_like(img)
-                # img[50:-50, 50:-50] = hdul[0].data[50:-50, 50:-50]
                 assert(img.shape[0] == img.shape[1]) # am I square!?
                 self.logger.debug(f'PRF size: {np.shape(img)}')
                 
@@ -664,7 +650,6 @@ class Brick(Subimage):
                     cmask = create_circular_mask(pw, ph, radius=conf.PRFMAP_MASKRAD / conf.PIXEL_SCALE)
                     bcmask = ~cmask.astype(bool) & (psfmodel.img > 0)
                     psfmodel.img[bcmask] = 0
-                    # psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
                     psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
 
                 if conf.PSF_RADIUS > 0:
@@ -849,13 +834,6 @@ class Brick(Subimage):
         if not self.model_mask.any():        
             raise RuntimeError(f'No valid models to make model image! (of {mtotal}, {nmasked} masked)')
         self.logger.info(f'Made model image with {msrc}/{mtotal} sources. ({nmasked} are masked)')
-        # self.model_catalog = self.model_catalog[self.model_mask]
-
-        # # make mask array
-        # self.residual_mask = self.segmap!=0
-        # for src in catalog[~self.model_mask]:
-        #     sid = src['source_id']
-        #     self.residual_mask[self.segmap == sid] = False
 
         if save:
             if os.path.exists(self.auxhdu_path):
@@ -929,8 +907,6 @@ class Brick(Subimage):
             if b in conf.PSFGRID:
                 idx.append(i)
         # # Make Images
-
-
         self.logger.info(f'Making model images for {self.bands[idx]}')
         self.model_mask = np.zeros(len(catalog), dtype=bool)
 
@@ -1173,13 +1149,6 @@ class Brick(Subimage):
         if not self.model_mask.any():        
             raise RuntimeError(f'No valid models to make model image! (of {mtotal}, {nmasked} masked)')
         self.logger.info(f'Made model image with {msrc}/{mtotal} sources. ({nmasked} are masked)')
-        # self.model_catalog = self.model_catalog[self.model_mask]
-
-        # # make mask array
-        # self.residual_mask = self.segmap!=0
-        # for src in catalog[~self.model_mask]:
-        #     sid = src['source_id']
-        #     self.residual_mask[self.segmap == sid] = False
 
         if save:
             if os.path.exists(self.auxhdu_path):
@@ -1298,30 +1267,7 @@ class Brick(Subimage):
                     psfmodel = HybridPixelizedPSF(pix=psfmodel, N=10).gauss
 
             elif (psf is not None):
-                raise RuntimeError('Position dependent PSFs in brick-scale model images is NOT SUPPORTED YET.')
-                # continue
-                # blob_centerx = self.blob_center[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
-                # blob_centery = self.blob_center[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
-                # psfmodel = psf.constantPsfAt(blob_centerx, blob_centery) # init at blob center, may need to swap!
-                # if remove_background_psf & (not conf.FORCE_GAUSSIAN_PSF):
-                #     pw, ph = np.shape(psfmodel.img)
-                #     cmask = create_circular_mask(pw, ph, radius=conf.PSF_MASKRAD / conf.PIXEL_SCALE)
-                #     bcmask = ~cmask.astype(bool) & (psfmodel.img > 0)
-                #     psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
-                #     # psfmodel.img[np.isnan(psfmodel.img)] = 0
-                #     # psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
-                #     psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
-                # if conf.PSF_RADIUS > 0:
-                #     self.logger.debug(f'Clipping PRF ({conf.PSF_RADIUS}px radius)')
-                #     psfmodel.img = psfmodel.img[int(pw/2.-conf.PSF_RADIUS):int(pw/2+conf.PSF_RADIUS), int(ph/2.-conf.PSF_RADIUS):int(ph/2+conf.PSF_RADIUS)]
-                #     self.logger.debug(f'New shape: {np.shape(psfmodel.img)}')
-                    
-                # if conf.NORMALIZE_PSF & (not conf.FORCE_GAUSSIAN_PSF):
-                #     norm = psfmodel.img.sum()
-                #     self.logger.debug(f'Normalizing PSF (sum = {norm:4.4f})')
-                #     psfmodel.img /= norm # HACK -- force normalization to 1
-                # self.logger.debug(f'Adopting varying PSF constant at ({blob_centerx}, {blob_centery}).')
-            
+                raise RuntimeError('Position dependent PSFs in brick-scale model images is not supported!')
 
             elif (psf is None):
                 if conf.USE_GAUSSIAN_PSF:
@@ -1343,38 +1289,17 @@ class Brick(Subimage):
         # Make models
         self.model_catalog = np.zeros(len(catalog), dtype=object)
         self.model_mask = np.zeros(len(catalog), dtype=bool)
-        # print(self.bands)
         nb = []
         for ix in np.arange(len(self.bands)):
             if ~self.bands[ix].startswith(conf.MODELING_NICKNAME) & (ix in idx) & modeling:
-                # print(ix, f'{conf.MODELING_NICKNAME}_{self.bands[ix]}')
                 nb.append(f'{conf.MODELING_NICKNAME}_{self.bands[ix]}')
             else:
                 nb.append(self.bands[ix])
         self.mbands = np.array(nb)
-        # print(self.mbands)
 
         for i, src in enumerate(catalog):
             
             best_band = conf.MODELING_NICKNAME
-            # if modeling:
-            #     addon = f'{conf.MODELING_NICKNAME}_'
-            # else:
-            #     addon = ''
-            # if (catalog['BEST_MODEL_BAND'] == '').all():
-            #     self.logger.debug('No best models chosen yet.')
-            #     best_band = self.bands[0]
-            #     if not src[f'VALID_SOURCE_{self.bands[0]}']:
-
-            #         self.logger.debug('Source does not have a valid model.')
-            #         continue
-            # else:
-            #     best_band = src['BEST_MODEL_BAND']
-
-            #     if not src[f'VALID_SOURCE_{best_band}']:
-
-            #         continue
-            # print(self.bands)
             raw_fluxes = np.array([src[f'RAWFLUX_{band}'] for band in self.mbands[idx]])
 
             
@@ -1505,25 +1430,13 @@ class Brick(Subimage):
             self.tr = tr
             for i, mod in enumerate(self.model_catalog):
                 trs = Tractor(self.timages, [mod,])
-                sid = catalog['source_id'][i] #[~self.model_mask][i]
-                npix = catalog['npix'][i] #[~self.model_mask][i]
+                sid = catalog['source_id'][i]
+                npix = catalog['npix'][i]
                 for k in np.arange(len(idx)):
                     ming = trs.getModelImage(k)
-                    # print(sid, np.sum(ming), catalog['RAWFLUX_irac_ch1'][i])
                     assert(np.sum(self.segmap==sid) == npix)
-                    # if (npix > 10) & (np.sum(ming) > 1):
-                    #     import matplotlib.pyplot as plt
-                    #     plt.figure()
-                    #     plt.imshow(ming)
-                    #     plt.savefig(f'ming_{sid}.pdf')
-                    #     plt.figure()
-                    #     print(np.unique(self.segmap))
-                    #     plt.imshow((self.segmap == sid).astype(int), vmin=0, vmax=1, cmap='Greys')
-                    #     plt.savefig(f'segmap_{sid}.pdf')
-                    #     # plt.pause(100)
+
                     ming[self.segmap != sid] = 0
-                    # print(np.sum(self.segmap!=sid)/np.sum(self.segmap>-1), np.sum(ming))
-                    # assert(np.sum(ming) > 0)
                     self.model_images[k] += ming
         else:
             self.model_catalog = self.model_catalog[self.model_mask]
@@ -1537,7 +1450,7 @@ class Brick(Subimage):
                 for i, mod in enumerate(self.model_catalog):
                     trs = Tractor(self.timages, [mod,])
                     sid = catalog[i]['source_id']
-                    npix = catalog['npix'][i] #[~self.model_mask][i]
+                    npix = catalog['npix'][i]
                     for k in np.arange(len(idx)):
                         ming = trs.getChiImage(k)
                         assert(np.sum(self.segmap==sid) == npix)
@@ -1551,10 +1464,6 @@ class Brick(Subimage):
         if include_nopsf:
             self.logger.warning('INCLUSION OF NO PSF IS CURRENTLY DISABLED.')
             include_nopsf = False
-            # tr_nopsf = tr.copy()
-            # [tr_nopsf.images[k].setPsf(None) for k in np.arange(self.n_bands)]
-            # self.logger.info(f'Computing model image without PSF...')
-            # self.nopsf_images = [tr_nopsf.getModelImage(k) for k in np.arange(self.n_bands)]
 
         if save:
             if os.path.exists(self.auxhdu_path):
@@ -1704,9 +1613,6 @@ class Brick(Subimage):
                         sid = src['source_id']
                         self.residual_mask[self.segmap == sid] = True
 
-
-                        # WHY ARE SOME MODEL MASKS NOT SHOWING UP?
-
                     self.residual_mask = self.residual_mask.astype(int)
                     hdu_mask = fits.ImageHDU(data=self.residual_mask, name=f'{band}_MASK', header=self.wcs.to_header())
                     hdul.append(hdu_mask)
@@ -1792,116 +1698,3 @@ class Brick(Subimage):
         
 
         return good_area_pix, inner_area_pix
-
-    def estimate_error_corr(self, bands=None, n_pos=100, use_band_position=False, use_band_shape=False, modeling=False):
-        return True
-        # NOTE: WE ARE NOT IMPLEMENTING THIS YET!
-        # For a given source, calculate scaling coeff between image and model for N random positions
-
-        from astropy.table import Table
-        from astropy.stats import sigma_clipped_stats
-
-        blobmask = self.blobmap
-        blobmask[blobmask > 1] = 1
-        nx, ny = np.shape(blobmask)
-
-        # TO DO
-        # 2. images must be from the brick!
-
-        # Build a list of positions
-        self.logger.info(f'Building list of {n_pos} positions...')
-        rx, ry = np.zeros(n_pos), np.zeros(n_pos)
-        i = -1
-        while i < n_pos-1:
-            ix, iy = nx * np.random.uniform(), ny * np.random.uniform()
-
-            if not blobmask[int(ix), int(iy)]:
-                i+=1
-                rx[i], ry[i] = ix, iy
-                self.logger.debug(f'   {ix:3.3f}, {iy:3.3f}')
-
-                if i == n_pos-1:
-                    break
-
-        self.logger.info('...done.')
-
-        if bands is None:
-            bands = self.bands
-
-        best_band = conf.MODELING_NICKNAME
-
-        
-
-        # Loop over sources
-        for j, bsrc in enumerate(self.bcatalog):
-            sid = bsrc['source_id']
-            self.logger.info(f'Source #{sid}')
-
-            a_coeff = np.zeros((len(bands), n_pos))
-
-            
-            bsrc = Table(bsrc)
-
-            # Doing this now means we leverage the PSF/PRF assignment automatically.
-            self.make_model_image(bsrc, save=False, use_band_position=use_band_position, use_band_shape=use_band_shape, modeling=modeling)
-
-            # Grab the source of interest...
-            src = self.tr.getCatalog()[0]
-
-            # Loop over positions
-            for k, (irx, iry) in enumerate(zip(rx, ry)):
-                
-                src.setPosition(PixPos(irx, iry))
-                src.setBrightness(Fluxes(**dict(zip(bands, np.ones(len(bands))))))
-
-                tr = Tractor(self.timages, [src,])
-
-                self.logger.debug(f'Assigning random position: {irx:3.3f}, {iry:3.3f}')
-
-                # Loop over bands
-                for i, band in enumerate(bands):
-                    idx = self._band2idx(band, self.bands)
-                    wgt_rms = np.nanmedian(1. / np.sqrt(self.weights[idx]))
-                    bkg_rms = self.backgrounds[idx, 1]
-                    self.logger.info(f'Computing empty apertures for {band} (<wgt-rms>={wgt_rms:3.3f}, <bkg-rms>={bkg_rms:3.3f})')
-
-                    # Divide + store alpha (which is our empty flux)
-                    model = tr.getModelImage(i)
-                    level = 0.01*np.nanmax(model)
-                    ok_pix = model > level
-                    a = np.average(self.images[idx][ok_pix], weights=model[ok_pix])
-                    self.logger.debug(f'{band} :: {a:3.3f} (over {np.sum(ok_pix)} pixels with <val> = {np.nanmedian(self.images[idx][ok_pix]):3.3f})')
-                    a_coeff[i, k] = a
-
-                    # import matplotlib.pyplot as plt
-                    # from matplotlib.colors import LogNorm
-                    # fig, ax = plt.subplots(ncols=4, figsize=(40, 10))
-                    # ax[0].imshow(self.images[idx][int(iry)-100:int(iry)+100, int(irx)-100: int(irx)+100], vmin=-3, vmax=3)
-                    # ax[1].imshow(model[int(iry)-100:int(iry)+100, int(irx)-100:int(irx)+100])
-                    # ax[2].imshow((self.images[idx] + a*model)[int(iry)-100:int(iry)+100, int(irx)-100: int(irx)+100], vmin=-3, vmax=3)
-                    # ax[3].imshow(blobmask[int(iry)-100:int(iry)+100, int(irx)-100:int(irx)+100])
-                    # plt.savefig(f'whoknows_{k}.pdf')
-                    # plt.pause(30)
-
-
-
-                    
-
-            # Calculate alpha percentiles, K2, etc.
-            # eh just do mean, std for now...
-            for i, band in enumerate(bands):
-                mean, med, std = sigma_clipped_stats(a_coeff[i])
-                self.logger.info(f'{band} :: {mean:3.3f}/{med:3.3f}/{std:3.3f}')
-                self.logger.info(f'    Est. boosting factor: {std/wgt_rms:3.3f}')
-
-                if f'EFLUX_MEAN_{band}' not in self.bcatalog.colnames:
-                    self.bcatalog[f'EFLUX_MEAN_{band}'] = np.zeros(len(self.bcatalog))
-                    self.bcatalog[f'EFLUX_MED_{band}'] = np.zeros(len(self.bcatalog))
-                    self.bcatalog[f'EFLUX_STD_{band}'] = np.zeros(len(self.bcatalog))
-
-                self.bcatalog[f'EFLUX_MEAN_{band}'][j] = mean
-                self.bcatalog[f'EFLUX_MED_{band}'][j] = med
-                self.bcatalog[f'EFLUX_STD_{band}'][j] = std
-
-        return True
-

@@ -58,12 +58,6 @@ class Blob(Subimage):
 
         self.logger = logging.getLogger(f'farmer.blob.{blob_id}')
         self.rejected = False
-        # fh = logging.FileHandler(f'farmer_B{blob_id}.log')
-        # fh.setLevel(logging.getLevelName(conf.LOGFILE_LOGGING_LEVEL))
-        # formatter = logging.Formatter('[%(asctime)s] %(name)s :: %(levelname)s - %(message)s', '%H:%M:%S')
-        # fh.setFormatter(formatter)
-       
-        # self.logger = pathos.logger(level=logging.getLevelName(conf.LOGFILE_LOGGING_LEVEL), handler=fh)
 
         blobmask = np.array(brick.blobmap == blob_id, bool)
         mask_frac = blobmask.sum() / blobmask.size
@@ -160,13 +154,10 @@ class Blob(Subimage):
             if not self.rejected:
                 self.logger.debug(f'Blob has {np.sum(valid_col)} valid sources')
 
-        # print(self.bcatalog['x', 'y'])
+
         self.bcatalog['x'] -= self.subvector[1]
         self.bcatalog['y'] -= self.subvector[0]
 
-        # print(self.bcatalog['x', 'y'])
-        # print(self.subvector)
-        # print(self.mosaic_origin)
         self.n_sources = len(self.bcatalog)
 
         self.mids = np.ones(self.n_sources, dtype=int)
@@ -188,9 +179,6 @@ class Blob(Subimage):
         self.chi_pc = np.zeros((self.n_sources, self.n_bands, 5))
         self.seg_rawflux = np.zeros((self.n_sources, self.n_bands))
         self.chisq_nomodel = np.zeros((self.n_sources, self.n_bands))
-        # self.position_variance = np.zeros((self.n_sources, 2))
-        # self.parameter_variance = np.zeros((self.n_sources, 3))
-        # self.forced_variance = np.zeros((self.n_sources, self.n_bands))
         self.solution_tractor = None
         self.psfimg = {}
 
@@ -243,8 +231,6 @@ class Blob(Subimage):
                     if np.sum(bcmask) == 0:
                         self.logger.error(f'PSF masking has left no valid pixels for {band}! PSF stamp is {pw}x{ph}px with a mask diameter of {2*conf.PSF_MASKRAD/conf.PIXEL_SCALE:3.3f}px. Consider setting PSF_MASKRAD to a larger value.')
                     psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
-                    # psfmodel.img[np.isnan(psfmodel.img)] = 0
-                    # psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
                     psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
 
                 if conf.PSF_RADIUS > 0:
@@ -286,19 +272,6 @@ class Blob(Subimage):
                     return False
                 self.logger.debug(f'Adopting GRID PSF: {psf_fname}')
                 
-                # # Do I need to resample?
-                # if  (conf.PRFMAP_PIXEL_SCALE_ORIG > 0) & (conf.PRFMAP_PIXEL_SCALE_ORIG is not None):
-                    
-                #     factor = conf.PRFMAP_PIXEL_SCALE_ORIG / conf.PIXEL_SCALE
-                #     self.logger.debug(f'Resampling PRF with zoom factor: {factor:2.2f}')
-                #     img = zoom(img, factor)
-                #     if np.shape(img)[0]%2 == 0:
-                #         shape_factor = np.shape(img)[0] / (np.shape(img)[0] + 1)
-                #         img = zoom(img, shape_factor)
-                #     self.logger.debug(f'Final PRF size: {np.shape(img)}')
-                # blob_centerx = self.blob_center[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
-                # blob_centery = self.blob_center[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
-                # psfmodel = psf.) # init at blob center, may need to swap!
                 psfmodel = PixelizedPsfEx(fn=path_psffile)
                 pw, ph = np.shape(psfmodel.img)
 
@@ -311,8 +284,6 @@ class Blob(Subimage):
                     psf_bkg = np.nanmax(psfmodel.img[bcmask])
                     psfmodel.img -= psf_bkg
                     self.logger.debug(f'Removing PSF background. {psf_bkg:e}')
-                    # psfmodel.img[np.isnan(psfmodel.img)] = 0
-                    # psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
                     psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
 
                 if conf.PSF_RADIUS > 0:
@@ -329,7 +300,6 @@ class Blob(Subimage):
 
             elif (band_strip in conf.PRFMAP_PSF) & (psf is not None):
                 self.logger.debug('Adopting a PRF from file.')
-                # find nearest prf to blob center
                 prftab_coords, prftab_idx = self.psfmodels[i]
 
                 if conf.USE_BLOB_IDGRID:
@@ -353,10 +323,7 @@ class Blob(Subimage):
                     return False
                 hdul = fits.open(path_prffile)
                 from scipy.ndimage.interpolation import rotate
-                # img = rotate(hdul[0].data, )
                 img = hdul[0].data
-                # img = 1E-31 * np.ones_like(img)
-                # img[50:-50, 50:-50] = hdul[0].data[50:-50, 50:-50]
                 assert(img.shape[0] == img.shape[1]) # am I square!?
                 self.logger.debug(f'PRF size: {np.shape(img)}')
                 
@@ -379,7 +346,6 @@ class Blob(Subimage):
                     cmask = create_circular_mask(pw, ph, radius=conf.PRFMAP_MASKRAD / conf.PIXEL_SCALE)
                     bcmask = ~cmask.astype(bool) & (psfmodel.img > 0)
                     psfmodel.img[bcmask] = 0
-                    # psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
                     psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
 
                 if conf.PSF_RADIUS > 0:
@@ -403,8 +369,6 @@ class Blob(Subimage):
                     cmask = create_circular_mask(pw, ph, radius=conf.PSF_MASKRAD / conf.PIXEL_SCALE)
                     bcmask = ~cmask.astype(bool) & (psfmodel.img > 0)
                     psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
-                    # psfmodel.img[np.isnan(psfmodel.img)] = 0
-                    # psfmodel.img -= np.nanmax(psfmodel.img[bcmask])
                     psfmodel.img[(psfmodel.img < 0) | np.isnan(psfmodel.img)] = 0
 
                 if conf.PSF_RADIUS > 0:
@@ -441,9 +405,6 @@ class Blob(Subimage):
                 plot_psf(psfimg, psfplotband, show_gaussian=False)
 
             psfmodel.img = psfmodel.img.astype('float32') # This may be redundant, but it's super important!
-            
-            # from astropy.io import fits
-            # fits.ImageHDU(data=psfmodel.img).writeto('hsc_i_mod.psf')
 
             self.logger.debug('Making image...')
             timages[i] = Image(data=image,
@@ -452,15 +413,6 @@ class Blob(Subimage):
                             wcs=NullWCS(),
                             photocal=FluxesPhotoCal(band),
                             sky=ConstantSky(0))
-            # modelminval = 0.1 * np.nanmedian(1/np.sqrt(tweight[tweight>0]))
-            # timages[i].modelMinval = modelminval
-            # print(f'Setting minval to {modelminval} in img pixel units.')
-
-            # some pickling
-            # import pickle
-            # pickle.dump(image, open("image.pkl", "wb"))
-            # pickle.dump(tweight, open("tweight.pkl", "wb"))
-            # pickle.dump(psfmodel, open("psf.pkl", 'wb'))
 
         self.timages = timages
         return True
@@ -480,8 +432,6 @@ class Blob(Subimage):
             self.logger.debug(f"               theta: {src['theta']:3.3f}")
 
             freeze_position = (self.mids != 1).any()
-            # print(f'DEBUG: {self.mids}')
-            # print(f'DEBUG: Freeze position? {freeze_position}')
             if conf.FORCE_POSITION:
                 position = PixPos(src['x'], src['y'])
                 freeze_position = True
@@ -499,10 +449,6 @@ class Blob(Subimage):
                     qflux = np.zeros(len(self.bands))
                     src_seg = self.segmap==src['source_id']
                     for j, img in enumerate(zip(self.images)):
-                        # psf = img.psf
-                        # max_img = np.nanmax(img * src_seg)
-                        # max_psf = np.nanmax(psf.img)
-                        # qflux[j] = max_img / max_psf
                         qflux[j] = np.sum(img * src_seg)
                     flux = Fluxes(**dict(zip(self.bands, qflux)), order=self.bands)
                 
@@ -510,13 +456,10 @@ class Blob(Subimage):
                     self.logger.warning('Failed to estimate inital flux a priori. Falling back on SEP...')
                     flux = Fluxes(**dict(zip(self.bands, src['flux'] * np.ones(len(self.bands)))), order=self.bands)
                 
-
-            #shape = GalaxyShape(src['a'], src['b'] / src['a'], src['theta'])
             pa = 90 + np.rad2deg(src['theta'])
             shape = EllipseESoft.fromRAbPhi(src['a'], src['b'] / src['a'], pa)
             nre = SersicIndex(2.5) # Just a guess for the seric index
             fluxcore = Fluxes(**dict(zip(self.bands, np.zeros(len(self.bands)))), order=self.bands) # Just a simple init condition
-            # shape = EllipseESoft.fromRAbPhi(3.0, 0.6, 38)
 
             if mid == 1:
                 self.model_catalog[i] = PointSource(position, flux)
@@ -569,23 +512,10 @@ class Blob(Subimage):
         if tr is None:
             tr = self.tr
 
-        # if conf.USE_CERES:
-        #     from tractor.ceres_optimizer import CeresOptimizer
-        #     tr.optimizer = CeresOptimizer()
-
         tr.freezeParams('images')  
 
         if conf.USE_CERES:
             raise RuntimeError('CERES NOT IMPLEMENTED!')
-            # self.logger.debug(f'Starting ceres optimization ({conf.TRACTOR_MAXSTEPS}, {conf.TRACTOR_CONTHRESH})') 
-
-            # self.n_converge = 0
-            # tstart = time.time()
-            # R = tr.optimize_forced_photometry(
-            #     minsb=0.1,
-            #     shared_params=False, wantims=False, fitstats=True, variance=True,
-            #     use_ceres=True, BW=8,BH=8)
-            # self.logger.info(f'Blob #{self.blob_id} converged ({time.time() - tstart:3.3f}s)')
 
         else:
 
@@ -605,7 +535,6 @@ class Blob(Subimage):
 
 
             if conf.PLOT > 2:
-                # [print(m.getBrightness()) for m in tr.getCatalog()]
                 plot_iterblob(self, tr, iteration=0, bands=self.bands)
 
             use_priors = False
@@ -617,22 +546,10 @@ class Blob(Subimage):
 
             for i in range(conf.TRACTOR_MAXSTEPS):
 
-                # for mod in self.tr.getCatalog():
-                #     print(mod)
-                #     print(mod.pos.getGaussianPriors())
-                #     print(mod.getThawedParams())
-
-                # if i == 0:
-                #     pos = PixPos(13, 30)
-                #     pos.addGaussianPrior('x', 13, 2)
-                #     pos.addGaussianPrior('y', 30, 2)
-                #     tr.addSource(PointSource(pos, Fluxes(**dict(zip(self.bands, 0.1 * np.ones(len(self.bands)))))))
-                # tr_old = tr
                 if conf.TRY_OPTIMIZATION:
                     try:
                         from tractor.constrained_optimizer import ConstrainedOptimizer
                         tr.optimizer = ConstrainedOptimizer()
-                        # dlnp, X, alpha, var = tr.optimize() #shared_params=self.shared_params, damp=conf.DAMPING, variance=True, priors=conf.USE_POSITION_PRIOR)
                         dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, damp=conf.DAMPING, 
                                                     variance=True, priors=use_priors)
 
@@ -647,13 +564,6 @@ class Blob(Subimage):
 
                 else:
 
-                    # try:
-                    #     [print(m.getBrightness().getFlux(self.bands[0])) for m in tr.getCatalog()]
-                    #     [print(m.getThawedParams()) for m in tr.getCatalog()]
-                    #     [print(m.getFrozenParams()) for m in tr.getCatalog()]
-                    #     [print(m.getShape()) for m in tr.getCatalog()]
-                    # except:
-                    #     pass
                     from tractor.constrained_optimizer import ConstrainedOptimizer      
                     tr.optimizer = ConstrainedOptimizer()
                     dlnp, X, alpha, var = tr.optimize(shared_params=self.shared_params, damp=conf.DAMPING, 
@@ -661,18 +571,6 @@ class Blob(Subimage):
                     self.logger.debug(f'    {i+1}) dlnp = {dlnp}')
                     if i == 0:
                         dlnp_init = dlnp
-
-                    # print(dlnp)
-                    # print(X)
-                    # print(alpha)
-                    # print(var)
-                    # for midx, m in enumerate(tr.getCatalog()):
-                    #     print(f'{midx}: {m.name}')
-                    #     print(m.getBrightness().getFlux(self.bands[0]))
-                    #     try:
-                    #         print(m.getShape())
-                    #     except:
-                    #         pass
 
                 if conf.CONSOLE_LOGGING_LEVEL == 'DEBUG':
                     cat = tr.getCatalog()
@@ -786,15 +684,6 @@ class Blob(Subimage):
                         elif ~srcseg[int(yp), int(xp)]:
                             trip = True
 
-                            # fig, ax = plt.subplots()
-                            # ax.imshow(srcseg)
-                            # ax.scatter(xp, yp)
-                            # plt.savefig(os.path.join(conf.PLOT_DIR,f'tr_{i}_{idx}.pdf'))
-                            # self.logger.debug('MAKING CORRAL IMAGE!')
-
-                            # gpriors = src.getLogPrior()
-                            # print('Log(Prior):', gpriors)
-
                             self.logger.warning(f'Source {sid} has escaped its segment on step #{i+1}!')
                             src.pos.setParams([xp0, yp0])
                             self.logger.debug(f'Resetting position. X = {xp0:2.2f}; Y = {yp0:2.2f}')
@@ -809,9 +698,6 @@ class Blob(Subimage):
                                 src.pos.addGaussianPrior('x', xp0, gpxy)
                                 src.pos.addGaussianPrior('y', yp0, gpxy)
 
-
-                        #     # gpriors = src.getLogPrior()
-                        #     # print('Log(Prior):', gpriors)
 
                     if trip:
                         tr.setCatalog(Catalog(*cat))
@@ -840,17 +726,10 @@ class Blob(Subimage):
             self.logger.warning(f'Chimap and segmap are not the same shape for #{self.blob_id}')
             return False
 
-        # expvar = np.sum([var_catalog[i].numberOfParams() for i in np.arange(len(var_catalog))])
-        # # print(f'I have {len(var)} variance parameters for {self.n_sources} sources. I expected {expvar}.')
-        # for i, mod in enumerate(var_catalog):
-        #     totalchisq = np.sum((self.tr.getChiImage(0)[self.segmap == self.catalog[i]['source_id']])**2)
-
         return True
 
     def tractor_phot(self):
         """ Determines the best-fit model """
-
-        ### STILL NEED TO UPDATE THE REPORTING TO USER TO INCLUDE SERSIC STUFF!
 
         self.logger.debug(f'Attempting to model {self.n_sources} sources.')
 
@@ -898,9 +777,7 @@ class Blob(Subimage):
                 self.tr_catalogs[:, self._level, self._sublevel] = self.tr.getCatalog()
 
                 if (self._level == 0) & (self._sublevel == 0):
-                    #self.position_variance = np.array([self.variance[i][:2] for i in np.arange(self.n_sources)]) # THIS MAY JUST WORK!
                     self.position_variance = self.variance
-                    # print(f'POSITION VAR: {self.position_variance}')
 
                 for i, src in enumerate(self.bcatalog):
                     if self._solved[i]:
@@ -1008,7 +885,6 @@ class Blob(Subimage):
         self.solution_model_images = np.array([self.tr.getModelImage(i) for i in np.arange(self.n_bands)])
         self.solution_chi_images = np.array([self.tr.getChiImage(i) for i in np.arange(self.n_bands)])
         self.parameter_variance = self.variance
-        # print(f'PARAMETER VAR: {self.parameter_variance}')
 
         self.logger.debug(f'Resulting model parameters for blob #{self.blob_id}')
         self.solution_chisq = np.zeros((self.n_sources, self.n_bands))
@@ -1067,18 +943,11 @@ class Blob(Subimage):
                     self.logger.debug(f'               {self.model_catalog[i].shape}')
         # self.rows = np.zeros(len(self.solution_catalog))
         for idx, src in enumerate(self.solution_catalog):
-            # row = np.argwhere(self.brick.catalog['source_id'] == sid)[0][0]
-            # self.rows[idx] = row
-            # print(f'STASHING {sid} IN ROW {row}')
             self.get_catalog(idx, src, multiband_model=self.multiband_model)
 
         if conf.PLOT > 1:
             for figi, axi, band in zip(fig, ax, self.bands):
                 plot_detblob(self, figi, axi, band=band, level=self._level, sublevel=self._sublevel, final_opt=True)
-
-                # for k, src in enumerate(self.solution_catalog):
-                #     sid = self.bcatalog['source_id'][k]
-                #     plot_xsection(self, band, src, sid)
 
         if conf.PLOT > 0:
             for k, src in enumerate(self.solution_catalog):
@@ -1094,15 +963,9 @@ class Blob(Subimage):
         # Update the incoming models
         self.logger.debug('Reviewing sources to be modelled.')
         for i, model in enumerate(self.model_catalog):
-            # if model == -99:
-            #     if conf.VERBOSE: print(f"FAILED -- Source #{self.bcatalog[i]['source_id']} does not have a valid model!")
-            #     return False
-
-            ############ self.model_catalog[i].brightness = Fluxes(**dict(zip(self.bands, model.brightness[0] * np.ones(self.n_bands))))
             self.model_catalog[i].freezeAllBut('brightness')
             if self.model_catalog[i].name == 'SersicCoreGalaxy':
                 self.model_catalog[i].thawParams('brightnessPsf')
-            # # self.model_catalog[i].thawParams('sky')
             if not conf.FREEZE_FORCED_POSITION:
                 self.logger.debug('Thawing position...')
                 self.model_catalog[i].thawParams('pos')
@@ -1112,7 +975,7 @@ class Blob(Subimage):
                 self.model_catalog[i].thawParams('shapeExp')
                 self.model_catalog[i].thawParams('shapeDev')
 
-            best_band = conf.MODELING_NICKNAME #f"{self.bcatalog[i]['BEST_MODEL_BAND']}"
+            best_band = conf.MODELING_NICKNAME
 
 
             self.logger.debug(f"Source #{self.bcatalog[i]['source_id']}: {self.model_catalog[i].name} model at {self.model_catalog[i].pos}")
@@ -1128,14 +991,6 @@ class Blob(Subimage):
         self.tr = Tractor(self.timages, self.model_catalog)
         self.stage = 'Forced Photometry'
 
-        # import pickle
-        # pickle.dump(self.model_catalog, open('mcat.pkl', 'wb'))
-        # print('WROTE CAT PICKLE!!!')
-
-        # if conf.PLOT >1:
-        #     axlist = [plot_fblob(self, band=band) for band in self.bands]
-
-
         # Optimize
         status = self.optimize_tractor()
 
@@ -1150,59 +1005,6 @@ class Blob(Subimage):
         self.solution_tractor = Tractor(self.timages, self.solution_catalog)
         self.solution_model_images = np.array([self.tr.getModelImage(i) for i in np.arange(self.n_bands)])
         self.solution_chi_images = np.array([self.tr.getChiImage(i) for i in np.arange(self.n_bands)])
-
-        # Rao-cramer direct estimate
-
-        # tr = Tractor(self.timages, self.solution_catalog)
-
-        # for i, band in enumerate(self.bands): # this will really just be one band.
-        #     # Prepare matrix
-        #     try:
-        #         im = tr.getImage(i).data
-        #         inverr = np.sqrt(tr.getImage(i).invvar)
-        #         store_mod = np.zeros_like(self.model_catalog)
-        #         for j, m in enumerate(self.model_catalog):
-        #             trm = Tractor([tr.getImage(i),], [m,])
-        #             # trm.freezeParams('images') # Not doing tractor here...
-        #             store_mod[j] = trm.getModelImage(i).flatten()
-
-        #         # More prep work
-        #         _A = np.vstack(store_mod)
-        #         renorm = _A.sum(axis=1)
-        #         # print(renorm)
-        #         _A = (_A.T/renorm).T
-
-        #         # print(_A.shape)
-        #         _Ax = (_A*inverr.flatten()).T
-        #         _yx = (im*inverr).flatten()
-
-        #         # _coeffs = np.linalg.lstsq(_Ax, _yx, rcond=None)
-
-        #         # collect + output
-        #         # flux = _coeffs[0]  ## WE ARE NOT RUNNING FLUXES!
-        #         flux = -99.0 * np.ones(len(self.bcatalog))
-        #         covar = np.matrix(np.dot(_Ax.T, _Ax)).I.A
-        #         err = np.sqrt(covar.diagonal())
-
-        #         zpt = conf.MULTIBAND_ZPT[self._band2idx(band)]
-
-        #         # self.bcatalog[f'RAWDIRECTFLUX_{band}'] = flux
-        #         self.bcatalog[f'RAWDIRECTFLUXERR_{band}'] = err
-        #         # self.bcatalog[f'DIRECTFLUX_{band}'] = flux * 10**(-0.4 * (zpt - 23.9))
-        #         self.bcatalog[f'DIRECTFLUXERR_{band}'] = err * 10**(-0.4 * (zpt - 23.9))
-
-        #         for b in self.bcatalog:
-        #             f, ferr = b[f'DIRECTFLUX_{band}'], b[f'DIRECTFLUXERR_{band}']
-        #             self.logger.info(f'#{b["source_id"]}: DFlux({band}) = {f:3.3f}+/-{ferr:3.3f} uJy')
-
-        #     except:
-        #         # self.bcatalog[f'RAW_DIRECTFLUX_{band}'] = -99.0 * np.ones(len(self.bcatalog))
-        #         self.bcatalog[f'RAW_DIRECTFLUXERR_{band}'] = -99.0 * np.ones(len(self.bcatalog))
-        #         # self.bcatalog[f'DIRECTFLUX_{band}'] = -99.0 * np.ones(len(self.bcatalog))
-        #         self.bcatalog[f'DIRECTFLUXERR_{band}'] = -99.0 * np.ones(len(self.bcatalog))
-
-        #         self.logger.warning(f'Failed to derive Rao-Cramer estimate for blob #{self.blob_id}')
-
 
         self.logger.info(f'Resulting model parameters for blob #{self.blob_id}')
         for i, src in enumerate(self.bcatalog):
@@ -1406,12 +1208,6 @@ class Blob(Subimage):
     def decide_winners_chisq_opt1(self):
         """ Decision tree in CHISQ. STABLE. """
 
-        # take the model_catalog and chisq and figure out what's what
-        # Only look at unsolved models!
-        
-        # if conf.USE_REDUCEDCHISQ:
-        #     chisq_exp = 1.0
-        # else:
         chisq_exp = 0.0
 
         # holders - or else it's pure insanity.
@@ -1547,11 +1343,6 @@ class Blob(Subimage):
 
         chisq[:,1,1] = 1E20
         chisq[:,2,1] = 1E20
-        # chisq[:,3,1] = 1E20
-
-        # for i, blob_id in enumerate(sid):
-        #     print(blob_id)
-        #     print(self.chisq[i])
 
         if self._level == 0:
             # Which have chi2(PS) < chi2(SG)?
@@ -1754,9 +1545,6 @@ class Blob(Subimage):
             var[tweight>0] = 1. / tweight[tweight>0] # TODO: WRITE TO UTILS
             var[self.masks[idx]] = 0
 
-        # if (sband in sub_background) & (not use_iso) & (image_type=='image'):
-        #     image -= self.background_images[idx]
-
         cat = self.solution_catalog
         xxyy = np.vstack([src.getPosition() for src in cat])
         apxy = xxyy - 1.
@@ -1787,10 +1575,8 @@ class Blob(Subimage):
         for i, rad in enumerate(apertures):
             if not use_iso: # Run with all models in image
                 aper = photutils.CircularAperture(apxy[Iap], rad)
-                # print(aper)
                 self.logger.debug(f'Measuring {apertures_arcsec[i]:2.2f}" aperture flux on {len(cat)} sources.')
                 p = photutils.aperture_photometry(image, aper, error=imgerr)
-                # aper.plot()
                 apflux[Iap, i] = p.field('aperture_sum') * 10**(-0.4 * (zpt - 23.9))
                 if var is None:
                     apflux_err[Iap, i] = -99 * np.ones_like(apflux[Iap, i])
@@ -1804,8 +1590,6 @@ class Blob(Subimage):
                     image[np.isnan(image)] = 0
                     if conf.APER_APPLY_SEGMASK:
                         image *= self.masks[self._band2idx(sband)]
-                    # if sub_background:
-                    #     image -= self.background_images[idx]
                     self.logger.debug(f'Measuring {apertures_arcsec[i]:2.2f}" aperture flux on 1 source of {len(cat)}.')
                     p = photutils.aperture_photometry(image, aper, error=imgerr)
                     # aper.plot()
@@ -1820,24 +1604,6 @@ class Blob(Subimage):
                 self.logger.debug(f'        Flux({sid}, {band}, {apertures_arcsec[i]:2.2f}") = {apflux[j,i]:3.3f}/-{apflux_err[j,i]:3.3f}')
                 self.logger.debug(f'        Mag({sid}, {band}, {apertures_arcsec[i]:2.2f}") = {apmag[j, i]:3.3f}/-{apmag_err[j, i]:3.3f}')
 
-        # if image_type == 'image':
-            
-        #     plt.figure()
-        #     col = 'royalblue'
-        # if image_type == 'model':
-        #     col = 'orange'
-        # if image_type == 'residual':
-        #     col = 'brown'
-        
-        # plt.ion()
-        # area = np.pi * apertures_arcsec**2
-        # plt.plot(apertures_arcsec, apflux[0]/area, color=col, label=image_type)
-        # plt.axhline(0, color='k', ls='dotted')
-        # plt.axhline(self.backgrounds[0][0])
-        # #plt.axhline(self.bcatalog['FLUX_'+band], color='red')
-        # plt.legend()
-        # plt.savefig(os.path.join(conf.PLOT_DIR, f'{band}_{self.blob_id}_NORM_{conf.NORMALIZE_PSF}_GAUSS_{conf.FORCE_GAUSSIAN_PSF}_SEGMASK_{conf.APPLY_SEGMASK}_SURFBRI.pdf'))
-
         if band is None:
             band = 'MODELING'
         band = band.replace(' ', '_')
@@ -1846,8 +1612,6 @@ class Blob(Subimage):
             self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, shape=np.shape(apertures), name=f'FLUX_APER_{band}_{image_type}_err'))
             self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, shape=np.shape(apertures), name=f'MAG_APER_{band}_{image_type}'))
             self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, shape=np.shape(apertures), name=f'MAG_APER_{band}_{image_type}_err'))
-            # self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, name=f'MAG_TOTAL_{band}_{image_type}'))
-            # self.bcatalog.add_column(Column(length=len(self.bcatalog), dtype=float, name=f'MAG_TOTAL_{band}_{image_type}_err'))
 
         for idx, src in enumerate(self.solution_catalog):
             sid = self.bcatalog['source_id'][idx]
@@ -1856,8 +1620,6 @@ class Blob(Subimage):
             self.bcatalog[row][f'FLUX_APER_{band}_{image_type}_err'] = tuple(apflux_err[idx])
             self.bcatalog[row][f'MAG_APER_{band}_{image_type}'] = tuple(apmag[idx])
             self.bcatalog[row][f'MAG_APER_{band}_{image_type}_err'] = tuple(apmag_err[idx])
-            # self.bcatalog[row][f'MAG_TOTAL_{band}_{image_type}'] = apmag[idx, -1]
-            # self.bcatalog[row][f'MAG_TOTAL_{band}_{image_type}_err'] = apmag_err[idx, -1]
 
         self.logger.info(f'Aperture photometry complete ({time.time() - tstart:3.3f}s)')
 
@@ -1916,9 +1678,6 @@ class Blob(Subimage):
         else:
             thresh = conf.RES_THRESH
 
-        # if sub_background:
-        #     image -= background.back()
-
         kwargs = dict(var=var, minarea=conf.RES_MINAREA, segmentation_map=True, deblend_nthresh=conf.RES_DEBLEND_NTHRESH, deblend_cont=conf.RES_DEBLEND_CONT)
         if centroid == 'MODEL':
             cat = self.solution_catalog
@@ -1934,8 +1693,6 @@ class Blob(Subimage):
         elif centroid == 'DETECTION':
             self.logger.info(f'DETECTION centroid not yet implemented!')
             return # DONT DO IT
-            x, y = self.bcatalog['x'], self.bcatalog['y'] # ARE THESE IN THE RIGHT FRAME!?
-            self.logger.info(f'Performing SEP measurements with DETECTION centroid')
 
         a, b, theta = self.bcatalog['a'], self.bcatalog['b'], self.bcatalog['theta']  # This is from the DETECTION IMAGE -- may not be reliable for normal images though...
 
@@ -2029,11 +1786,8 @@ class Blob(Subimage):
             self.logger.debug(f'        Flux({sid}, {band}) = {apflux:3.3f}/-{apflux_err:3.3f}')
             self.logger.debug(f'        Mag({sid}, {band}) = {apmag:3.3f}/-{apmag_err:3.3f}')
 
-            # print(self.bcatalog[row][f'C{centroid}_FLUX_AUTO_{band}_{image_type}'], self.bcatalog[row][f'FLUX_{band}'])
-            # print(self.bcatalog[row][f'C{centroid}_FLUX_AUTO_{band}_{image_type}']/self.bcatalog[row][f'FLUX_{band}'] )
-            # plt.pause(5)
 
-    def residual_phot(self, band=None, sub_background=False):
+    def residual_phot(self, band=None, sub_background=False, image_type='residual'):
         """ Run Sextractor on the residuals and flag any sources with detections in the parent blob """
         # SHOULD WE STACK THE RESIDUALS? (No?)
         # SHOULD WE DO THIS ON THE MODELING IMAGE TOO? (I suppose we can already...!)
@@ -2112,8 +1866,6 @@ class Blob(Subimage):
                 zpt = conf.MULTIBAND_ZPT[self._band2idx(band)]
                 param_var = self.forced_variance
 
-            # print(np.sqrt(param_var[row].brightness.getParams()[i]))
-
             self.bcatalog[row]['MAG_'+band] = -2.5 * np.log10(src.getBrightness().getFlux(band)) + zpt
             self.bcatalog[row]['MAGERR_'+band] = 1.089 * np.sqrt(param_var[row].brightness.getParams()[i]) / src.getBrightness().getFlux(band)
             self.bcatalog[row]['RAWFLUX_'+band] = src.getBrightness().getFlux(band)
@@ -2131,7 +1883,6 @@ class Blob(Subimage):
             self.bcatalog[row]['CHI_MU_'+band] = self.chi_mu[row, i]
             self.bcatalog[row]['CHI_SIG_'+band] = self.chi_sig[row, i]
             self.bcatalog[row]['CHI_K2_'+band] = self.k2[row, i]
-            # self.bcatalog[row]['CHI_PERCENT_'+band] = self.chi_pc[row, i]
             self.bcatalog[row]['SEG_RAWFLUX_'+band] = self.seg_rawflux[row, i]
             self.bcatalog[row]['CHISQ_NOMODEL_'+band] = self.chisq_nomodel[row, i]
             self.bcatalog[row]['VALID_SOURCE_'+band] = valid_source
@@ -2142,7 +1893,6 @@ class Blob(Subimage):
                 self.bcatalog[row][f'XERR_MODEL_{band}'] = np.sqrt(param_var[row].pos.getParams()[0])
                 self.bcatalog[row][f'YERR_MODEL_{band}'] = np.sqrt(param_var[row].pos.getParams()[1])
                 if self.wcs is not None:
-                    # skyc = self.brick_wcs.all_pix2world(self.bcatalog[row][f'X_MODEL_{band}'] - self.mosaic_origin[0] + conf.BRICK_BUFFER, self.bcatalog[row][f'Y_MODEL_{band}'] - self.mosaic_origin[1] + conf.BRICK_BUFFER, 0)
                     skyc = self.brick_wcs.all_pix2world(src.pos[0] + self.subvector[1], src.pos[1] + self.subvector[0] , 0)
                     self.bcatalog[row][f'RA_{band}'] = skyc[0]
                     self.bcatalog[row][f'DEC_{band}'] = skyc[1]
@@ -2157,7 +1907,6 @@ class Blob(Subimage):
                     self.bcatalog[row][f'EE1_{band}'] = src.shape.ee1
                     self.bcatalog[row][f'EE2_{band}'] = src.shape.ee2
                     if (src.shape.e >= 1) | (src.shape.e <= -1):
-                        # self.bcatalog[row][f'VALID_SOURCE'] = False
                         self.bcatalog[row][f'AB_{band}'] = -99.0
                         self.logger.warning(f'Source has invalid ellipticity! (e = {src.shape.e:3.3f})')
                     else:
@@ -2181,7 +1930,6 @@ class Blob(Subimage):
                     self.bcatalog[row][f'EXP_REFF_{band}'] = src.shapeExp.logre
                     self.bcatalog[row][f'EXP_REFF_ERR_{band}'] = np.sqrt(param_var[row].shapeExp.getParams()[0])
                     if (src.shapeExp.e >= 1) | (src.shapeExp.e <= -1):
-                        # self.bcatalog[row][f'VALID_SOURCE'] = False
                         self.bcatalog[row][f'EXP_AB_{band}'] = -99.0
                         self.logger.warning(f'Source has invalid ellipticity! (e = {src.shapeExp.e:3.3f})')
                     else:
@@ -2192,7 +1940,6 @@ class Blob(Subimage):
                     self.bcatalog[row][f'DEV_REFF_{band}'] = src.shapeDev.logre
                     self.bcatalog[row][f'DEV_REFF_ERR_{band}'] = np.sqrt(param_var[row].shapeDev.getParams()[0])
                     if (src.shapeDev.e >= 1) | (src.shapeDev.e <= -1):
-                        # self.bcatalog[row][f'VALID_SOURCE'] = False
                         self.bcatalog[row][f'DEV_AB_{band}'] = -99.0
                         self.logger.warning(f'Source has invalid ellipticity! (e = {src.shapeDev.e:3.3f})')
                     else:
@@ -2200,9 +1947,6 @@ class Blob(Subimage):
                     self.bcatalog[row][f'DEV_AB_ERR_{band}'] = np.sqrt(param_var[row].shapeDev.getParams()[1])
                     self.bcatalog[row][f'DEV_THETA_{band}'] = np.rad2deg(src.shapeDev.theta)
                     self.bcatalog[row][f'DEV_THETA_ERR_{band}'] = np.sqrt(param_var[row].shapeDev.getParams()[2])
-                    # self.bcatalog[row][f'reff_err'] = np.sqrt(self.parameter_variance[row][0])
-                    # self.bcatalog[row][f'ab_err'] = np.sqrt(self.parameter_variance[row][1])
-                    # self.bcatalog[row][f'phi_err'] = np.sqrt(self.parameter_variance[row][2])
 
                     self.bcatalog[row][f'EXP_EE1_{band}'] = src.shapeExp.ee1
                     self.bcatalog[row][f'EXP_EE2_{band}'] = src.shapeExp.ee2
@@ -2211,12 +1955,10 @@ class Blob(Subimage):
 
 
                     if (src.shapeExp.e >= 1) | (src.shapeExp.e <= -1):
-                        # self.bcatalog[row]['VALID_SOURCE'] = False
                         self.logger.warning(f'Source has invalid ellipticity! (e = {src.shapeExp.e:3.3f})')
 
 
                     if (src.shapeDev.e >= 1) | (src.shapeDev.e <= -1):
-                        # self.bcatalog[row]['VALID_SOURCE'] = False
                         self.logger.warning(f'Source has invalid ellipticity! (e = {src.shapeDev.e:3.3f})')
 
 
@@ -2258,8 +2000,6 @@ class Blob(Subimage):
 
         # # Just do the positions again - more straightforward to do it here than in interface.py
         # # Why do we need this!? Should we not be adding in extra X/Y if the force_position is turned off?
-        # self.bcatalog[row]['x'] = self.bcatalog[row]['x'] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER + 1
-        # self.bcatalog[row]['y'] = self.bcatalog[row]['y'] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER + 1
         self.bcatalog[row][f'X_MODEL'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER
         self.bcatalog[row][f'Y_MODEL'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER
         if self.wcs is not None:
@@ -2281,8 +2021,8 @@ class Blob(Subimage):
                 mod_band = conf.MODELING_NICKNAME
             else:
                 mod_band = self.bands[0]
-            self.bcatalog[row]['x'] = self.bcatalog[row]['x'] + self.subvector[1] #+ self.mosaic_origin[1] - conf.BRICK_BUFFER
-            self.bcatalog[row]['y'] = self.bcatalog[row]['y'] + self.subvector[0] #+ self.mosaic_origin[0] - conf.BRICK_BUFFER
+            self.bcatalog[row]['x'] = self.bcatalog[row]['x'] + self.subvector[1] 
+            self.bcatalog[row]['y'] = self.bcatalog[row]['y'] + self.subvector[0]
             self.bcatalog[row][f'X_MODEL_{mod_band}'] = src.pos[0] + self.subvector[1] + self.mosaic_origin[1] - conf.BRICK_BUFFER
             self.bcatalog[row][f'Y_MODEL_{mod_band}'] = src.pos[1] + self.subvector[0] + self.mosaic_origin[0] - conf.BRICK_BUFFER
             self.logger.info(f"    Detection Position: {self.bcatalog[row]['x']:3.3f}, {self.bcatalog[row]['y']:3.3f}")
@@ -2301,7 +2041,6 @@ class Blob(Subimage):
             # Model Parameters
             self.bcatalog[row][f'SOLMODEL_{mod_band}'] = src.name
             self.bcatalog[row][f'VALID_SOURCE_{mod_band}'] = valid_source
-            # self.bcatalog[row]['N_BLOB'] = self.n_sources
 
             if src.name in ('ExpGalaxy', 'DevGalaxy', 'SersicGalaxy', 'SersicCoreGalaxy'):
                 self.bcatalog[row][f'REFF_{mod_band}'] = src.shape.logre
@@ -2309,7 +2048,6 @@ class Blob(Subimage):
                 self.bcatalog[row][f'EE1_{mod_band}'] = src.shape.ee1
                 self.bcatalog[row][f'EE2_{mod_band}'] = src.shape.ee2
                 if (src.shape.e >= 1) | (src.shape.e <= -1):
-                    # self.bcatalog[row][f'VALID_SOURCE'] = False
                     self.bcatalog[row][f'AB_{mod_band}'] = -99.0
                     self.logger.warning(f'Source has invalid ellipticity! (e = {src.shape.e:3.3f})')
                 else:
@@ -2334,7 +2072,6 @@ class Blob(Subimage):
                 self.bcatalog[row][f'EXP_REFF_{mod_band}'] = src.shapeExp.logre
                 self.bcatalog[row][f'EXP_REFF_ERR_{mod_band}'] = np.sqrt(self.parameter_variance[row].shapeExp.getParams()[0])
                 if (src.shapeExp.e >= 1) | (src.shapeExp.e <= -1):
-                    # self.bcatalog[row][f'VALID_SOURCE'] = False
                     self.bcatalog[row][f'EXP_AB_{mod_band}'] = -99.0
                     self.logger.warning(f'Source has invalid ellipticity! (e = {src.shapeExp.e:3.3f})')
                 else:
@@ -2345,7 +2082,6 @@ class Blob(Subimage):
                 self.bcatalog[row][f'DEV_REFF_{mod_band}'] = src.shapeDev.logre
                 self.bcatalog[row][f'DEV_REFF_ERR_{mod_band}'] = np.sqrt(self.parameter_variance[row].shapeDev.getParams()[0])
                 if (src.shapeDev.e >= 1) | (src.shapeDev.e <= -1):
-                    # self.bcatalog[row][f'VALID_SOURCE'] = False
                     self.bcatalog[row][f'DEV_AB_{mod_band}'] = -99.0
                     self.logger.warning(f'Source has invalid ellipticity! (e = {src.shapeDev.e:3.3f})')
                 else:
@@ -2353,10 +2089,6 @@ class Blob(Subimage):
                 self.bcatalog[row][f'DEV_AB_ERR_{mod_band}'] = np.sqrt(self.parameter_variance[row].shapeDev.getParams()[1])
                 self.bcatalog[row][f'DEV_THETA_{mod_band}'] = np.rad2deg(src.shapeDev.theta)
                 self.bcatalog[row][f'DEV_THETA_ERR_{mod_band}'] = np.sqrt(self.parameter_variance[row].shapeDev.getParams()[2])
-                # self.bcatalog[row][f'reff_err'] = np.sqrt(self.parameter_variance[row][0])
-                # self.bcatalog[row][f'ab_err'] = np.sqrt(self.parameter_variance[row][1])
-                # self.bcatalog[row][f'phi_err'] = np.sqrt(self.parameter_variance[row][2])
-
                 self.bcatalog[row][f'EXP_EE1_{mod_band}'] = src.shapeExp.ee1
                 self.bcatalog[row][f'EXP_EE2_{mod_band}'] = src.shapeExp.ee2
                 self.bcatalog[row][f'DEV_EE1_{mod_band}'] = src.shapeDev.ee1
@@ -2364,12 +2096,10 @@ class Blob(Subimage):
 
 
                 if (src.shapeExp.e >= 1) | (src.shapeExp.e <= -1):
-                    # self.bcatalog[row]['VALID_SOURCE'] = False
                     self.logger.warning(f'Source has invalid ellipticity! (e = {src.shapeExp.e:3.3f})')
 
 
                 if (src.shapeDev.e >= 1) | (src.shapeDev.e <= -1):
-                    # self.bcatalog[row]['VALID_SOURCE'] = False
                     self.logger.warning(f'Source has invalid ellipticity! (e = {src.shapeDev.e:3.3f})')
 
 
@@ -2400,13 +2130,11 @@ class Blob(Subimage):
                 store_mod = np.zeros_like(self.model_catalog)
                 for j, m in enumerate(self.model_catalog):
                     trm = Tractor([tr.getImage(i),], [m,])
-                    # trm.freezeParams('images') # Not doing tractor here...
                     store_mod[j] = trm.getModelImage(i).flatten()
 
                 # More prep work
                 _A = np.vstack(store_mod)
                 renorm = _A.sum(axis=1)
-                # print(renorm)
                 _A = (_A.T/renorm).T
 
                 # print(_A.shape)
@@ -2417,7 +2145,6 @@ class Blob(Subimage):
 
                 # collect + output
                 flux = _coeffs[0]  ## WE ARE NOT RUNNING FLUXES!
-                # flux = -99.0 * np.ones(len(self.bcatalog))
                 covar = np.matrix(np.dot(_Ax.T, _Ax)).I.A
                 err = np.sqrt(covar.diagonal())
 
