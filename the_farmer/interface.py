@@ -50,7 +50,7 @@ import weakref
 from scipy import stats
 import pathos as pa
 from astropy.coordinates import SkyCoord
-# import sfdmap
+
 
 # Local imports
 from .brick import Brick
@@ -61,8 +61,6 @@ try:
     import config as conf
 except:
     raise RuntimeError('Cannot find configuration file!')
-
-# m = sfdmap.SFDMap(conf.SFDMAP_DIR)
 
 # Make sure no interactive plotting is going on.
 plt.ioff()

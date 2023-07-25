@@ -149,31 +149,6 @@ class Mosaic(Subimage):
                     (tab_ldac['FLUX_RADIUS'] < xlims[1])
 
             self.logger.info(f'Found {np.sum(mask_ldac)} objects from box to determine PSF')
-            
-            # X-match to ACS catalog
-            # NOTE: the rightmost vertical strip of COSMOS is not covered by ACS!
-            if conf.USE_STARCATALOG:
-                self.logger.debug(f'Crossmatching to star catalog {conf.STARCATALOG_FILENAME} with thresh = {conf.STARCATALOG_MATCHRADIUS}')
-                table_star = Table.read(os.path.join(conf.STARCATALOG_DIR, conf.STARCATALOG_FILENAME))
-                if conf.FLAG_STARCATALOG is not None:
-                    self.logger.debug(f'Cleaning star catalog {conf.STARCATALOG_FILENAME}')
-                    mask_star = np.ones(len(table_star), dtype=bool)
-                    for selection in conf.FLAG_STARCATALOG:
-                        self.logger.debug(f'   ...where {selection}')
-                        col, val = selection.split('==')
-                        mask_star &= (table_star[col] == int(val)) 
-                    table_star = table_star[mask_star]
-                ra, dec = table_star[conf.STARCATALOG_COORDCOLS[0]], table_star[conf.STARCATALOG_COORDCOLS[1]]
-                starcoords = SkyCoord(ra=ra * u.deg, dec = dec * u.deg)
-                thresh = conf.STARCATALOG_MATCHRADIUS * u.arcsec
-                head = fits.getheader(self.path_image, 0)
-                w = WCS(head)
-                x, y = tab_ldac['X_IMAGE'], tab_ldac['Y_IMAGE']
-                ral, decl = w.all_pix2world(x, y, 1)
-                candcoords = SkyCoord(ra = ral * u.deg, dec = decl * u.deg)
-                __, d2d, __ = candcoords.match_to_catalog_sky(starcoords)
-                self.logger.info(f'Found {np.sum(d2d < thresh)} objects from {conf.STARCATALOG_FILENAME} to determine PSF')
-                mask_ldac &= (d2d < thresh)
 
             # Check if anything is left. If not, make a scene.
             n_obj = np.sum(mask_ldac)
