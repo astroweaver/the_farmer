@@ -117,3 +117,5 @@ target/
 
 # exclude external models from source control
 /src/external/
+
+.vscode
