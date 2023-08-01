@@ -6,5 +6,5 @@ The code has been used to build a number of galaxy survey catalogs including COS
 
 A citable paper is in review, an advanced copy of which can be found in this repo.
 
-If you are interested in using the code for your own work, we **strongly recommend** that you get in touch with us at [john.weaver.astro@gmail.com](john.weaver.astro@gmail.com). Of course you're welcome to clone and fork at your leasure, but we'd be happy to show you the ropes first!
+If you are interested in using the code for your own work, we **strongly recommend** that you get in touch with us at [john.weaver.astro@gmail.com](john.weaver.astro@gmail.com). Of course you're welcome to clone and fork at your leisure, but we'd be happy to show you the ropes first!
 
