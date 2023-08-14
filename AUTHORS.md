@@ -9,4 +9,6 @@ Project Lead
 Project Contributors
 ------------
 
-None.
+* Lukas Zalesky (IfA)
+* Natalie Allen (DAWN)
+* Sina Taamoli (UCR)
