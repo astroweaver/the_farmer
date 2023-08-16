@@ -205,11 +205,11 @@ def validate_psfmodel(band):
     try:
         psfgrid = Table.read(psfmodel_path)
         cols = psfgrid.colnames
-        psfgrid_ra = psfgrid[cols[0]]
-        psfgrid_dec = psfgrid[cols[1]]
+        psfgrid_ra = psfgrid['ra']
+        psfgrid_dec = psfgrid['dec']
         psfcoords = SkyCoord(ra=psfgrid_ra*u.degree, dec=psfgrid_dec*u.degree)
         # I'm expecting that all of these psfnames are based in PATH_PSFMODELS
-        psflist = [os.path.join(conf.PATH_PSFMODELS, fname) for fname in psfgrid[cols[2]]]
+        psflist = [os.path.join(conf.PATH_PSFMODELS, fname) for fname in psfgrid['filename']]
 
     except: # better be a single file
         psfcoords = 'none'
