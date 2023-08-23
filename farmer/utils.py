@@ -188,7 +188,7 @@ def get_fwhm(img):
         fwhm = np.mean([dx[-1] - dx[0], dy[-1] - dy[0]])
     except:
         fwhm = np.nan
-    return fwhm
+    return np.nanmin([1.0, fwhm]) #HACK
 
 def get_resolution(img, sig=3.):
     fwhm = get_fwhm(img)
@@ -587,10 +587,10 @@ def get_params(model):
     if model.name == 'SimpleGalaxy': # this is stupid for stupid reasons.
         pass
     elif isinstance(model, (ExpGalaxy, DevGalaxy)):
-        if isinstance(model, ExpGalaxy):
-            skind = '_exp'
-        elif isinstance(model, DevGalaxy):
-            skind = '_dev'
+        # if isinstance(model, ExpGalaxy):
+        #     skind = '_exp'
+        # elif isinstance(model, DevGalaxy):
+        #     skind = '_dev'
         variance_shape = model.variance.shape
         source['logre'] = model.shape.logre # log(arcsec)
         source['logre.err'] = np.sqrt(model.variance.shape.logre)
@@ -604,13 +604,13 @@ def get_params(model):
         source['theta'] = np.rad2deg(model.shape.theta) * u.deg
         source['theta.err'] = np.sqrt(np.rad2deg(model.variance.shape.theta)) * u.deg
 
-        source[f'reff{skind}'] = np.exp(model.shape.logre) * u.arcsec # in arcsec
-        source[f'reff{skind}.err'] = np.sqrt(variance_shape.logre) * source[f'reff{skind}'] * np.log(10)
+        source[f'reff'] = np.exp(model.shape.logre) * u.arcsec # in arcsec
+        source[f'reff.err'] = np.sqrt(variance_shape.logre) * source[f'reff'] * np.log(10)
 
         boa = (1. - np.abs(model.shape.e)) / (1. + np.abs(model.shape.e))
         boa_sig = boa * np.sqrt(variance_shape.e) * np.sqrt((1/(1.-model.shape.e))**2 + (1/(1.+model.shape.e))**2)
-        source[f'ba{skind}'] = boa
-        source[f'ba{skind}.err'] = boa_sig
+        source[f'ba'] = boa
+        source[f'ba.err'] = boa_sig
         
         source['pa'] = 90. * u.deg + np.rad2deg(model.shape.theta) * u.deg
         source['pa.err'] = np.rad2deg(model.variance.shape.theta) * u.deg
@@ -768,3 +768,12 @@ def _clear_h5():
                 obj.close()
             except:
                 pass # Was already closed
+
+
+# def prepare_psf(filename, pixel_scale=None, mask_radius=None, clip_radius=None, norm=None, ext=0):
+
+#     hdul = fits.open(filename)
+#     img = hdul[ext].data
+
+#     if pixel_scale is None:
+

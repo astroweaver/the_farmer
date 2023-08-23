@@ -124,6 +124,7 @@ class BaseImage():
             psf_path = psflist[psf_idx]
 
         # Try to open
+        print(psf_path)
         if psf_path.endswith('.psf'):
             try:
                 psfmodel = PixelizedPsfEx(fn=psf_path)
@@ -142,6 +143,9 @@ class BaseImage():
             img = img.astype('float32')
             psfmodel = PixelizedPSF(img)
             self.logger.debug(f'PSF model for {band} identified as PixelizedPSF.')
+
+        #HACK
+        psfmodel.img /= np.sum(psfmodel.img)
 
         return psfmodel
 
@@ -411,6 +415,7 @@ class BaseImage():
             for j, band in enumerate(bands):
                 src_seg = self.data[band]['segmap'].data==source_id
                 qflux[j] = np.nansum(self.images[band].data * src_seg)
+            print(conf.BANDS['irac_ch1']['zeropoint'] - 2.5*np.log10(qflux[0]))
             flux = Fluxes(**dict(zip(bands, qflux)), order=bands)
 
             # initial shapes
@@ -465,8 +470,8 @@ class BaseImage():
             #     self.logger.warning(f'Optimization failed on step {i+1}!')
             #     return False
                 
-            self.logger.debug(f'  dlnp: {dlnp:2.1f}')
-            if dlnp < 1e-3:
+            self.logger.debug(f'  dlnp: {dlnp:2.5f}')
+            if dlnp < conf.DLNP_CRIT:
                 break
 
         self.variance = var
@@ -885,7 +890,6 @@ class BaseImage():
                 segmap = self.get_image('segmap', band)
                 chi = self.get_image('chi', band=band)[segmap==source_id].flatten()
                 totchi += list(chi)
-                # print(band, totchi, np.sum(segmap == source_id))
                 chi2, chi_pc = np.nansum(chi**2), np.nanpercentile(chi, q=q_pc)
                 if np.isscalar(chi_pc):
                     chi_pc = np.nan * np.ones(len(q_pc))
@@ -1339,7 +1343,7 @@ class BaseImage():
             else:
                 sources = source_id
 
-        self.build_all_images()
+        self.build_all_images(bands=bands)
 
         for source_id in sources:
             fnsrc = ''
@@ -1701,7 +1705,6 @@ class BaseImage():
                 axes[1,3].axhline(dims[1] * (-4/10.), xmin, xmax, c='k')
                 axes[1,3].text(target_center, 0.12, f'{target_scale}\"', transform=axes[1,3].transAxes, fontweight='bold', horizontalalignment='center')
 
-
                 # weight image
                 img = self.get_image('weight', band=band).copy()   #[src]
                 vmax = np.nanmax(img)
@@ -1787,15 +1790,15 @@ class BaseImage():
         for band in bands:
             if band == 'detection':
                 continue
-            self.logger.debug(f'Rescaling maps of {band}...')
             pixscl = np.array([self.pixel_scales[band][0].value, self.pixel_scales[band][1].value])
-            scale_factor = catalog_pixscl / pixscl
+            scale_factor = np.array(catalog_pixscl / pixscl)
 
-            if np.all(scale_factor==1):
+            if np.all(np.isclose(scale_factor, 1)):
                 self.data[band]['segmap'] = self.data[catalog_band]['segmap']
                 self.data[band]['groupmap'] = self.data[catalog_band]['groupmap']
                 self.logger.debug(f'Copied maps of {catalog_band} to {band}')
             else:
+                self.logger.debug(f'Rescaling maps of {band} from {pixscl} --> {catalog_pixscl}')
                 self.data[band]['segmap'] = Cutout2D(np.zeros_like(self.data[band]['science'].data), self.position, self.buffsize, self.wcs[band], mode='partial', fill_value = 0)
                 self.data[band]['segmap'].data = reproject_discontinuous((segmap.data, segmap.wcs), self.wcs[band], np.shape(self.data[band]['segmap'].data))
                 self.data[band]['groupmap'] = Cutout2D(np.zeros_like(self.data[band]['science'].data), self.position, self.buffsize, self.wcs[band], mode='partial', fill_value = 0)
@@ -1859,7 +1862,22 @@ class BaseImage():
                 try:
                     hdul[ext_name]
                 except:
-                    hdul.append(fits.ImageHDU(name=ext_name))
+                    if np.sum([(band.upper() in hdu.name) for hdu in hdul]) == 0:
+                        hdul.append(fits.ImageHDU(name=ext_name))
+                        print(f'appended {attr} {band}')
+                    else: 
+                        if attr == 'model': # go after science
+                            hdul.insert(hdul.index_of(f'{band}_SCIENCE')+1, fits.ImageHDU(name=ext_name))
+                        elif attr == 'residual': # go after model
+                            hdul.insert(hdul.index_of(f'{band}_MODEL')+1, fits.ImageHDU(name=ext_name))
+                        elif attr == 'chi': # go after residual
+                            hdul.insert(hdul.index_of(f'{band}_RESIDUAL')+1, fits.ImageHDU(name=ext_name))
+                        else:
+                            idx = [hdul.index_of(hdu.name) for hdu in hdul if (band.upper() == '_'.join(hdu.name.split('_')[:-1]))][-1] + 1
+                            if idx == len(hdul):
+                                hdul.append(fits.ImageHDU(name=ext_name))
+                            else:
+                                hdul.insert(idx, fits.ImageHDU(name=ext_name))
                 if self.data[band][attr].data.dtype == bool:
                     hdul[ext_name].data = self.data[band][attr].data.astype(int)
                 else:

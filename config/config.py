@@ -110,6 +110,7 @@ EXP_DEV_SIMILAR_THRESH = 0.1
 # Engine
 MAX_STEPS = 50
 DAMPING = 1e-1
+DLNP_CRIT = 1e-3
 
 # Priors and parameters
 MODEL_PRIORS = {  'pos':  0.1 * u.arcsec,
