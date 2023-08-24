@@ -770,10 +770,43 @@ def _clear_h5():
                 pass # Was already closed
 
 
-# def prepare_psf(filename, pixel_scale=None, mask_radius=None, clip_radius=None, norm=None, ext=0):
+def prepare_psf(filename, outfilename=None, pixel_scale=None, mask_radius=None, clip_radius=None, norm=None, ext=0):
+    # NOTE: THESE INPUTS NEED ASTROPY UNITS!
 
-#     hdul = fits.open(filename)
-#     img = hdul[ext].data
+    hdul = fits.open(filename)
+    psfmodel = hdul[ext].data
 
-#     if pixel_scale is None:
+    if pixel_scale is None:
+        w = WCS(hdul[ext].header)
+        pixel_scale = w.proj_plane_pixel_scales[0]
+        hdul[ext].header.update(w.wcs.to_header())
 
+    # estimate plateau
+    if mask_radius is not None:
+        pw, ph = np.shape(psfmodel)
+        cmask = create_circular_mask(pw, ph, radius=mask_radius / pixel_scale)
+        bcmask = ~cmask.astype(bool) & (psfmodel > 0)
+        back_level = np.nanpercentile(psfmodel[bcmask], q=95)
+        print(f'Subtracted back level of {back_level} based on {np.sum(bcmask)} pixels outside {mask_radius}')
+        psfmodel -= back_level
+        psfmodel[(psfmodel < 0) | np.isnan(psfmodel)] = 1e-31
+
+    if clip_radius is not None:
+        psf_rad_pix = int(clip_radius / pixel_scale)
+        print(f'Clipping PSF ({psf_rad_pix}px radius)')
+        psfmodel = psfmodel[int(pw/2.-psf_rad_pix):int(pw/2+psf_rad_pix), int(ph/2.-psf_rad_pix):int(ph/2+psf_rad_pix)]
+        print(f'New shape: {np.shape(psfmodel)}')
+        
+    if norm is not None:
+        norm = psfmodel.sum()
+        print(f'Normalizing PSF (sum = {norm:4.4f})')
+        psfmodel *= norm / np.sum(psfmodel)
+
+    if outfilename is None:
+        outfilename = filename
+
+    hdul[ext].data = psfmodel
+    hdul.writeto(outfilename)
+    print(f'Wrote updated PSF to {outfilename}')
+
+    
