@@ -770,7 +770,7 @@ def _clear_h5():
                 pass # Was already closed
 
 
-def prepare_psf(filename, outfilename=None, pixel_scale=None, mask_radius=None, clip_radius=None, norm=None, ext=0):
+def prepare_psf(filename, outfilename=None, pixel_scale=None, mask_radius=None, clip_radius=None, norm=None, target_pixel_scale=None, ext=0):
     # NOTE: THESE INPUTS NEED ASTROPY UNITS!
 
     hdul = fits.open(filename)
@@ -780,6 +780,12 @@ def prepare_psf(filename, outfilename=None, pixel_scale=None, mask_radius=None, 
         w = WCS(hdul[ext].header)
         pixel_scale = w.proj_plane_pixel_scales[0]
         hdul[ext].header.update(w.wcs.to_header())
+
+    if target_pixel_scale is not None:
+        from scipy.ndimage import zoom
+        zoom_factor = pixel_scale / target_pixel_scale
+        psfmodel = zoom(psfmodel, zoom_factor, order=1)
+        print(f'Resampled image from {pixel_scale}/pixel to {target_pixel_scale}/pixel')
 
     # estimate plateau
     if mask_radius is not None:
