@@ -1640,7 +1640,8 @@ class BaseImage():
                     py = img[:,ipeakx]
                     py_lo = py * (1 - frac)
                     py_hi = py * (1 + frac)
-                    axes[3,1].plot(px, py, color=cmap(i))
+                    axes[3,1].errorbar(px, py, yerr=np.abs(py*frac), c=cmap(i), capsize=0, marker='.', ls='')
+                    axes[3,1].plot(px, py, c=cmap(i), marker='none')
                     if (source_id == 'group') | (sid == source_id):
                         axes[3,1].fill_between(px, py_lo, py_hi, color=cmap(i), alpha=0.5)
 
@@ -1648,7 +1649,8 @@ class BaseImage():
                     py = img[ipeaky]
                     py_lo = py * (1 - frac)
                     py_hi = py * (1 + frac)
-                    axes[3,2].plot(px, py, color=cmap(i))
+                    axes[3,2].errorbar(px, py, yerr=np.abs(py*frac), c=cmap(i), capsize=0, marker='.', ls='')
+                    axes[3,2].plot(px, py, c=cmap(i), marker='none')
                     if (source_id == 'group') | (sid == source_id):
                         axes[3,2].fill_between(px, py_lo, py_hi, color=cmap(i), alpha=0.5)
 
