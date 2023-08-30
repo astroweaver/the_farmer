@@ -124,7 +124,6 @@ class BaseImage():
             psf_path = psflist[psf_idx]
 
         # Try to open
-        print(psf_path)
         if psf_path.endswith('.psf'):
             try:
                 psfmodel = PixelizedPsfEx(fn=psf_path)
@@ -143,9 +142,6 @@ class BaseImage():
             img = img.astype('float32')
             psfmodel = PixelizedPSF(img)
             self.logger.debug(f'PSF model for {band} identified as PixelizedPSF.')
-
-        #HACK
-        psfmodel.img /= np.sum(psfmodel.img)
 
         return psfmodel
 
@@ -1494,8 +1490,9 @@ class BaseImage():
                 axes[3,3].axhline(0.5, ls='dashed', c='grey')
                 axes[3,3].axhline(0.16, ls='dotted', c='grey')
                 axes[3,3].axhline(0.84, ls='dotted', c='grey')
+                img = self.get_image('science', band=band).copy() * np.sqrt(self.get_image('weight', band=band).copy())
                 # axes[3,3].hist(img[groupmap>0].flatten(), color='grey', histtype='step', bins=histbins)
-                xcum, ycum = cumulative(self.get_image('science', band=band).copy()[groupmap>0].flatten())
+                xcum, ycum = cumulative(img[groupmap>0].flatten())
                 axes[3,3].plot(xcum, ycum, color='grey', alpha=0.3)
                 model_patch = []
                 for i, sid in enumerate(source_ids):
@@ -1687,7 +1684,8 @@ class BaseImage():
                 epy = np.where(wgt<=0, 0, 1/np.sqrt(wgt))[peaky]
                 axes[3,2].errorbar(px, py, yerr=epy, c='g', capsize=0, marker='.', ls='')
 
-                xcum, ycum = cumulative(self.get_image('residual', band=band).copy()[groupmap>0].flatten())
+                img = self.get_image('chi', band=band).copy()
+                xcum, ycum = cumulative(img[groupmap>0].flatten())
                 axes[3,3].plot(xcum, ycum, color='grey')
                 # axes[3,3].hist(img[groupmap>0].flatten(), color='grey', histtype='step', bins=histbins)
                 for i, sid in enumerate(source_ids):
@@ -1695,7 +1693,7 @@ class BaseImage():
                         # axes[3,3].hist(img[segmap==sid].flatten(), color=cmap(i), histtype='step', bins=histbins)
                         xcum, ycum = cumulative(img[segmap==sid].flatten())
                         axes[3,3].plot(xcum, ycum, color=cmap(i))
-                axes[3,3].set(xlim=(-2, 2), ylim=(0, 1), xlabel='$\chi$')
+                axes[3,3].set(xlim=(-3, 3), ylim=(0, 1), xlabel='$\chi$')
                 axes[3,3].text(0.05, 0.90, 'CDF($\chi$)', transform=axes[3,3].transAxes, fontweight='bold')
 
                 # science image
@@ -1743,7 +1741,7 @@ class BaseImage():
 
                 # chi
                 img = self.get_image('chi', band=band).copy()   #[src]
-                axes[2,3].imshow(img, cmap='RdGy', norm=Normalize(-3*rms, 3*rms), extent=extent)
+                axes[2,3].imshow(img, cmap='RdGy', norm=Normalize(-3, 3), extent=extent)
                 axes[2,3].text(0.05, 0.90, r'$\chi$', transform=axes[2,3].transAxes, fontweight='bold')
                 axes[2,3].axhline(dims[1] * (-4/10.), xmin, xmax, c='k')
                 axes[2,3].text(target_center, 0.12, f'{target_scale}\"', transform=axes[2,3].transAxes, fontweight='bold', horizontalalignment='center')

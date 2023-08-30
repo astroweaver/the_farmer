@@ -85,6 +85,11 @@ class Group(BaseImage):
 
     def get_bands(self):
         return np.array(self.bands)
+    
+    def farm(self):
+        self.determine_models()
+        self.force_models()
+        self.plot_summary()
 
     def summary(self):
         print(f'Summary of group {self.group_id}')

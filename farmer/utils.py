@@ -799,14 +799,17 @@ def prepare_psf(filename, outfilename=None, pixel_scale=None, mask_radius=None, 
 
     if clip_radius is not None:
         psf_rad_pix = int(clip_radius / pixel_scale)
+        if psf_rad_pix%2 == 0:
+            psf_rad_pix += 0.5
         print(f'Clipping PSF ({psf_rad_pix}px radius)')
         psfmodel = psfmodel[int(pw/2.-psf_rad_pix):int(pw/2+psf_rad_pix), int(ph/2.-psf_rad_pix):int(ph/2+psf_rad_pix)]
         print(f'New shape: {np.shape(psfmodel)}')
         
     if norm is not None:
-        norm = psfmodel.sum()
-        print(f'Normalizing PSF (sum = {norm:4.4f})')
-        psfmodel *= norm / np.sum(psfmodel)
+        print(f'Normalizing PSF to {norm:4.4f} within maximum circle')
+        pw, ph = np.shape(psfmodel)
+        cmask = create_circular_mask(pw, ph, radius=pw/2.).astype(bool)
+        psfmodel *= norm / np.sum(psfmodel[cmask])
 
     if outfilename is None:
         outfilename = filename
@@ -814,5 +817,7 @@ def prepare_psf(filename, outfilename=None, pixel_scale=None, mask_radius=None, 
     hdul[ext].data = psfmodel
     hdul.writeto(outfilename)
     print(f'Wrote updated PSF to {outfilename}')
+
+    return psfmodel
 
     
