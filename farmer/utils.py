@@ -784,7 +784,7 @@ def prepare_psf(filename, outfilename=None, pixel_scale=None, mask_radius=None, 
     if target_pixel_scale is not None:
         from scipy.ndimage import zoom
         zoom_factor = pixel_scale / target_pixel_scale
-        psfmodel = zoom(psfmodel, zoom_factor, order=1)
+        psfmodel = zoom(psfmodel, zoom_factor.value, order=1)
         print(f'Resampled image from {pixel_scale}/pixel to {target_pixel_scale}/pixel')
 
     # estimate plateau
