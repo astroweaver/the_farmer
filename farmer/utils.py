@@ -798,6 +798,7 @@ def prepare_psf(filename, outfilename=None, pixel_scale=None, mask_radius=None, 
         psfmodel[(psfmodel < 0) | np.isnan(psfmodel)] = 1e-31
 
     if clip_radius is not None:
+        pw, ph = np.shape(psfmodel)
         psf_rad_pix = int(clip_radius / pixel_scale)
         if psf_rad_pix%2 == 0:
             psf_rad_pix += 0.5
