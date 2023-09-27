@@ -103,7 +103,7 @@ def load_brick_position(brick_id):
     position = wcs.pixel_to_world(xc, yc)
     upper = wcs.pixel_to_world(xc+brick_width/2., yc+brick_height/2.)
     lower = wcs.pixel_to_world(xc-brick_width/2., yc-brick_height/2.)
-    size = (lower.ra - upper.ra), (upper.dec - lower.dec)
+    size = abs(lower.ra - upper.ra), abs(upper.dec - lower.dec)
 
     logger.debug(f'Brick #{brick_id} found at ({position.ra:2.1f}, {position.dec:2.1f}) with size {size[0]:2.1f} X {size[1]:2.1f}')
     return position, size

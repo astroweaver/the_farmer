@@ -18,7 +18,11 @@ path = f'/n25data1/dawn_cats/farmer_test/data/interim/psfmodels/{BAND}'
 out = path.replace(BAND, f'{BAND}_proc/')
 
 if not os.path.exists(out):
-    os.mkdir(out)
+    if 'ch' in BAND:
+        os.mkdir(out.replace('proc', '_native_proc'))
+        os.mkdir(out.replace('proc', '_resamp_proc'))
+    else:
+	    os.mkdir(out)
 
 for fn in glob.glob(path+'/*'):
 
@@ -40,24 +44,24 @@ for fn in glob.glob(path+'/*'):
                     norm = NORM
                     )
     # IRAC OVERSAMP --> NATIVE
-    elif 'IRAC' in BAND:
+    elif ('ch1' in BAND) | ('ch2' in BAND):
         if 'ch1' in BAND:
             NORM = 0.9371
         elif 'ch2' in BAND:
             NORM = 0.9249
         name = fn.split('/')[-1].replace('oversamp', 'native')
-        psf_proc = prepare_psf(fn, out+name, 
+        psf_proc = prepare_psf(fn, out.replace('proc', '_native_proc')+name,
                     pixel_scale =  0.012 * u.arcsec,
-                    target_pixel_scale = 0.6 * u.arcsec, 
+                    target_pixel_scale = 0.6 * u.arcsec,
                     clip_radius = 10 * u.arcsec,
                     norm = 0.9371 # ch1 - 0.9371 # ch2 - 0.9249 at 10" radius
         )
 
-        # IRAC OVERSAMP --> HSC scale
+	# IRAC OVERSAMP --> HSC scale
         name = fn.split('/')[-1].replace('oversamp', 'resamp')
-        psf_proc = prepare_psf(fn, out+name, 
+        psf_proc = prepare_psf(fn, out.replace('proc', '_resamp_proc')+name,
             pixel_scale =  0.012 * u.arcsec,
-            target_pixel_scale = 0.17 * u.arcsec, 
+            target_pixel_scale = 0.17 * u.arcsec,
             clip_radius = 10 * u.arcsec,
             norm = 0.9371 # ch1 - 0.9371 # ch2 - 0.9249 at 10" radius
             )
