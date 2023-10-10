@@ -453,7 +453,7 @@ class BaseImage():
     def optimize(self):
         self.engine.optimizer = ConstrainedOptimizer()
 
-        cat = self.engine.getCatalog()
+        # cat = self.engine.getCatalog()
 
         self.logger.info('Running engine...')
         tstart = time.time()
@@ -548,7 +548,9 @@ class BaseImage():
         self.engine.bands = list(self.images.keys())
         self.engine.freezeParam('images')
 
-        self.optimize()
+        status = self.optimize()
+        if not status:
+            return False
         self.measure_stats(bands=bands, stage=self.stage) 
         self.store_models()
         if conf.PLOT > 2:
@@ -584,7 +586,7 @@ class BaseImage():
 
             status = self.optimize()
             if not status:
-                return
+                return False
             self.measure_stats(bands=bands, stage=self.stage)
             self.store_models()
             if conf.PLOT > 2:
@@ -603,13 +605,15 @@ class BaseImage():
 
         status = self.optimize()
         if not status:
-            return
+            return False
         self.measure_stats(bands=bands, stage=self.stage) 
         self.store_models()
         if conf.PLOT > 2:
                 self.plot_image(band=bands, imgtype=('science', 'model', 'residual'))     
         if conf.PLOT > 1:
                 self.plot_summary(bands=bands, source_id='group', tag='MODEL')
+
+        return True
 
     def decision_tree(self):
 

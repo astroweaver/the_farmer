@@ -304,8 +304,9 @@ class Brick(BaseImage):
         if not group.rejected:
         
             if mode == 'all':
-                group.determine_models()
-                group.force_models()
+                status = group.determine_models()
+                if status:
+                    group.force_models()
         
             elif mode == 'model':
                 group.determine_models()
