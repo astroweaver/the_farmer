@@ -153,7 +153,7 @@ class Group(BaseImage):
                     if imgtype == 'science':
                         self.wcs[band] = cutout.wcs
                 else:
-                    if imgtype == 'psfmodel':
+                    if imgtype.startswith('psf'):
                         self.data[band][imgtype] = brick.data[band][imgtype]
                     else:
                         self.data[band][imgtype] = brick.data[band][imgtype].copy()

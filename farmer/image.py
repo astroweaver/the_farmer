@@ -103,9 +103,9 @@ class BaseImage():
         # If you run models on a group, I'll always grab the one nearest to the center of the group
 
         if self.type == 'mosaic':
-            psfcoords, psflist = self.data['psfmodel']
+            psfcoords, psflist = self.data['psfcoords'], self.data['psflist']
         else:
-            psfcoords, psflist = self.data[band]['psfmodel']
+            psfcoords, psflist = self.data[band]['psfcoords'], self.data[band]['psflist']
 
         if psfcoords == 'none': # single psf!
             if coord is not None:
