@@ -84,7 +84,7 @@ class Brick(BaseImage):
         for band in self.bands:
             print(f' --- Data {band} ---')
             for imgtype in self.data[band].keys():
-                if imgtype == 'psfmodel': continue
+                if imgtype.startswith('psf'): continue
                 img = self.data[band][imgtype].data
                 tsum, mean, med, std = np.nansum(img), np.nanmean(img), np.nanmedian(img), np.nanstd(img)
                 print(f'  {imgtype} ... {np.shape(img)} ( {tsum:2.2f} / {mean:2.2f} / {med:2.2f} / {std:2.2f})')

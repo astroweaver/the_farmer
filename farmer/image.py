@@ -1110,7 +1110,7 @@ class BaseImage():
 
             
             for imgtype in imgtypes:
-                if imgtype == 'psfmodel':
+                if imgtype.startswith('psf'):
                     continue
 
                 if self.type == 'mosaic':

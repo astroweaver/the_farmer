@@ -100,7 +100,7 @@ class Group(BaseImage):
             print()
             print(f' --- Data {band} ---')
             for imgtype in self.data[band].keys():
-                if imgtype == 'psfmodel':
+                if imgtype.startswith('psf'):
                     continue
                 img = np.copy(self.data[band][imgtype].data)
                 if imgtype == 'weight':

@@ -56,7 +56,7 @@ class Mosaic(BaseImage):
             data_provided = []
             for imgtype in ['science', 'weight', 'mask', 'psfmodel']:
                 if imgtype not in self.properties.keys():
-                    if (imgtype == 'psfmodel') & (band == 'detection'):
+                    if (imgtype.startswith('psf')) & (band == 'detection'):
                         continue
                     self.logger.warning(f'{imgtype} is not configured for {band}!')
                     if imgtype == 'science':
