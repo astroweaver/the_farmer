@@ -459,11 +459,11 @@ class BaseImage():
         tstart = time.time()
         for i in range(conf.MAX_STEPS):
 
-            try:
-                dlnp, X, alpha, var = self.engine.optimize(variance=True, damping=conf.DAMPING)
-            except:
-                self.logger.warning(f'Optimization failed on step {i+1}!')
-                return False
+            # try:
+            dlnp, X, alpha, var = self.engine.optimize(variance=True, damping=conf.DAMPING)
+            # except:
+            #     self.logger.warning(f'Optimization failed on step {i+1}!')
+            #     return False
                 
             self.logger.debug(f'  dlnp: {dlnp:2.5f}')
             if dlnp < conf.DLNP_CRIT:
