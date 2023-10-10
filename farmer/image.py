@@ -411,7 +411,6 @@ class BaseImage():
             for j, band in enumerate(bands):
                 src_seg = self.data[band]['segmap'].data==source_id
                 qflux[j] = np.nansum(self.images[band].data * src_seg)
-            print(conf.BANDS['irac_ch1']['zeropoint'] - 2.5*np.log10(qflux[0]))
             flux = Fluxes(**dict(zip(bands, qflux)), order=bands)
 
             # initial shapes
@@ -460,11 +459,11 @@ class BaseImage():
         tstart = time.time()
         for i in range(conf.MAX_STEPS):
 
-            # try:
-            dlnp, X, alpha, var = self.engine.optimize(variance=True, damping=conf.DAMPING)
-            # except:
-            #     self.logger.warning(f'Optimization failed on step {i+1}!')
-            #     return False
+            try:
+                dlnp, X, alpha, var = self.engine.optimize(variance=True, damping=conf.DAMPING)
+            except:
+                self.logger.warning(f'Optimization failed on step {i+1}!')
+                return False
                 
             self.logger.debug(f'  dlnp: {dlnp:2.5f}')
             if dlnp < conf.DLNP_CRIT:
