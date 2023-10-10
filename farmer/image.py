@@ -945,7 +945,7 @@ class BaseImage():
             tot_rchi2_model = np.sum(rchi2_model_top) / np.sum(rchi2_model_bot)
             self.model_tracker[source_id][stage]['total']['rchisqmodel'] = tot_rchi2_model
             self.model_tracker[source_id][stage]['total']['chisq'] = chi2
-            if not np.isnan(totchi):
+            if not np.isnan(totchi).all():
                 for pc, chi_npc in zip(q_pc, np.nanpercentile(totchi, q=q_pc)):
                     self.model_tracker[source_id][stage]['total'][f'chi_pc{pc}'] = chi_npc
             else:
