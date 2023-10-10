@@ -1856,7 +1856,7 @@ class BaseImage():
         self.logger.debug(f'... adding data to fits')
         for band in self.data:
             for attr in self.data[band]:
-                if attr == 'psfmodel':
+                if attr.startswith('psf'): # skip this stuff.
                     continue
                 ext_name = f'{band}_{attr}'
                 try:
@@ -1879,7 +1879,6 @@ class BaseImage():
                             else:
                                 hdul.insert(idx, fits.ImageHDU(name=ext_name))
                 if self.data[band][attr].data.dtype == bool:
-                    print(band, attr)
                     hdul[ext_name].data = self.data[band][attr].data.astype(int)
                 else:
                     hdul[ext_name].data = self.data[band][attr].data
