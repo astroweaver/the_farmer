@@ -102,10 +102,8 @@ class Mosaic(BaseImage):
             self.n_sources = {}
             self.logger.info(f'Loading {list(self.paths.keys())} for {band}')
             for attr in self.paths.keys():
-                if attr == 'psflist':
+                if attr == 'psfmodel':
                     self.data['psfcoords'], self.data['psflist'] = validate_psfmodel(band)
-                elif attr == 'psfcoords':
-                    continue
                 else:
                     self.data[attr] = fits.getdata(self.paths[attr])
                     self.headers[attr] = fits.getheader(self.paths[attr])
