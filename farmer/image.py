@@ -1171,6 +1171,7 @@ class BaseImage():
 
                             # use groupmap from brick to get position and buffsize
                             group_npix = np.sum(groupmap==group_id) #TODO -- save this somewhere
+                            print(group_id, group_npix, group_npix > 0)
                             assert group_npix > 0, f'No pixels belong to group #{group_id}!'
                             try:
                                 idy, idx = np.array(groupmap==group_id).nonzero()

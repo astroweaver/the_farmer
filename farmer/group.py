@@ -104,7 +104,7 @@ class Group(BaseImage):
                     continue
                 img = np.copy(self.data[band][imgtype].data)
                 if imgtype == 'weight':
-                    img = img[img>0]
+                    img[img == 0] = np.nan
                 tsum, mean, med, std = np.nansum(img), np.nanmean(img), np.nanmedian(img), np.nanstd(img)
                 print(f'  {imgtype} ... {np.shape(img)} ( {tsum:2.2f} / {mean:2.2f} / {med:2.2f} / {std:2.2f})')
             # print(f'--- Properties {band} ---')
