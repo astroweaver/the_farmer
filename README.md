@@ -4,11 +4,8 @@
 
 The code has been used to build a number of galaxy survey catalogs including COSMOS2020 ([Weaver et al. 2022](https://ui.adsabs.harvard.edu/abs/2022ApJS..258...11W/abstract)), SHELA ([Leung et al. 2023](https://ui.adsabs.harvard.edu/abs/2023arXiv230100908L/abstract)), and H20 (Zalesky, in preparation). 
 
-A citable paper will appear shortly in ApJS and ArXiv, an advanced copy of which can be found in docs/.
+For those interested in working with the code highlighted in our [recent paper](https://ui.adsabs.harvard.edu/abs/2023arXiv231007757W/abstract), please check out the branch "TheFarmer_v1" or download it from the release list on the right, but note that this earlier version of the code has since been superceded.
+
+When publishing results using our software, please cite [Weaver et al. 2023](https://ui.adsabs.harvard.edu/abs/2023arXiv231007757W/abstract). A copy of the paper can be found in docs/.
 
 If you are interested in using the code for your own work, we **strongly recommend** that you get in touch with us at [john.weaver.astro@gmail.com](john.weaver.astro@gmail.com). Of course you're welcome to clone and fork at your leisure, but we'd be happy to show you the ropes first!
-
-For users looking for the code as it was developed for the COSMOS2020 catalog and the paper can checkout the 'TheFarmer_v1' branch where the code has been made publicly available in the spirit of transparency as documentation for these catalog papers. The branch is not being actively developed.
-
-
-
