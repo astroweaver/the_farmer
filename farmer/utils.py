@@ -313,24 +313,32 @@ class SimpleGalaxy(ExpGalaxy):
         return super(SimpleGalaxy, self).isParamFrozen(pname) 
 
 
-def reproject_discontinuous(input, out_wcs, out_shape, thresh=0.1):
+def map_discontinuous(input, out_wcs, out_shape, thresh=0.1):
+    # for some resolution regimes, you cannot make a new, complete segmap with the new pixel scale!
     array, in_wcs = input
-    logger = logging.getLogger('farmer.reproject_discontinuous')
-    outarray = np.zeros(out_shape)
-    segs = np.unique(array.flatten())
+    logger = logging.getLogger('farmer.map_discontinuous')
+    segs = np.unique(array.flatten()).astype(int)
     segs = segs[segs!=0]
     sizes = np.array([np.sum(array==segid) for segid in segs])
     zorder = np.argsort(sizes)[::-1]
     sizes = sizes[zorder]
     segs = segs[zorder]
 
-    for seg in tqdm(segs):
-        mask = (array==seg).astype(int)
-        newmask = reproject_interp((mask, in_wcs), out_wcs, out_shape, return_footprint=False)
-        newmask = newmask > thresh
-        outarray[newmask] = seg
+    do_reproject = True
+    if out_shape == np.shape(array):
+        do_reproject = False
 
-    return outarray
+    outdict = {}
+
+    for seg in tqdm(segs):
+        mask = np.zeros_like(array)
+        mask[array == seg] = 1
+        if do_reproject:
+            mask = reproject_interp((mask, in_wcs), out_wcs, out_shape, return_footprint=False)
+        y, x = (mask > thresh).nonzero() # x and y for that segment
+        outdict[seg] = y, x - 1 # HACK
+
+    return outdict
     
 
 def recursively_save_dict_contents_to_group(h5file, dic, path='/'):

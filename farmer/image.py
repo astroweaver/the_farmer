@@ -1,5 +1,5 @@
 import config as conf
-from .utils import clean_catalog, get_fwhm, reproject_discontinuous, SimpleGalaxy, read_wcs, cumulative, set_priors
+from .utils import clean_catalog, get_fwhm, map_discontinuous, SimpleGalaxy, read_wcs, cumulative, set_priors
 from .utils import recursively_save_dict_contents_to_group, recursively_load_dict_contents_from_group, dcoord_to_offset, get_params
 from .utils import get_detection_kernel
 
@@ -90,7 +90,8 @@ class BaseImage():
 
         if self.type == 'mosaic':
             image = self.data[imgtype]
-
+        elif (imgtype in ('segmap', 'groupmap')) & (band != 'detection'):
+            image = self.data[band][imgtype]
         else:
             image = self.data[band][imgtype].data
 
@@ -130,14 +131,14 @@ class BaseImage():
                 self.logger.debug(f'PSF model for {band} identified as PixelizedPsfEx.')
 
             except:
-                img = fits.open(psf_path)[0].data
+                img = fits.getdata(psf_path)
                 img[img<1e-31] = 1e-31
                 img = img.astype('float32')
                 psfmodel = PixelizedPSF(img)
                 self.logger.debug(f'PSF model for {band} identified as PixelizedPSF.')
             
         elif psf_path.endswith('.fits'):
-            img = fits.open(psf_path)[0].data
+            img = fits.getdata(psf_path)
             img[img<1e-31] = 1e-31
             img = img.astype('float32')
             psfmodel = PixelizedPSF(img)
@@ -204,6 +205,7 @@ class BaseImage():
         var = None
         mask = None
         image = self.get_image(imgtype, band) # these are cutouts, remember.
+
         if conf.USE_DETECTION_WEIGHT:
             try:
                 wgt = self.data[band][wgttype].data
@@ -316,11 +318,14 @@ class BaseImage():
 
             data = self.get_image(band=band, imgtype=data_imgtype)
             data[np.isnan(data)] = 0
-            weight = self.get_image(band=band, imgtype='weight')
-            masked = self.get_image(band=band, imgtype='mask')
+            weight = self.get_image(band=band, imgtype='weight').copy()
+            masked = self.get_image(band=band, imgtype='mask').copy()
             if self.type == 'group':
-                groupmap = self.get_image(band=band, imgtype='groupmap')
-                masked |= (groupmap != self.group_id)
+                y, x = self.get_image(band=band, imgtype='groupmap')[self.group_id]
+                filler = np.ones_like(masked)
+                filler[y, x] = False
+                masked[filler] = True
+                del filler
             weight[np.isnan(data) | masked] = 0
 
             if np.sum(weight) == 0:
@@ -409,8 +414,8 @@ class BaseImage():
             # initial fluxes
             qflux = np.zeros(len(bands))
             for j, band in enumerate(bands):
-                src_seg = self.data[band]['segmap'].data==source_id
-                qflux[j] = np.nansum(self.images[band].data * src_seg)
+                src_seg = self.data[band]['segmap'][source_id]
+                qflux[j] = np.nansum(self.images[band].data[src_seg])
             flux = Fluxes(**dict(zip(bands, qflux)), order=bands)
 
             # initial shapes
@@ -785,7 +790,7 @@ class BaseImage():
             for band in bands:
                 groupmap = self.get_image('groupmap', band)
                 segmap = self.get_image('segmap', band)
-                chi = self.get_image('chi', band=band)[groupmap==self.group_id].flatten()
+                chi = self.get_image('chi', band=band)[groupmap[self.group_id]].flatten()
                 totchi += list(chi)
                 chi2, chi_pc = np.sum(chi**2), np.nanpercentile(chi, q=q_pc)
                 if np.isscalar(chi_pc):
@@ -793,10 +798,12 @@ class BaseImage():
                 area = 0
                 for source_id in self.catalogs[self.catalog_band][self.catalog_imgtype]['ID']:
                     data = self.images[band].data.copy()
-                    data[(self.images[band].invvar <= 0) | (segmap != source_id)] = 0
+                    segmask = np.zeros(shape=data.shape, dtype=bool)
+                    segmask[segmap[source_id]] = True
+                    data[(self.images[band].invvar <= 0) | ~segmask] = 0
                     area += get_fwhm(data)**2
                 nres_elem = area / (get_fwhm(self.images[band].psf.img))**2
-                ndata = np.sum(groupmap==self.group_id)
+                ndata = np.sum(self.images[band].invvar[groupmap[self.group_id]] > 0) # number of pixels
                 try:
                     nparam = self.engine.getCatalog().numberOfParams() - np.sum(np.array(bands)!=band)  
                     model_bands = self.engine.bands
@@ -814,9 +821,9 @@ class BaseImage():
                 rchi2 = chi2 / ndof
                 
                 self.logger.info(f'   {band}: chi2/N = {rchi2:2.2f} ({rchi2_model:2.2f})')
-                self.logger.info(f'   {band}: N(data) = {ndata:2.2f} ({nres_elem:2.2f})')
-                self.logger.info(f'   {band}: N(param) = {nparam:2.0f}')
-                self.logger.info(f'   {band}: N(DOF) = {ndof:2.2f}')
+                self.logger.info(f'   {band}: N(data) = {ndata} ({nres_elem})')
+                self.logger.info(f'   {band}: N(param) = {nparam}')
+                self.logger.info(f'   {band}: N(DOF) = {ndof}')
                 self.logger.info(f'   {band}: Med(chi) = {chi_pc[2]:2.2f}')
                 self.logger.info(f'   {band}: Width(chi) = {chi_pc[3]-chi_pc[1]:2.2f}')
                 
@@ -861,9 +868,9 @@ class BaseImage():
             self.model_tracker[self.type][stage]['total']['nres'] = ntotalres_elem
 
             self.logger.info(f'   {band}: chi2/N = {chi2/ndof:2.2f} ({tot_rchi2_model:2.2f})')
-            self.logger.info(f'   {band}: N(data) = {ntotal_pix:2.2f} ({ntotalres_elem:2.2f})')
-            self.logger.info(f'   {band}: N(param) = {nparam:2.0f}')
-            self.logger.info(f'   {band}: N(DOF) = {ndof:2.2f}')
+            self.logger.info(f'   {band}: N(data) = {ntotal_pix} ({ntotalres_elem})')
+            self.logger.info(f'   {band}: N(param) = {nparam}')
+            self.logger.info(f'   {band}: N(DOF) = {ndof}')
             self.logger.info(f'   {band}: Med(chi) = {chi_pc[2]:2.2f}')
             self.logger.info(f'   {band}: Width(chi) = {chi_pc[3]-chi_pc[1]:2.2f}')
 
@@ -887,15 +894,17 @@ class BaseImage():
             rchi2_model_bot = []
             for band in bands:
                 segmap = self.get_image('segmap', band)
-                chi = self.get_image('chi', band=band)[segmap==source_id].flatten()
+                chi = self.get_image('chi', band=band)[segmap[source_id]].flatten()
                 totchi += list(chi)
                 chi2, chi_pc = np.nansum(chi**2), np.nanpercentile(chi, q=q_pc)
                 if np.isscalar(chi_pc):
                     chi_pc = np.nan * np.ones(len(q_pc))
                 
                 data = self.images[band].data.copy()
-                data[(self.images[band].invvar <= 0) | (segmap != source_id)] = 0
-                ndata = np.nansum(segmap == source_id).astype(np.int32)
+                segmask = np.zeros(shape=data.shape, dtype=bool)
+                segmask[segmap[source_id]] = True
+                data[(self.images[band].invvar <= 0) | ~segmask] = 0
+                ndata = len(segmap[source_id][0]) # number of pixels
                 nres_elem = (get_fwhm(data) / get_fwhm(self.images[band].psf.img))**2
                 try:
                     nparam = self.model_catalog[source_id].numberOfParams() - np.nansum(np.array(bands)!=band).astype(np.int32)
@@ -914,9 +923,9 @@ class BaseImage():
                 rchi2 = chi2 / ndof
                 
                 self.logger.info(f'   {band}: chi2/N = {rchi2:2.2f} ({rchi2_model:2.2f})')
-                self.logger.info(f'   {band}: N(data) = {ndata:2.2f} ({nres_elem:2.2f})')
-                self.logger.info(f'   {band}: N(param) = {nparam:2.0f}')
-                self.logger.info(f'   {band}: N(DOF) = {ndof:2.2f}')
+                self.logger.info(f'   {band}: N(data) = {ndata} ({nres_elem})')
+                self.logger.info(f'   {band}: N(param) = {nparam}')
+                self.logger.info(f'   {band}: N(DOF) = {ndof}')
                 self.logger.info(f'   {band}: Med(chi) = {chi_pc[2]:2.2f}')
                 self.logger.info(f'   {band}: Width(chi) = {chi_pc[3]-chi_pc[1]:2.2f}')
 
@@ -964,9 +973,9 @@ class BaseImage():
             self.model_tracker[source_id][stage]['total']['nres'] = ntotalres_elem
 
             self.logger.info(f'   {band}: chi2/N = {chi2/ndof:2.2f} ({tot_rchi2_model:2.2f})')
-            self.logger.info(f'   {band}: N(data) = {ntotal_pix:2.2f} ({ntotalres_elem:2.2f})')
-            self.logger.info(f'   {band}: N(param) = {nparam:2.0f}')
-            self.logger.info(f'   {band}: N(DOF) = {ndof:2.2f}')
+            self.logger.info(f'   {band}: N(data) = {ntotal_pix} ({ntotalres_elem})')
+            self.logger.info(f'   {band}: N(param) = {nparam}')
+            self.logger.info(f'   {band}: N(DOF) = {ndof}')
             self.logger.info(f'   {band}: Med(chi) = {chi_pc[2]:2.2f}')
             self.logger.info(f'   {band}: Width(chi) = {chi_pc[3]-chi_pc[1]:2.2f}')
 
@@ -1138,7 +1147,7 @@ class BaseImage():
                     if vmax < rms:
                         vmax = 3*rms
                     norm = LogNorm(rms, vmax)
-                    options = dict(cmap='Greys', norm=norm)
+                    options = dict(cmap='Greys', norm=norm, origin='lower')
                     im = ax.imshow(image - background, **options)
                     fig.colorbar(im, orientation="horizontal", pad=0.2)
                     pixscl = self.pixel_scales[band][0].to(u.deg).value, self.pixel_scales[band][1].to(u.deg).value
@@ -1170,13 +1179,12 @@ class BaseImage():
                         for group_id in tqdm(self.group_ids[catalog_band][catalog_imgtype]):
 
                             # use groupmap from brick to get position and buffsize
-                            group_npix = np.sum(groupmap==group_id) #TODO -- save this somewhere
-                            print(group_id, group_npix, group_npix > 0)
+                            if band == 'detection':
+                                idy, idx = (groupmap==group_id).nonzero()
+                            else:
+                                idy, idx = groupmap[group_id]
+                            group_npix = len(idx)
                             assert group_npix > 0, f'No pixels belong to group #{group_id}!'
-                            try:
-                                idy, idx = np.array(groupmap==group_id).nonzero()
-                            except:
-                                raise RuntimeError(f'Cannot extract dimensions of Group #{group_id}!')
                             xlo, xhi = np.min(idx), np.max(idx) + 1
                             ylo, yhi = np.min(idy), np.max(idy) + 1
                             group_width = xhi - xlo
@@ -1202,7 +1210,7 @@ class BaseImage():
                     fig = plt.figure(figsize=(20,20))
                     ax = fig.add_subplot(projection=self.get_wcs(band))
                     ax.set_title(f'{band} {imgtype} {tag}')
-                    options = dict(cmap='RdGy', vmin=-5*self.get_property('clipped_rms', band=band), vmax=5*self.get_property('clipped_rms', band=band))
+                    options = dict(cmap='RdGy', vmin=-5*self.get_property('clipped_rms', band=band), vmax=5*self.get_property('clipped_rms', band=band), origin='lower')
                     im = ax.imshow(image - background, **options)
                     fig.colorbar(im, orientation="horizontal", pad=0.2)
                     if self.type == 'brick':
@@ -1256,6 +1264,8 @@ class BaseImage():
                     fig.tight_layout()
             
                 if imgtype in ('segmap', 'groupmap'):
+                    if band != 'detection':
+                       self.logger.warning(f'plot_image for {band} {imgtype} is NOT IMPLEMENTED YET.')
                     if np.sum(image!=0) == 0:
                         continue
                     options = dict(cmap='prism', vmin=np.min(image[image!=0]), vmax=np.max(image))
@@ -1296,7 +1306,7 @@ class BaseImage():
             pixscl = (self.pixel_scales[band][0]).to(u.arcsec).value
             fig, ax = plt.subplots(ncols=3, figsize=(30,10))
             norm = LogNorm(1e-8, 0.1*np.nanmax(psfmodel), clip='True')
-            img_opt = dict(cmap='Blues', norm=norm)
+            img_opt = dict(cmap='Blues', norm=norm, origin='lower')
             ax[0].imshow(psfmodel, **img_opt, extent=pixscl *np.array([-np.shape(psfmodel)[0]/2,  np.shape(psfmodel)[0]/2, -np.shape(psfmodel)[0]/2,  np.shape(psfmodel)[0]/2,]))
             ax[0].set(xlim=(-15,15), ylim=(-15, 15))
             ax[0].axvline(0, color='w', ls='dotted')
@@ -1418,10 +1428,9 @@ class BaseImage():
 
                 
 
-                groupmap = self.get_image('groupmap', band=band).copy()
-                segmap = self.get_image('segmap', band=band).copy()
-                source_ids = np.unique(segmap)
-                source_ids = source_ids[source_ids>0]
+                groupmap = self.get_image('groupmap', band=band)
+                segmap = self.get_image('segmap', band=band)
+                source_ids = [sid for sid in segmap.keys()]
                 cmap = plt.get_cmap('rainbow', len(source_ids))
                 pixscl = self.pixel_scales[band]
                 histbins = np.linspace(-3, 3, 20)
@@ -1437,7 +1446,7 @@ class BaseImage():
                 else:
                     ira, idec = catalog['ra'][catalog['ID'] == source_id], catalog['dec'][catalog['ID'] == source_id]
                     position = SkyCoord(ira, idec)
-                    idx, idy = np.array(segmap==source_id).nonzero()
+                    idx, idy = segmap[source_id]
                     xlo, xhi = np.min(idx), np.max(idx)
                     ylo, yhi = np.min(idy), np.max(idy)
                     group_width = xhi - xlo
@@ -1462,8 +1471,6 @@ class BaseImage():
 
                 dims = (xlim[1]-xlim[0], ylim[1]-ylim[0])
 
-                segmap = segmap   #[src]
-
                 pos = dims[0] * (-4/10.), dims[1] * (-4/10.)
                 for ax in axes[0:3,:].flatten():
                     if ax in axes[0, 1:3].flatten():
@@ -1483,7 +1490,7 @@ class BaseImage():
                 rms = self.get_property('clipped_rms', band=band)
                 vmax = np.nanmax(img)
                 vmin = self.get_property('median', band=band)
-                axes[0,0].imshow(img, cmap='RdGy', norm=SymLogNorm(rms, 0.5, -vmax, vmax), extent=extent)
+                axes[0,0].imshow(img, cmap='RdGy', norm=SymLogNorm(rms, 0.5, -vmax, vmax), extent=extent, origin='lower')
                 axes[0,0].text(0.05, 0.90, bandname, transform=axes[0,0].transAxes, fontweight='bold')
                 target_scale = np.round(self.pixel_scales[band][0].to(u.arcsec).value * dims[0] / 3.).astype(int) # arcsec
                 target_scale = np.max([1, target_scale])
@@ -1500,13 +1507,13 @@ class BaseImage():
                 axes[3,3].axhline(0.84, ls='dotted', c='grey')
                 img = self.get_image('science', band=band).copy() * np.sqrt(self.get_image('weight', band=band).copy())
                 # axes[3,3].hist(img[groupmap>0].flatten(), color='grey', histtype='step', bins=histbins)
-                xcum, ycum = cumulative(img[groupmap>0].flatten())
+                xcum, ycum = cumulative(img[groupmap[self.group_id][0], groupmap[self.group_id][1]])
                 axes[3,3].plot(xcum, ycum, color='grey', alpha=0.3)
                 model_patch = []
                 for i, sid in enumerate(source_ids):
                     # axes[3,3].hist(img[segmap==sid].flatten(), color=cmap(i), histtype='step', bins=histbins)
                     if (source_id == 'group') or (sid == source_id):
-                        xcum, ycum = cumulative(img[segmap==sid].flatten())
+                        xcum, ycum = cumulative(img[segmap[sid][0], segmap[sid][1]])
                         axes[3,3].plot(xcum, ycum, color=cmap(i), alpha=0.3)
                     if source_id == 'group':
                         center_position = self.position
@@ -1560,14 +1567,14 @@ class BaseImage():
                     img -= background
                     srms = self.get_property('clipped_rms', band='detection')
                     svmax = np.nanmax(img)
-                    axes[0,3].imshow(img, cmap='RdGy', norm=SymLogNorm(srms, 0.5, -svmax, svmax), extent=extent)
+                    axes[0,3].imshow(img, cmap='RdGy', norm=SymLogNorm(srms, 0.5, -svmax, svmax), extent=extent, origin='lower')
                     axes[0,3].text(0.05, 0.90, 'detection', transform=axes[0,3].transAxes, fontweight='bold')
                     axes[0,3].axhline(dims[1] * (-4/10.), xmin, xmax, c='k')
                     axes[0,3].text(target_center, 0.12, f'{target_scale}\"', transform=axes[0,3].transAxes, fontweight='bold', horizontalalignment='center')
 
                 # science image
                 img = self.get_image('science', band=band).copy()   #[src]
-                axes[1,0].imshow(img, cmap='Greys', norm=LogNorm(vmin, vmax), extent=extent)
+                axes[1,0].imshow(img, cmap='Greys', norm=LogNorm(vmin, vmax), extent=extent, origin='lower')
                 axes[1,0].text(0.05, 0.90, 'Science', transform=axes[1,0].transAxes, fontweight='bold')
                 axes[1,0].axhline(dims[1] * (-4/10.), xmin, xmax, c='k')
                 axes[1,0].text(target_center, 0.12, f'{target_scale}\"', transform=axes[1,0].transAxes, fontweight='bold', horizontalalignment='center')
@@ -1577,6 +1584,7 @@ class BaseImage():
                 wgt = self.get_image('weight', band=band).copy()   #[src]
                 epy = np.where(wgt<=0, 0, 1/np.sqrt(wgt))[:,peakx]
                 max1 = np.nanmax(py + 3*epy)
+
                 axes[3,1].errorbar(px[epy>0], py[epy>0], yerr=epy[epy>0], c='k', capsize=0, marker='.', ls='')
                 axes[3,1].errorbar(px[epy==0], py[epy==0], yerr=epy[epy==0], mfc='none', mec='k', capsize=0, marker='.', ls='')
                 axes[3,1].axvline(0, ls='dashed', c='grey')
@@ -1598,12 +1606,14 @@ class BaseImage():
                 axes[3,2].axhline(rms, ls='dotted', c='grey')
                 axes[3,2].text(0.05, 0.90, f'$Y=0$ Slice', transform=axes[3,2].transAxes, fontweight='bold')
 
+                if np.isnan(max1): max1 = 0
+                if np.isnan(max2): max2 = 0
                 axes[3,1].set(xlim=xlim, xlabel='arcsec', ylim=(-3*rms, np.max([max1, max2])))
                 axes[3,2].set(xlim=ylim, xlabel='arcsec', ylim=(-3*rms, np.max([max1, max2])))
 
                 # model image
                 img = self.get_image('model', band=band).copy()   #[src]
-                axes[1,1].imshow(img, cmap='Greys', norm=LogNorm(vmin, vmax), extent=extent)
+                axes[1,1].imshow(img, cmap='Greys', norm=LogNorm(vmin, vmax), extent=extent, origin='lower')
                 axes[1,1].text(0.05, 0.90, 'Model', transform=axes[1,1].transAxes, fontweight='bold')
                 axes[1,1].axhline(dims[1] * (-4/10.), xmin, xmax, c='k')
                 axes[1,1].text(target_center, 0.12, f'{target_scale}\"', transform=axes[1,1].transAxes, fontweight='bold', horizontalalignment='center')
@@ -1677,7 +1687,7 @@ class BaseImage():
 
                 # residual image
                 img = self.get_image('residual', band=band).copy()   #[src]
-                axes[1,2].imshow(img, cmap='RdGy', norm=Normalize(-3*rms, 3*rms), extent=extent)
+                axes[1,2].imshow(img, cmap='RdGy', norm=Normalize(-3*rms, 3*rms), extent=extent, origin='lower')
                 axes[1,2].text(0.05, 0.90, 'Residual', transform=axes[1,2].transAxes, fontweight='bold')
                 axes[1,2].axhline(dims[1] * (-4/10.), xmin, xmax, c='k')
                 axes[1,2].text(target_center, 0.12, f'{target_scale}\"', transform=axes[1,2].transAxes, fontweight='bold', horizontalalignment='center')
@@ -1695,20 +1705,20 @@ class BaseImage():
                 axes[3,2].errorbar(px, py, yerr=epy, c='g', capsize=0, marker='.', ls='')
 
                 img = self.get_image('chi', band=band).copy()
-                xcum, ycum = cumulative(img[groupmap>0].flatten())
+                xcum, ycum = cumulative(img[groupmap[self.group_id][0], groupmap[self.group_id][1]])
                 axes[3,3].plot(xcum, ycum, color='grey')
                 # axes[3,3].hist(img[groupmap>0].flatten(), color='grey', histtype='step', bins=histbins)
                 for i, sid in enumerate(source_ids):
                     if (source_id == 'group') or (sid == source_id):
                         # axes[3,3].hist(img[segmap==sid].flatten(), color=cmap(i), histtype='step', bins=histbins)
-                        xcum, ycum = cumulative(img[segmap==sid].flatten())
+                        xcum, ycum = cumulative(img[segmap[sid][0], segmap[sid][1]])
                         axes[3,3].plot(xcum, ycum, color=cmap(i))
                 axes[3,3].set(xlim=(-3, 3), ylim=(0, 1), xlabel='$\chi$')
                 axes[3,3].text(0.05, 0.90, 'CDF($\chi$)', transform=axes[3,3].transAxes, fontweight='bold')
 
                 # science image
                 img = self.get_image('science', band=band).copy()   #[src]
-                axes[1,3].imshow(img, cmap='RdGy', norm=Normalize(-3*rms, 3*rms), extent=extent)
+                axes[1,3].imshow(img, cmap='RdGy', norm=Normalize(-3*rms, 3*rms), extent=extent, origin='lower')
                 axes[1,3].text(0.05, 0.90, 'Science', transform=axes[1,3].transAxes, fontweight='bold')
                 axes[1,3].axhline(dims[1] * (-4/10.), xmin, xmax, c='k')
                 axes[1,3].text(target_center, 0.12, f'{target_scale}\"', transform=axes[1,3].transAxes, fontweight='bold', horizontalalignment='center')
@@ -1717,7 +1727,7 @@ class BaseImage():
                 img = self.get_image('weight', band=band).copy()   #[src]
                 vmax = np.nanmax(img)
                 vmin = np.nanmin(img)
-                axes[2,0].imshow(img, cmap='Greys', norm=Normalize(vmin, vmax), extent=extent)
+                axes[2,0].imshow(img, cmap='Greys', norm=Normalize(vmin, vmax), extent=extent, origin='lower')
                 axes[2,0].text(0.05, 0.90, 'Weight', transform=axes[2,0].transAxes, fontweight='bold')
                 axes[2,0].axhline(dims[1] * (-4/10.), xmin, xmax, c='k')
                 axes[2,0].text(target_center, 0.12, f'{target_scale}\"', transform=axes[2,0].transAxes, fontweight='bold', horizontalalignment='center')
@@ -1725,7 +1735,7 @@ class BaseImage():
                 # background
                 img = self.get_image('background', band=band).copy()   #[src]
                 vmin, vmax = np.nanmin(img), np.nanmax(img)
-                axes[2,1].imshow(img, cmap='Greys', norm=Normalize(vmin, vmax), extent=extent)
+                axes[2,1].imshow(img, cmap='Greys', norm=Normalize(vmin, vmax), extent=extent, origin='lower')
                 backtype = self.get_property('backtype', band=band)
                 backregion = self.get_property('backregion', band=band)
                 axes[2,1].text(0.05, 0.90, f'Background ({backtype}, {backregion})', transform=axes[2,1].transAxes, fontweight='bold')
@@ -1733,8 +1743,9 @@ class BaseImage():
                 axes[2,1].text(target_center, 0.12, f'{target_scale}\"', transform=axes[2,1].transAxes, fontweight='bold', horizontalalignment='center')
 
                 # mask image
-                img = self.get_image('groupmap', band=band).copy()   #[src]
-                img[img > 0] = 1
+                img = self.get_image('mask', band=band).copy()   #[src]
+                y, x = self.get_image(band=band, imgtype='groupmap')[self.group_id]
+                img[y, x] = 1
                 colors = ['white','grey']
                 bounds = [0, 1, 2]
                 for i, sid in enumerate(source_ids):
@@ -1744,14 +1755,14 @@ class BaseImage():
                 # make a color map of fixed colors
                 cust_cmap = ListedColormap(colors)
                 norm = BoundaryNorm(bounds, cust_cmap.N)
-                axes[2,2].imshow(img, cmap=cust_cmap, norm=norm, extent=extent)
+                axes[2,2].imshow(img, cmap=cust_cmap, norm=norm, extent=extent, origin='lower', origin='lower')
                 axes[2,2].text(0.05, 0.90, 'Pixel Assignment', transform=axes[2,2].transAxes, fontweight='bold')
                 axes[2,2].axhline(dims[1] * (-4/10.), xmin, xmax, c='k')
                 axes[2,2].text(target_center, 0.12, f'{target_scale}\"', transform=axes[2,2].transAxes, fontweight='bold', horizontalalignment='center')
 
                 # chi
                 img = self.get_image('chi', band=band).copy()   #[src]
-                axes[2,3].imshow(img, cmap='RdGy', norm=Normalize(-3, 3), extent=extent)
+                axes[2,3].imshow(img, cmap='RdGy', norm=Normalize(-3, 3), extent=extent, origin='lower', origin='lower')
                 axes[2,3].text(0.05, 0.90, r'$\chi$', transform=axes[2,3].transAxes, fontweight='bold')
                 axes[2,3].axhline(dims[1] * (-4/10.), xmin, xmax, c='k')
                 axes[2,3].text(target_center, 0.12, f'{target_scale}\"', transform=axes[2,3].transAxes, fontweight='bold', horizontalalignment='center')
@@ -1798,28 +1809,33 @@ class BaseImage():
         for band in bands:
             if band == 'detection':
                 continue
+            if ('segmap' in self.data[band]) & ('groupmap' in self.data[band]):
+                self.logger.debug(f'Transferred segmap and groupmap for {band} already exists! Skipping.')
+                continue
             pixscl = np.array([self.pixel_scales[band][0].value, self.pixel_scales[band][1].value])
             scale_factor = np.array(catalog_pixscl / pixscl)
 
-            if np.all(np.isclose(scale_factor, 1)):
-                self.data[band]['segmap'] = self.data[catalog_band]['segmap']
-                self.data[band]['groupmap'] = self.data[catalog_band]['groupmap']
-                self.logger.debug(f'Copied maps of {catalog_band} to {band}')
+            already_made = False
+            for mband in self.bands:
+                if mband == 'detection': continue
+                if 'groupmap' in self.data[mband]:
+                    mpixscl = np.array([self.pixel_scales[mband][0].value, self.pixel_scales[mband][1].value])
+                    if np.all(pixscl == mpixscl):
+                        already_made = True
+                        break
+                    
+            if already_made:
+                self.logger.debug(f'Mapping for segmap and groupmap of {catalog_band} to {band} already exists!')
+                self.logger.debug(f'Using the {mband} mapping for {band}')
+                self.data[band]['segmap']= self.data[mband]['segmap']
+                self.data[band]['groupmap'] = self.data[mband]['groupmap']
+                self.logger.debug(f'Copied maps for segmap and groupmap of {catalog_band} to {band} by {scale_factor}')
+            
             else:
-                self.logger.debug(f'Rescaling maps of {band} from {pixscl} --> {catalog_pixscl}')
-                self.data[band]['segmap'] = Cutout2D(np.zeros_like(self.data[band]['science'].data), self.position, self.buffsize, self.wcs[band], mode='partial', fill_value = 0)
-                self.data[band]['segmap'].data = reproject_discontinuous((segmap.data, segmap.wcs), self.wcs[band], np.shape(self.data[band]['segmap'].data))
-                self.data[band]['groupmap'] = Cutout2D(np.zeros_like(self.data[band]['science'].data), self.position, self.buffsize, self.wcs[band], mode='partial', fill_value = 0)
-                self.data[band]['groupmap'].data = reproject_discontinuous((groupmap.data, groupmap.wcs), self.wcs[band], np.shape(self.data[band]['segmap'].data))
-                self.logger.debug(f'Rescaled maps of {catalog_band} to {band} by {scale_factor} ({pixscl} --> {self.pixel_scales[band]})')
-
-            # Clean up
-            if self.type == 'group':
-                ingroup = self.data[band]['groupmap'].data == self.group_id
-                self.data[band]['mask'].data[~ingroup] = True
-                self.data[band]['weight'].data[~ingroup] = 0
-                self.data[band]['segmap'].data[~ingroup] = 0
-                self.data[band]['groupmap'].data[~ingroup] = 0
+                self.logger.debug(f'Creating mapping for segmap and groupmap of {catalog_band} to {band}')
+                self.data[band]['segmap']= map_discontinuous((segmap.data, segmap.wcs), self.wcs[band], np.shape(self.data[band]['science'].data))
+                self.data[band]['groupmap'] = map_discontinuous((groupmap.data, groupmap.wcs), self.wcs[band], np.shape(self.data[band]['science'].data))
+                self.logger.debug(f'Created maps for segmap and groupmap of {catalog_band} to {band} by {scale_factor}')
 
     def write(self, filetype=None, allow_update=False, filename=None):
         if (filetype is None):
@@ -1886,6 +1902,8 @@ class BaseImage():
                                 hdul.append(fits.ImageHDU(name=ext_name))
                             else:
                                 hdul.insert(idx, fits.ImageHDU(name=ext_name))
+                if not hasattr(self.data[band][attr], 'data'):
+                    continue # segmap + groupmappings
                 if self.data[band][attr].data.dtype == bool:
                     hdul[ext_name].data = self.data[band][attr].data.astype(int)
                 else:

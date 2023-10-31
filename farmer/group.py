@@ -100,9 +100,9 @@ class Group(BaseImage):
             print()
             print(f' --- Data {band} ---')
             for imgtype in self.data[band].keys():
-                if imgtype.startswith('psf'):
+                if imgtype.startswith('psf') | (imgtype in ('groupmap', 'segmap')):
                     continue
-                img = np.copy(self.data[band][imgtype].data)
+                img = self.get_image(imgtype, band)
                 if imgtype == 'weight':
                     img[img == 0] = np.nan
                 tsum, mean, med, std = np.nansum(img), np.nanmean(img), np.nanmedian(img), np.nanstd(img)
@@ -135,14 +135,17 @@ class Group(BaseImage):
 
             # Loop over provided data
             for imgtype in brick.data[band].keys():
-                if imgtype in ('science', 'weight', 'mask', 'background', 'segmap', 'groupmap', 'back', 'rms', 'model', 'residual', 'chi'):
+                if imgtype in ('science', 'weight', 'mask', 'segmap', 'groupmap', 'background', 'back', 'rms', 'model', 'residual', 'chi'):
                     fill_value = np.nan
-                    if imgtype in ('segmap', 'groupmap', 'mask'):
+                    if imgtype == 'mask':
                         fill_value = True
-                    cutout = Cutout2D(brick.data[band][imgtype].data, self.position, self.buffsize, wcs=brick.data[band][imgtype].wcs,
-                                    mode='partial', fill_value = fill_value, copy=True)
-                    self.logger.debug(f'... data \"{imgtype}\" subimage cut from {band} at {cutout.input_position_original}')
-                    self.data[band][imgtype] = cutout
+                    elif imgtype in ('segmap', 'groupmap'):
+                        fill_value = 0
+                    if (imgtype not in ('segmap', 'groupmap')) | ((imgtype in ('segmap', 'groupmap')) & (band == 'detection')):
+                        cutout = Cutout2D(brick.data[band][imgtype].data, self.position, self.buffsize, wcs=brick.data[band][imgtype].wcs,
+                                        mode='partial', fill_value = fill_value, copy=True)
+                        self.logger.debug(f'... data \"{imgtype}\" subimage cut from {band} at {cutout.input_position_original}')
+                        self.data[band][imgtype] = cutout
                     if imgtype in ('science', 'weight', 'mask'):
                         self.headers[band][imgtype] = brick.headers[band][imgtype] #TODO update WCS!
                     if imgtype in brick.catalogs[band].keys():
@@ -150,19 +153,36 @@ class Group(BaseImage):
                         self.catalogs[band][imgtype] = catalog[catalog['group_id'] == self.group_id]
                         self.n_sources[band][imgtype] = len(self.catalogs[band][imgtype])
 
+                    if (imgtype == 'groupmap') & (band != 'detection'):
+                        groupmap = brick.data[band]['groupmap']
+                        self.data[band]['groupmap'] = {}
+                        self.data[band]['groupmap'][self.group_id] = groupmap[self.group_id] \
+                            - np.array([cutout.origin_original[1], cutout.origin_original[0]])[:, None]
+                        self.logger.debug(f'... data \"groupmap\" adopted from brick')
+
+                    if (imgtype == 'segmap') & (band != 'detection'):
+                        segmap = brick.data[band]['segmap']
+                        self.data[band]['segmap'] = {}
+                        for source_id in self.catalogs['detection']['science']['ID']: # This is sort of hard coded...
+                            self.data[band]['segmap'][source_id] = segmap[source_id] \
+                                - np.array([cutout.origin_original[1], cutout.origin_original[0]])[:, None]
+                        self.logger.debug(f'... data \"segmap\" adopted from brick')
+
                     if imgtype == 'science':
                         self.wcs[band] = cutout.wcs
+
                 else:
                     if imgtype.startswith('psf'):
                         self.data[band][imgtype] = brick.data[band][imgtype]
                     else:
-                        self.data[band][imgtype] = brick.data[band][imgtype].copy()
+                        print(band, imgtype)
+                        self.data[band][imgtype] = brick.data[band][imgtype]
                     self.logger.debug(f'... data \"{imgtype}\" adopted from brick')
 
-            # Clean up
-            if 'groupmap' in self.data[band].keys():
-                ingroup = self.data[band]['groupmap'].data == self.group_id
-                self.data[band]['mask'].data[~ingroup] = True
-                self.data[band]['weight'].data[~ingroup] = 0
-                self.data[band]['segmap'].data[~ingroup] = 0
-                self.data[band]['groupmap'].data[~ingroup] = 0
+            # # Clean up
+            # if 'groupmap' in self.data[band].keys():
+            #     ingroup = self.data[band]['groupmap'].data == self.group_id
+            #     self.data[band]['mask'].data[~ingroup] = True
+            #     self.data[band]['weight'].data[~ingroup] = 0
+            #     self.data[band]['segmap'].data[~ingroup] = 0
+            #     self.data[band]['groupmap'].data[~ingroup] = 0

@@ -114,7 +114,7 @@ class Brick(BaseImage):
 
         # Loop over provided data
         for imgtype in mosaic.data.keys():
-            if imgtype in ('science', 'weight', 'mask', 'segmap', 'groupmap', 'background', 'rms', 'model', 'residual', 'chi'):
+            if imgtype in ('science', 'weight', 'mask','background', 'rms', 'model', 'residual', 'chi'):
                 fill_value = np.nan
                 if imgtype == 'mask':
                     fill_value = True
@@ -128,6 +128,8 @@ class Brick(BaseImage):
                     self.wcs[mosaic.band] = cutout.wcs
                     self.pixel_scales[mosaic.band] = proj_plane_pixel_scales(cutout.wcs) * u.deg
                     self.estimate_properties(band=mosaic.band, imgtype=imgtype)
+            elif imgtype in ('segmap', 'groupmap'):
+                self.transfer_maps()
             else:
                 self.data[mosaic.band][imgtype] = mosaic.data[imgtype]
                 self.logger.debug(f'... data \"{imgtype}\" adopted from mosaic')
@@ -258,8 +260,8 @@ class Brick(BaseImage):
             for stage, stats in self.model_tracker_groups[group_id].items():
                 group.model_tracker['group'][stage] = stats
 
-        # transfer maps
-        group.transfer_maps()
+        # # transfer maps
+        # group.transfer_maps(group_id=group_id)
 
         # Return it
         return group
@@ -274,6 +276,9 @@ class Brick(BaseImage):
 
         if conf.PLOT > 1:
             self.plot_image(imgtype='science')
+
+        # transfer maps
+        self.transfer_maps()
 
         return self.catalogs[band][imgtype]
 
