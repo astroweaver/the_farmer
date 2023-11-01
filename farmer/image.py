@@ -1883,6 +1883,8 @@ class BaseImage():
             for attr in self.data[band]:
                 if attr.startswith('psf'): # skip this stuff.
                     continue
+                if (band != 'detection') & ('map' in attr):
+                    continue
                 ext_name = f'{band}_{attr}'
                 try:
                     hdul[ext_name]
