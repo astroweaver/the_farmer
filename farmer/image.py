@@ -1884,6 +1884,7 @@ class BaseImage():
                 if attr.startswith('psf'): # skip this stuff.
                     continue
                 if (band != 'detection') & ('map' in attr):
+                    print(f'Writing {attr} for {band} is not possible.')
                     continue
                 ext_name = f'{band}_{attr}'
                 try:
