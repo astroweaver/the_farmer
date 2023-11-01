@@ -1755,14 +1755,14 @@ class BaseImage():
                 # make a color map of fixed colors
                 cust_cmap = ListedColormap(colors)
                 norm = BoundaryNorm(bounds, cust_cmap.N)
-                axes[2,2].imshow(img, cmap=cust_cmap, norm=norm, extent=extent, origin='lower', origin='lower')
+                axes[2,2].imshow(img, cmap=cust_cmap, norm=norm, extent=extent, origin='lower')
                 axes[2,2].text(0.05, 0.90, 'Pixel Assignment', transform=axes[2,2].transAxes, fontweight='bold')
                 axes[2,2].axhline(dims[1] * (-4/10.), xmin, xmax, c='k')
                 axes[2,2].text(target_center, 0.12, f'{target_scale}\"', transform=axes[2,2].transAxes, fontweight='bold', horizontalalignment='center')
 
                 # chi
                 img = self.get_image('chi', band=band).copy()   #[src]
-                axes[2,3].imshow(img, cmap='RdGy', norm=Normalize(-3, 3), extent=extent, origin='lower', origin='lower')
+                axes[2,3].imshow(img, cmap='RdGy', norm=Normalize(-3, 3), extent=extent, origin='lower')
                 axes[2,3].text(0.05, 0.90, r'$\chi$', transform=axes[2,3].transAxes, fontweight='bold')
                 axes[2,3].axhline(dims[1] * (-4/10.), xmin, xmax, c='k')
                 axes[2,3].text(target_center, 0.12, f'{target_scale}\"', transform=axes[2,3].transAxes, fontweight='bold', horizontalalignment='center')
