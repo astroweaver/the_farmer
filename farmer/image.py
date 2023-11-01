@@ -1266,6 +1266,7 @@ class BaseImage():
                 if imgtype in ('segmap', 'groupmap'):
                     if band != 'detection':
                        self.logger.warning(f'plot_image for {band} {imgtype} is NOT IMPLEMENTED YET.')
+                       continue
                     if np.sum(image!=0) == 0:
                         continue
                     options = dict(cmap='prism', vmin=np.min(image[image!=0]), vmax=np.max(image))
