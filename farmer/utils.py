@@ -502,8 +502,8 @@ def recursively_load_dict_contents_from_group(h5file, path='/', ans=None):
                         logger.debug(f'          * {key2}')
                         if key2 != 'wcs':
                             ans[key].__dict__[key2] = item.attrs[key2]
-                # else:
-                #     ans[key] = item[...]
+                elif key in ('segmap', 'groupmap'):
+                    ans[key] = recursively_load_dict_contents_from_group(h5file, path + str(key) + '/', ans[key])
 
             elif 'variance' in item.name:
                 continue

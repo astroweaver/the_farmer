@@ -323,8 +323,17 @@ class Brick(BaseImage):
             self.logger.warning(f'Group {group.group_id} has been rejected!')
 
         return group
+    
+    def farm(self, group_id, absorb=False):
 
-            
+        group = self.spawn_group(group_id)
+        group = self.run_group(group)
+        if absorb:
+            self.absorb(group)
+        group.plot_summary()
+        return group
+
+
     def absorb(self, group): # eventually allow mosaic to do this too! absorb bricks + make a huge model catalog!
 
         # check ownership

@@ -1302,7 +1302,7 @@ class BaseImage():
 
         for band in bands:
             self.logger.debug(f'Plotting PSF for: {band}')    
-            psfmodel = self.get_psfmodel(band)
+            psfmodel = self.get_psfmodel(band).img
 
             pixscl = (self.pixel_scales[band][0]).to(u.arcsec).value
             fig, ax = plt.subplots(ncols=3, figsize=(30,10))
