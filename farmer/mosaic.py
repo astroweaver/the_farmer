@@ -72,6 +72,7 @@ class Mosaic(BaseImage):
             if band == 'detection':
                 psf_status = '--'
             else:
+                __, psftype = validate_psfmodel(band, return_psftype=True)
                 psf_status = good
 
             # verify the WCS
@@ -92,7 +93,7 @@ class Mosaic(BaseImage):
             self.logger.debug(f'Mosaic {band} is centered at {self.position.ra:2.1f}, {self.position.dec:2.1f}')
             self.logger.debug(f'Mosaic {band} has size at {self.size[0]:2.1f}, {self.size[1]:2.1f}')
 
-            self.logger.info(f'{band:10}: {data_status} Data {tuple(data_provided)} {psf_status} PSF {wcs_status} WCS ({self.position.ra:2.1f}, {self.position.dec:2.1f})')
+            self.logger.info(f'{band:10}: {data_status} Data {tuple(data_provided)} {psf_status} {psftype} PSF {wcs_status} WCS ({self.position.ra:2.1f}, {self.position.dec:2.1f})')
 
         # Now load in the data (memory use!) -- and only what is necessary!
         if load:

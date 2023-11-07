@@ -194,7 +194,7 @@ def get_resolution(img, sig=3.):
     fwhm = get_fwhm(img)
     return np.pi * (sig / (2 * 2.5)* fwhm)**2
 
-def validate_psfmodel(band):
+def validate_psfmodel(band, return_psftype=False):
     logger = logging.getLogger('farmer.validate_psfmodel')
     psfmodel_path = conf.BANDS[band]['psfmodel']
 
@@ -210,10 +210,12 @@ def validate_psfmodel(band):
         psfcoords = SkyCoord(ra=psfgrid_ra*u.degree, dec=psfgrid_dec*u.degree)
         # I'm expecting that all of these psfnames are based in PATH_PSFMODELS
         psflist = [os.path.join(conf.PATH_PSFMODELS, fname) for fname in psfgrid['filename']]
+        psftype = 'variable'
 
     except: # better be a single file
         psfcoords = 'none'
         psflist = os.path.join(conf.PATH_PSFMODELS, psfmodel_path)
+        psftype = 'constant'
 
     psfmodel = (psfcoords, psflist)
 
@@ -223,21 +225,24 @@ def validate_psfmodel(band):
     if fname.endswith('.psf'):
         try:
             test_psf = PixelizedPsfEx(fn=fname)
-            logger.debug(f'PSF model for {band} identified as PixelizedPsfEx.')
+            logger.debug(f'PSF model for {band} identified as {psftype} PixelizedPsfEx.')
 
         except:
             img = fits.open(fname)[0].data
             img = img.astype('float32')
             test_psf = PixelizedPSF(img)
-            logger.debug(f'PSF model for {band} identified as PixelizedPSF.')
+            logger.debug(f'PSF model for {band} identified as {psftype} PixelizedPSF.')
         
     elif fname.endswith('.fits'):
         img = fits.open(fname)[0].data
         img = img.astype('float32')
         test_psf = PixelizedPSF(img)
-        logger.debug(f'PSF model for {band} identified as PixelizedPSF.')
+        logger.debug(f'PSF model for {band} identified as {psftype} PixelizedPSF.')
 
-    return psfmodel
+    if return_psftype:
+        return psfmodel, psftype
+    else:
+        return psfmodel
 
 
 def header_from_dict(params):
