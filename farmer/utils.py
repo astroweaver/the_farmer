@@ -784,7 +784,7 @@ def _clear_h5():
                 pass # Was already closed
 
 
-def prepare_psf(filename, outfilename=None, pixel_scale=None, mask_radius=None, clip_radius=None, norm=None, target_pixel_scale=None, ext=0):
+def prepare_psf(filename, outfilename=None, pixel_scale=None, mask_radius=None, clip_radius=None, norm=None, norm_radius=None, target_pixel_scale=None, ext=0):
     # NOTE: THESE INPUTS NEED ASTROPY UNITS!
 
     hdul = fits.open(filename)
@@ -822,8 +822,9 @@ def prepare_psf(filename, outfilename=None, pixel_scale=None, mask_radius=None, 
         
     if norm is not None:
         print(f'Normalizing PSF to {norm:4.4f} within maximum circle')
+        norm_radpix = norm_radius / pixel_scale
         pw, ph = np.shape(psfmodel)
-        cmask = create_circular_mask(pw, ph, radius=pw/2.).astype(bool)
+        cmask = create_circular_mask(pw, ph, radius=norm_radpix).astype(bool)
         psfmodel *= norm / np.sum(psfmodel[cmask])
 
     if outfilename is None:

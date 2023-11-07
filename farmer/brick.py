@@ -87,6 +87,7 @@ class Brick(BaseImage):
             print(f' --- Data {band} ---')
             for imgtype in self.data[band].keys():
                 if imgtype.startswith('psf'): continue
+                if isinstance(self.data[band][imgtype], dict): continue
                 img = self.data[band][imgtype].data
                 tsum, mean, med, std = np.nansum(img), np.nanmean(img), np.nanmedian(img), np.nanstd(img)
                 print(f'  {imgtype} ... {np.shape(img)} ( {tsum:2.2f} / {mean:2.2f} / {med:2.2f} / {std:2.2f})')
@@ -325,15 +326,6 @@ class Brick(BaseImage):
         else:
             self.logger.warning(f'Group {group.group_id} has been rejected!')
 
-        return group
-    
-    def farm(self, group_id, absorb=False):
-
-        group = self.spawn_group(group_id)
-        group = self.run_group(group)
-        if absorb:
-            self.absorb(group)
-        group.plot_summary()
         return group
 
 
