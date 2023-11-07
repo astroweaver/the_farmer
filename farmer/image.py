@@ -50,7 +50,8 @@ class BaseImage():
         self.bands = []
         self.model_catalog = OrderedDict()
         self.model_tracker = OrderedDict()
-        self.priors = None
+        self.model_priors = None
+        self.phot_priors = None
 
         # Load the logger
         self.logger = logging.getLogger(f'farmer.image')
@@ -382,7 +383,7 @@ class BaseImage():
             self.model_catalog[source_id].variance.brightness =  Fluxes(**filler, order=list(filler.keys()))
 
             # update priors
-            self.model_catalog[source_id] = set_priors(self.model_catalog[source_id], self.priors)
+            self.model_catalog[source_id] = set_priors(self.model_catalog[source_id], self.phot_priors)
     
     def stage_models(self, bands=conf.MODEL_BANDS, data_imgtype='science'):
         """ Build the Tractor Model catalog for the group """
@@ -444,7 +445,7 @@ class BaseImage():
                 model = SersicCoreGalaxy(position, flux, shape, nre, fluxcore)
 
 
-            model = set_priors(model, self.priors)
+            model = set_priors(model, self.model_priors)
             self.model_catalog[source_id] = model
 
             self.logger.debug(f'Source #{source_id}: {self.model_catalog[source_id].name} model at {position}')
@@ -534,7 +535,6 @@ class BaseImage():
 
         self.logger.info('Measuring photometry...')
 
-        self.priors = conf.PHOT_PRIORS
         self.existing_model_catalog = copy.deepcopy(self.model_catalog)
         self.engine = None
         self.stage = None
@@ -569,7 +569,7 @@ class BaseImage():
         self.logger.info('Determining best-choice models...')
 
         # clean up
-        self.priors = conf.MODEL_PRIORS
+        self.model_priors = conf.MODEL_PRIORS
         self.reset_models()
 
         # stage 0

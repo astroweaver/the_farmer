@@ -53,7 +53,9 @@ class Brick(BaseImage):
             self.model_tracker_groups = OrderedDict()
             self.catalog_band='detection'
             self.catalog_imgtype='science'
-            self.priors = None
+            self.phot_priors = conf.PHOT_PRIORS
+            self.model_priors = conf.MODEL_PRIORS
+            # self.config = conf.__dict__
             
 
             # Position
@@ -245,7 +247,8 @@ class Brick(BaseImage):
             group.rejected = True
             return group
         
-        group.priors = self.priors
+        group.model_priors = self.model_priors
+        group.phot_priors = self.phot_priors
         
         # Loop over model catalog
         for source_id, model in self.model_catalog.items():

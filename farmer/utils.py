@@ -502,7 +502,7 @@ def recursively_load_dict_contents_from_group(h5file, path='/', ans=None):
                         logger.debug(f'          * {key2}')
                         if key2 != 'wcs':
                             ans[key].__dict__[key2] = item.attrs[key2]
-                elif key in ('segmap', 'groupmap'):
+                elif (('detection') not in path) & (key in ('segmap', 'groupmap')):
                     ans[key] = recursively_load_dict_contents_from_group(h5file, path + str(key) + '/', ans[key])
 
             elif 'variance' in item.name:
@@ -688,7 +688,8 @@ def set_priors(model, priors):
                 if priors['pos'] in ('fix', 'freeze'):
                     model[idx].freezeAllParams()
                     logger.debug('Froze position')
-                elif priors['pos'] is not None:
+                elif priors['pos'] != 'none':
+                    if not hasattr(priors['pos'], 'unit'): priors['pos'] *= u.arcsec
                     sigma = priors['pos'].to(u.deg).value
                     psigma = priors['pos'].to(u.arcsec)
                     model[idx].addGaussianPrior('ra', mu=model[idx][0], sigma=sigma)
@@ -721,7 +722,7 @@ def set_priors(model, priors):
                 if priors['reff'] in ('fix', 'freeze'):
                     model[idx].freezeParam(0)
                     logger.debug('Froze radius')
-                elif priors['reff'] is not None:
+                elif priors['reff'] != 'none':
                     sigma = np.log(priors['reff'].to(u.arcsec).value)
                     psigma = priors['reff'].to(u.arcsec)
                     model[idx].addGaussianPrior('logre', mu=model[idx][0], sigma=sigma)    

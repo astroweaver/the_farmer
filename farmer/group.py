@@ -51,6 +51,9 @@ class Group(BaseImage):
             self.catalog_band='detection'
             self.catalog_imgtype='science'
             self.rejected = False
+            self.phot_priors = conf.PHOT_PRIORS
+            self.model_priors = conf.MODEL_PRIORS
+            # self.config = conf.__dict__
 
             # use groupmap from brick to get position and buffsize
             groupmap = image.get_image(imgtype='groupmap', band='detection')
