@@ -70,7 +70,7 @@ class Mosaic(BaseImage):
             # verify the psf model
             psf_status = bad
             if band == 'detection':
-                psf_status = '--'
+                psf_status = 'no'
                 psftype = ''
             else:
                 __, psftype = validate_psfmodel(band, return_psftype=True)

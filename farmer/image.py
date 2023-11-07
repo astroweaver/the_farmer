@@ -1293,7 +1293,7 @@ class BaseImage():
         self.logger.info(f'Saving figure: {outname}') 
         pdf.close()
 
-    def plot_psf(self, band=None, overwrite=True):
+    def plot_psf(self, band=None):
           
         if band is None:
             bands = self.get_bands()
@@ -1329,7 +1329,7 @@ class BaseImage():
 
             figname = os.path.join(conf.PATH_FIGURES, f'{band}_psf.pdf')
             self.logger.debug(f'Saving figure: {figname}')                
-            fig.savefig(figname, overwrite=overwrite)
+            fig.savefig(figname)
             plt.close(fig)
 
     def plot_summary(self, source_id=None, group_id=None, bands=None, stage=None, tag=None, catalog_band='detection', catalog_imgtype='science', overwrite=True):
