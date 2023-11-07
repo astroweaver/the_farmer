@@ -180,7 +180,7 @@ class BaseImage():
             return self.wcs
 
         else:
-            return self.wcs[band]
+            return self.data[band][imgtype].wcs
 
 
     def estimate_background(self, image=None, band=None, imgtype='science'):
@@ -336,7 +336,7 @@ class BaseImage():
                 data=data,
                 invvar=weight,
                 psf=psfmodel,
-                wcs=read_wcs(self.wcs[band]),
+                wcs=read_wcs(self.get_wcs(band=band, imgtype=data_imgtype)),
                 photocal=FluxesPhotoCal(band),
                 sky=ConstantSky(0)
             )

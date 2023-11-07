@@ -394,6 +394,9 @@ def recursively_save_dict_contents_to_group(h5file, dic, path='/'):
             h5file[path].attrs[key] = item.to_header_string()
         elif isinstance(item, fits.header.Header):
             h5file[path].attrs[key] = item.tostring()
+        elif isinstance(item, u.quantity.Quantity):
+            h5file[path].attrs[key] = item.value
+            h5file[path].attrs[key+'_unit'] = item.unit.to_string()
         elif isinstance(item, np.ndarray):
             if (key == 'bands'): # & np.isscalar(item):
                 item = np.array(item).astype('|S99')
@@ -550,6 +553,7 @@ def recursively_load_dict_contents_from_group(h5file, path='/', ans=None):
                 ans[key] = recursively_load_dict_contents_from_group(h5file, path + str(key) + '/', ans[key])
                 for key2 in item.attrs:
                     logger.debug(f'  ...... attribute: {key2}')
+                    if '_unit' in key2: continue
                     value = item.attrs[key2]
                     if 'headers' in item.name:
                         ans[key][key2] = fits.header.Header.fromstring(value)
@@ -557,6 +561,9 @@ def recursively_load_dict_contents_from_group(h5file, path='/', ans=None):
                         ans[key][key2] = WCS(fits.header.Header.fromstring(value))
                     elif 'position' in item.name:
                         ans[key][key2] = SkyCoord(value, unit=u.deg)
+                    elif key2+'_unit' in item.attrs:
+                        print(key2, item, key, item.attrs[key2])
+                        ans[key][key2] = value * u.Unit(item.attrs[key2+'_unit'])
                     else:
                         ans[key][key2] = value
     return ans   
@@ -694,7 +701,6 @@ def set_priors(model, priors):
                     model[idx].freezeAllParams()
                     logger.debug('Froze position')
                 elif priors['pos'] != 'none':
-                    if not hasattr(priors['pos'], 'unit'): priors['pos'] *= u.arcsec
                     sigma = priors['pos'].to(u.deg).value
                     psigma = priors['pos'].to(u.arcsec)
                     model[idx].addGaussianPrior('ra', mu=model[idx][0], sigma=sigma)
@@ -821,7 +827,7 @@ def prepare_psf(filename, outfilename=None, pixel_scale=None, mask_radius=None, 
         print(f'New shape: {np.shape(psfmodel)}')
         
     if norm is not None:
-        print(f'Normalizing PSF to {norm:4.4f} within maximum circle')
+        print(f'Normalizing PSF to {norm:4.4f} within {norm_radius} radius circle')
         norm_radpix = norm_radius / pixel_scale
         pw, ph = np.shape(psfmodel)
         cmask = create_circular_mask(pw, ph, radius=norm_radpix).astype(bool)

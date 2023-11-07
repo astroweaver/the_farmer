@@ -55,9 +55,11 @@ class Brick(BaseImage):
             self.catalog_imgtype='science'
             self.phot_priors = conf.PHOT_PRIORS
             self.model_priors = conf.MODEL_PRIORS
-            # self.config = conf.__dict__
+            self.config = {}
+            for key in conf.__dict__:
+                if not key.startswith('_'):
+                    self.config[key] = conf.__dict__[key]
             
-
             # Position
             if (brick_id is not None) & ((position is not None) | (size is not None)):
                 raise RuntimeError('Cannot create brick from BOTH brick_id AND position/size!')
