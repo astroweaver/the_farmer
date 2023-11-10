@@ -180,6 +180,7 @@ class Brick(BaseImage):
     def extract(self, band='detection', imgtype='science', background=None):
         if self.properties[band]['subtract_background']:
             background = self.get_background(band)
+            print(background)
         catalog, segmap = self._extract(band, imgtype='science', background=background)
 
         # clean out buffer -- these are bricks!
@@ -244,7 +245,7 @@ class Brick(BaseImage):
         nsrcs = group.n_sources['detection'][imgtype]
         source_ids = np.array(group.get_catalog()['ID'])
         group.source_ids = source_ids
-        self.logger.debug(f'Group #{group_id} has {nsrcs} source: {source_ids}')
+        self.logger.debug(f'Group #{group_id} has {nsrcs} sources: {source_ids}')
         if nsrcs > conf.GROUP_SIZE_LIMIT:
             self.logger.warning(f'Group #{group_id} has {nsrcs} sources, but the limit is set to {conf.GROUP_SIZE_LIMIT}!')
             group.rejected = True
@@ -254,7 +255,9 @@ class Brick(BaseImage):
         group.phot_priors = self.phot_priors
         
         # Loop over model catalog
+        group.model_catalog = {}
         for source_id, model in self.model_catalog.items():
+            if source_id not in source_ids: continue
             group.model_catalog[source_id] = model
             
             group.model_tracker[source_id] = {}

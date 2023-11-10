@@ -15,6 +15,8 @@ else: # You're working from a directory parallel with config?
 # Miscellaneous science imports
 import astropy.units as u
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from pathos.pools import ProcessPool

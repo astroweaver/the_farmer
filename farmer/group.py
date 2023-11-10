@@ -72,9 +72,9 @@ class Group(BaseImage):
 
             wcs = image.get_wcs(band='detection', imgtype=imgtype)
             self.position = wcs.pixel_to_world(yc, xc)
-            upper = wcs.pixel_to_world(group_width, group_height)
+            upper = wcs.pixel_to_world( group_height, group_width)
             lower = wcs.pixel_to_world(0, 0)
-            self.size = (lower.ra - upper.ra), (upper.dec - lower.dec)
+            self.size = (upper.dec - lower.dec), (lower.ra - upper.ra) * np.cos(np.deg2rad(self.position.dec.to(u.degree).value))
             self.buffsize = (self.size[0]+2*conf.GROUP_BUFFER, self.size[1]+2*conf.GROUP_BUFFER)
 
             self.filename = f'G{self.group_id}_B{self.brick_id}.h5'

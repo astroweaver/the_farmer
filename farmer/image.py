@@ -100,10 +100,12 @@ class BaseImage():
         self.logger.debug(f'Getting {imgtype} image for {band}')# ( {tsum:2.2f} / {mean:2.2f} / {med:2.2f} / {std:2.2f} )')
         return image
 
-    def get_psfmodel(self, band=None, coord=None):
+    def get_psfmodel(self, band, coord=None):
         # If you run models on a brick/mosaic **or reconstruct** one, I'll always grab the one nearest the center
         # If you run models on a group, I'll always grab the one nearest to the center of the group
-
+        if band == 'detection':
+            self.logger.warning('Detection bands do not have PSFs!')
+            return
         if self.type == 'mosaic':
             psfcoords, psflist = self.data['psfcoords'], self.data['psflist']
         else:
@@ -322,9 +324,9 @@ class BaseImage():
             weight = self.get_image(band=band, imgtype='weight').copy()
             masked = self.get_image(band=band, imgtype='mask').copy()
             if self.type == 'group':
-                y, x = self.get_image(band=band, imgtype='groupmap')[self.group_id]
+                x, y = self.get_image(band=band, imgtype='groupmap')[self.group_id]
                 filler = np.ones_like(masked)
-                filler[y, x] = False
+                filler[x, y] = False
                 masked[filler] = True
                 del filler
             weight[np.isnan(data) | masked] = 0
@@ -416,7 +418,8 @@ class BaseImage():
             qflux = np.zeros(len(bands))
             for j, band in enumerate(bands):
                 src_seg = self.data[band]['segmap'][source_id]
-                qflux[j] = np.nansum(self.images[band].data[src_seg])
+                # print(j, band, source_id, src_seg)
+                qflux[j] = np.nansum(self.images[band].data[src_seg[0], src_seg[1]])
             flux = Fluxes(**dict(zip(bands, qflux)), order=bands)
 
             # initial shapes
@@ -471,7 +474,7 @@ class BaseImage():
             #     self.logger.warning(f'Optimization failed on step {i+1}!')
             #     return False
                 
-            self.logger.debug(f'  dlnp: {dlnp:2.5f}')
+            self.logger.debug(f'   step: {i+1} dlnp: {dlnp:2.5f}')
             if dlnp < conf.DLNP_CRIT:
                 break
 
@@ -498,8 +501,7 @@ class BaseImage():
             self.model_tracker[source_id][self.stage]['model'] = model
 
             self.logger.debug(f'Source #{source_id}: {model.name} model at {model.pos}')
-            self.logger.debug(f'               {model.brightness}') 
-            self.logger.debug(f'               {variance.brightness}') 
+            self.logger.debug(f'               {model.brightness} +/- {np.sqrt(variance.brightness)[0]}') 
             if hasattr(model, 'fluxCore'):
                 self.logger.debug(f'               {model.fluxcore}')
             if hasattr(model, 'shape'):
@@ -511,7 +513,6 @@ class BaseImage():
                     low_idx = 10
                 self.model_catalog[source_id] = model
                 self.model_catalog[source_id].group_id = self.group_id
-                self.model_catalog[source_id].variance = variance
                 self.model_catalog[source_id].statistics = self.model_tracker[source_id][self.stage]
                 for stat in self.model_tracker[source_id][low_idx]:
                     if stat in self.bands:
@@ -774,7 +775,7 @@ class BaseImage():
             except:
                 pass
 
-        self.build_all_images(bands=bands)
+        self.build_all_images(bands=bands, reconstruct=False)
 
         q_pc = (5, 16, 50, 84, 95)
 
@@ -788,9 +789,9 @@ class BaseImage():
             rchi2_model_top = []
             rchi2_model_bot = []
             for band in bands:
-                groupmap = self.get_image('groupmap', band)
+                groupmap = self.get_image('groupmap', band)[self.group_id]
                 segmap = self.get_image('segmap', band)
-                chi = self.get_image('chi', band=band)[groupmap[self.group_id]].flatten()
+                chi = self.get_image('chi', band=band)[groupmap[0], groupmap[1]].flatten()
                 totchi += list(chi)
                 chi2, chi_pc = np.sum(chi**2), np.nanpercentile(chi, q=q_pc)
                 if np.isscalar(chi_pc):
@@ -799,11 +800,11 @@ class BaseImage():
                 for source_id in self.catalogs[self.catalog_band][self.catalog_imgtype]['ID']:
                     data = self.images[band].data.copy()
                     segmask = np.zeros(shape=data.shape, dtype=bool)
-                    segmask[segmap[source_id]] = True
+                    segmask[segmap[source_id][0], segmap[source_id][1]] = True
                     data[(self.images[band].invvar <= 0) | ~segmask] = 0
                     area += get_fwhm(data)**2
                 nres_elem = area / (get_fwhm(self.images[band].psf.img))**2
-                ndata = np.sum(self.images[band].invvar[groupmap[self.group_id]] > 0) # number of pixels
+                ndata = np.sum(self.images[band].invvar[groupmap[0], groupmap[1]] > 0) # number of pixels
                 try:
                     nparam = self.engine.getCatalog().numberOfParams() - np.sum(np.array(bands)!=band)  
                     model_bands = self.engine.bands
@@ -867,12 +868,12 @@ class BaseImage():
             self.model_tracker[self.type][stage]['total']['ndof'] = ndof
             self.model_tracker[self.type][stage]['total']['nres'] = ntotalres_elem
 
-            self.logger.info(f'   {band}: chi2/N = {chi2/ndof:2.2f} ({tot_rchi2_model:2.2f})')
-            self.logger.info(f'   {band}: N(data) = {ntotal_pix} ({ntotalres_elem})')
-            self.logger.info(f'   {band}: N(param) = {nparam}')
-            self.logger.info(f'   {band}: N(DOF) = {ndof}')
-            self.logger.info(f'   {band}: Med(chi) = {chi_pc[2]:2.2f}')
-            self.logger.info(f'   {band}: Width(chi) = {chi_pc[3]-chi_pc[1]:2.2f}')
+            self.logger.info(f'   Total: chi2/N = {chi2/ndof:2.2f} ({tot_rchi2_model:2.2f})')
+            self.logger.info(f'   Total: N(data) = {ntotal_pix} ({ntotalres_elem})')
+            self.logger.info(f'   Total: N(param) = {nparam}')
+            self.logger.info(f'   Total: N(DOF) = {ndof}')
+            self.logger.info(f'   Total: Med(chi) = {chi_pc[2]:2.2f}')
+            self.logger.info(f'   Total: Width(chi) = {chi_pc[3]-chi_pc[1]:2.2f}')
 
         for i, src in enumerate(self.catalogs[self.catalog_band][self.catalog_imgtype]):
             source_id = src['ID']
@@ -894,7 +895,7 @@ class BaseImage():
             rchi2_model_bot = []
             for band in bands:
                 segmap = self.get_image('segmap', band)
-                chi = self.get_image('chi', band=band)[segmap[source_id]].flatten()
+                chi = self.get_image('chi', band=band)[segmap[source_id][0], segmap[source_id][1]].flatten()
                 totchi += list(chi)
                 chi2, chi_pc = np.nansum(chi**2), np.nanpercentile(chi, q=q_pc)
                 if np.isscalar(chi_pc):
@@ -902,7 +903,7 @@ class BaseImage():
                 
                 data = self.images[band].data.copy()
                 segmask = np.zeros(shape=data.shape, dtype=bool)
-                segmask[segmap[source_id]] = True
+                segmask[segmap[source_id][0], segmap[source_id][1]] = True
                 data[(self.images[band].invvar <= 0) | ~segmask] = 0
                 ndata = len(segmap[source_id][0]) # number of pixels
                 nres_elem = (get_fwhm(data) / get_fwhm(self.images[band].psf.img))**2
@@ -972,14 +973,14 @@ class BaseImage():
             self.model_tracker[source_id][stage]['total']['ndof'] = ndof
             self.model_tracker[source_id][stage]['total']['nres'] = ntotalres_elem
 
-            self.logger.info(f'   {band}: chi2/N = {chi2/ndof:2.2f} ({tot_rchi2_model:2.2f})')
-            self.logger.info(f'   {band}: N(data) = {ntotal_pix} ({ntotalres_elem})')
-            self.logger.info(f'   {band}: N(param) = {nparam}')
-            self.logger.info(f'   {band}: N(DOF) = {ndof}')
-            self.logger.info(f'   {band}: Med(chi) = {chi_pc[2]:2.2f}')
-            self.logger.info(f'   {band}: Width(chi) = {chi_pc[3]-chi_pc[1]:2.2f}')
+            self.logger.info(f'   Total: chi2/N = {chi2/ndof:2.2f} ({tot_rchi2_model:2.2f})')
+            self.logger.info(f'   Total: N(data) = {ntotal_pix} ({ntotalres_elem})')
+            self.logger.info(f'   Total: N(param) = {nparam}')
+            self.logger.info(f'   Total: N(DOF) = {ndof}')
+            self.logger.info(f'   Total: Med(chi) = {chi_pc[2]:2.2f}')
+            self.logger.info(f'   Total: Width(chi) = {chi_pc[3]-chi_pc[1]:2.2f}')
 
-    def build_all_images(self, bands=None, source_id=None, overwrite=True):
+    def build_all_images(self, bands=None, source_id=None, overwrite=True, reconstruct=True):
         if bands is None:
             bands = [band for band in self.bands if band != 'detection']
         elif np.isscalar(bands):
@@ -995,30 +996,53 @@ class BaseImage():
         self.engine = Tractor(list(self.images.values()), list(self.model_catalog.values()))
         self.engine.bands = list(self.images.keys())
 
-        self.build_model_image(bands, source_id, overwrite)
+        self.build_model_image(bands, source_id, overwrite, reconstruct=reconstruct)
         self.build_residual_image(bands, source_id, overwrite)
         self.build_chi_image(bands, source_id, overwrite)
 
-    def build_model_image(self, bands=None, source_id=None, overwrite=True):
+    def build_model_image(self, bands=None, source_id=None, overwrite=True, reconstruct=True):
         if bands is None:
             bands = self.bands
         elif np.isscalar(bands):
             bands = [bands,]
         models = {}
 
-        srcs = []
-        if source_id is not None:
-            if np.isscalar(source_id):
-                srcs.append(self.model_catalog[source_id])
-            else:
-                for sid in source_id:
-                    srcs.append(self.model_catalog[sid])
+        # if source_id is not None:
+        #     if np.isscalar(source_id):
+        #         srcs.append(self.model_catalog[source_id])
+        #     else:
+        #         for sid in source_id:
+        #             srcs.append(self.model_catalog[sid])
+        # else:
+        used_srcs = []
+        srcs = self.model_catalog.copy()
+
+        # check for rejections
+        if reconstruct & ((conf.RESIDUAL_BA_MIN != 'none') | (conf.RESIDUAL_REFF_MAX != 'none') | (conf.RESIDUAL_SHOW_NEGATIVE == False)):
+            for source_id, src in srcs.items():
+                source = get_params(src)
+                if conf.RESIDUAL_SHOW_NEGATIVE == False:
+                    for band in source['_bands']:
+                        flux = src.getBrightness().getFlux(band)
+                        if flux < 0: 
+                            src.getBrightness().setFlux(band, 0)
+                            self.logger.warning(f'Source {source_id} has negative model flux in {band} and has been rejected from reconstruction')
+                if (conf.RESIDUAL_BA_MIN != 'none') & ('ba' in source):
+                    if source['ba'] < conf.RESIDUAL_BA_MIN:
+                        self.logger.warning(f'Source {source_id} model is too narrow and has been rejected from reconstruction')
+                        continue
+                if (conf.RESIDUAL_REFF_MAX != 'none') & ('reff' in source):
+                    if source['reff'] > conf.RESIDUAL_REFF_MAX:
+                        self.logger.warning(f'Source {source_id} model is too large and has been rejected from reconstruction')
+                        continue
+
+                used_srcs.append(src)
         else:
-            srcs = self.model_catalog.values()
+            used_srcs = self.model_catalog.values()
 
         for band in bands:
             if source_id is not None:
-                model = Tractor([self.images[band],], Catalog(*srcs)).getModelImage(0)
+                model = Tractor([self.images[band],], Catalog(*used_srcs)).getModelImage(0)
             else:
                 model = self.engine.getModelImage(self.images[band])
             
@@ -1041,7 +1065,7 @@ class BaseImage():
 
         for band in bands:
             if source_id is not None:
-                model = self.build_model_image(band, source_id, overwrite)
+                model = self.build_model_image(band, source_id, overwrite, reconstruct=False)
                 residual = self.get_image('science', band) - model
             else:
                 model = self.get_image('model', band)
@@ -1358,7 +1382,7 @@ class BaseImage():
             else:
                 sources = source_id
 
-        self.build_all_images(bands=bands)
+        self.build_all_images(bands=bands, reconstruct=False)
 
         for source_id in sources:
             fnsrc = ''
@@ -1447,14 +1471,14 @@ class BaseImage():
                 else:
                     ira, idec = catalog['ra'][catalog['ID'] == source_id], catalog['dec'][catalog['ID'] == source_id]
                     position = SkyCoord(ira, idec)
-                    idx, idy = segmap[source_id]
+                    idy, idx = segmap[source_id]
                     xlo, xhi = np.min(idx), np.max(idx)
                     ylo, yhi = np.min(idy), np.max(idy)
                     group_width = xhi - xlo
                     group_height = yhi - ylo
                     target_upper = self.wcs[band].pixel_to_world(group_height, group_width)
                     target_lower = self.wcs[band].pixel_to_world(0, 0)
-                    target_size = (target_lower.ra - target_upper.ra + 2 * conf.GROUP_BUFFER), \
+                    target_size = ((target_lower.ra - target_upper.ra) * np.cos(np.deg2rad(self.position.dec.to(u.degree).value)) + 2 * conf.GROUP_BUFFER), \
                                     (target_upper.dec - target_lower.dec + 2 * conf.GROUP_BUFFER)
 
                 extent = np.array([0.,0.,0.,0.])
@@ -1464,8 +1488,8 @@ class BaseImage():
                 peakx = np.argmin(np.abs(np.linspace(extent[0], extent[1], cutout.shape[1])))
                 peaky = np.argmin(np.abs(np.linspace(extent[2], extent[3], cutout.shape[0])))
 
-                dx = target_size[1].to(u.arcsec).value / 2.
-                dy = target_size[0].to(u.arcsec).value / 2.
+                dx = target_size[0].to(u.arcsec).value / 2. # RA
+                dy = target_size[1].to(u.arcsec).value / 2. # DEC
                 ds = np.max([dx, dy])
                 xlim, ylim = [-ds, ds],[-ds, ds]
                 [ax.set(xlim=xlim, ylim=ylim) for ax in axes[:3].flatten()]
@@ -1525,7 +1549,7 @@ class BaseImage():
                     ixc, iyc = dcoord_to_offset(SkyCoord(ira, idec), center_position)
                     axes[0,0].scatter(ixc, iyc, facecolors='none', edgecolors=cmap(i))
                     model = self.model_catalog[sid] 
-                    ra, dec = model.pos
+                    ra, dec = model.pos.ra, model.pos.dec
                     xc, yc = dcoord_to_offset(SkyCoord(ra*u.deg, dec*u.deg), center_position)
 
                     if isinstance(model, (PointSource, SimpleGalaxy)):
@@ -1744,13 +1768,13 @@ class BaseImage():
                 axes[2,1].text(target_center, 0.12, f'{target_scale}\"', transform=axes[2,1].transAxes, fontweight='bold', horizontalalignment='center')
 
                 # mask image
-                img = self.get_image('mask', band=band).copy()   #[src]
+                img = self.get_image('mask', band=band).copy().astype(np.int16)  #[src]
                 y, x = self.get_image(band=band, imgtype='groupmap')[self.group_id]
                 img[y, x] = 1
                 colors = ['white','grey']
                 bounds = [0, 1, 2]
                 for i, sid in enumerate(source_ids):
-                    img[segmap==sid] = i + 2
+                    img[segmap[sid][0], segmap[sid][1]] = i + 2
                     colors.append(cmap(i))
                     bounds.append(i + 3)
                 # make a color map of fixed colors
@@ -1786,7 +1810,7 @@ class BaseImage():
                 cumcurve = np.array([np.sum(psfmodel[radius<i]) for i in np.arange(0, np.shape(psfmodel)[0]/2)])
                 hxax = np.arange(0, np.shape(psfmodel)[0]/2) * pixscl
                 axes[3,0].plot(hxax, cumcurve, c='grey')
-                allp = hxax[np.argmin(abs(cumcurve - 0.999))]
+                allp = hxax[np.argmin(abs(cumcurve - 0.9999))]
                 axes[3,0].set(xlim=(-allp, allp), yscale='log', ylim=(1e-6, 1), xlabel='arcsec')
 
                 pdf.savefig(fig)

@@ -103,7 +103,7 @@ def load_brick_position(brick_id):
     position = wcs.pixel_to_world(xc, yc)
     upper = wcs.pixel_to_world(xc+brick_width/2., yc+brick_height/2.)
     lower = wcs.pixel_to_world(xc-brick_width/2., yc-brick_height/2.)
-    size = abs(lower.ra - upper.ra), abs(upper.dec - lower.dec)
+    size = abs(lower.ra - upper.ra) * np.cos(np.deg2rad(position.dec.to(u.degree).value)), abs(upper.dec - lower.dec)
 
     logger.debug(f'Brick #{brick_id} found at ({position.ra:2.1f}, {position.dec:2.1f}) with size {size[0]:2.1f} X {size[1]:2.1f}')
     return position, size
@@ -341,7 +341,7 @@ def map_discontinuous(input, out_wcs, out_shape, thresh=0.1):
         if do_reproject:
             mask = reproject_interp((mask, in_wcs), out_wcs, out_shape, return_footprint=False)
         y, x = (mask > thresh).nonzero() # x and y for that segment
-        outdict[seg] = y, x - 1 # HACK
+        outdict[seg] = y, x
 
     return outdict
     
@@ -381,9 +381,15 @@ def recursively_save_dict_contents_to_group(h5file, dic, path='/'):
         # save numpy arrays
         elif isinstance(item, (PointSource, SimpleGalaxy, ExpGalaxy, DevGalaxy, FixedCompositeGalaxy)):
             if key == 'variance': continue
+            item.unfreezeParams()
+            item.variance.unfreezeParams()
             model_params = dict(zip(item.getParamNames(), item.getParams()))
             model_params['name'] = item.name
+            print(item)
+            print(model_params.keys())
             model_params['variance'] = dict(zip(item.variance.getParamNames(), item.variance.getParams()))
+            print(model_params['variance'].keys())
+            plt.pause(0.1)
             model_params['variance']['name'] = item.name
             recursively_save_dict_contents_to_group(h5file, model_params, path + key + '/')
         elif isinstance(item, utils.Cutout2D):
@@ -520,6 +526,7 @@ def recursively_load_dict_contents_from_group(h5file, path='/', ans=None):
                 is_variance = False
                 for item in (item, item['variance']):
                     name = item.attrs['name']
+                    print(item.attrs.keys())
                     pos = RaDecPos(item.attrs['pos.ra'], item.attrs['pos.dec'])
                     fluxes = {}
                     for param in item.attrs:
@@ -561,8 +568,7 @@ def recursively_load_dict_contents_from_group(h5file, path='/', ans=None):
                         ans[key][key2] = WCS(fits.header.Header.fromstring(value))
                     elif 'position' in item.name:
                         ans[key][key2] = SkyCoord(value, unit=u.deg)
-                    elif key2+'_unit' in item.attrs:
-                        print(key2, item, key, item.attrs[key2])
+                    elif (key2+'_unit' in item.attrs) & (item.attrs[key2] not in ('freeze', 'none')):
                         ans[key][key2] = value * u.Unit(item.attrs[key2+'_unit'])
                     else:
                         ans[key][key2] = value
@@ -570,10 +576,12 @@ def recursively_load_dict_contents_from_group(h5file, path='/', ans=None):
      
 def dcoord_to_offset(coord1, coord2, offset='arcsec', pixel_scale=None):
     if offset == 'arcsec':
-        dra = (coord1.ra - coord2.ra).to(u.arcsec).value
+        corr = np.cos(0.5*(coord1.dec.to(u.rad).value + coord2.dec.to(u.rad).value))
+        dra = (corr * (coord1.ra - coord2.ra)).to(u.arcsec).value
         ddec = (coord1.dec - coord2.dec).to(u.arcsec).value
     elif offset == 'pixel':
-        dra = ((coord1.ra - coord2.ra) / pixel_scale[0]).value
+        corr = np.cos(0.5*(coord1.dec.to(u.rad).value + coord2.dec.to(u.rad).value))
+        dra = ((coord1.ra - coord2.ra) * corr / pixel_scale[0]).value
         ddec = ((coord1.dec - coord2.dec) / pixel_scale[1]).value
     return -dra, ddec
 
@@ -593,10 +601,10 @@ def get_params(model):
     source['_bands'] = np.array(list(model.getBrightness().getParamNames()))
 
     # position
-    source['ra'] = model.pos[0] * u.deg
-    source['ra.err'] = np.sqrt(model.variance.pos[0]) * u.deg
-    source['dec'] = model.pos[1] * u.deg
-    source['dec.err'] = np.sqrt(model.variance.pos[1]) * u.deg
+    source['ra'] = model.pos.ra * u.deg
+    source['ra.err'] = np.sqrt(model.variance.pos.ra) * u.deg
+    source['dec'] = model.pos.dec * u.deg
+    source['dec.err'] = np.sqrt(model.variance.pos.dec) * u.deg
 
     # total statistics
     for stat in model.statistics:
