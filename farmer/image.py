@@ -418,7 +418,9 @@ class BaseImage():
             qflux = np.zeros(len(bands))
             for j, band in enumerate(bands):
                 src_seg = self.data[band]['segmap'][source_id]
-                # print(j, band, source_id, src_seg)
+                # print(j, band, source_id)
+                # print(np.shape(self.images[band].data))
+                # print(src_seg)
                 qflux[j] = np.nansum(self.images[band].data[src_seg[0], src_seg[1]])
             flux = Fluxes(**dict(zip(bands, qflux)), order=bands)
 
@@ -428,6 +430,11 @@ class BaseImage():
             nre = SersicIndex(2.5) # Just a guess for the seric index
             fluxcore = Fluxes(**dict(zip(bands, np.zeros(len(bands)))), order=bands) # Just a simple init condition
 
+            # set shape bounds for sanity
+            shape.lowers = [-0.3, -np.inf, -np.inf]
+            shape.uppers = [100, np.inf, np.inf]
+
+            # assign model
             if isinstance(self.model_catalog[source_id], PointSource):
                 model = PointSource(position, flux)
                 model.name = 'PointSource'
@@ -469,6 +476,8 @@ class BaseImage():
         for i in range(conf.MAX_STEPS):
 
             # try:
+            # for obj in self.engine.getCatalog():
+            #     print(obj)
             dlnp, X, alpha, var = self.engine.optimize(variance=True, damping=conf.DAMPING)
             # except:
             #     self.logger.warning(f'Optimization failed on step {i+1}!')
@@ -597,7 +606,6 @@ class BaseImage():
             self.store_models()
             if conf.PLOT > 2:
                 self.plot_image(tag=f's{self.stage}', band=bands, show_catalog=True, imgtype=('science', 'model', 'residual', 'chi'))
-
             self.decision_tree()    
 
         # run final time
@@ -948,7 +956,7 @@ class BaseImage():
                     self.model_tracker[source_id][stage][band]['ndof'] = ndof
                     self.model_tracker[source_id][stage][band]['nres'] = nres_elem
             try:
-                nparam = self.model_catalog[source_id].numberOfParams().astype(np.int32)
+                nparam = self.model_catalog[source_id].numberOfParams()
             except:
                 nparam = 0
             ndof = np.max([len(bands), ntotal_pix - nparam]).astype(np.int32)
@@ -1127,7 +1135,7 @@ class BaseImage():
 
         in_imgtype = imgtype
 
-        outname = os.path.join(conf.PATH_FIGURES, self.filename.replace('.h5', '_images.pdf'))
+        outname = os.path.join(conf.PATH_FIGURES, self.filename.replace('.h5', f'_images{tag}.pdf'))
         pdf = matplotlib.backends.backend_pdf.PdfPages(outname)
 
         for band in bands:
@@ -1173,7 +1181,7 @@ class BaseImage():
                     norm = LogNorm(rms, vmax)
                     options = dict(cmap='Greys', norm=norm, origin='lower')
                     im = ax.imshow(image - background, **options)
-                    fig.colorbar(im, orientation="horizontal", pad=0.2)
+                    # fig.colorbar(im, orientation="horizontal", pad=0.2)
                     pixscl = self.pixel_scales[band][0].to(u.deg).value, self.pixel_scales[band][1].to(u.deg).value
                     if self.type == 'brick':
                         brick_buffer_pix = conf.BRICK_BUFFER.to(u.deg).value / pixscl[0], conf.BRICK_BUFFER.to(u.deg).value / pixscl[1]
@@ -1190,7 +1198,7 @@ class BaseImage():
                                     ax.hlines(y, x-5, x-2, color='r', alpha=0.8, lw=1)
                                     ax.vlines(x, y-5, y-2, color='r', alpha=0.8, lw=1)
                                 else:
-                                    ax.scatter(x, y, color='r', marker='.', s=1)
+                                    ax.scatter(x, y, fc='none', ec='r', linewidths=1, marker='o', s=15)
 
                     # show group extents
                     if show_groups:
@@ -1236,7 +1244,7 @@ class BaseImage():
                     ax.set_title(f'{band} {imgtype} {tag}')
                     options = dict(cmap='RdGy', vmin=-5*self.get_property('clipped_rms', band=band), vmax=5*self.get_property('clipped_rms', band=band), origin='lower')
                     im = ax.imshow(image - background, **options)
-                    fig.colorbar(im, orientation="horizontal", pad=0.2)
+                    # fig.colorbar(im, orientation="horizontal", pad=0.2)
                     if self.type == 'brick':
                         ax.add_patch(Rectangle(brick_buffer_pix, self.size[0].value, self.size[1].value,
                                      fill=False, alpha=0.3, edgecolor='purple', linewidth=1))
@@ -1250,13 +1258,13 @@ class BaseImage():
                                     ax.hlines(y, x-5, x-2, color='r', alpha=0.8, lw=1)
                                     ax.vlines(x, y-5, y-2, color='r', alpha=0.8, lw=1)
                                 else:
-                                    ax.scatter(x, y, color='r', marker='.', s=1)
+                                    ax.scatter(x, y, fc='none', ec='r', linewidths=1, marker='o', s=15)
                     fig.tight_layout()
 
                 if imgtype in ('chi'):
                     options = dict(cmap='RdGy', vmin=-3, vmax=3)
                     im = ax.imshow(image, **options)
-                    fig.colorbar(im, orientation="horizontal", pad=0.2)
+                    # fig.colorbar(im, orientation="horizontal", pad=0.2)
                     if show_catalog & (catalog_band in self.catalogs.keys()):
                         if catalog_imgtype in self.catalogs[catalog_band].keys():
                             coords = SkyCoord(self.catalogs[catalog_band][catalog_imgtype]['ra'], self.catalogs[catalog_band][catalog_imgtype]['dec'])
@@ -1267,13 +1275,13 @@ class BaseImage():
                                     ax.hlines(y, x-5, x-2, color='r', alpha=0.8, lw=1)
                                     ax.vlines(x, y-5, y-2, color='r', alpha=0.8, lw=1)
                                 else:
-                                    ax.scatter(x, y, color='r', marker='+', s=1)
+                                    ax.scatter(x, y, fc='none', ec='r', linewidths=1, marker='o', s=15)
                     fig.tight_layout()
                 
                 if imgtype in ('weight', 'mask'):
                     options = dict(cmap='Greys', vmin=np.nanmin(image), vmax=np.nanmax(image))
                     im = ax.imshow(image, **options)
-                    fig.colorbar(im, orientation="horizontal", pad=0.2)
+                    # fig.colorbar(im, orientation="horizontal", pad=0.2)
                     if show_catalog & (catalog_band in self.catalogs.keys()):
                         if catalog_imgtype in self.catalogs[catalog_band].keys():
                             coords = SkyCoord(self.catalogs[catalog_band][catalog_imgtype]['ra'], self.catalogs[catalog_band][catalog_imgtype]['dec'])
@@ -1284,7 +1292,7 @@ class BaseImage():
                                     ax.hlines(y, x-5, x-2, color='r', alpha=0.8, lw=1)
                                     ax.vlines(x, y-5, y-2, color='r', alpha=0.8, lw=1)
                                 else:
-                                    ax.scatter(x, y, color='r', marker='+', s=1)
+                                    ax.scatter(x, y, fc='none', ec='r', linewidths=1, marker='o', s=15)
                     fig.tight_layout()
             
                 if imgtype in ('segmap', 'groupmap'):
@@ -1297,7 +1305,7 @@ class BaseImage():
                     image = image.copy().astype('float')
                     image[image==0] = np.nan
                     im = ax.imshow(image, **options)
-                    fig.colorbar(im, orientation="horizontal", pad=0.2)
+                    # fig.colorbar(im, orientation="horizontal", pad=0.2)
                     if show_catalog & (catalog_band in self.catalogs.keys()):
                         if catalog_imgtype in self.catalogs[catalog_band].keys():
                             coords = SkyCoord(self.catalogs[catalog_band][catalog_imgtype]['ra'], self.catalogs[catalog_band][catalog_imgtype]['dec'])
@@ -1435,7 +1443,7 @@ class BaseImage():
                     str_fracdev = ''
                     if isinstance(model, FixedCompositeGalaxy):
                         fracdev, fracdev_err = source['fracdev'], source['fracdev.err']
-                        str_fracdev = r'$\\mathcal{F}$(Dev)' + f'{fracdev:2.2f}+/-{fracdev_err:2.2f}'
+                        str_fracdev = r'$\mathcal{F}$(Dev)' + f'{fracdev:2.2f}+/-{fracdev_err:2.2f}'
                     axes[0,1].text(0, 0.3, f'{bandname}: {mag:2.2f}+/-{mag_err:2.2f} AB {flux:2.2f}+/-{flux_err:2.2f} uJy (zpt = {zpt}) {str_fracdev}', transform=axes[0,1].transAxes)
                     pos = source['ra'], source['dec']
                     axes[0,1].text(0, 0.2, f'Position:   ({pos[0]:2.2f}, {pos[1]:2.2f})', transform=axes[0,1].transAxes)
@@ -1445,8 +1453,8 @@ class BaseImage():
                         pa, pa_err = source['pa'].value, source['pa.err'].value
                         axes[0,1].text(0, 0.1, r'Shape:   $R_{\rm eff} = $' + f'{reff:2.2f}+/-{reff_err:2.2f}\" $b/a$ = {ba:2.2f}+/{ba_err:2.2f}  $\\theta$ = {pa:2.1}+/-{pa_err:2.1f}'+r'$\degree$', transform=axes[0,1].transAxes)
                     elif isinstance(model, FixedCompositeGalaxy):
-                        for skind, yloc in zip(('.exp', '.dev'), (0.1, 0.0)):
-                            reff, reff_err = source[f'reff{skind}'].value, source[f'reff.err{skind}'].value
+                        for skind, yloc in zip(('_exp', '_dev'), (0.1, 0.0)):
+                            reff, reff_err = source[f'reff{skind}'].value, source[f'reff{skind}.err'].value
                             ba, ba_err = source[f'ba{skind}'], source[f'ba{skind}.err']
                             pa, pa_err = source[f'pa{skind}'].value, source[f'pa{skind}.err'].value
                             axes[0,1].text(0, yloc, f'Shape {skind[1:]}:   '+r'$R_{\rm eff} = $' + f'{reff:2.2f}+/-{reff_err}\" $b/a$ = {ba:2.2f}+/{ba_err:2.2f}  $\\theta$ = {pa:2.2f}+/-{pa_err:2.2f}', transform=axes[0,1].transAxes)
@@ -1845,6 +1853,7 @@ class BaseImage():
                 if mband == 'detection': continue
                 if 'groupmap' in self.data[mband]:
                     mpixscl = np.array([self.pixel_scales[mband][0].value, self.pixel_scales[mband][1].value])
+                    # HACK -- this is a lot stupid. Should use WCS params instead.
                     if np.all(pixscl == mpixscl):
                         already_made = True
                         break
@@ -1883,7 +1892,7 @@ class BaseImage():
             else:
                 raise RuntimeError('Cannot write catalogs to disk as none are present!')
 
-    def write_fits(self, allow_update=False, filename=None, directory=conf.PATH_BRICKS):
+    def write_fits(self, bands=None, allow_update=False, filename=None, directory=conf.PATH_BRICKS):
         if filename is None:
             filename = self.filename.replace('.h5', '.fits')
         self.logger.debug(f'Writing to {filename} (allow_update = {allow_update})')
@@ -1901,9 +1910,16 @@ class BaseImage():
             hdul.append(fits.PrimaryHDU())
             makenew = True
 
+        if bands is not None:
+            write_bands = bands
+        else:
+            write_bands = self.data
+
+        if np.isscalar(write_bands):
+            write_bands = [write_bands,]
         
         self.logger.debug(f'... adding data to fits')
-        for band in self.data:
+        for band in write_bands:
             for attr in self.data[band]:
                 if attr.startswith('psf'): # skip this stuff.
                     continue

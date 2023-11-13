@@ -180,7 +180,6 @@ class Brick(BaseImage):
     def extract(self, band='detection', imgtype='science', background=None):
         if self.properties[band]['subtract_background']:
             background = self.get_background(band)
-            print(background)
         catalog, segmap = self._extract(band, imgtype='science', background=background)
 
         # clean out buffer -- these are bricks!

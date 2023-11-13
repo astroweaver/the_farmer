@@ -157,6 +157,22 @@ def dilate_and_group(catalog, segmap, radius=0, fill_holes=False):
 
     # relabel
     groupmap, n_groups = label(segmask)
+
+    # need to check for detached mislabels
+    logger.debug('Checking for bad groups...')
+    for gid in np.arange(1, n_groups):
+        sids = np.unique(segmap[groupmap==gid])
+        sids = sids[sids>0]
+        for sid in sids:
+            gids = np.unique(groupmap[segmap==sid])
+            if len(gids) > 1:
+                bad_gids = gids[gids!=gid]
+                for bgid in bad_gids:
+                    groupmap[groupmap==bgid] = gid
+                    n_groups -= 1
+                    logger.debug(f'  * set bad group {bgid} to owner group {gid}')
+
+    # report back
     logger.debug(f'Found {np.max(groupmap)} groups for {np.max(segmap)} sources.')
     segid, idx = np.unique(segmap.flatten(), return_index=True)
     group_ids = groupmap.flatten()[idx[segid>0]]
@@ -385,11 +401,7 @@ def recursively_save_dict_contents_to_group(h5file, dic, path='/'):
             item.variance.unfreezeParams()
             model_params = dict(zip(item.getParamNames(), item.getParams()))
             model_params['name'] = item.name
-            print(item)
-            print(model_params.keys())
             model_params['variance'] = dict(zip(item.variance.getParamNames(), item.variance.getParams()))
-            print(model_params['variance'].keys())
-            plt.pause(0.1)
             model_params['variance']['name'] = item.name
             recursively_save_dict_contents_to_group(h5file, model_params, path + key + '/')
         elif isinstance(item, utils.Cutout2D):
@@ -636,7 +648,10 @@ def get_params(model):
         source[f'reff.err'] = np.sqrt(variance_shape.logre) * source[f'reff'] * np.log(10)
 
         boa = (1. - np.abs(model.shape.e)) / (1. + np.abs(model.shape.e))
-        boa_sig = boa * np.sqrt(variance_shape.e) * np.sqrt((1/(1.-model.shape.e))**2 + (1/(1.+model.shape.e))**2)
+        if model.shape.e == 1:
+            boa_sig = np.inf
+        else:
+            boa_sig = boa * np.sqrt(variance_shape.e) * np.sqrt((1/(1.-model.shape.e))**2 + (1/(1.+model.shape.e))**2)
         source[f'ba'] = boa
         source[f'ba.err'] = boa_sig
         
