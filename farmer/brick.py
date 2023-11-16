@@ -47,7 +47,7 @@ class Brick(BaseImage):
             self.type = 'brick'
             self.n_sources = {}
             self.group_ids = {}
-            self.group_pops = {}
+            # self.group_pops = {}
             self.model_catalog = OrderedDict()
             self.model_tracker = OrderedDict()
             self.model_tracker_groups = OrderedDict()
@@ -109,7 +109,7 @@ class Brick(BaseImage):
         self.n_sources[mosaic.band] = {}
         self.catalogs[mosaic.band] = {}
         self.group_ids[mosaic.band] = {}
-        self.group_pops[mosaic.band] = {}
+        # self.group_pops[mosaic.band] = {}
         self.bands.append(mosaic.band)
 
         # Loop over properties
@@ -309,8 +309,9 @@ class Brick(BaseImage):
                 self.absorb(group)
         else:
             pool = ProcessPool(ncpus=conf.NCPUS)
-            result = pool.uimap(partial(self.run_group, mode=mode), groups)
+            result = pool.imap(partial(self.run_group, mode=mode), groups)
             [self.absorb(group) for group in result]
+            pool.close()
 
     def run_group(self, group, mode='all'):
 
