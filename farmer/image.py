@@ -431,8 +431,8 @@ class BaseImage():
             fluxcore = Fluxes(**dict(zip(bands, np.zeros(len(bands)))), order=bands) # Just a simple init condition
 
             # set shape bounds for sanity
-            shape.lowers = [-0.3, -np.inf, -np.inf]
-            shape.uppers = [100, np.inf, np.inf]
+            # shape.lowers = [-0.3, -np.inf, -np.inf]
+            # shape.uppers = [100, np.inf, np.inf]
 
             # assign model
             if isinstance(self.model_catalog[source_id], PointSource):
