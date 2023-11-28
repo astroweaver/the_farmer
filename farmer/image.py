@@ -425,8 +425,10 @@ class BaseImage():
             flux = Fluxes(**dict(zip(bands, qflux)), order=bands)
 
             # initial shapes
-            pa = 90. + np.rad2deg(src['theta'])
-            shape = EllipseESoft.fromRAbPhi(src['a'], src['b'] / src['a'], pa)
+            pa = 90. + src['theta']
+            pixscl = self.pixel_scales[band][0].to(u.arcsec).value
+            guess_radius = np.sqrt(src['a']*src['b']) * pixscl
+            shape = EllipseESoft.fromRAbPhi(guess_radius, src['b'] / src['a'], pa)
             nre = SersicIndex(2.5) # Just a guess for the seric index
             fluxcore = Fluxes(**dict(zip(bands, np.zeros(len(bands)))), order=bands) # Just a simple init condition
 
@@ -477,8 +479,8 @@ class BaseImage():
         for i in range(conf.MAX_STEPS):
 
             # try:
-            for sid, obj in zip(self.source_ids, self.engine.getCatalog()):
-                print(sid, obj)
+            # for sid, obj in zip(self.source_ids, self.engine.getCatalog()):
+            #     print(sid, obj)
             dlnp, X, alpha, var = self.engine.optimize(variance=True, damping=conf.DAMPING)
             # except:
             #     self.logger.warning(f'Optimization failed on step {i+1}!')
@@ -1575,16 +1577,16 @@ class BaseImage():
                     elif isinstance(model, (ExpGalaxy, DevGalaxy)) & ~isinstance(model, SimpleGalaxy):
                         shape = model.getShape()
                         width, height = np.abs(np.diff(shape.getRaDecBasis()*3600))
-                        angle = 90. + np.rad2deg(shape.theta)
+                        angle = 90. - np.rad2deg(shape.theta)
                         model_patch += [Ellipse((xc, yc), width, height, angle, fc="none", ec=cmap(i)),]
                     elif isinstance(model, (FixedCompositeGalaxy)):
                         shape = model.shapeExp
                         width, height = np.abs(np.diff(shape.getRaDecBasis()*3600))
-                        angle = 90. + np.rad2deg(shape.theta)
+                        angle = 90. - np.rad2deg(shape.theta)
                         model_patch += [Ellipse((xc, yc), width, height, angle, fc="none", ec=cmap(i)),]
                         shape = model.shapeDev
                         width, height = np.abs(np.diff(shape.getRaDecBasis()*3600))
-                        angle = 90. + np.rad2deg(shape.theta)
+                        angle = 90. - np.rad2deg(shape.theta)
                         model_patch += [Ellipse((xc, yc), width, height, angle, fc="none", ec=cmap(i)),]
 
                     
