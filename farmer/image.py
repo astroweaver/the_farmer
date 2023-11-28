@@ -425,14 +425,14 @@ class BaseImage():
             flux = Fluxes(**dict(zip(bands, qflux)), order=bands)
 
             # initial shapes
-            pa = 90 + np.rad2deg(src['theta'])
+            pa = 90. + np.rad2deg(src['theta'])
             shape = EllipseESoft.fromRAbPhi(src['a'], src['b'] / src['a'], pa)
             nre = SersicIndex(2.5) # Just a guess for the seric index
             fluxcore = Fluxes(**dict(zip(bands, np.zeros(len(bands)))), order=bands) # Just a simple init condition
 
             # set shape bounds for sanity
-            # shape.lowers = [-0.3, -np.inf, -np.inf]
-            # shape.uppers = [100, np.inf, np.inf]
+            shape.lowers = [-5, -np.inf, -np.inf]
+            shape.uppers = [100, np.inf, np.inf]
 
             # assign model
             if isinstance(self.model_catalog[source_id], PointSource):
@@ -456,6 +456,8 @@ class BaseImage():
 
 
             model = set_priors(model, self.model_priors)
+            model.variance = model.copy()
+            model.statistics = {}
             self.model_catalog[source_id] = model
 
             self.logger.debug(f'Source #{source_id}: {self.model_catalog[source_id].name} model at {position}')
@@ -470,18 +472,21 @@ class BaseImage():
         self.engine.optimizer = ConstrainedOptimizer()
 
         # cat = self.engine.getCatalog()
-
         self.logger.info('Running engine...')
         tstart = time.time()
         for i in range(conf.MAX_STEPS):
 
             # try:
-            # for obj in self.engine.getCatalog():
-            #     print(obj)
+            for sid, obj in zip(self.source_ids, self.engine.getCatalog()):
+                print(sid, obj)
             dlnp, X, alpha, var = self.engine.optimize(variance=True, damping=conf.DAMPING)
             # except:
             #     self.logger.warning(f'Optimization failed on step {i+1}!')
             #     return False
+            if conf.PLOT > 4:
+                self.build_all_images(set_engine=False, reconstruct=False)
+                self.plot_image(tag=f's{self.stage}_n{i}', band=self.engine.bands,
+                                 show_catalog=True, imgtype=('science', 'model', 'residual'))
                 
             self.logger.debug(f'   step: {i+1} dlnp: {dlnp:2.5f}')
             if dlnp < conf.DLNP_CRIT:
@@ -585,8 +590,8 @@ class BaseImage():
         # stage 0
         self.add_tracker()
         self.stage_images(bands=bands)
-        self.stage_models(bands=bands)
-        self.measure_stats(bands=bands, stage=self.stage)
+        # self.stage_models(bands=bands)
+        # self.measure_stats(bands=bands, stage=self.stage)
         if conf.PLOT > 2:
             self.plot_image(tag=f's{self.stage}', band=bands, show_catalog=True, imgtype=('science', 'model', 'residual', 'chi'))
 
@@ -598,6 +603,10 @@ class BaseImage():
             self.engine = Tractor(list(self.images.values()), list(self.model_catalog.values()))
             self.engine.bands = list(self.images.keys())
             self.engine.freezeParam('images')
+
+            if conf.PLOT > 3:
+                self.build_all_images(reconstruct=False, set_engine=False)
+                self.plot_image(tag=f's{self.stage}_init', band=bands, show_catalog=True, imgtype=('science', 'model', 'residual', 'chi'))
 
             status = self.optimize()
             if not status:
@@ -988,7 +997,7 @@ class BaseImage():
             self.logger.info(f'   Total: Med(chi) = {chi_pc[2]:2.2f}')
             self.logger.info(f'   Total: Width(chi) = {chi_pc[3]-chi_pc[1]:2.2f}')
 
-    def build_all_images(self, bands=None, source_id=None, overwrite=True, reconstruct=True):
+    def build_all_images(self, bands=None, source_id=None, overwrite=True, reconstruct=True, set_engine=True):
         if bands is None:
             bands = [band for band in self.bands if band != 'detection']
         elif np.isscalar(bands):
@@ -1001,8 +1010,9 @@ class BaseImage():
 
         self.stage_images(bands=bands) # assumes a single PSF!
         # self.stage_models(bands=bands)
-        self.engine = Tractor(list(self.images.values()), list(self.model_catalog.values()))
-        self.engine.bands = list(self.images.keys())
+        if set_engine:
+            self.engine = Tractor(list(self.images.values()), list(self.model_catalog.values()))
+            self.engine.bands = list(self.images.keys())
 
         self.build_model_image(bands, source_id, overwrite, reconstruct=reconstruct)
         self.build_residual_image(bands, source_id, overwrite)
@@ -1565,16 +1575,16 @@ class BaseImage():
                     elif isinstance(model, (ExpGalaxy, DevGalaxy)) & ~isinstance(model, SimpleGalaxy):
                         shape = model.getShape()
                         width, height = np.abs(np.diff(shape.getRaDecBasis()*3600))
-                        angle = np.rad2deg(shape.theta)
+                        angle = 90. + np.rad2deg(shape.theta)
                         model_patch += [Ellipse((xc, yc), width, height, angle, fc="none", ec=cmap(i)),]
                     elif isinstance(model, (FixedCompositeGalaxy)):
                         shape = model.shapeExp
                         width, height = np.abs(np.diff(shape.getRaDecBasis()*3600))
-                        angle = np.rad2deg(shape.theta)
+                        angle = 90. + np.rad2deg(shape.theta)
                         model_patch += [Ellipse((xc, yc), width, height, angle, fc="none", ec=cmap(i)),]
                         shape = model.shapeDev
                         width, height = np.abs(np.diff(shape.getRaDecBasis()*3600))
-                        angle = np.rad2deg(shape.theta)
+                        angle = 90. + np.rad2deg(shape.theta)
                         model_patch += [Ellipse((xc, yc), width, height, angle, fc="none", ec=cmap(i)),]
 
                     

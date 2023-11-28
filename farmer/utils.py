@@ -703,8 +703,9 @@ def get_params(model):
         source[f'{band}.mag.err'] = 2.5 * np.log10(np.e) / (source[f'{band}.flux'] / source[f'{band}.flux.err'])
 
         # statistics
-        for stat in model.statistics[band]:
-            source[f'{band}.{stat}'] = model.statistics[band][stat]
+        if band in model.statistics:
+            for stat in model.statistics[band]:
+                source[f'{band}.{stat}'] = model.statistics[band][stat]
 
     return source
 
@@ -741,6 +742,8 @@ def set_priors(model, priors):
                     # for i, param in enumerate(params):
                     #     model[idx].freezeParam(i)
                     #     logger.debug(f'Froze {param}')
+                else:
+                    logger.debug('fracDev is free to vary')  
 
         elif name == 'shape':
             if 'shape' in priors:
@@ -751,6 +754,8 @@ def set_priors(model, priors):
                             continue
                         model[idx].freezeParam(i)
                         logger.debug(f'Froze {param}')
+                else:
+                    logger.debug('Shape is free to vary')   
 
             if 'reff' in priors:
                 if priors['reff'] in ('fix', 'freeze'):
