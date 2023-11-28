@@ -481,12 +481,15 @@ class BaseImage():
             # try:
             # for sid, obj in zip(self.source_ids, self.engine.getCatalog()):
             #     print(sid, obj)
+            # if i > 0:
+            #     print(X)
+            #     print(alpha)
             dlnp, X, alpha, var = self.engine.optimize(variance=True, damping=conf.DAMPING)
             # except:
             #     self.logger.warning(f'Optimization failed on step {i+1}!')
             #     return False
             if conf.PLOT > 4:
-                self.build_all_images(set_engine=False, reconstruct=False)
+                self.build_all_images(set_engine=False, reconstruct=False, bands=self.engine.bands)
                 self.plot_image(tag=f's{self.stage}_n{i}', band=self.engine.bands,
                                  show_catalog=True, imgtype=('science', 'model', 'residual'))
                 
@@ -1228,7 +1231,9 @@ class BaseImage():
                             else:
                                 idy, idx = groupmap[group_id]
                             group_npix = len(idx)
-                            assert group_npix > 0, f'No pixels belong to group #{group_id}!'
+                            if group_npix == 0:
+                                self.logger.warning(f'No pixels belong to group #{group_id}! Skipping.')
+                                continue
                             xlo, xhi = np.min(idx), np.max(idx) + 1
                             ylo, yhi = np.min(idy), np.max(idy) + 1
                             group_width = xhi - xlo
@@ -1936,7 +1941,7 @@ class BaseImage():
                 if attr.startswith('psf'): # skip this stuff.
                     continue
                 if (band != 'detection') & ('map' in attr):
-                    print(f'Writing {attr} for {band} is not possible.')
+                    self.logging.warning(f'Writing {attr} for {band} is not possible.')
                     continue
                 ext_name = f'{band}_{attr}'
                 try:
@@ -1944,7 +1949,7 @@ class BaseImage():
                 except:
                     if np.sum([(band.upper() in hdu.name) for hdu in hdul]) == 0:
                         hdul.append(fits.ImageHDU(name=ext_name))
-                        print(f'appended {attr} {band}')
+                        self.logging.debug(f'Appended {attr} {band}')
                     else: 
                         if attr == 'model': # go after science
                             hdul.insert(hdul.index_of(f'{band}_SCIENCE')+1, fits.ImageHDU(name=ext_name))
