@@ -94,6 +94,8 @@ def load_brick_position(brick_id):
     nx, ny = wcs.array_shape
     brick_width = nx / conf.N_BRICKS[0]
     brick_height = ny / conf.N_BRICKS[1]
+    if brick_id <= 0:
+        raise RuntimeError(f'Cannot request brick #{brick_id} (<=0)!')
     if brick_id > (nx * ny):
         raise RuntimeError(f'Cannot request brick #{brick_id} on grid {nx} X {ny}!')
     logger.debug(f'Using bricks of size ({brick_width:2.2f}, {brick_height:2.2f}) px, in grid {nx} X {ny} px')

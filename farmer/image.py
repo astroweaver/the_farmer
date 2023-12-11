@@ -135,17 +135,21 @@ class BaseImage():
 
             except:
                 img = fits.getdata(psf_path)
-                img[img<1e-31] = 1e-31
+                img[(img<1e-31) | np.isnan(img)] = 1e-31
                 img = img.astype('float32')
                 psfmodel = PixelizedPSF(img)
                 self.logger.debug(f'PSF model for {band} identified as PixelizedPSF.')
             
         elif psf_path.endswith('.fits'):
             img = fits.getdata(psf_path)
-            img[img<1e-31] = 1e-31
+            img[(img<1e-31) | np.isnan(img)] = 1e-31
             img = img.astype('float32')
             psfmodel = PixelizedPSF(img)
             self.logger.debug(f'PSF model for {band} identified as PixelizedPSF.')
+
+        if conf.RENORM_PSF is not None:
+            psfmodel.img *= conf.RENORM_PSF / np.nansum(psfmodel.img)
+            self.logger.warning(f'PSF model has been renormalized to {conf.RENORM_PSF}. This WILL affect photometry!')
 
         return psfmodel
 
@@ -315,9 +319,6 @@ class BaseImage():
         self.logger.debug(f'Staging images for The Tractor... (image --> {data_imgtype})')
         for band in bands:
             psfmodel = self.get_psfmodel(band=band)
-            # from tractor.psf import NCircularGaussianPSF
-            # psfmodel = NCircularGaussianPSF([5.], [1.])
-            # psfmodel.img = np.ones((100, 100))
 
             data = self.get_image(band=band, imgtype=data_imgtype)
             data[np.isnan(data)] = 0
@@ -477,17 +478,13 @@ class BaseImage():
         self.logger.info('Running engine...')
         tstart = time.time()
         for i in range(conf.MAX_STEPS):
+            try:
+                dlnp, X, alpha, var = self.engine.optimize(variance=True, damping=conf.DAMPING)
+            except:
+                self.logger.warning(f'Optimization failed on step {i+1}!')
+                if not conf.IGNORE_FAILURES:
+                    raise RuntimeError(f'Optimization failed on step {i+1}!')
 
-            # try:
-            # for sid, obj in zip(self.source_ids, self.engine.getCatalog()):
-            #     print(sid, obj)
-            # if i > 0:
-            #     print(X)
-            #     print(alpha)
-            dlnp, X, alpha, var = self.engine.optimize(variance=True, damping=conf.DAMPING)
-            # except:
-            #     self.logger.warning(f'Optimization failed on step {i+1}!')
-            #     return False
             if conf.PLOT > 4:
                 self.build_all_images(set_engine=False, reconstruct=False, bands=self.engine.bands)
                 self.plot_image(tag=f's{self.stage}_n{i}', band=self.engine.bands,
@@ -1212,8 +1209,8 @@ class BaseImage():
                                     ax.annotate(source_id, (x, y), (x-2, y-4), color='r', alpha=0.8, fontsize=10, horizontalalignment='right')
                                     ax.hlines(y, x-5, x-2, color='r', alpha=0.8, lw=1)
                                     ax.vlines(x, y-5, y-2, color='r', alpha=0.8, lw=1)
-                                # else:
-                                #     ax.scatter(x, y, fc='none', ec='r', linewidths=1, marker='o', s=15)
+                                else:
+                                    ax.scatter(x, y, fc='none', ec='r', linewidths=1, marker='.', s=15)
 
                     # show group extents
                     if show_groups:
@@ -1274,8 +1271,8 @@ class BaseImage():
                                     ax.annotate(source_id, (x, y), (x-2, y-4), color='r', alpha=0.8, fontsize=10, horizontalalignment='right')
                                     ax.hlines(y, x-5, x-2, color='r', alpha=0.8, lw=1)
                                     ax.vlines(x, y-5, y-2, color='r', alpha=0.8, lw=1)
-                                # else:
-                                #     ax.scatter(x, y, fc='none', ec='r', linewidths=1, marker='o', s=15)
+                                else:
+                                    ax.scatter(x, y, fc='none', ec='r', linewidths=1, marker='.', s=15)
                     fig.tight_layout()
 
                 if imgtype in ('chi'):
@@ -1291,8 +1288,8 @@ class BaseImage():
                                     ax.annotate(source_id, (x, y), (x-2, y-4), color='r', alpha=0.8, fontsize=10, horizontalalignment='right')
                                     ax.hlines(y, x-5, x-2, color='r', alpha=0.8, lw=1)
                                     ax.vlines(x, y-5, y-2, color='r', alpha=0.8, lw=1)
-                                # else:
-                                #     ax.scatter(x, y, fc='none', ec='r', linewidths=1, marker='o', s=15)
+                                else:
+                                    ax.scatter(x, y, fc='none', ec='r', linewidths=1, marker='.', s=15)
                     fig.tight_layout()
                 
                 if imgtype in ('weight', 'mask'):
@@ -1308,8 +1305,8 @@ class BaseImage():
                                     ax.annotate(source_id, (x, y), (x-2, y-4), color='r', alpha=0.8, fontsize=10, horizontalalignment='right')
                                     ax.hlines(y, x-5, x-2, color='r', alpha=0.8, lw=1)
                                     ax.vlines(x, y-5, y-2, color='r', alpha=0.8, lw=1)
-                                # else:
-                                #     ax.scatter(x, y, fc='none', ec='r', linewidths=1, marker='o', s=15)
+                                else:
+                                    ax.scatter(x, y, fc='none', ec='r', linewidths=1, marker='.', s=15)
                     fig.tight_layout()
             
                 if imgtype in ('segmap', 'groupmap'):
@@ -1941,7 +1938,7 @@ class BaseImage():
                 if attr.startswith('psf'): # skip this stuff.
                     continue
                 if (band != 'detection') & ('map' in attr):
-                    self.logging.warning(f'Writing {attr} for {band} is not possible.')
+                    self.logger.warning(f'Writing {attr} for {band} is not possible.')
                     continue
                 ext_name = f'{band}_{attr}'
                 try:
@@ -1949,7 +1946,7 @@ class BaseImage():
                 except:
                     if np.sum([(band.upper() in hdu.name) for hdu in hdul]) == 0:
                         hdul.append(fits.ImageHDU(name=ext_name))
-                        self.logging.debug(f'Appended {attr} {band}')
+                        self.logger.debug(f'Appended {attr} {band}')
                     else: 
                         if attr == 'model': # go after science
                             hdul.insert(hdul.index_of(f'{band}_SCIENCE')+1, fits.ImageHDU(name=ext_name))
