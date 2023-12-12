@@ -1271,8 +1271,8 @@ class BaseImage():
                                     ax.annotate(source_id, (x, y), (x-2, y-4), color='r', alpha=0.8, fontsize=10, horizontalalignment='right')
                                     ax.hlines(y, x-5, x-2, color='r', alpha=0.8, lw=1)
                                     ax.vlines(x, y-5, y-2, color='r', alpha=0.8, lw=1)
-                                elif imgtype not in ('residual', 'chi'):
-                                    ax.scatter(x, y, fc='none', ec='r', linewidths=1, marker='.', s=15)
+                                # elif imgtype not in ('residual', 'chi'):
+                                #     ax.scatter(x, y, fc='none', ec='r', linewidths=1, marker='.', s=15)
                     fig.tight_layout()
 
                 if imgtype in ('chi'):
