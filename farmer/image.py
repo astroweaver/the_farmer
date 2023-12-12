@@ -426,7 +426,7 @@ class BaseImage():
             flux = Fluxes(**dict(zip(bands, qflux)), order=bands)
 
             # initial shapes
-            pa = 90. + src['theta']
+            pa = src['theta']
             pixscl = self.pixel_scales[band][0].to(u.arcsec).value
             guess_radius = np.sqrt(src['a']*src['b']) * pixscl
             shape = EllipseESoft.fromRAbPhi(guess_radius, src['b'] / src['a'], pa)
@@ -484,6 +484,7 @@ class BaseImage():
                 self.logger.warning(f'Optimization failed on step {i+1}!')
                 if not conf.IGNORE_FAILURES:
                     raise RuntimeError(f'Optimization failed on step {i+1}!')
+                return False
 
             if conf.PLOT > 4:
                 self.build_all_images(set_engine=False, reconstruct=False, bands=self.engine.bands)
@@ -1001,7 +1002,7 @@ class BaseImage():
 
     def build_all_images(self, bands=None, source_id=None, overwrite=True, reconstruct=True, set_engine=True):
         if bands is None:
-            bands = [band for band in self.engine.bands if band != 'detection']
+            bands = [band for band in self.bands if band != 'detection']
         elif np.isscalar(bands):
             bands = [bands,]
 
@@ -1015,6 +1016,9 @@ class BaseImage():
         if set_engine:
             self.engine = Tractor(list(self.images.values()), list(self.model_catalog.values()))
             self.engine.bands = list(self.images.keys())
+        
+        # only do the bands we can do
+        bands = [band for band in self.engine.bands if band != 'detection']
 
         self.build_model_image(bands, source_id, overwrite, reconstruct=reconstruct)
         self.build_residual_image(bands, source_id, overwrite)

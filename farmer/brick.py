@@ -282,11 +282,11 @@ class Brick(BaseImage):
         # grouping
         self.identify_groups(band=band, imgtype=imgtype)
 
-        if conf.PLOT > 1:
-            self.plot_image(imgtype='science')
-
         # transfer maps
         self.transfer_maps()
+
+        if conf.PLOT > 1:
+            self.plot_image(imgtype='science')
 
         return self.catalogs[band][imgtype]
 

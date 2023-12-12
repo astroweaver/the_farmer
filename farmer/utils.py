@@ -342,23 +342,24 @@ def map_discontinuous(input, out_wcs, out_shape, thresh=0.1):
     logger = logging.getLogger('farmer.map_discontinuous')
     segs = np.unique(array.flatten()).astype(int)
     segs = segs[segs!=0]
-    sizes = np.array([np.sum(array==segid) for segid in segs])
-    zorder = np.argsort(sizes)[::-1]
-    sizes = sizes[zorder]
-    segs = segs[zorder]
+    # sizes = np.array([np.sum(array==segid) for segid in segs])
+    # zorder = np.argsort(sizes)[::-1]
+    # sizes = sizes[zorder]
+    # segs = segs[zorder]
 
-    do_reproject = True
-    if out_shape == np.shape(array):
-        do_reproject = False
+    # do_reproject = True
+    # if out_shape == np.shape(array):
+    #     do_reproject = False
+
+    array_out, __ = reproject_interp((array, in_wcs), out_wcs, out_shape, order=0)
 
     outdict = {}
 
     for seg in tqdm(segs):
-        mask = np.zeros_like(array)
-        mask[array == seg] = 1
-        if do_reproject:
-            mask = reproject_interp((mask, in_wcs), out_wcs, out_shape, return_footprint=False)
-        y, x = (mask > thresh).nonzero() # x and y for that segment
+        # mask = (array == seg).astype(np.int8)
+        # mask = reproject_interp((mask, in_wcs), out_wcs, out_shape, return_footprint=False)
+        # y, x = (mask > thresh).nonzero() # x and y for that segment
+        y, x = (array_out==seg).nonzero()
         outdict[seg] = y, x
 
     return outdict
@@ -682,10 +683,10 @@ def get_params(model):
             source[f'reff{skind}.err'] = np.sqrt(variance_shape.logre) * source[f'reff{skind}'] * np.log(10)
 
             boa = (1. - np.abs(shape.e)) / (1. + np.abs(shape.e))
-            if model.shape.e == 1:
+            if shape.e == 1:
                 boa_sig = np.inf
             else:
-                boa_sig = boa * np.sqrt(variance_shape.e) * np.sqrt((1/(1.-model.shape.e))**2 + (1/(1.+model.shape.e))**2)
+                boa_sig = boa * np.sqrt(variance_shape.e) * np.sqrt((1/(1.-shape.e))**2 + (1/(1.+shape.e))**2)
             source[f'ba{skind}'] = boa
             source[f'ba{skind}.err'] = boa_sig
             
