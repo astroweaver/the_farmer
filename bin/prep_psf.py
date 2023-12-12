@@ -66,5 +66,5 @@ for fn in glob.glob(path+'/*'):
             norm = 0.9371 # ch1 - 0.9371 # ch2 - 0.9249 at 10" radius
             )
 
-    print(name)
+
 

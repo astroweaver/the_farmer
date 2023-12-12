@@ -1,1 +1,8 @@
 .vscode/settings.json
+farmer/__pycache__/__init__.cpython-39.pyc
+farmer/__pycache__/brick.cpython-39.pyc
+farmer/__pycache__/group.cpython-39.pyc
+farmer/__pycache__/image.cpython-39.pyc
+farmer/__pycache__/mosaic.cpython-39.pyc
+farmer/__pycache__/utils.cpython-39.pyc
+farmer/__pycache__/version.cpython-39.pyc
