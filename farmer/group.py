@@ -166,7 +166,7 @@ class Group(BaseImage):
                     if (imgtype == 'segmap') & (band != 'detection'):
                         segmap = brick.data[band]['segmap']
                         self.data[band]['segmap'] = {}
-                        for source_id in self.catalogs['detection']['science']['ID']: # This is sort of hard coded...
+                        for source_id in self.catalogs['detection']['science']['id']: # This is sort of hard coded...
                             self.data[band]['segmap'][source_id] = segmap[source_id] \
                                 - np.array([cutout.origin_original[1], cutout.origin_original[0]])[:, None]
                         self.logger.debug(f'... data \"segmap\" adopted from brick')

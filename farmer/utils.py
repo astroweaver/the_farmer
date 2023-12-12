@@ -682,7 +682,10 @@ def get_params(model):
             source[f'reff{skind}.err'] = np.sqrt(variance_shape.logre) * source[f'reff{skind}'] * np.log(10)
 
             boa = (1. - np.abs(shape.e)) / (1. + np.abs(shape.e))
-            boa_sig = boa * np.sqrt(variance_shape.e) * np.sqrt((1/(1.-shape.e))**2 + (1/(1.+shape.e))**2)
+            if model.shape.e == 1:
+                boa_sig = np.inf
+            else:
+                boa_sig = boa * np.sqrt(variance_shape.e) * np.sqrt((1/(1.-model.shape.e))**2 + (1/(1.+model.shape.e))**2)
             source[f'ba{skind}'] = boa
             source[f'ba{skind}.err'] = boa_sig
             
@@ -803,7 +806,7 @@ def build_regions(catalog, pixel_scale, outpath='objects.reg', scale_factor=2.0)
         width = scale_factor * 2 * obj['a'] * pixel_scale
         height = scale_factor * 2 * obj['b'] * pixel_scale
         angle = np.rad2deg(obj['theta']) * u.deg
-        objid = str(obj['ID'])
+        objid = str(obj['id'])
         regs.append(EllipseSkyRegion(coord, width, height, angle, meta={'text':objid}))
     regs = np.array(regs)
     bigreg = Regions(regs)

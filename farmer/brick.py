@@ -202,7 +202,7 @@ class Brick(BaseImage):
 
         # add ids
         self.catalogs[band][imgtype].add_column(self.brick_id * np.ones(self.n_sources[band][imgtype], dtype=np.int32), name='brick_id', index=0)
-        self.catalogs[band][imgtype].add_column(1+np.arange(self.n_sources[band][imgtype]), name='ID', index=0)
+        self.catalogs[band][imgtype].add_column(1+np.arange(self.n_sources[band][imgtype]), name='id', index=0)
 
         # add world positions
         skycoords = self.data[band][imgtype].wcs.all_pix2world(catalog['x'], catalog['y'], 0)
@@ -242,7 +242,7 @@ class Brick(BaseImage):
         group.add_bands(self, bands=bands)
         
         nsrcs = group.n_sources['detection'][imgtype]
-        source_ids = np.array(group.get_catalog()['ID'])
+        source_ids = np.array(group.get_catalog()['id'])
         group.source_ids = source_ids
         self.logger.debug(f'Group #{group_id} has {nsrcs} sources: {source_ids}')
         if nsrcs > conf.GROUP_SIZE_LIMIT:

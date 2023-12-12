@@ -156,7 +156,7 @@ class Mosaic(BaseImage):
         self.n_sources['science'] = len(catalog)
 
         # add ids
-        colname = 'ID'
+        colname = 'id'
         self.catalogs['science'].add_column(1+np.arange(self.n_sources['science']), name=colname, index=0)
 
         # add world positions

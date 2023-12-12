@@ -74,11 +74,11 @@ class BaseImage():
         self.model_tracker[self.type][self.stage] = {}
 
         for src in catalog:
-            source_id = src['ID']
+            source_id = src['id']
             if source_id not in self.model_catalog:
                 self.model_catalog[source_id] = PointSource(None, None)  # this is a bit of a DT-dependent move...
                 self.model_tracker[source_id] = {}
-                self.source_ids = np.array(catalog['ID'])
+                self.source_ids = np.array(catalog['id'])
             self.model_tracker[source_id][self.stage] = {}
 
     def reset_models(self):
@@ -264,7 +264,7 @@ class BaseImage():
             return mean, median, rms
         except:
             image = self.get_image(imgtype, band)
-            mean, median, rms = sigma_clipped_stats(image)
+            mean, median, rms = sigma_clipped_stats(image[image!=0])
             self.logger.debug(f'Estimated stats of \"{imgtype}\" image (@3 sig)')
             self.logger.debug(f'    Mean:   {mean:2.3f}')
             self.logger.debug(f'    Median: {median:2.3f}')
@@ -363,7 +363,7 @@ class BaseImage():
 
         for src in self.catalogs[self.catalog_band][self.catalog_imgtype]:
 
-            source_id = src['ID']
+            source_id = src['id']
 
             # add new bands using average (zpt-corr) fluxes as guesses
             existing_bands = np.array(existing_catalog[source_id].brightness.getParamNames())
@@ -407,7 +407,7 @@ class BaseImage():
 
         for src in self.catalogs[self.catalog_band][self.catalog_imgtype]:
 
-            source_id = src['ID']
+            source_id = src['id']
             if source_id not in self.model_catalog:
                 self.logger.warning(f'Source #{source_id} is not in the model catalog! Skipping...')
                 continue
@@ -816,7 +816,7 @@ class BaseImage():
                 if np.isscalar(chi_pc):
                     chi_pc = np.nan * np.ones(5)
                 area = 0
-                for source_id in self.catalogs[self.catalog_band][self.catalog_imgtype]['ID']:
+                for source_id in self.catalogs[self.catalog_band][self.catalog_imgtype]['id']:
                     data = self.images[band].data.copy()
                     segmask = np.zeros(shape=data.shape, dtype=bool)
                     segmask[segmap[source_id][0], segmap[source_id][1]] = True
@@ -895,7 +895,7 @@ class BaseImage():
             self.logger.info(f'   Total: Width(chi) = {chi_pc[3]-chi_pc[1]:2.2f}')
 
         for i, src in enumerate(self.catalogs[self.catalog_band][self.catalog_imgtype]):
-            source_id = src['ID']
+            source_id = src['id']
             model = self.model_catalog[source_id]
             try:
                 modelname = model.name
@@ -1185,7 +1185,7 @@ class BaseImage():
                 if (imgtype in ('science',)) & self.get_property('subtract_background', band=band):
                     background = self.get_background(band)
 
-                if imgtype in ('science', 'model', 'residual', 'chi'):
+                if imgtype in ('science', 'model', 'residual'):
                     # log-scaled
                     vmax, rms = np.nanmax(image), self.get_property('clipped_rms', band=band)
                     if vmax < rms:
@@ -1204,12 +1204,12 @@ class BaseImage():
                         if catalog_imgtype in self.catalogs[catalog_band].keys():
                             coords = SkyCoord(self.catalogs[catalog_band][catalog_imgtype]['ra'], self.catalogs[catalog_band][catalog_imgtype]['dec'])
                             pos = self.wcs[band].world_to_pixel(coords)
-                            for source_id, x, y in zip(self.catalogs[catalog_band][catalog_imgtype]['ID'], pos[0], pos[1]):
+                            for source_id, x, y in zip(self.catalogs[catalog_band][catalog_imgtype]['id'], pos[0], pos[1]):
                                 if self.type == 'group':
                                     ax.annotate(source_id, (x, y), (x-2, y-4), color='r', alpha=0.8, fontsize=10, horizontalalignment='right')
                                     ax.hlines(y, x-5, x-2, color='r', alpha=0.8, lw=1)
                                     ax.vlines(x, y-5, y-2, color='r', alpha=0.8, lw=1)
-                                else:
+                                elif imgtype not in ('residual',):
                                     ax.scatter(x, y, fc='none', ec='r', linewidths=1, marker='.', s=15)
 
                     # show group extents
@@ -1266,12 +1266,12 @@ class BaseImage():
                         if catalog_imgtype in self.catalogs[catalog_band].keys():
                             coords = SkyCoord(self.catalogs[catalog_band][catalog_imgtype]['ra'], self.catalogs[catalog_band][catalog_imgtype]['dec'])
                             pos = self.wcs[band].world_to_pixel(coords)
-                            for source_id, x, y in zip(self.catalogs[catalog_band][catalog_imgtype]['ID'], pos[0], pos[1]):
+                            for source_id, x, y in zip(self.catalogs[catalog_band][catalog_imgtype]['id'], pos[0], pos[1]):
                                 if self.type == 'group':
                                     ax.annotate(source_id, (x, y), (x-2, y-4), color='r', alpha=0.8, fontsize=10, horizontalalignment='right')
                                     ax.hlines(y, x-5, x-2, color='r', alpha=0.8, lw=1)
                                     ax.vlines(x, y-5, y-2, color='r', alpha=0.8, lw=1)
-                                else:
+                                elif imgtype not in ('residual', 'chi'):
                                     ax.scatter(x, y, fc='none', ec='r', linewidths=1, marker='.', s=15)
                     fig.tight_layout()
 
@@ -1283,13 +1283,13 @@ class BaseImage():
                         if catalog_imgtype in self.catalogs[catalog_band].keys():
                             coords = SkyCoord(self.catalogs[catalog_band][catalog_imgtype]['ra'], self.catalogs[catalog_band][catalog_imgtype]['dec'])
                             pos = self.wcs[band].world_to_pixel(coords)
-                            for source_id, x, y in zip(self.catalogs[catalog_band][catalog_imgtype]['ID'], pos[0], pos[1]):
+                            for source_id, x, y in zip(self.catalogs[catalog_band][catalog_imgtype]['id'], pos[0], pos[1]):
                                 if self.type == 'group':
                                     ax.annotate(source_id, (x, y), (x-2, y-4), color='r', alpha=0.8, fontsize=10, horizontalalignment='right')
                                     ax.hlines(y, x-5, x-2, color='r', alpha=0.8, lw=1)
                                     ax.vlines(x, y-5, y-2, color='r', alpha=0.8, lw=1)
-                                else:
-                                    ax.scatter(x, y, fc='none', ec='r', linewidths=1, marker='.', s=15)
+                                # else:
+                                #     ax.scatter(x, y, fc='none', ec='r', linewidths=1, marker='.', s=15)
                     fig.tight_layout()
                 
                 if imgtype in ('weight', 'mask'):
@@ -1300,7 +1300,7 @@ class BaseImage():
                         if catalog_imgtype in self.catalogs[catalog_band].keys():
                             coords = SkyCoord(self.catalogs[catalog_band][catalog_imgtype]['ra'], self.catalogs[catalog_band][catalog_imgtype]['dec'])
                             pos = self.wcs[band].world_to_pixel(coords)
-                            for source_id, x, y in zip(self.catalogs[catalog_band][catalog_imgtype]['ID'], pos[0], pos[1]):
+                            for source_id, x, y in zip(self.catalogs[catalog_band][catalog_imgtype]['id'], pos[0], pos[1]):
                                 if self.type == 'group':
                                     ax.annotate(source_id, (x, y), (x-2, y-4), color='r', alpha=0.8, fontsize=10, horizontalalignment='right')
                                     ax.hlines(y, x-5, x-2, color='r', alpha=0.8, lw=1)
@@ -1324,7 +1324,7 @@ class BaseImage():
                         if catalog_imgtype in self.catalogs[catalog_band].keys():
                             coords = SkyCoord(self.catalogs[catalog_band][catalog_imgtype]['ra'], self.catalogs[catalog_band][catalog_imgtype]['dec'])
                             pos = self.wcs[band].world_to_pixel(coords)
-                            for source_id, x, y in zip(self.catalogs[catalog_band][catalog_imgtype]['ID'], pos[0], pos[1]):
+                            for source_id, x, y in zip(self.catalogs[catalog_band][catalog_imgtype]['id'], pos[0], pos[1]):
                                 if self.type == 'group':
                                     ax.annotate(source_id, (x, y), (x-2, y-4), color='r', alpha=0.8, fontsize=10, horizontalalignment='right')
                                     ax.hlines(y, x-5, x-2, color='r', alpha=0.8, lw=1)
@@ -1491,7 +1491,7 @@ class BaseImage():
                     position = self.position
                     target_size = self.buffsize
                 else:
-                    ira, idec = catalog['ra'][catalog['ID'] == source_id], catalog['dec'][catalog['ID'] == source_id]
+                    ira, idec = catalog['ra'][catalog['id'] == source_id], catalog['dec'][catalog['id'] == source_id]
                     position = SkyCoord(ira, idec)
                     idy, idx = segmap[source_id]
                     xlo, xhi = np.min(idx), np.max(idx)
@@ -1565,9 +1565,9 @@ class BaseImage():
                     if source_id == 'group':
                         center_position = self.position
                     else:
-                        ira, idec = catalog['ra'][catalog['ID'] == source_id], catalog['dec'][catalog['ID'] == source_id]
+                        ira, idec = catalog['ra'][catalog['id'] == source_id], catalog['dec'][catalog['id'] == source_id]
                         center_position = SkyCoord(ira, idec)
-                    ira, idec = catalog['ra'][catalog['ID'] == sid], catalog['dec'][catalog['ID'] == sid]
+                    ira, idec = catalog['ra'][catalog['id'] == sid], catalog['dec'][catalog['id'] == sid]
                     ixc, iyc = dcoord_to_offset(SkyCoord(ira, idec), center_position)
                     axes[0,0].scatter(ixc, iyc, facecolors='none', edgecolors=cmap(i))
                     model = self.model_catalog[sid] 
@@ -2064,7 +2064,7 @@ class BaseImage():
         # loop over set
         for source_id in self.model_catalog:
             source = self.model_catalog[source_id]
-            group_id = catalog['group_id'][catalog['ID'] == source_id][0]
+            group_id = catalog['group_id'][catalog['id'] == source_id][0]
             params = get_params(source)
 
             for name in params:
@@ -2081,7 +2081,7 @@ class BaseImage():
                     dtype = 'S11'
                 if name not in catalog.colnames:
                     catalog.add_column(Column(length=len(catalog), name=name, dtype=dtype, unit=unit))
-                catalog[name][catalog['ID'] == source_id] = value
+                catalog[name][catalog['id'] == source_id] = value
                 if type(value) == str:
                     self.logger.debug(f'G{group_id}.S{source_id} :: {name} = {value}')
                 else:
