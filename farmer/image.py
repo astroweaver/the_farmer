@@ -1001,7 +1001,7 @@ class BaseImage():
 
     def build_all_images(self, bands=None, source_id=None, overwrite=True, reconstruct=True, set_engine=True):
         if bands is None:
-            bands = [band for band in self.bands if band != 'detection']
+            bands = [band for band in self.engine.bands if band != 'detection']
         elif np.isscalar(bands):
             bands = [bands,]
 
