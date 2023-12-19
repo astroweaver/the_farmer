@@ -312,7 +312,7 @@ class SimpleGalaxy(ExpGalaxy):
     shape = EllipseE(0.45, 0., 0.)
 
     def __init__(self, *args):
-        super(SimpleGalaxy, self).__init__(*args)
+        super(ExpGalaxy, self).__init__(*args)
 
     def __str__(self):
         return (self.name + ' at ' + str(self.pos)
@@ -777,7 +777,7 @@ def set_priors(model, priors):
                     sigma = np.log(priors['reff'].to(u.arcsec).value)
                     psigma = priors['reff'].to(u.arcsec)
                     model[idx].addGaussianPrior('logre', mu=model[idx][0], sigma=sigma)    
-                    print(f'Set radius prior +/- {psigma}')   
+                    logger.debug(f'Set radius prior +/- {psigma}')   
                 else:
                     logger.debug('Radius is free to vary')             
     return model

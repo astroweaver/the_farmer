@@ -435,7 +435,7 @@ class BaseImage():
 
             # set shape bounds for sanity
             shape.lowers = [-5, -np.inf, -np.inf]
-            shape.uppers = [100, np.inf, np.inf]
+            shape.uppers = [1, np.inf, np.inf]
 
             # assign model
             if isinstance(self.model_catalog[source_id], PointSource):
@@ -1469,7 +1469,7 @@ class BaseImage():
                         reff, reff_err = source['reff'].value, source['reff.err'].value
                         ba, ba_err = source['ba'], source['ba.err']
                         pa, pa_err = source['pa'].value, source['pa.err'].value
-                        axes[0,1].text(0, 0.1, r'Shape:   $R_{\rm eff} = $' + f'{reff:2.2f}+/-{reff_err:2.2f}\" $b/a$ = {ba:2.2f}+/{ba_err:2.2f}  $\\theta$ = {pa:2.1}+/-{pa_err:2.1f}'+r'$\degree$', transform=axes[0,1].transAxes)
+                        axes[0,1].text(0, 0.1, r'Shape:   $R_{\rm eff} = $' + f'{reff:2.2f}+/-{reff_err:2.2f}\" $b/a$ = {ba:2.2f}+/{ba_err:2.2f}  $\\theta$ = {pa:2.1f}+/-{pa_err:2.1f}'+r'$\degree$', transform=axes[0,1].transAxes)
                     elif isinstance(model, FixedCompositeGalaxy):
                         for skind, yloc in zip(('_exp', '_dev'), (0.1, 0.0)):
                             reff, reff_err = source[f'reff{skind}'].value, source[f'reff{skind}.err'].value
@@ -1578,20 +1578,21 @@ class BaseImage():
                     ra, dec = model.pos.ra, model.pos.dec
                     xc, yc = dcoord_to_offset(SkyCoord(ra*u.deg, dec*u.deg), center_position)
 
+                    pixscl = self.pixel_scales[band][0].to(u.arcsec).value
                     if isinstance(model, (PointSource, SimpleGalaxy)):
                         model_patch += [Circle((xc, yc), hwhm, fc="none", ec=cmap(i)),]
                     elif isinstance(model, (ExpGalaxy, DevGalaxy)) & ~isinstance(model, SimpleGalaxy):
                         shape = model.getShape()
-                        width, height = shape.re, shape.re / shape.ab
+                        width, height = shape.re * shape.ab / pixscl, shape.re / pixscl
                         angle = np.rad2deg(shape.theta)
                         model_patch += [Ellipse((xc, yc), width, height, angle, fc="none", ec=cmap(i)),]
                     elif isinstance(model, (FixedCompositeGalaxy)):
                         shape = model.shapeExp
-                        width, height = shape.re, shape.re / shape.ab
+                        width, height = shape.re * shape.ab / pixscl, shape.re / pixscl
                         angle = np.rad2deg(shape.theta)
                         model_patch += [Ellipse((xc, yc), width, height, angle, fc="none", ec=cmap(i)),]
                         shape = model.shapeDev
-                        width, height = shape.re, shape.re / shape.ab
+                        width, height = shape.re * shape.ab / pixscl, shape.re / pixscl
                         angle = np.rad2deg(shape.theta)
                         model_patch += [Ellipse((xc, yc), width, height, angle, fc="none", ec=cmap(i)),]
 
