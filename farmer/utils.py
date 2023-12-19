@@ -697,16 +697,18 @@ def get_params(model):
     for band in source['_bands']:
 
         # photometry
-        source[f'{band}.flux'] = model.getBrightness().getFlux(band)
-        source[f'{band}.flux.err'] = np.sqrt(model.variance.getBrightness().getFlux(band))
+        flux_err = np.sqrt(model.variance.getBrightness().getFlux(band))
+        mask = ((flux_err > 0) & np.isfinite(flux_err)).astype(np.int8)
+        source[f'{band}.flux.err'] = flux_err * mask
+        source[f'{band}.flux'] = model.getBrightness().getFlux(band) * mask
         
         source[f'_{band}.zpt'] = conf.BANDS[band]['zeropoint']
 
-        source[f'{band}.flux.ujy'] = source[f'{band}.flux'] * 10**(-0.4 * (source[f'_{band}.zpt'] - 23.9)) * u.microjansky
-        source[f'{band}.flux.ujy.err'] = source[f'{band}.flux.err'] * 10**(-0.4 * (source[f'_{band}.zpt'] - 23.9)) * u.microjansky
+        source[f'{band}.flux.ujy'] = source[f'{band}.flux'] * 10**(-0.4 * (source[f'_{band}.zpt'] - 23.9)) * u.microjansky * mask
+        source[f'{band}.flux.ujy.err'] = source[f'{band}.flux.err'] * 10**(-0.4 * (source[f'_{band}.zpt'] - 23.9)) * u.microjansky * mask
 
-        source[f'{band}.mag'] = -2.5 * np.log10(source[f'{band}.flux']) * u.mag + source[f'_{band}.zpt'] * u.mag
-        source[f'{band}.mag.err'] = 2.5 * np.log10(np.e) / (source[f'{band}.flux'] / source[f'{band}.flux.err'])
+        source[f'{band}.mag'] = -2.5 * np.log10(source[f'{band}.flux']) * u.mag + source[f'_{band}.zpt'] * u.mag * mask
+        source[f'{band}.mag.err'] = 2.5 * np.log10(np.e) / (source[f'{band}.flux'] / source[f'{band}.flux.err']) * mask
 
         # statistics
         if band in model.statistics:
