@@ -342,25 +342,31 @@ def map_discontinuous(input, out_wcs, out_shape, thresh=0.1):
     logger = logging.getLogger('farmer.map_discontinuous')
     segs = np.unique(array.flatten()).astype(int)
     segs = segs[segs!=0]
-    # sizes = np.array([np.sum(array==segid) for segid in segs])
-    # zorder = np.argsort(sizes)[::-1]
-    # sizes = sizes[zorder]
-    # segs = segs[zorder]
+    scl_in =  in_wcs.proj_plane_pixel_scales()[0]
+    scl_out =  out_wcs.proj_plane_pixel_scales()[0]
 
-    # do_reproject = True
-    # if out_shape == np.shape(array):
-    #     do_reproject = False
+    if scl_out > scl_in: # avoids cannibalizing small objects when going to lower resolution
+        outdict = {}
 
-    array_out, __ = reproject_interp((array, in_wcs), out_wcs, out_shape, order=0)
+        sizes = np.array([np.sum(array==segid) for segid in segs])
+        zorder = np.argsort(sizes)[::-1]
+        sizes = sizes[zorder]
+        segs = segs[zorder]
 
-    outdict = {}
+        for seg in tqdm(segs):
+            mask = (array == seg).astype(np.int8)
+            mask = reproject_interp((mask, in_wcs), out_wcs, out_shape, return_footprint=False)
+            y, x = (mask > thresh).nonzero() # x and y for that segment
+            outdict[seg] = y, x
 
-    for seg in tqdm(segs):
-        # mask = (array == seg).astype(np.int8)
-        # mask = reproject_interp((mask, in_wcs), out_wcs, out_shape, return_footprint=False)
-        # y, x = (mask > thresh).nonzero() # x and y for that segment
-        y, x = (array_out==seg).nonzero()
-        outdict[seg] = y, x
+    else: # similar to better resolution can just use reinterpolation with order = 0
+        array_out, __ = reproject_interp((array, in_wcs), out_wcs, out_shape, order=0)
+
+        outdict = {}
+
+        for seg in tqdm(segs):
+            y, x = (array_out==seg).nonzero()
+            outdict[seg] = y, x
 
     return outdict
     
