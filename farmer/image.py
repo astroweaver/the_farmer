@@ -1582,17 +1582,17 @@ class BaseImage():
                         model_patch += [Circle((xc, yc), hwhm, fc="none", ec=cmap(i)),]
                     elif isinstance(model, (ExpGalaxy, DevGalaxy)) & ~isinstance(model, SimpleGalaxy):
                         shape = model.getShape()
-                        width, height = np.abs(np.diff(shape.getRaDecBasis()*3600))
-                        angle = 90. - np.rad2deg(shape.theta)
+                        width, height = shape.re, shape.re / shape.ab
+                        angle = np.rad2deg(shape.theta)
                         model_patch += [Ellipse((xc, yc), width, height, angle, fc="none", ec=cmap(i)),]
                     elif isinstance(model, (FixedCompositeGalaxy)):
                         shape = model.shapeExp
-                        width, height = np.abs(np.diff(shape.getRaDecBasis()*3600))
-                        angle = 90. - np.rad2deg(shape.theta)
+                        width, height = shape.re, shape.re / shape.ab
+                        angle = np.rad2deg(shape.theta)
                         model_patch += [Ellipse((xc, yc), width, height, angle, fc="none", ec=cmap(i)),]
                         shape = model.shapeDev
-                        width, height = np.abs(np.diff(shape.getRaDecBasis()*3600))
-                        angle = 90. - np.rad2deg(shape.theta)
+                        width, height = shape.re, shape.re / shape.ab
+                        angle = np.rad2deg(shape.theta)
                         model_patch += [Ellipse((xc, yc), width, height, angle, fc="none", ec=cmap(i)),]
 
                     
