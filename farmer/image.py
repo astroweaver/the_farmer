@@ -356,7 +356,7 @@ class BaseImage():
             bands.remove('detection')
 
         # Trackers
-        self.logger.debug(f'Staging models for group #{self.group_id}')
+        self.logger.debug(f'Updating models for group #{self.group_id}')
 
         if existing_catalog is None:
             existing_catalog = self.existing_model_catalog
@@ -1191,7 +1191,7 @@ class BaseImage():
 
                 if imgtype in ('science', 'model', 'residual'):
                     # log-scaled
-                    vmax, rms = np.nanmax(image), self.get_property('clipped_rms', band=band)
+                    vmax, rms = np.nanpercentile(image, q=99), self.get_property('clipped_rms', band=band)
                     if vmax < rms:
                         vmax = 3*rms
                     norm = LogNorm(rms, vmax)
@@ -1214,7 +1214,7 @@ class BaseImage():
                                     ax.hlines(y, x-5, x-2, color='r', alpha=0.8, lw=1)
                                     ax.vlines(x, y-5, y-2, color='r', alpha=0.8, lw=1)
                                 elif imgtype not in ('residual',):
-                                    ax.scatter(x, y, fc='none', ec='r', linewidths=1, marker='.', s=15)
+                                    ax.scatter(x, y, fc='none', ec='r', linewidths=1, marker='o', s=15)
 
                     # show group extents
                     if show_groups:
@@ -1310,7 +1310,7 @@ class BaseImage():
                                     ax.hlines(y, x-5, x-2, color='r', alpha=0.8, lw=1)
                                     ax.vlines(x, y-5, y-2, color='r', alpha=0.8, lw=1)
                                 else:
-                                    ax.scatter(x, y, fc='none', ec='r', linewidths=1, marker='.', s=15)
+                                    ax.scatter(x, y, fc='none', ec='r', linewidths=1, marker='o', s=15)
                     fig.tight_layout()
             
                 if imgtype in ('segmap', 'groupmap'):
