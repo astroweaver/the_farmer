@@ -72,14 +72,12 @@ def start_logger():
 
 def read_wcs(wcs, scl=1):
     t = Tan()
-    crpix = wcs.wcs.crpix
-    crval = wcs.wcs.crval
     t.set_crpix(wcs.wcs.crpix[0] * scl, wcs.wcs.crpix[1] * scl)
     t.set_crval(wcs.wcs.crval[0], wcs.wcs.crval[1])
     try:
-        cd = wcs.wcs.cd / scl
-    except:
         cd = wcs.wcs.pc / scl
+    except:
+        cd = wcs.wcs.cd / scl
     # assume your images have no rotation...
     t.set_cd(cd[0,0], cd[0,1], cd[1,0], cd[1,1])
     t.set_imagesize(wcs.array_shape[0] * scl, wcs.array_shape[1] * scl)

@@ -518,7 +518,7 @@ class BaseImage():
             self.model_tracker[source_id][self.stage]['model'] = model
 
             self.logger.debug(f'Source #{source_id}: {model.name} model at {model.pos}')
-            self.logger.debug(f'               {model.brightness} +/- {np.sqrt(variance.brightness)[0]}') 
+            self.logger.debug(f'               {model.brightness}') 
             if hasattr(model, 'fluxCore'):
                 self.logger.debug(f'               {model.fluxcore}')
             if hasattr(model, 'shape'):
@@ -1578,21 +1578,20 @@ class BaseImage():
                     ra, dec = model.pos.ra, model.pos.dec
                     xc, yc = dcoord_to_offset(SkyCoord(ra*u.deg, dec*u.deg), center_position)
 
-                    pixscl = self.pixel_scales[band][0].to(u.arcsec).value
                     if isinstance(model, (PointSource, SimpleGalaxy)):
                         model_patch += [Circle((xc, yc), hwhm, fc="none", ec=cmap(i)),]
                     elif isinstance(model, (ExpGalaxy, DevGalaxy)) & ~isinstance(model, SimpleGalaxy):
                         shape = model.getShape()
-                        width, height = shape.re * shape.ab / pixscl, shape.re / pixscl
+                        width, height = shape.re * shape.ab, shape.re
                         angle = np.rad2deg(shape.theta)
                         model_patch += [Ellipse((xc, yc), width, height, angle, fc="none", ec=cmap(i)),]
                     elif isinstance(model, (FixedCompositeGalaxy)):
                         shape = model.shapeExp
-                        width, height = shape.re * shape.ab / pixscl, shape.re / pixscl
+                        width, height = shape.re * shape.ab, shape.re
                         angle = np.rad2deg(shape.theta)
                         model_patch += [Ellipse((xc, yc), width, height, angle, fc="none", ec=cmap(i)),]
                         shape = model.shapeDev
-                        width, height = shape.re * shape.ab / pixscl, shape.re / pixscl
+                        width, height = shape.re * shape.ab, shape.re
                         angle = np.rad2deg(shape.theta)
                         model_patch += [Ellipse((xc, yc), width, height, angle, fc="none", ec=cmap(i)),]
 
