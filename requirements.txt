@@ -15,7 +15,7 @@ dill==0.3.6; python_version >= '3.7'
 entrypoints==0.4; python_version >= '3.6'
 executing==1.2.0
 fasteners==0.18; python_version >= '3.6'
-fonttools==4.41.0; python_version >= '3.8'
+fonttools==4.43.0; python_version >= '3.8'
 fsspec==2023.6.0; python_version >= '3.8'
 h5py==3.9.0
 importlib-metadata==6.8.0; python_version >= '3.8'
