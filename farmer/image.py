@@ -927,6 +927,10 @@ class BaseImage():
                 data[(self.images[band].invvar <= 0) | ~segmask] = 0
                 ndata = len(segmap[source_id][0]) # number of pixels
                 nres_elem = (get_fwhm(data) / get_fwhm(self.images[band].psf.img))**2
+                sci = self.get_image('science', band)
+                wht = self.get_image('weight', band)
+                mask = self.get_image('mask', band)
+                flag = np.sum((sci[segmask] == 0) | (np.isnan(sci[segmask])) | (wht[segmask] <= 0) | (mask[segmask])  ) > 0
                 try:
                     nparam = self.model_catalog[source_id].numberOfParams() - np.nansum(np.array(bands)!=band).astype(np.int32)
                     tr = Tractor([self.images[band],], Catalog(*[model,]))
@@ -949,6 +953,7 @@ class BaseImage():
                 self.logger.info(f'   {band}: N(DOF) = {ndof}')
                 self.logger.info(f'   {band}: Med(chi) = {chi_pc[2]:2.2f}')
                 self.logger.info(f'   {band}: Width(chi) = {chi_pc[3]-chi_pc[1]:2.2f}')
+                self.logger.info(f'   {band}: Flagged? {flag}')
 
                 ntotal_pix += ndata
                 ntotalres_elem += nres_elem
@@ -967,6 +972,7 @@ class BaseImage():
                     self.model_tracker[source_id][stage][band]['nparam'] = nparam
                     self.model_tracker[source_id][stage][band]['ndof'] = ndof
                     self.model_tracker[source_id][stage][band]['nres'] = nres_elem
+                    self.model_tracker[source_id][stage][band]['flag'] = flag
             try:
                 nparam = self.model_catalog[source_id].numberOfParams()
             except:
@@ -1018,7 +1024,7 @@ class BaseImage():
             self.engine.bands = list(self.images.keys())
         
         # only do the bands we can do
-        bands = [band for band in self.engine.bands if band != 'detection']
+        # bands = [band for band in self.engine.bands if band != 'detection']
 
         self.build_model_image(bands, source_id, overwrite, reconstruct=reconstruct)
         self.build_residual_image(bands, source_id, overwrite)

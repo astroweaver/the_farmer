@@ -310,7 +310,7 @@ class SimpleGalaxy(ExpGalaxy):
     shape = EllipseE(0.45, 0., 0.)
 
     def __init__(self, *args):
-        super(ExpGalaxy, self).__init__(*args)
+        super(SimpleGalaxy, self).__init__(*args)
 
     def __str__(self):
         return (self.name + ' at ' + str(self.pos)
