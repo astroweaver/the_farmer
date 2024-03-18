@@ -1,7 +1,7 @@
 -i https://pypi.org/simple
 appnope==0.1.3; sys_platform == 'darwin'
 asciitree==0.3.3
-astropy==5.3.1
+astropy==5.3.3
 astropy-healpix==0.7; python_version >= '3.7'
 asttokens==2.2.1
 backcall==0.2.0
