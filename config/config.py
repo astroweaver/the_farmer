@@ -114,10 +114,11 @@ DAMPING = 1e-1
 DLNP_CRIT = 1e-3
 
 # Priors and parameters
-MODEL_PRIORS = {  'pos':  0.1 * u.arcsec,
-                'reff': None,
-                'shape': None,
-                'fracDev': None,
+# Use 'none' for no prior and 'freeze' for frozen parameter
+MODEL_PRIORS = { 'pos':  0.1 * u.arcsec,
+                'reff': 'none',
+                'shape': 'none',
+                'fracDev': 'none',
 }
 PHOT_PRIORS = { 'pos':   0.001 * u.arcsec,
                 'reff': 'freeze',

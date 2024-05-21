@@ -1599,16 +1599,16 @@ class BaseImage():
                         shape = model.getShape()
                         width, height = shape.re * shape.ab, shape.re
                         angle = np.rad2deg(shape.theta)
-                        model_patch += [Ellipse((xc, yc), width, height, angle, fc="none", ec=cmap(i)),]
+                        model_patch += [Ellipse((xc, yc), width, height, angle=angle, fc="none", ec=cmap(i)),]
                     elif isinstance(model, (FixedCompositeGalaxy)):
                         shape = model.shapeExp
                         width, height = shape.re * shape.ab, shape.re
                         angle = np.rad2deg(shape.theta)
-                        model_patch += [Ellipse((xc, yc), width, height, angle, fc="none", ec=cmap(i)),]
+                        model_patch += [Ellipse((xc, yc), width, height, angle=angle, fc="none", ec=cmap(i)),]
                         shape = model.shapeDev
                         width, height = shape.re * shape.ab, shape.re
                         angle = np.rad2deg(shape.theta)
-                        model_patch += [Ellipse((xc, yc), width, height, angle, fc="none", ec=cmap(i)),]
+                        model_patch += [Ellipse((xc, yc), width, height, angle=angle, fc="none", ec=cmap(i)),]
 
                     
                     for ax in (axes[0,0], axes[0,3]):
