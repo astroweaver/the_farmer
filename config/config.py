@@ -126,3 +126,6 @@ PHOT_PRIORS = { 'pos':   0.001 * u.arcsec,
 }
 
 # Ancillary Maps: Models, Chi, Residuals, Effective Areas
+RESIDUAL_BA_MIN = 0.01
+RESIDUAL_REFF_MAX = 5*u.arcsec
+RESIDUAL_SHOW_NEGATIVE = False
