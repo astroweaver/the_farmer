@@ -60,7 +60,7 @@ T H E
  M O D E L   P H O T O M E T R Y   W I T H   T H E   T R A C T O R   
 --------------------------------------------------------------------
     Version {__version__}                               
-    (C) 2018-2023 -- J. Weaver (DAWN, UMASS)          
+    (C) 2018-2024 -- J. Weaver (DAWN, UMASS)          
 ====================================================================
 
 CONSOLE_LOGGING_LEVEL ..... {conf.CONSOLE_LOGGING_LEVEL}			

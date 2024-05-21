@@ -119,7 +119,7 @@ class Brick(BaseImage):
 
         # Loop over provided data
         for imgtype in mosaic.data.keys():
-            if imgtype in ('science', 'weight', 'mask','background', 'rms', 'model', 'residual', 'chi'):
+            if imgtype in ('science', 'weight', 'mask', 'background', 'rms', 'model', 'residual', 'chi'):
                 fill_value = np.nan
                 if imgtype == 'mask':
                     fill_value = True
