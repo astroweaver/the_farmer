@@ -10,6 +10,7 @@ import numpy as np
 import time
 import h5py
 import copy
+import sys
 
 from collections import OrderedDict
 import matplotlib
@@ -245,6 +246,11 @@ class BaseImage():
         sep.set_extract_pixstack(conf.PIXSTACK_SIZE)
         tstart = time.time()
         catalog, segmap = sep.extract(image-background, conf.THRESH, **kwargs)
+
+        if len(catalog) == 0:
+            self.logger.error('No objects found! Check overlap of mosaic with this brick. May be OK. Exiting...')
+            sys.exit()
+
         self.logger.info(f'Detection found {len(catalog)} sources. ({time.time()-tstart:2.2}s)')
         catalog = Table(catalog)
 
@@ -308,11 +314,13 @@ class BaseImage():
         elif self.get_property('backtype', band=band) == 'variable':
             return self.get_image(band=band, imgtype='background')
 
-    def stage_images(self, bands=conf.MODEL_BANDS, data_imgtype='science'):
+    def stage_images(self, bands=None, data_imgtype='science'):
         if bands is None:
             bands = self.get_bands()
         elif np.isscalar(bands):
             bands = [bands,]
+        if 'detection' in bands:
+            bands.remove('detection')
 
         self.images = OrderedDict()
 
@@ -345,7 +353,7 @@ class BaseImage():
             )
             self.logger.debug(f'  ✓ {band}')
 
-    def update_models(self, bands=conf.BANDS, data_imgtype='science', existing_catalog=None):
+    def update_models(self, bands=None, data_imgtype='science', existing_catalog=None):
 
         if bands is None:
             bands = self.get_bands()
@@ -549,8 +557,9 @@ class BaseImage():
         self.engine.bands = list(self.images.keys())
         self.engine.freezeParam('images')
 
-    def force_models(self, bands=conf.BANDS):
+    def force_models(self, bands=None):
 
+        if bands is None: bands = self.bands
         self.logger.info('Measuring photometry...')
 
         self.existing_model_catalog = copy.deepcopy(self.model_catalog)
@@ -1049,21 +1058,21 @@ class BaseImage():
 
         # check for rejections
         if reconstruct & ((conf.RESIDUAL_BA_MIN != 'none') | (conf.RESIDUAL_REFF_MAX != 'none') | (conf.RESIDUAL_SHOW_NEGATIVE == False)):
-            for source_id, src in srcs.items():
+            for sid, src in srcs.items():
                 source = get_params(src)
                 if conf.RESIDUAL_SHOW_NEGATIVE == False:
                     for band in source['_bands']:
                         flux = src.getBrightness().getFlux(band)
                         if flux < 0: 
                             src.getBrightness().setFlux(band, 0)
-                            self.logger.warning(f'Source {source_id} has negative model flux in {band} and has been rejected from reconstruction')
+                            self.logger.warning(f'Source {sid} has negative model flux in {band} and has been rejected from reconstruction')
                 if (conf.RESIDUAL_BA_MIN != 'none') & ('ba' in source):
                     if source['ba'] < conf.RESIDUAL_BA_MIN:
-                        self.logger.warning(f'Source {source_id} model is too narrow and has been rejected from reconstruction')
+                        self.logger.warning(f'Source {sid} model is too narrow and has been rejected from reconstruction')
                         continue
                 if (conf.RESIDUAL_REFF_MAX != 'none') & ('reff' in source):
                     if source['reff'] > conf.RESIDUAL_REFF_MAX:
-                        self.logger.warning(f'Source {source_id} model is too large and has been rejected from reconstruction')
+                        self.logger.warning(f'Source {sid} model is too large and has been rejected from reconstruction')
                         continue
 
                 used_srcs.append(src)
@@ -1197,7 +1206,7 @@ class BaseImage():
 
                 if imgtype in ('science', 'model', 'residual'):
                     # log-scaled
-                    vmax, rms = np.nanpercentile(image, q=99), self.get_property('clipped_rms', band=band)
+                    vmax, rms = np.nanpercentile(image, q=99), self.get_property('rms', band=band)
                     if vmax < rms:
                         vmax = 3*rms
                     norm = LogNorm(rms, vmax)
@@ -1266,7 +1275,7 @@ class BaseImage():
                     fig = plt.figure(figsize=(20,20))
                     ax = fig.add_subplot(projection=self.get_wcs(band))
                     ax.set_title(f'{band} {imgtype} {tag}')
-                    options = dict(cmap='RdGy', vmin=-5*self.get_property('clipped_rms', band=band), vmax=5*self.get_property('clipped_rms', band=band), origin='lower')
+                    options = dict(cmap='RdGy', vmin=-5*self.get_property('rms', band=band), vmax=5*self.get_property('rms', band=band), origin='lower')
                     im = ax.imshow(image - background, **options)
                     # fig.colorbar(im, orientation="horizontal", pad=0.2)
                     if self.type == 'brick':
@@ -1544,8 +1553,8 @@ class BaseImage():
                 if not np.isscalar(background):
                     background = background   #[src]
                 img -= background
-                rms = self.get_property('clipped_rms', band=band)
-                vmax = np.nanmax(img)
+                rms = self.get_property('rms', band=band)
+                vmax = np.nanpercentile(img, 99)
                 vmin = self.get_property('median', band=band)
                 axes[0,0].imshow(img, cmap='RdGy', norm=SymLogNorm(rms, 0.5, -vmax, vmax), extent=extent, origin='lower')
                 axes[0,0].text(0.05, 0.90, bandname, transform=axes[0,0].transAxes, fontweight='bold')

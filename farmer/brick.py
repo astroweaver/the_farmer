@@ -102,29 +102,29 @@ class Brick(BaseImage):
         if (~overwrite) & (mosaic.band in self.bands):
             raise RuntimeError('{mosaic.band} already exists in brick #{self.brick_id}!')
 
-        # Add band information
-        self.data[mosaic.band] = {}
-        self.properties[mosaic.band] = {}
-        self.headers[mosaic.band] = {}
-        self.n_sources[mosaic.band] = {}
-        self.catalogs[mosaic.band] = {}
-        self.group_ids[mosaic.band] = {}
-        # self.group_pops[mosaic.band] = {}
-        self.bands.append(mosaic.band)
-
-        # Loop over properties
-        for attr in mosaic.properties.keys():
-            self.properties[mosaic.band][attr] = mosaic.properties[attr]
-            self.logger.debug(f'... property \"{attr}\" adopted from mosaic')
-
         # Loop over provided data
         for imgtype in mosaic.data.keys():
             if imgtype in ('science', 'weight', 'mask', 'background', 'rms', 'model', 'residual', 'chi'):
                 fill_value = np.nan
                 if imgtype == 'mask':
                     fill_value = True
-                cutout = Cutout2D(mosaic.data[imgtype], self.position, self.buffsize[::-1], wcs=mosaic.wcs,
-                                 copy=True, mode='partial', fill_value = fill_value)
+                try:
+                    cutout = Cutout2D(mosaic.data[imgtype], self.position, self.buffsize[::-1], wcs=mosaic.wcs,
+                                    copy=True, mode='partial', fill_value = fill_value)
+                    if imgtype == 'science':
+                        # Add band information
+                        self.data[mosaic.band] = {}
+                        self.properties[mosaic.band] = {}
+                        self.headers[mosaic.band] = {}
+                        self.n_sources[mosaic.band] = {}
+                        self.catalogs[mosaic.band] = {}
+                        self.group_ids[mosaic.band] = {}
+                        # self.group_pops[mosaic.band] = {}
+                        self.bands.append(mosaic.band)
+                except:
+                    self.logger.warning(f'{mosaic.band} mosaic has no overlap with detection footprint! Skipping band.')
+                    return
+
                 self.logger.debug(f'... data \"{imgtype}\" subimage cut from {mosaic.band} at {cutout.input_position_original}')
                 self.data[mosaic.band][imgtype] = cutout
                 if imgtype in ('science', 'weight', 'mask'):
@@ -138,6 +138,12 @@ class Brick(BaseImage):
             else:
                 self.data[mosaic.band][imgtype] = mosaic.data[imgtype]
                 self.logger.debug(f'... data \"{imgtype}\" adopted from mosaic')
+
+        # Loop over properties
+        for attr in mosaic.properties.keys():
+            self.properties[mosaic.band][attr] = mosaic.properties[attr]
+            self.logger.debug(f'... property \"{attr}\" adopted from mosaic')
+
 
         # if weights or masks dont exist, make them as dummy arrays
         if 'weight' not in self.data[mosaic.band]:
