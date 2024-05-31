@@ -115,10 +115,13 @@ def build_bricks(brick_ids=None, include_detection=True, bands=None, write=False
         bands = ['detection'] + bands
 
     # Generate brick_ids
-    n_bricks = 1
     if brick_ids is None:
         n_bricks = conf.N_BRICKS[0] * conf.N_BRICKS[1]
         brick_ids = 1 + np.arange(n_bricks)
+    if np.isscalar(brick_ids):
+        n_bricks = 1
+    else:
+        n_bricks = len(brick_ids)
 
     # Build bricks
     if np.isscalar(brick_ids) | (n_bricks == 1): # single brick built in memory and saved
@@ -215,26 +218,10 @@ def detect_sources(brick_ids=None, band='detection', imgtype='science', brick=No
 
         return brick
 
-    elif brick_ids is not None and brick is None:
-        # run the brick(s) asked for
-
-        # Generate brick_ids
-        if brick_ids is None:
-            n_bricks = conf.N_BRICKS[0] * conf.N_BRICKS[1]
-            brick_ids = 1 + np.arange(n_bricks)
-        elif np.isscalar(brick_ids):
-            brick_ids = [brick_ids,]
-
-        # Loop over bricks
-        for brick_id in brick_ids:
-            
-            # does the brick exist? load it.
-            try:
-                brick = load_brick(brick_id)
-            except:
-                brick = build_bricks(brick_id,  bands='detection')
-
-            # detection
+    if brick_ids is not None and brick is None:
+        if np.isscalar(brick_ids):
+            # run the brick given directly
+            # This can also be run by brick.detect_sources, but we also write it out if asked for!
             brick.detect_sources(band=band, imgtype=imgtype)
             brick.transfer_maps()
 
@@ -242,9 +229,38 @@ def detect_sources(brick_ids=None, band='detection', imgtype='science', brick=No
                 brick.write(allow_update=True)
 
             return brick
+        else:
+            # have multiple
+            pass
+
+    elif brick_ids is None and brick is None:
+        # Generate brick_ids
+        if brick_ids is None:
+            n_bricks = conf.N_BRICKS[0] * conf.N_BRICKS[1]
+            brick_ids = 1 + np.arange(n_bricks)
+        elif np.isscalar(brick_ids):
+            brick_ids = [brick_ids,]
 
     else:
         raise RuntimeError('Arguments are overspecified! Either provide brick_id(s) or a brick directly, not both.')
+
+    # Loop over bricks
+    for brick_id in brick_ids:
+        
+        # does the brick exist? load it.
+        try:
+            brick = load_brick(brick_id)
+        except:
+            logger.warning(f'Could not load brick {brick_id}! Building a new brick from mosaics...')
+            brick = build_bricks(brick_id,  bands='detection')
+
+        # detection
+        brick.detect_sources(band=band, imgtype=imgtype)
+        brick.transfer_maps()
+
+        if write:
+            brick.write(allow_update=True)
+
 
 def generate_models(brick_ids=None, group_ids=None, bands=conf.MODEL_BANDS, imgtype='science'):
     # get bricks with 'brick_ids' for 'bands'

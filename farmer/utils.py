@@ -503,7 +503,7 @@ def recursively_load_dict_contents_from_group(h5file, path='/', ans=None):
                 continue
             if item.shape is None:
                 ans[key] = {}
-            elif item[...].dtype == '|S99':
+            elif item[...].dtype in ('|S99', '|S9'):
                 if key == 'bands':
                     ans[key] = item[...].astype(str).tolist()
                 else:
@@ -587,7 +587,7 @@ def recursively_load_dict_contents_from_group(h5file, path='/', ans=None):
                         ans[key][key2] = WCS(fits.header.Header.fromstring(value))
                     elif 'position' in item.name:
                         ans[key][key2] = SkyCoord(value, unit=u.deg)
-                    elif (key2+'_unit' in item.attrs) & (item.attrs[key2] not in ('freeze', 'none')):
+                    elif (key2+'_unit' in item.attrs):
                         ans[key][key2] = value * u.Unit(item.attrs[key2+'_unit'])
                     else:
                         ans[key][key2] = value
@@ -755,20 +755,20 @@ def set_priors(model, priors):
                     #     model[idx].freezeParam(i)
                     #     logger.debug(f'Froze {param}')
                 else:
-                    logger.debug('fracDev is free to vary')  
-
+                    logger.debug('fracDev is free to vary') 
+                     
         elif name == 'shape':
             if 'shape' in priors:
                 if priors['shape'] in ('fix', 'freeze'):
                     params = model[idx].getParamNames()
                     for i, param in enumerate(params):
-                        if i == 0: # leave reff alone
-                            continue
-                        model[idx].freezeParam(i)
-                        logger.debug(f'Froze {param}')
+                        if i != 0: # leave reff alone
+                            model[idx].freezeParam(i)
+                            logger.debug(f'Froze {param}')
                 else:
                     logger.debug('Shape is free to vary')   
 
+        elif name == 'reff':
             if 'reff' in priors:
                 if priors['reff'] in ('fix', 'freeze'):
                     model[idx].freezeParam(0)
@@ -779,7 +779,7 @@ def set_priors(model, priors):
                     model[idx].addGaussianPrior('logre', mu=model[idx][0], sigma=sigma)    
                     logger.debug(f'Set radius prior +/- {psigma}')   
                 else:
-                    logger.debug('Radius is free to vary')             
+                    logger.debug('Radius is free to vary')           
     return model
 
 def get_detection_kernel(filter_kernel):

@@ -198,8 +198,8 @@ class BaseImage():
                 image = image.byteswap().newbyteorder()
         self.logger.debug(f'Estimating background...')
         background = sep.Background(image, 
-                                bw = conf.DETECT_BW, bh = conf.DETECT_BH,
-                                fw = conf.DETECT_FW, fh = conf.DETECT_FH)
+                                bw = conf.BACK_BW, bh = conf.BACK_BH,
+                                fw = conf.BACK_FW, fh = conf.BACK_FH)
 
         self.set_image(background.back(), imgtype='background', band=band)
         self.set_image(background.rms(), imgtype='rms', band=band)
@@ -1555,7 +1555,7 @@ class BaseImage():
                 img -= background
                 rms = self.get_property('rms', band=band)
                 vmax = np.nanpercentile(img, 99)
-                vmin = self.get_property('median', band=band)
+                vmin = np.percentile(img, 50)
                 axes[0,0].imshow(img, cmap='RdGy', norm=SymLogNorm(rms, 0.5, -vmax, vmax), extent=extent, origin='lower')
                 axes[0,0].text(0.05, 0.90, bandname, transform=axes[0,0].transAxes, fontweight='bold')
                 target_scale = np.round(self.pixel_scales[band][0].to(u.arcsec).value * dims[0] / 3.).astype(int) # arcsec
@@ -1876,27 +1876,28 @@ class BaseImage():
             if band == 'detection':
                 continue
             if ('segmap' in self.data[band]) & ('groupmap' in self.data[band]):
-                self.logger.debug(f'Transferred segmap and groupmap for {band} already exists! Skipping.')
+                self.logger.debug(f'Segmap and groupmap for {band} already exists! Skipping.')
                 continue
             pixscl = np.array([self.pixel_scales[band][0].value, self.pixel_scales[band][1].value])
             scale_factor = np.array(catalog_pixscl / pixscl)
-
+            
             already_made = False
             for mband in self.bands:
                 if mband == 'detection': continue
+                if mband == band: continue
                 if 'groupmap' in self.data[mband]:
                     mpixscl = np.array([self.pixel_scales[mband][0].value, self.pixel_scales[mband][1].value])
                     # HACK -- this is a lot stupid. Should use WCS params instead.
-                    if np.all(pixscl == mpixscl):
+                    if np.isclose(pixscl, mpixscl).all():
                         already_made = True
                         break
                     
             if already_made:
-                self.logger.debug(f'Mapping for segmap and groupmap of {catalog_band} to {band} already exists!')
+                self.logger.debug(f'Mapping for segmap and groupmap of {mband} to {band} already exists!')
                 self.logger.debug(f'Using the {mband} mapping for {band}')
                 self.data[band]['segmap']= self.data[mband]['segmap']
                 self.data[band]['groupmap'] = self.data[mband]['groupmap']
-                self.logger.debug(f'Copied maps for segmap and groupmap of {catalog_band} to {band} by {scale_factor}')
+                self.logger.debug(f'Copied maps for segmap and groupmap of {mband} to {band} by {scale_factor}')
             
             else:
                 self.logger.debug(f'Creating mapping for segmap and groupmap of {catalog_band} to {band}')

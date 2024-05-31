@@ -79,8 +79,11 @@ class Mosaic(BaseImage):
 
             # verify the WCS
             wcs_status = bad
+            ext = 0
+            if 'extension' in self.properties:
+                ext = self.properties['extension']
             try:
-                self.wcs = WCS(fits.getheader(self.properties['science']))
+                self.wcs = WCS(fits.getheader(self.properties['science'], ext=ext))
                 self.pixel_scale = proj_plane_pixel_scales(self.wcs) * u.deg
                 wcs_status = good
             except:
@@ -108,8 +111,11 @@ class Mosaic(BaseImage):
                 if attr == 'psfmodel':
                     self.data['psfcoords'], self.data['psflist'] = validate_psfmodel(band)
                 else:
-                    self.data[attr] = fits.getdata(self.paths[attr])
-                    self.headers[attr] = fits.getheader(self.paths[attr])
+                    ext = 0
+                    if 'extension' in self.properties:
+                        ext = self.properties['extension']
+                    self.data[attr] = fits.getdata(self.paths[attr], ext=ext)
+                    self.headers[attr] = fits.getheader(self.paths[attr], ext=ext)
                 if attr in ('science', 'weight'):
                     self.estimate_properties(band=band, imgtype=attr)
             if band in conf.BANDS:
@@ -120,7 +126,6 @@ class Mosaic(BaseImage):
                 if 'backregion' in conf.DETECTION:
                     if conf.DETECTION['backregion'] == 'mosaic':
                             self.estimate_background(band=band, imgtype='science')
-            
 
     def get_bands(self):
         return np.array([self.band])

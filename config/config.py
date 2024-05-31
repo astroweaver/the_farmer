@@ -72,10 +72,10 @@ DETECTION = {
 USE_DETECTION_WEIGHT = False   # uses the weight -- thresh is then relative!
 USE_DETECTION_MASK = False     # applies mask before detection
 APPLY_DETECTION_MASK = False    # applies mask after detection, removes sources and segments
-DETECT_BW = 32																					# Detection mesh box width
-DETECT_BH = 32																					# Detection mesh box height
-DETECT_FW = 2																					# Detection filter box width
-DETECT_FH = 2																					# Detection filter box height
+BACK_BW = 32																					# Background mesh box width
+BACK_BH = 32																					# Background mesh box height
+BACK_FW = 2																					# Background filter box width
+BACK_FH = 2																					# Background filter box height
 THRESH = 1.5																					# If weight is used, this is a relative threshold in sigma. If not, then absolute.
 MINAREA = 5
 CLEAN = False
@@ -106,12 +106,13 @@ MODEL_BANDS = ['hsc_i', 'hsc_z', 'uvista_ks']
 SUFFICIENT_THRESH = 1
 SIMPLEGALAXY_PENALTY = 0.1
 EXP_DEV_SIMILAR_THRESH = 0.1
-RENORM_PSF = False
+RENORM_PSF = 1
 
 # Engine
 MAX_STEPS = 50
 DAMPING = 1e-1
 DLNP_CRIT = 1e-3
+IGNORE_FAILURES = True
 
 # Priors and parameters
 # Use 'none' for no prior and 'freeze' for frozen parameter
