@@ -61,7 +61,6 @@ class Group(BaseImage):
             if group_npix == 0:
                 self.logger.warning(f'No pixels belong to group #{group_id}!')
                 self.rejected = True
-                return self
             try:
                 idx, idy = np.array(groupmap==group_id).nonzero()
             except:
