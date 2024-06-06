@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "farmer"
+version = "2.0.0"
+dependencies = [
+"astrometry.net @ git+https://github.com/dstndstn/astrometry.net"
+"tractor @ git+https://github.com/dstndstn/astrometry.net.git"
+"astropy>=5.0",
+"h5py>=3.9.0",
+"pathos==0.3.0",
+"regions==0.7",
+"reproject==0.11.0",
+"sep==1.2.1",
+"tqdm==4.65.0",
+"matplotlib>=3.7",
+]
+requires-python = ">=3.9"
+authors = [
+    {name = "Kohn Weaver", email = "john.weaver.astro@gmail.com"}
+]
+description = "The Farmer"
+readme = "README.md"
+license = {file = "LICENSE.txt"}
+keywords = ["Farmer"]
+
+[project.urls]
+Repository = "https://github.com/astroweaver/farmer"
+"Bug Tracker" = "https://github.com/astroweaver/farmer/issues"
+
+

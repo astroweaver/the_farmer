@@ -548,7 +548,6 @@ def recursively_load_dict_contents_from_group(h5file, path='/', ans=None):
                 is_variance = False
                 for item in (item, item['variance']):
                     name = item.attrs['name']
-                    print(item.attrs.keys())
                     pos = RaDecPos(item.attrs['pos.ra'], item.attrs['pos.dec'])
                     fluxes = {}
                     for param in item.attrs:

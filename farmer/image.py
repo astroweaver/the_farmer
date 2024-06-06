@@ -1559,7 +1559,7 @@ class BaseImage():
                 img -= background
                 rms = self.get_property('rms', band=band)
                 vmax = np.nanpercentile(img, 99)
-                vmin = np.percentile(img, 50)
+                vmin = np.nanpercentile(img, 50)
                 axes[0,0].imshow(img, cmap='RdGy', norm=SymLogNorm(rms, 0.5, -vmax, vmax), extent=extent, origin='lower')
                 axes[0,0].text(0.05, 0.90, bandname, transform=axes[0,0].transAxes, fontweight='bold')
                 target_scale = np.round(self.pixel_scales[band][0].to(u.arcsec).value * dims[0] / 3.).astype(int) # arcsec
