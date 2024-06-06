@@ -58,7 +58,10 @@ class Group(BaseImage):
             # use groupmap from brick to get position and buffsize
             groupmap = image.get_image(imgtype='groupmap', band='detection')
             group_npix = np.sum(groupmap==group_id) #TODO -- save this somewhere
-            assert group_npix > 0, f'No pixels belong to group #{group_id}!'
+            if group_npix == 0:
+                self.logger.warning(f'No pixels belong to group #{group_id}!')
+                self.rejected = True
+                return self
             try:
                 idx, idy = np.array(groupmap==group_id).nonzero()
             except:

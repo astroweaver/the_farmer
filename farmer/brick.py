@@ -243,7 +243,10 @@ class Brick(BaseImage):
         # Instantiate brick
         self.logger.info(f'Spawning Group #{group_id} from Brick #{self.brick_id}...')
         group = Group(group_id, self, imgtype=imgtype)
-        
+        if group.rejected:
+            self.logger.warning(f'Group #{group_id} cannot be created!')
+            return group
+
         # Cut up science, weight, and mask, if available
         group.add_bands(self, bands=bands)
         
