@@ -61,23 +61,24 @@ class Group(BaseImage):
             if group_npix == 0:
                 self.logger.warning(f'No pixels belong to group #{group_id}!')
                 self.rejected = True
-            try:
-                idx, idy = np.array(groupmap==group_id).nonzero()
-            except:
-                raise RuntimeError(f'Cannot extract dimensions of Group #{group_id}!')
-            xlo, xhi = np.min(idx), np.max(idx)
-            ylo, yhi = np.min(idy), np.max(idy)
-            group_width = xhi - xlo
-            group_height = yhi - ylo
-            xc = xlo + group_width/2.
-            yc = ylo + group_height/2.
+            else:
+                try:
+                    idx, idy = np.array(groupmap==group_id).nonzero()
+                except:
+                    raise RuntimeError(f'Cannot extract dimensions of Group #{group_id}!')
+                xlo, xhi = np.min(idx), np.max(idx)
+                ylo, yhi = np.min(idy), np.max(idy)
+                group_width = xhi - xlo
+                group_height = yhi - ylo
+                xc = xlo + group_width/2.
+                yc = ylo + group_height/2.
 
-            wcs = image.get_wcs(band='detection', imgtype=imgtype)
-            self.position = wcs.pixel_to_world(yc, xc)
-            upper = wcs.pixel_to_world( group_height, group_width)
-            lower = wcs.pixel_to_world(0, 0)
-            self.size = (upper.dec - lower.dec), (lower.ra - upper.ra) * np.cos(np.deg2rad(self.position.dec.to(u.degree).value))
-            self.buffsize = (self.size[0]+2*conf.GROUP_BUFFER, self.size[1]+2*conf.GROUP_BUFFER)
+                wcs = image.get_wcs(band='detection', imgtype=imgtype)
+                self.position = wcs.pixel_to_world(yc, xc)
+                upper = wcs.pixel_to_world(group_height, group_width)
+                lower = wcs.pixel_to_world(0, 0)
+                self.size = (upper.dec - lower.dec), (lower.ra - upper.ra) * np.cos(np.deg2rad(self.position.dec.to(u.degree).value))
+                self.buffsize = (self.size[0]+2*conf.GROUP_BUFFER, self.size[1]+2*conf.GROUP_BUFFER)
 
             self.filename = f'G{self.group_id}_B{self.brick_id}.h5'
 
