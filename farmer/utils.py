@@ -334,16 +334,28 @@ class SimpleGalaxy(ExpGalaxy):
         return super(SimpleGalaxy, self).isParamFrozen(pname) 
 
 
-def map_discontinuous(input, out_wcs, out_shape, thresh=0.1):
+def map_discontinuous(input, out_wcs, out_shape, thresh=0.1, force_simple=False):
     # for some resolution regimes, you cannot make a new, complete segmap with the new pixel scale!
     array, in_wcs = input
     logger = logging.getLogger('farmer.map_discontinuous')
     segs = np.unique(array.flatten()).astype(int)
     segs = segs[segs!=0]
-    scl_in =  in_wcs.proj_plane_pixel_scales()[0]
-    scl_out =  out_wcs.proj_plane_pixel_scales()[0]
+    scl_in = np.array([val.value for val in in_wcs.proj_plane_pixel_scales()])
+    scl_out = np.array([val.value for val in out_wcs.proj_plane_pixel_scales()])
 
-    if scl_out > scl_in: # avoids cannibalizing small objects when going to lower resolution
+    if (scl_out < 1.2*scl_in).all() | force_simple: # similar to better resolution can just use reinterpolation with order = 0
+        if force_simple:
+            logger.warning(f'Simple mapping has been forced! Small regions may be cannibalized... ')
+        array_out, __ = reproject_interp((array, in_wcs), out_wcs, out_shape, order=0)
+
+        outdict = {}
+
+        for seg in tqdm(segs):
+            y, x = (array_out==seg).nonzero()
+            outdict[seg] = y, x
+
+    else: # avoids cannibalizing small objects when going to lower resolution
+        logger.warning(f'Mapping to much lower resolution using reproject_interp for {len(segs)} regions (this may take a while)')
         outdict = {}
 
         sizes = np.array([np.sum(array==segid) for segid in segs])
@@ -355,15 +367,6 @@ def map_discontinuous(input, out_wcs, out_shape, thresh=0.1):
             mask = (array == seg).astype(np.int8)
             mask = reproject_interp((mask, in_wcs), out_wcs, out_shape, return_footprint=False)
             y, x = (mask > thresh).nonzero() # x and y for that segment
-            outdict[seg] = y, x
-
-    else: # similar to better resolution can just use reinterpolation with order = 0
-        array_out, __ = reproject_interp((array, in_wcs), out_wcs, out_shape, order=0)
-
-        outdict = {}
-
-        for seg in tqdm(segs):
-            y, x = (array_out==seg).nonzero()
             outdict[seg] = y, x
 
     return outdict
@@ -756,30 +759,29 @@ def set_priors(model, priors):
                     #     logger.debug(f'Froze {param}')
                 else:
                     logger.debug('fracDev is free to vary') 
-                     
-        elif name == 'shape':
+
+        elif name in ('shape', 'shapeDev', 'shapeExp'):
             if 'shape' in priors:
                 if priors['shape'] in ('fix', 'freeze'):
-                    params = model[idx].getParamNames()
-                    for i, param in enumerate(params):
+                    sparams = model[idx].getParamNames()
+                    for i, param in enumerate(sparams):
                         if i != 0: # leave reff alone
                             model[idx].freezeParam(i)
                             logger.debug(f'Froze {param}')
                 else:
-                    logger.debug('Shape is free to vary')   
+                    logger.debug(f'{name} is free to vary')   
 
-        elif name == 'reff':
             if 'reff' in priors:
                 if priors['reff'] in ('fix', 'freeze'):
                     model[idx].freezeParam(0)
-                    logger.debug('Froze radius')
+                    logger.debug(f'Froze {name} radius')
                 elif priors['reff'] != 'none':
                     sigma = np.log(priors['reff'].to(u.arcsec).value)
                     psigma = priors['reff'].to(u.arcsec)
                     model[idx].addGaussianPrior('logre', mu=model[idx][0], sigma=sigma)    
-                    logger.debug(f'Set radius prior +/- {psigma}')   
+                    logger.debug(f'Set {name} radius prior +/- {psigma}')   
                 else:
-                    logger.debug('Radius is free to vary')           
+                    logger.debug(f'{name} radius is free to vary')           
     return model
 
 def get_detection_kernel(filter_kernel):

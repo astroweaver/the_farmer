@@ -100,6 +100,7 @@ SUBTRACT_FH = 3
 GROUP_BUFFER = 2 * u.arcsec
 DILATION_RADIUS = 0.2 * u.arcsec
 GROUP_SIZE_LIMIT = 5
+FORCE_SIMPLE_MAPPING = False
 
 # Modeling and the Decision Tree
 MODEL_BANDS = ['hsc_i', 'hsc_z', 'uvista_ks']

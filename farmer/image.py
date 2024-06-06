@@ -372,6 +372,8 @@ class BaseImage():
         for src in self.catalogs[self.catalog_band][self.catalog_imgtype]:
 
             source_id = src['id']
+            model_type = existing_catalog[source_id].name
+            self.logger.debug(f'Source #{source_id} ({model_type})')
 
             # add new bands using average (zpt-corr) fluxes as guesses
             existing_bands = np.array(existing_catalog[source_id].brightness.getParamNames())
@@ -389,7 +391,7 @@ class BaseImage():
                 else:
                     fluxes[band] = existing_fluxes[existing_bands==band][0]
                     filler[band] = 0
-            self.model_catalog[source_id] = copy.deepcopy(self.existing_model_catalog[source_id])
+            self.model_catalog[source_id] = copy.deepcopy(existing_catalog[source_id])
             self.model_catalog[source_id].brightness =  Fluxes(**fluxes, order=list(fluxes.keys()))
             self.model_catalog[source_id].variance.brightness =  Fluxes(**filler, order=list(filler.keys()))
 
@@ -465,18 +467,17 @@ class BaseImage():
             elif isinstance(self.model_catalog[source_id], SersicCoreGalaxy):
                 model = SersicCoreGalaxy(position, flux, shape, nre, fluxcore)
 
+            self.logger.debug(f'Source #{source_id}: {model.name} model at {position}')
+            self.logger.debug(f'               {flux}') 
+            if hasattr(model, 'fluxCore'):
+                self.logger.debug(f'               {fluxcore}')
+            if hasattr(model, 'shape'):
+                self.logger.debug(f'               {shape}')
 
             model = set_priors(model, self.model_priors)
             model.variance = model.copy()
             model.statistics = {}
             self.model_catalog[source_id] = model
-
-            self.logger.debug(f'Source #{source_id}: {self.model_catalog[source_id].name} model at {position}')
-            self.logger.debug(f'               {flux}') 
-            if hasattr(self.model_catalog[source_id], 'fluxCore'):
-                self.logger.debug(f'               {fluxcore}')
-            if hasattr(self.model_catalog[source_id], 'shape'):
-                self.logger.debug(f'               {shape}')
 
 
     def optimize(self):
@@ -505,7 +506,10 @@ class BaseImage():
 
         self.variance = var
         
-        self.logger.info(f'Fit converged in {i+1} steps ({time.time()-tstart:2.2f}s)')
+        if dlnp < conf.DLNP_CRIT:
+            self.logger.info(f'Fit converged in {i+1} steps ({time.time()-tstart:2.2f}s)')
+        else:
+            self.logger.warning(f'Fit did not converge in {i+1} steps ({time.time()-tstart:2.2f}s)')
         for source_id in self.model_tracker:
             self.model_tracker[source_id][self.stage]['nstep'] = i+1   # TODO should check this against MAX_STEP in a binary flag output...
         
@@ -1879,7 +1883,6 @@ class BaseImage():
                 self.logger.debug(f'Segmap and groupmap for {band} already exists! Skipping.')
                 continue
             pixscl = np.array([self.pixel_scales[band][0].value, self.pixel_scales[band][1].value])
-            scale_factor = np.array(catalog_pixscl / pixscl)
             
             already_made = False
             for mband in self.bands:
@@ -1897,13 +1900,13 @@ class BaseImage():
                 self.logger.debug(f'Using the {mband} mapping for {band}')
                 self.data[band]['segmap']= self.data[mband]['segmap']
                 self.data[band]['groupmap'] = self.data[mband]['groupmap']
-                self.logger.debug(f'Copied maps for segmap and groupmap of {mband} to {band} by {scale_factor}')
+                self.logger.debug(f'Copied maps for segmap and groupmap of {mband} to {band} by ({mpixscl} -> {pixscl})')
             
             else:
-                self.logger.debug(f'Creating mapping for segmap and groupmap of {catalog_band} to {band}')
-                self.data[band]['segmap']= map_discontinuous((segmap.data, segmap.wcs), self.wcs[band], np.shape(self.data[band]['science'].data))
-                self.data[band]['groupmap'] = map_discontinuous((groupmap.data, groupmap.wcs), self.wcs[band], np.shape(self.data[band]['science'].data))
-                self.logger.debug(f'Created maps for segmap and groupmap of {catalog_band} to {band} by {scale_factor}')
+                self.logger.debug(f'Creating mapping for segmap and groupmap of {catalog_band} to {band} ({catalog_pixscl} -> {pixscl})')
+                self.data[band]['segmap']= map_discontinuous((segmap.data, segmap.wcs), self.wcs[band], np.shape(self.data[band]['science'].data), force_simple=conf.FORCE_SIMPLE_MAPPING)
+                self.data[band]['groupmap'] = map_discontinuous((groupmap.data, groupmap.wcs), self.wcs[band], np.shape(self.data[band]['science'].data), force_simple=conf.FORCE_SIMPLE_MAPPING)
+                self.logger.debug(f'Created maps for segmap and groupmap of {catalog_band} to {band} by ({catalog_pixscl} -> {pixscl})')
 
     def write(self, filetype=None, allow_update=False, filename=None):
         if (filetype is None):

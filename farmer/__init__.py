@@ -19,8 +19,6 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-from pathos.pools import ProcessPool
-
 
 # Local imports
 try:
@@ -34,7 +32,6 @@ for band in conf.BANDS:
         conf.BANDS[band]['name'] = band.replace('_', ' ')
 from .mosaic import Mosaic
 from .brick import Brick
-
 
 # Make sure no interactive plotting is going on.
 plt.ioff()
