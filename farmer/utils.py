@@ -816,7 +816,6 @@ def build_regions(catalog, pixel_scale, outpath='objects.reg', scale_factor=2.0)
         angle = np.rad2deg(obj['theta']) * u.deg
         objid = str(obj['id'])
         regs.append(EllipseSkyRegion(coord, width, height, angle, meta={'text':objid}))
-    regs = np.array(regs)
     bigreg = Regions(regs)
     bigreg.write(outpath, overwrite=True, format='ds9')
 
