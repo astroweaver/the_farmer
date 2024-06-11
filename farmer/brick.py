@@ -317,11 +317,10 @@ class Brick(BaseImage):
                 # cleanup and hand back to brick
                 self.absorb(group)
         else:
-            pool = ProcessPool(ncpus=conf.NCPUS)
-            pool.restart()
-            result = pool.imap(partial(self.run_group, mode=mode), groups)
-            [self.absorb(group) for group in result]
-            pool.close()
+          with ProcessPool(ncpus=conf.NCPUS) as pool:
+                pool.restart()
+                result = pool.imap(partial(self.run_group, mode=mode), groups)
+                [self.absorb(group) for group in result]
 
     def run_group(self, group, mode='all'):
 
