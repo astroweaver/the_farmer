@@ -623,14 +623,14 @@ def get_params(model):
 
     # position
     source['ra'] = model.pos.ra * u.deg
-    source['ra.err'] = np.sqrt(model.variance.pos.ra) * u.deg
+    source['ra_err'] = np.sqrt(model.variance.pos.ra) * u.deg
     source['dec'] = model.pos.dec * u.deg
-    source['dec.err'] = np.sqrt(model.variance.pos.dec) * u.deg
+    source['dec_err'] = np.sqrt(model.variance.pos.dec) * u.deg
 
     # total statistics
     for stat in model.statistics:
         if (stat not in source['_bands']) & (stat not in ('model', 'variance')):
-            source[f'total.{stat}'] = model.statistics[stat]
+            source[f'total_{stat}'] = model.statistics[stat]
 
     # shape
     if model.name == 'SimpleGalaxy': # this is stupid for stupid reasons.
@@ -642,19 +642,19 @@ def get_params(model):
         #     skind = '_dev'
         variance_shape = model.variance.shape
         source['logre'] = model.shape.logre # log(arcsec)
-        source['logre.err'] = np.sqrt(model.variance.shape.logre)
+        source['logre_err'] = np.sqrt(model.variance.shape.logre)
         source['ellip'] = model.shape.e
-        source['ellip.err'] = np.sqrt(model.variance.shape.e)
+        source['ellip_err'] = np.sqrt(model.variance.shape.e)
         source['ee1'] = model.shape.ee1
-        source['ee1.err'] = np.sqrt(model.variance.shape.ee1)
+        source['ee1_err'] = np.sqrt(model.variance.shape.ee1)
         source['ee2'] = model.shape.ee2
-        source['ee2.err'] = np.sqrt(model.variance.shape.ee2)
+        source['ee2_err'] = np.sqrt(model.variance.shape.ee2)
 
         source['theta'] = np.rad2deg(model.shape.theta) * u.deg
-        source['theta.err'] = np.sqrt(np.rad2deg(model.variance.shape.theta)) * u.deg
+        source['theta_err'] = np.sqrt(np.rad2deg(model.variance.shape.theta)) * u.deg
 
         source[f'reff'] = np.exp(model.shape.logre) * u.arcsec # in arcsec
-        source[f'reff.err'] = np.sqrt(variance_shape.logre) * source[f'reff'] * np.log(10)
+        source[f'reff_err'] = np.sqrt(variance_shape.logre) * source[f'reff'] * np.log(10)
 
         boa = (1. - np.abs(model.shape.e)) / (1. + np.abs(model.shape.e))
         if model.shape.e == 1:
@@ -662,31 +662,31 @@ def get_params(model):
         else:
             boa_sig = boa * np.sqrt(variance_shape.e) * np.sqrt((1/(1.-model.shape.e))**2 + (1/(1.+model.shape.e))**2)
         source[f'ba'] = boa
-        source[f'ba.err'] = boa_sig
+        source[f'ba_err'] = boa_sig
         
         source['pa'] = 90. * u.deg + np.rad2deg(model.shape.theta) * u.deg
-        source['pa.err'] = np.rad2deg(model.variance.shape.theta) * u.deg
+        source['pa_err'] = np.rad2deg(model.variance.shape.theta) * u.deg
 
     elif isinstance(model, FixedCompositeGalaxy):
         source['softfracdev'] = model.fracDev.getValue()
         source['fracdev'] = model.fracDev.clipped()
-        source['softfracdev.err'] = np.sqrt(model.variance.fracDev.getValue())
-        source['fracdev.err'] = np.sqrt(model.variance.fracDev.clipped())
+        source['softfracdev_err'] = np.sqrt(model.variance.fracDev.getValue())
+        source['fracdev_err'] = np.sqrt(model.variance.fracDev.clipped())
         for skind, shape, variance_shape in zip(('_exp', '_dev'), (model.shapeExp, model.shapeDev), (model.variance.shapeExp, model.variance.shapeDev)):
             source[f'logre{skind}'] = shape.logre # log(arcsec)
-            source[f'logre{skind}.err'] = np.sqrt(variance_shape.logre)
+            source[f'logre{skind}_err'] = np.sqrt(variance_shape.logre)
             source[f'ellip{skind}'] = shape.e
-            source[f'ellip{skind}.err'] = np.sqrt(variance_shape.e)
+            source[f'ellip{skind}_err'] = np.sqrt(variance_shape.e)
             source[f'ee1{skind}'] = shape.ee1
-            source[f'ee1{skind}.err'] = np.sqrt(variance_shape.ee1)
+            source[f'ee1{skind}_err'] = np.sqrt(variance_shape.ee1)
             source[f'ee2{skind}'] = shape.ee2
-            source[f'ee2{skind}.err'] = np.sqrt(variance_shape.ee2)
+            source[f'ee2{skind}_err'] = np.sqrt(variance_shape.ee2)
 
             source[f'theta{skind}'] = np.rad2deg(shape.theta) * u.deg
-            source[f'theta{skind}.err'] = np.sqrt(np.rad2deg(variance_shape.theta)) * u.deg
+            source[f'theta{skind}_err'] = np.sqrt(np.rad2deg(variance_shape.theta)) * u.deg
 
             source[f'reff{skind}'] = np.exp(shape.logre) * u.arcsec # in arcsec
-            source[f'reff{skind}.err'] = np.sqrt(variance_shape.logre) * source[f'reff{skind}'] * np.log(10)
+            source[f'reff{skind}_err'] = np.sqrt(variance_shape.logre) * source[f'reff{skind}'] * np.log(10)
 
             boa = (1. - np.abs(shape.e)) / (1. + np.abs(shape.e))
             if shape.e == 1:
@@ -694,10 +694,10 @@ def get_params(model):
             else:
                 boa_sig = boa * np.sqrt(variance_shape.e) * np.sqrt((1/(1.-shape.e))**2 + (1/(1.+shape.e))**2)
             source[f'ba{skind}'] = boa
-            source[f'ba{skind}.err'] = boa_sig
+            source[f'ba{skind}_err'] = boa_sig
             
             source[f'pa{skind}'] = 90. * u.deg + np.rad2deg(shape.theta) * u.deg
-            source[f'pa{skind}.err'] = np.rad2deg(variance_shape.theta) * u.deg
+            source[f'pa{skind}_err'] = np.rad2deg(variance_shape.theta) * u.deg
 
 
     for band in source['_bands']:
@@ -705,16 +705,16 @@ def get_params(model):
         # photometry
         flux_err = np.sqrt(model.variance.getBrightness().getFlux(band))
         mask = ((flux_err > 0) & np.isfinite(flux_err)).astype(np.int8)
-        source[f'{band}.flux.err'] = flux_err * mask
-        source[f'{band}.flux'] = model.getBrightness().getFlux(band) * mask
+        source[f'{band}_flux_err'] = flux_err * mask
+        source[f'{band}_flux'] = model.getBrightness().getFlux(band) * mask
         
-        source[f'_{band}.zpt'] = conf.BANDS[band]['zeropoint']
+        source[f'_{band}_zpt'] = conf.BANDS[band]['zeropoint']
 
-        source[f'{band}.flux.ujy'] = source[f'{band}.flux'] * 10**(-0.4 * (source[f'_{band}.zpt'] - 23.9)) * u.microjansky * mask
-        source[f'{band}.flux.ujy.err'] = source[f'{band}.flux.err'] * 10**(-0.4 * (source[f'_{band}.zpt'] - 23.9)) * u.microjansky * mask
+        source[f'{band}_flux_ujy'] = source[f'{band}_flux'] * 10**(-0.4 * (source[f'_{band}_zpt'] - 23.9)) * u.microjansky * mask
+        source[f'{band}_flux_ujy_err'] = source[f'{band}_flux_err'] * 10**(-0.4 * (source[f'_{band}_zpt'] - 23.9)) * u.microjansky * mask
 
-        source[f'{band}.mag'] = -2.5 * np.log10(source[f'{band}.flux']) * u.mag + source[f'_{band}.zpt'] * u.mag * mask
-        source[f'{band}.mag.err'] = 2.5 * np.log10(np.e) / (source[f'{band}.flux'] / source[f'{band}.flux.err']) * mask
+        source[f'{band}_mag'] = -2.5 * np.log10(source[f'{band}_flux']) * u.mag + source[f'_{band}_zpt'] * u.mag * mask
+        source[f'{band}_mag_err'] = 2.5 * np.log10(np.e) / (source[f'{band}_flux'] / source[f'{band}_flux_err']) * mask
 
         # statistics
         if band in model.statistics:

@@ -5,7 +5,7 @@ from .utils import load_brick_position, dilate_and_group, clean_catalog, build_r
 from .group import Group
 
 import logging
-import os
+import os, time
 from functools import partial
 from astropy.nddata import Cutout2D
 import astropy.units as u
@@ -301,6 +301,8 @@ class Brick(BaseImage):
 
     def process_groups(self, group_ids=None, imgtype='science', mode='all'):
 
+        tstart = time.time()
+
         if group_ids is None:
             group_ids = self.group_ids['detection'][imgtype]
         elif np.isscalar(group_ids):
@@ -321,6 +323,8 @@ class Brick(BaseImage):
                 pool.restart()
                 result = pool.imap(partial(self.run_group, mode=mode), groups)
                 [self.absorb(group) for group in result]
+
+        self.logger.info(f'Brick {self.brick_id} has processed {len(group_ids)} groups ({time.time() - tstart:2.2f}s)')
 
     def run_group(self, group, mode='all'):
 
