@@ -84,7 +84,6 @@ def read_wcs(wcs, scl=1):
     wcs = ConstantFitsWcs(t)
     return wcs
 
-
 def load_brick_position(brick_id):
     logger = logging.getLogger('farmer.load_brick_position')
     # Do this relative to the detection image
@@ -346,16 +345,22 @@ def map_discontinuous(input, out_wcs, out_shape, thresh=0.1, force_simple=False)
     if (scl_out < 1.2*scl_in).all() | force_simple: # similar to better resolution can just use reinterpolation with order = 0
         if force_simple:
             logger.warning(f'Simple mapping has been forced! Small regions may be cannibalized... ')
-        array_out, __ = reproject_interp((array, in_wcs), out_wcs, out_shape, order=0)
+        if (array.shape == out_shape) & (np.abs(scl_in - scl_out).max() < 0.001):
+            logger.debug('No reprojection needed -- same shape and pixel scale')
+            array_out = array
+        else:
+            logger.info(f'Mapping to new resolution using reproject_interp for {len(segs)} regions')
+            array_out, __ = reproject_interp((array, in_wcs), out_wcs, out_shape, order=0)
 
         outdict = {}
 
+        logger.info('Building a mapping dictionary...')
         for seg in tqdm(segs):
             y, x = (array_out==seg).nonzero()
             outdict[seg] = y, x
 
     else: # avoids cannibalizing small objects when going to lower resolution
-        logger.warning(f'Mapping to much lower resolution using reproject_interp for {len(segs)} regions (this may take a while)')
+        logger.info(f'Mapping to much lower resolution using reproject_interp for {len(segs)} regions (this may take a while)')
         outdict = {}
 
         sizes = np.array([np.sum(array==segid) for segid in segs])
@@ -379,7 +384,6 @@ def recursively_save_dict_contents_to_group(h5file, dic, path='/'):
     # argument type checking
     if not isinstance(dic, dict):
         raise ValueError("must provide a dictionary")        
-
     if not isinstance(path, str):
         raise ValueError("path must be a string")
     if not isinstance(h5file, h5py._hl.files.File):
@@ -431,12 +435,9 @@ def recursively_save_dict_contents_to_group(h5file, dic, path='/'):
                 try:
                     h5file[path].create_dataset(key, data=item)
                 except:
-                    if item[0] not in h5file[path][key][...]:
-                        values = h5file[path][key][...].tolist()
-                        values.append(item[0])
-                        item = np.array(values)
-                        del h5file[path][key]
-                        h5file[path].create_dataset(key, data=item)
+                    item = np.array(item)
+                    del h5file[path][key]
+                    h5file[path].create_dataset(key, data=item)
             else:
                 try:
                     try:
@@ -542,13 +543,14 @@ def recursively_load_dict_contents_from_group(h5file, path='/', ans=None):
                     ans[key] = recursively_load_dict_contents_from_group(h5file, path + str(key) + '/', ans[key])
 
             elif 'variance' in item.name:
+                # TODO
                 continue
 
             elif ('model' in item.name) & ('name' in item.attrs):
                 is_variance = False
                 for item in (item, item['variance']):
                     name = item.attrs['name']
-                    pos = RaDecPos(item.attrs['pos.ra'], item.attrs['pos.dec'])
+                    pos = RaDecPos(item.attrs['pos_ra'], item.attrs['pos_dec'])
                     fluxes = {}
                     for param in item.attrs:
                         if param.startswith('brightness'):
@@ -561,15 +563,15 @@ def recursively_load_dict_contents_from_group(h5file, path='/', ans=None):
                     elif name == 'SimpleGalaxy':
                         model = SimpleGalaxy(pos, flux)
                     elif name == 'ExpGalaxy':
-                        shape = EllipseESoft(item.attrs['shape.logre'], item.attrs['shape.ee1'], item.attrs['shape.ee2'])
+                        shape = EllipseESoft(item.attrs['shape_logre'], item.attrs['shape_ee1'], item.attrs['shape_ee2'])
                         model = ExpGalaxy(pos, flux, shape)
                     elif name == 'DevGalaxy':
-                        shape = EllipseESoft(item.attrs['shape.logre'], item.attrs['shape.ee1'], item.attrs['shape.ee2'])
+                        shape = EllipseESoft(item.attrs['shape_logre'], item.attrs['shape_ee1'], item.attrs['shape_ee2'])
                         model = DevGalaxy(pos, flux, shape)
                     elif name == 'FixedCompositeGalaxy':
-                        shape_exp = EllipseESoft(item.attrs['shapeExp.logre'], item.attrs['shapeExp.ee1'], item.attrs['shapeExp.ee2'])
-                        shape_dev = EllipseESoft(item.attrs['shapeDev.logre'], item.attrs['shapeDev.ee1'], item.attrs['shapeDev.ee2'])
-                        model = FixedCompositeGalaxy(pos, flux, SoftenedFracDev(item.attrs['fracDev.SoftenedFracDev']), shape_exp, shape_dev)
+                        shape_exp = EllipseESoft(item.attrs['shapeExp_logre'], item.attrs['shapeExp_ee1'], item.attrs['shapeExp_ee2'])
+                        shape_dev = EllipseESoft(item.attrs['shapeDev_logre'], item.attrs['shapeDev_ee1'], item.attrs['shapeDev_ee2'])
+                        model = FixedCompositeGalaxy(pos, flux, SoftenedFracDev(item.attrs['fracDev_SoftenedFracDev']), shape_exp, shape_dev)
                     
                     if not is_variance:
                         ans[key] = model
@@ -882,4 +884,33 @@ def prepare_psf(filename, outfilename=None, pixel_scale=None, mask_radius=None, 
 
     return psfmodel
 
+def run_group(group, mode='all'):
+
+    if not group.rejected:
     
+        if mode == 'all':
+            status = group.determine_models()
+            if status:
+                group.force_models()
+    
+        elif mode == 'model':
+            group.determine_models()
+
+        elif mode == 'photometry':
+            group.force_models()
+
+        elif mode == 'pass':
+            for source_id in group.source_ids:
+                group.model_catalog[source_id] = -99
+                group.model_tracker[source_id] = -99
+            group.model_tracker['group'] = -99
+            pass
+
+    # else:
+    #     self.logger.warning(f'Group {group.group_id} has been rejected!')
+    output = group.group_id.copy(), group.model_catalog.copy(), group.model_tracker.copy()
+    del group
+    return output
+
+    # return group
+

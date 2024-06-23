@@ -116,7 +116,7 @@ class BaseImage():
             if coord is not None:
                 self.logger.warning(f'{band} has only a single PSF! Coordinates ignored.')
             psf_path = psflist
-            self.logger.info(f'Found a constant PSF for {band}.')
+            self.logger.debug(f'Found a constant PSF for {band}.')
         else:
             if coord is None:
                 if self.type != 'group':
@@ -125,7 +125,7 @@ class BaseImage():
             
             # find nearest to coord
             psf_idx, d2d, __ = coord.match_to_catalog_sky(psfcoords, 1)
-            self.logger.info(f'Found the nearest PSF for {band} {d2d.to(u.arcmin)} away.')
+            self.logger.debug(f'Found the nearest PSF for {band} {d2d.to(u.arcmin)} away.')
             psf_path = psflist[psf_idx]
 
         # Try to open
@@ -429,9 +429,6 @@ class BaseImage():
             qflux = np.zeros(len(bands))
             for j, band in enumerate(bands):
                 src_seg = self.data[band]['segmap'][source_id]
-                # print(j, band, source_id)
-                # print(np.shape(self.images[band].data))
-                # print(src_seg)
                 qflux[j] = np.nansum(self.images[band].data[src_seg[0], src_seg[1]])
             flux = Fluxes(**dict(zip(bands, qflux)), order=bands)
 
@@ -564,6 +561,7 @@ class BaseImage():
     def force_models(self, bands=None):
 
         if bands is None: bands = self.bands
+        tstart = time.time()
         self.logger.info('Measuring photometry...')
 
         self.existing_model_catalog = copy.deepcopy(self.model_catalog)
@@ -594,10 +592,13 @@ class BaseImage():
         if conf.PLOT > 0:
                 self.plot_summary(bands=bands, source_id='group', tag='PHOT')
 
+        self.logger.info(f'Photometry completed ({time.time()-tstart:2.2f}s)')
+
 
     def determine_models(self, bands=conf.MODEL_BANDS):
 
         self.logger.info('Determining best-choice models...')
+        tstart = time.time()
 
         # clean up
         self.model_priors = conf.MODEL_PRIORS
@@ -651,6 +652,8 @@ class BaseImage():
                 self.plot_image(band=bands, imgtype=('science', 'model', 'residual'))     
         if conf.PLOT > 1:
                 self.plot_summary(bands=bands, source_id='group', tag='MODEL')
+
+        self.logger.info(f'Modelling completed ({time.time()-tstart:2.2f}s)')
 
         return True
 
@@ -815,7 +818,7 @@ class BaseImage():
         self.logger.debug('Measuing statistics...')
         # group Chi2, <Chi>, sig(Chi)
         if self.type == 'group':
-            self.logger.info(f'{self.type} #{self.group_id}')
+            self.logger.debug(f'{self.type} #{self.group_id}')
             ntotal_pix = 0
             ntotalres_elem = 0
             totchi = []
@@ -854,12 +857,12 @@ class BaseImage():
                 ndof = np.max([1, ndata - nparam])
                 rchi2 = chi2 / ndof
                 
-                self.logger.info(f'   {band}: chi2/N = {rchi2:2.2f} ({rchi2_model:2.2f})')
-                self.logger.info(f'   {band}: N(data) = {ndata} ({nres_elem})')
-                self.logger.info(f'   {band}: N(param) = {nparam}')
-                self.logger.info(f'   {band}: N(DOF) = {ndof}')
-                self.logger.info(f'   {band}: Med(chi) = {chi_pc[2]:2.2f}')
-                self.logger.info(f'   {band}: Width(chi) = {chi_pc[3]-chi_pc[1]:2.2f}')
+                self.logger.debug(f'   {band}: chi2/N = {rchi2:2.2f} ({rchi2_model:2.2f})')
+                self.logger.debug(f'   {band}: N(data) = {ndata} ({nres_elem})')
+                self.logger.debug(f'   {band}: N(param) = {nparam}')
+                self.logger.debug(f'   {band}: N(DOF) = {ndof}')
+                self.logger.debug(f'   {band}: Med(chi) = {chi_pc[2]:2.2f}')
+                self.logger.debug(f'   {band}: Width(chi) = {chi_pc[3]-chi_pc[1]:2.2f}')
                 
                 ntotal_pix += ndata 
                 ntotalres_elem += nres_elem
@@ -901,12 +904,12 @@ class BaseImage():
             self.model_tracker[self.type][stage]['total']['ndof'] = ndof
             self.model_tracker[self.type][stage]['total']['nres'] = ntotalres_elem
 
-            self.logger.info(f'   Total: chi2/N = {chi2/ndof:2.2f} ({tot_rchi2_model:2.2f})')
-            self.logger.info(f'   Total: N(data) = {ntotal_pix} ({ntotalres_elem})')
-            self.logger.info(f'   Total: N(param) = {nparam}')
-            self.logger.info(f'   Total: N(DOF) = {ndof}')
-            self.logger.info(f'   Total: Med(chi) = {chi_pc[2]:2.2f}')
-            self.logger.info(f'   Total: Width(chi) = {chi_pc[3]-chi_pc[1]:2.2f}')
+            self.logger.debug(f'   Total: chi2/N = {chi2/ndof:2.2f} ({tot_rchi2_model:2.2f})')
+            self.logger.debug(f'   Total: N(data) = {ntotal_pix} ({ntotalres_elem})')
+            self.logger.debug(f'   Total: N(param) = {nparam}')
+            self.logger.debug(f'   Total: N(DOF) = {ndof}')
+            self.logger.debug(f'   Total: Med(chi) = {chi_pc[2]:2.2f}')
+            self.logger.debug(f'   Total: Width(chi) = {chi_pc[3]-chi_pc[1]:2.2f}')
 
         for i, src in enumerate(self.catalogs[self.catalog_band][self.catalog_imgtype]):
             source_id = src['id']
@@ -960,13 +963,13 @@ class BaseImage():
                 ndof = np.max([1, ndata - nparam]).astype(np.int32)
                 rchi2 = chi2 / ndof
                 
-                self.logger.info(f'   {band}: chi2/N = {rchi2:2.2f} ({rchi2_model:2.2f})')
-                self.logger.info(f'   {band}: N(data) = {ndata} ({nres_elem})')
-                self.logger.info(f'   {band}: N(param) = {nparam}')
-                self.logger.info(f'   {band}: N(DOF) = {ndof}')
-                self.logger.info(f'   {band}: Med(chi) = {chi_pc[2]:2.2f}')
-                self.logger.info(f'   {band}: Width(chi) = {chi_pc[3]-chi_pc[1]:2.2f}')
-                self.logger.info(f'   {band}: Flagged? {flag}')
+                self.logger.debug(f'   {band}: chi2/N = {rchi2:2.2f} ({rchi2_model:2.2f})')
+                self.logger.debug(f'   {band}: N(data) = {ndata} ({nres_elem})')
+                self.logger.debug(f'   {band}: N(param) = {nparam}')
+                self.logger.debug(f'   {band}: N(DOF) = {ndof}')
+                self.logger.debug(f'   {band}: Med(chi) = {chi_pc[2]:2.2f}')
+                self.logger.debug(f'   {band}: Width(chi) = {chi_pc[3]-chi_pc[1]:2.2f}')
+                self.logger.debug(f'   {band}: Flagged? {flag}')
 
                 ntotal_pix += ndata
                 ntotalres_elem += nres_elem
@@ -1012,12 +1015,12 @@ class BaseImage():
             self.model_tracker[source_id][stage]['total']['ndof'] = ndof
             self.model_tracker[source_id][stage]['total']['nres'] = ntotalres_elem
 
-            self.logger.info(f'   Total: chi2/N = {chi2/ndof:2.2f} ({tot_rchi2_model:2.2f})')
-            self.logger.info(f'   Total: N(data) = {ntotal_pix} ({ntotalres_elem})')
-            self.logger.info(f'   Total: N(param) = {nparam}')
-            self.logger.info(f'   Total: N(DOF) = {ndof}')
-            self.logger.info(f'   Total: Med(chi) = {chi_pc[2]:2.2f}')
-            self.logger.info(f'   Total: Width(chi) = {chi_pc[3]-chi_pc[1]:2.2f}')
+            self.logger.debug(f'   Total: chi2/N = {chi2/ndof:2.2f} ({tot_rchi2_model:2.2f})')
+            self.logger.debug(f'   Total: N(data) = {ntotal_pix} ({ntotalres_elem})')
+            self.logger.debug(f'   Total: N(param) = {nparam}')
+            self.logger.debug(f'   Total: N(DOF) = {ndof}')
+            self.logger.debug(f'   Total: Med(chi) = {chi_pc[2]:2.2f}')
+            self.logger.debug(f'   Total: Width(chi) = {chi_pc[3]-chi_pc[1]:2.2f}')
 
     def build_all_images(self, bands=None, source_id=None, overwrite=True, reconstruct=True, set_engine=True):
         if bands is None:
@@ -1153,7 +1156,7 @@ class BaseImage():
     def set_catalog(self, catalog, catalog_band='detection', catalog_imgtype='science'):
         self.catalogs[catalog_band][catalog_imgtype] = catalog
 
-    def plot_image(self, band=None, imgtype=None, tag='', overwrite=True, show_catalog=True, catalog_band='detection', catalog_imgtype='science', show_groups=True):
+    def plot_image(self, band=None, imgtype=None, tag='', show_catalog=True, catalog_band='detection', catalog_imgtype='science', show_groups=True):
         # for each band, plot all available images: science, weight, mask, segmap, blobmap, background, rms
         if band is None:
             bands = self.get_bands()
@@ -1896,14 +1899,14 @@ class BaseImage():
                         break
                     
             if already_made:
-                self.logger.debug(f'Mapping for segmap and groupmap of {mband} to {band} already exists!')
+                self.logger.info(f'Mapping for segmap and groupmap of {mband} to {band} already exists!')
                 self.logger.debug(f'Using the {mband} mapping for {band}')
                 self.data[band]['segmap']= self.data[mband]['segmap']
                 self.data[band]['groupmap'] = self.data[mband]['groupmap']
-                self.logger.debug(f'Copied maps for segmap and groupmap of {mband} to {band} by ({mpixscl} -> {pixscl})')
+                self.logger.info(f'Copied maps for segmap and groupmap of {mband} to {band} by ({mpixscl} -> {pixscl})')
             
             else:
-                self.logger.debug(f'Creating mapping for segmap and groupmap of {catalog_band} to {band} ({catalog_pixscl} -> {pixscl})')
+                self.logger.info(f'Creating mapping for segmap and groupmap of {catalog_band} to {band} ({catalog_pixscl} -> {pixscl})')
                 self.data[band]['segmap']= map_discontinuous((segmap.data, segmap.wcs), self.wcs[band], np.shape(self.data[band]['science'].data), force_simple=conf.FORCE_SIMPLE_MAPPING)
                 self.data[band]['groupmap'] = map_discontinuous((groupmap.data, groupmap.wcs), self.wcs[band], np.shape(self.data[band]['science'].data), force_simple=conf.FORCE_SIMPLE_MAPPING)
                 self.logger.debug(f'Created maps for segmap and groupmap of {catalog_band} to {band} by ({catalog_pixscl} -> {pixscl})')
@@ -2091,7 +2094,7 @@ class BaseImage():
             params = get_params(source)
 
             for name in params:
-                if name.startswith('_') | (name == 'total.total'):
+                if name.startswith('_') | (name == 'total_total'):
                     continue
                 value = params[name]
                 try:

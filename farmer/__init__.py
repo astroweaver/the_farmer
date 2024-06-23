@@ -91,7 +91,7 @@ def validate():
 def get_mosaic(band, load=True):
     return Mosaic(band, load=load)
 
-def build_bricks(brick_ids=None, include_detection=True, bands=None, write=False):
+def build_bricks(brick_ids=None, include_detection=True, bands=None, write=True):
     if bands is not None: # some kind of manual job
         if np.isscalar(bands):
             bands = [bands,]
@@ -104,7 +104,7 @@ def build_bricks(brick_ids=None, include_detection=True, bands=None, write=False
     # Check first
     for band in bands:
         if band == 'detection':
-            break
+            continue
         if band not in conf.BANDS.keys():
             raise RuntimeError(f'Cannot find {band} -- check your configuration file!')
 
@@ -124,10 +124,10 @@ def build_bricks(brick_ids=None, include_detection=True, bands=None, write=False
     if np.isscalar(brick_ids) | (n_bricks == 1): # single brick built in memory and saved
         for band in bands:
             mosaic = get_mosaic(band, load=True)
-            try:
-                mosaic.add_to_brick(brick)
-            except:
+            if band == 'detection':
                 brick = mosaic.spawn_brick(brick_ids)
+            else:
+                mosaic.add_to_brick(brick)
             del mosaic
         if write: 
             brick.write(allow_update=False, filetype='hdf5')
@@ -135,6 +135,7 @@ def build_bricks(brick_ids=None, include_detection=True, bands=None, write=False
             brick.plot_image(show_catalog=False, show_groups=False)
         return brick
     else: # If brick_ids is none, then we're in production. Load in mosaics, make bricks, update files.
+        skiplist = []
         for band in bands:
             mosaic = get_mosaic(band, load=True)
             arr = brick_ids
@@ -142,15 +143,24 @@ def build_bricks(brick_ids=None, include_detection=True, bands=None, write=False
                 arr = tqdm(brick_ids)
             logger.info('Spawning or updating bricks...')
             for brick_id in arr:
-                try:
-                    mosaic.add_to_brick(brick)
-                except:
+                if brick_id in skiplist:
+                    logger.warning(f'Brick {brick_id} has been skipped due to no detection information! Skipping...')
+                    continue
+                if band == 'detection':
                     brick = mosaic.spawn_brick(brick_id)
+                    if np.nansum(brick.data['detection']['science'].data>0) == 0:
+                        logger.warning(f'Brick {brick_id} has no detection information! Skipping...')
+                        skiplist.append(brick_id)
+                        continue
+                else:
+                    brick = load_brick(brick_id)
+                    mosaic.add_to_brick(brick)
                 brick.write(allow_update=True, filetype='hdf5')
                 if conf.PLOT > 2:
                     brick.plot_image(show_catalog=False, show_groups=False)
+                del brick
             del mosaic
-        return
+        return [bid for bid in brick_ids if bid not in skiplist] # return the useful brick numbers
 
 def load_brick(brick_id):
     return Brick(brick_id, load=True)
@@ -188,12 +198,12 @@ def update_bricks(brick_ids=None, bands=None):
             arr = brick_ids
             if conf.CONSOLE_LOGGING_LEVEL != 'DEBUG':
                 arr = tqdm(brick_ids)
-            logger.info('Spawning or updating bricks...')
+            logger.info(f'Spawning or updating bricks for band {band}...')
             for brick_id in arr:
                 brick = load_brick(brick_id)
                 for band in bands:
                     if band not in brick.bands:
-                        logger.warning(f'{band} not found in brick #{brick_id}! Updating...')
+                        logger.debug(f'{band} not found in brick #{brick_id}! Updating...')
                         mosaic = get_mosaic(band, load=True)
                         mosaic.add_to_brick(brick)
                         del mosaic

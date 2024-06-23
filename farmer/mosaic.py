@@ -43,6 +43,9 @@ class Mosaic(BaseImage):
                 self.properties = conf.DETECTION
             else:
                 self.properties = conf.BANDS[band]
+            for key in self.properties:
+                if isinstance(self.properties[key], bool):
+                    self.properties[key] = int(self.properties[key]) # turn Trues/Falses into 1/0
             for key in default_properties:
                 if key not in self.properties:
                     self.properties[key] = default_properties[key]

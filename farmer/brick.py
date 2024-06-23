@@ -1,7 +1,7 @@
 from collections import OrderedDict
 import config as conf
 from .image import BaseImage
-from .utils import load_brick_position, dilate_and_group, clean_catalog, build_regions
+from .utils import load_brick_position, dilate_and_group, clean_catalog, build_regions, run_group
 from .group import Group
 
 import logging
@@ -32,6 +32,8 @@ class Brick(BaseImage):
             for key in attributes:
                 self.__dict__[key] = attributes[key]
                 self.logger.debug(f'  ... {key}')
+
+            # TODO cross-check with config
         
         else:
 
@@ -179,6 +181,8 @@ class Brick(BaseImage):
         if 'backregion' in self.properties[mosaic.band]:
             if self.properties[mosaic.band]['backregion'] == 'brick':
                 self.estimate_background(band=mosaic.band, imgtype='science')
+
+        self.logger.info(f'Added {mosaic.band} to brick #{self.brick_id}')
         
         
         # TODO -- should be able to INHERET catalogs from the parent mosaic, if they exist!
@@ -189,7 +193,7 @@ class Brick(BaseImage):
         catalog, segmap = self._extract(band, imgtype='science', background=background)
 
         # clean out buffer -- these are bricks!
-        self.logger.debug('Removing sources detected in brick buffer...')
+        self.logger.info('Removing sources detected in brick buffer...')
         cutout = Cutout2D(self.data[band][imgtype].data, self.position, self.size[::-1], wcs=self.data[band][imgtype].wcs)
         mask = Cutout2D(np.zeros(cutout.data.shape), self.position, self.buffsize[::-1], wcs=cutout.wcs, fill_value=1, mode='partial').data.astype(bool)
         segmap = Cutout2D(segmap, self.position, self.buffsize[::-1], self.wcs[band], fill_value=0, mode='partial')
@@ -308,52 +312,68 @@ class Brick(BaseImage):
         elif np.isscalar(group_ids):
             group_ids = [group_ids,]
 
-        groups = (self.spawn_group(group_id) for group_id in group_ids)
+        bands = None
+        if mode == 'pass':
+            bands = ['detection',]
+
+        groups = (self.spawn_group(group_id, bands=bands) for group_id in group_ids)
 
         # loop or parallel groups
         if (conf.NCPUS == 0) | (len(group_ids) == 1):
             for group in groups:
 
-                group = self.run_group(group, mode=mode)
+                group = run_group(group, mode=mode)
 
                 # cleanup and hand back to brick
                 self.absorb(group)
         else:
             with ProcessPool(ncpus=conf.NCPUS) as pool:
                 pool.restart()
-                result = pool.imap(partial(self.run_group, mode=mode), groups)
+                # result = pool.map(partial(run_group, mode=mode), groups)
+                # [self.absorb(group) for group in result]
+                # [group for group in result] # if this succceds where above fails... then do below + shrink to minimal output
+                # level = self.logger.level
+                # if self.logger.level != 0: # debug
+                #     self.logger.setLevel(100)
+                #     import tqdm
+                #     result = list(tqdm.tqdm(pool.imap(partial(run_group, mode=mode), groups), total=len(group_ids), desc='Processing Groups'))
+                # else:
+                result = list(pool.imap(partial(run_group, mode=mode), groups))
                 [self.absorb(group) for group in result]
+                # self.logger.setLevel(level)
 
         self.logger.info(f'Brick {self.brick_id} has processed {len(group_ids)} groups ({time.time() - tstart:2.2f}s)')
 
-    def run_group(self, group, mode='all'):
+    # def run_group(self, group, mode='all'):
 
-        if not group.rejected:
+    #     if not group.rejected:
         
-            if mode == 'all':
-                status = group.determine_models()
-                if status:
-                    group.force_models()
+    #         if mode == 'all':
+    #             status = group.determine_models()
+    #             if status:
+    #                 group.force_models()
         
-            elif mode == 'model':
-                group.determine_models()
+    #         elif mode == 'model':
+    #             group.determine_models()
 
-            elif mode == 'photometry':
-                group.force_models()
+    #         elif mode == 'photometry':
+    #             group.force_models()
 
-            elif mode == 'pass':
-                pass
+    #         elif mode == 'pass':
+    #             pass
 
-        else:
-            self.logger.warning(f'Group {group.group_id} has been rejected!')
+    #     else:
+    #         self.logger.warning(f'Group {group.group_id} has been rejected!')
 
-        return group
+    #     return group
 
 
     def absorb(self, group): # eventually allow mosaic to do this too! absorb bricks + make a huge model catalog!
 
+        group_id, model_catalog, model_tracker = group
+
         # check ownership
-        assert self.brick_id == group.brick_id, 'Group does not belong to this brick!'
+        # assert self.brick_id == brick_id, 'Group does not belong to this brick!'
 
         # # rebuild maps NOTE don't do this with cutouts. Realize it for the brick itself.
         # for band in self.data:
@@ -369,15 +389,15 @@ class Brick(BaseImage):
         #                     += group.data[band][imgtype].data[yminc:ymaxc, xminc:xmaxc]
 
         # model catalog
-        for source in group.model_catalog:
-            self.model_catalog[source] = group.model_catalog[source]
+        for source in list(model_catalog.keys()):
+            self.model_catalog[source] = model_catalog[source]
 
         # model tracker
-        for source in group.model_tracker:
+        for source in list(model_tracker.keys()):
             if source == 'group':
-                self.model_tracker_groups[group.group_id] = group.model_tracker[source]
+                self.model_tracker_groups[group_id] = model_tracker[source]
             else:
-                self.model_tracker[source] = group.model_tracker[source]
+                self.model_tracker[source] = model_tracker[source]
 
-        self.logger.debug(f'Group {group.group_id} has been absorbed')
+        self.logger.debug(f'Group {group_id} has been absorbed')
         del group
