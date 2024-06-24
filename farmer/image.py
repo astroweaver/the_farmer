@@ -68,7 +68,7 @@ class BaseImage():
             self.solved = np.zeros(len(catalog), dtype=bool)
 
         if self.stage == 0:
-            self.logger.info(f'Tracking for Stage {self.stage}, {np.sum(self.solved)}/{len(self.solved)} models solved.')
+            self.logger.debug(f'Tracking for Stage {self.stage}, {np.sum(self.solved)}/{len(self.solved)} models solved.')
 
         if self.stage == init_stage:
             self.model_tracker[self.type] = {}
@@ -481,7 +481,7 @@ class BaseImage():
         self.engine.optimizer = ConstrainedOptimizer()
 
         # cat = self.engine.getCatalog()
-        self.logger.info('Running engine...')
+        self.logger.debug('Running engine...')
         tstart = time.time()
         for i in range(conf.MAX_STEPS):
             try:
@@ -504,7 +504,7 @@ class BaseImage():
         self.variance = var
         
         if dlnp < conf.DLNP_CRIT:
-            self.logger.info(f'Fit converged in {i+1} steps ({time.time()-tstart:2.2f}s)')
+            self.logger.debug(f'Fit converged in {i+1} steps ({time.time()-tstart:2.2f}s)')
         else:
             self.logger.warning(f'Fit did not converge in {i+1} steps ({time.time()-tstart:2.2f}s)')
         for source_id in self.model_tracker:
@@ -562,7 +562,7 @@ class BaseImage():
 
         if bands is None: bands = self.bands
         tstart = time.time()
-        self.logger.info('Measuring photometry...')
+        self.logger.debug('Measuring photometry...')
 
         self.existing_model_catalog = copy.deepcopy(self.model_catalog)
         self.engine = None
@@ -592,12 +592,12 @@ class BaseImage():
         if conf.PLOT > 0:
                 self.plot_summary(bands=bands, source_id='group', tag='PHOT')
 
-        self.logger.info(f'Photometry completed ({time.time()-tstart:2.2f}s)')
+        self.logger.debug(f'Photometry completed ({time.time()-tstart:2.2f}s)')
 
 
     def determine_models(self, bands=conf.MODEL_BANDS):
 
-        self.logger.info('Determining best-choice models...')
+        self.logger.debug('Determining best-choice models...')
         tstart = time.time()
 
         # clean up
@@ -653,7 +653,7 @@ class BaseImage():
         if conf.PLOT > 1:
                 self.plot_summary(bands=bands, source_id='group', tag='MODEL')
 
-        self.logger.info(f'Modelling completed ({time.time()-tstart:2.2f}s)')
+        self.logger.debug(f'Modelling completed ({time.time()-tstart:2.2f}s)')
 
         return True
 
@@ -923,7 +923,7 @@ class BaseImage():
             issolved = ''
             if self.solved[i]:
                 issolved = ' - SOLVED'
-            self.logger.info(f'Source #{source_id} ({modelname}{issolved})')
+            self.logger.debug(f'Source #{source_id} ({modelname}{issolved})')
             ntotal_pix = 0
             ntotalres_elem = 0
             totchi = []

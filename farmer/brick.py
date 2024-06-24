@@ -16,7 +16,7 @@ from astropy.wcs.utils import proj_plane_pixel_scales
 
 
 class Brick(BaseImage):
-    def __init__(self, brick_id=None, position=None, size=None, load=True) -> None:
+    def __init__(self, brick_id=None, position=None, size=None, load=True, silent=False) -> None:
 
 
         if not np.isscalar(brick_id):
@@ -25,6 +25,8 @@ class Brick(BaseImage):
         
         self.filename = f'B{brick_id}.h5'
         self.logger = logging.getLogger(f'farmer.brick_{brick_id}')
+        if silent:
+            self.logger.setLevel(logging.ERROR)
 
         if load:
             self.logger.info(f'Trying to load brick from {self.filename}...')
@@ -243,10 +245,11 @@ class Brick(BaseImage):
         # self.group_pops[band][imgtype] = dict(zip(group_ids, group_pops))
         self.headers[band]['groupmap'] = self.headers[band]['science']
 
-    def spawn_group(self, group_id=None, imgtype='science', bands=None):
+    def spawn_group(self, group_id=None, imgtype='science', bands=None, silent=False):
         # Instantiate brick
-        self.logger.info(f'Spawning Group #{group_id} from Brick #{self.brick_id}...')
-        group = Group(group_id, self, imgtype=imgtype)
+        if not silent:
+            self.logger.info(f'Spawning Group #{group_id} from Brick #{self.brick_id}...')
+        group = Group(group_id, self, imgtype=imgtype, silent=silent)
         if group.rejected:
             self.logger.warning(f'Group #{group_id} cannot be created!')
             return group
@@ -257,9 +260,11 @@ class Brick(BaseImage):
         nsrcs = group.n_sources['detection'][imgtype]
         source_ids = np.array(group.get_catalog()['id'])
         group.source_ids = source_ids
-        self.logger.debug(f'Group #{group_id} has {nsrcs} sources: {source_ids}')
+        if not silent:
+            self.logger.debug(f'Group #{group_id} has {nsrcs} sources: {source_ids}')
         if nsrcs > conf.GROUP_SIZE_LIMIT:
-            self.logger.warning(f'Group #{group_id} has {nsrcs} sources, but the limit is set to {conf.GROUP_SIZE_LIMIT}!')
+            if not silent:
+                self.logger.warning(f'Group #{group_id} has {nsrcs} sources, but the limit is set to {conf.GROUP_SIZE_LIMIT}!')
             group.rejected = True
             return group
         
@@ -316,7 +321,7 @@ class Brick(BaseImage):
         if mode == 'pass':
             bands = ['detection',]
 
-        groups = (self.spawn_group(group_id, bands=bands) for group_id in group_ids)
+        groups = (self.spawn_group(group_id, bands=bands, silent=(conf.NCPUS > 0)) for group_id in group_ids)
 
         # loop or parallel groups
         if (conf.NCPUS == 0) | (len(group_ids) == 1):
@@ -329,16 +334,9 @@ class Brick(BaseImage):
         else:
             with ProcessPool(ncpus=conf.NCPUS) as pool:
                 pool.restart()
-                # result = pool.map(partial(run_group, mode=mode), groups)
-                # [self.absorb(group) for group in result]
-                # [group for group in result] # if this succceds where above fails... then do below + shrink to minimal output
-                # level = self.logger.level
-                # if self.logger.level != 0: # debug
-                #     self.logger.setLevel(100)
-                #     import tqdm
-                #     result = list(tqdm.tqdm(pool.imap(partial(run_group, mode=mode), groups), total=len(group_ids), desc='Processing Groups'))
-                # else:
-                result = list(pool.imap(partial(run_group, mode=mode), groups))
+                import tqdm
+                result = list(tqdm.tqdm(pool.imap(partial(run_group, mode=mode), groups), total=len(group_ids)))
+                # result = list(pool.imap(partial(run_group, mode=mode), groups))
                 [self.absorb(group) for group in result]
                 # self.logger.setLevel(level)
 

@@ -147,13 +147,13 @@ def build_bricks(brick_ids=None, include_detection=True, bands=None, write=True)
                     logger.warning(f'Brick {brick_id} has been skipped due to no detection information! Skipping...')
                     continue
                 if band == 'detection':
-                    brick = mosaic.spawn_brick(brick_id)
+                    brick = mosaic.spawn_brick(brick_id, silent=(conf.CONSOLE_LOGGING_LEVEL != 'DEBUG'))
                     if np.nansum(brick.data['detection']['science'].data>0) == 0:
                         logger.warning(f'Brick {brick_id} has no detection information! Skipping...')
                         skiplist.append(brick_id)
                         continue
                 else:
-                    brick = load_brick(brick_id)
+                    brick = load_brick(brick_id, silent=(conf.CONSOLE_LOGGING_LEVEL != 'DEBUG'))
                     mosaic.add_to_brick(brick)
                 brick.write(allow_update=True, filetype='hdf5')
                 if conf.PLOT > 2:
@@ -162,8 +162,8 @@ def build_bricks(brick_ids=None, include_detection=True, bands=None, write=True)
             del mosaic
         return [bid for bid in brick_ids if bid not in skiplist] # return the useful brick numbers
 
-def load_brick(brick_id):
-    return Brick(brick_id, load=True)
+def load_brick(brick_id, silent=False):
+    return Brick(brick_id, load=True, silent=silent)
 
 def update_bricks(brick_ids=None, bands=None):
     if bands is not None: # some kind of manual job

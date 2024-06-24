@@ -421,7 +421,7 @@ def recursively_save_dict_contents_to_group(h5file, dic, path='/'):
         elif isinstance(item, utils.Cutout2D):
             recursively_save_dict_contents_to_group(h5file, item.__dict__, path + key + '/')
         elif isinstance(item, SkyCoord):
-            h5file[path].attrs[key] = item.to_string()
+            h5file[path].attrs[key] = item.to_string(precision=50) # overkill, but I don't care!
         elif isinstance(item, WCS):
             h5file[path].attrs[key] = item.to_header_string()
         elif isinstance(item, fits.header.Header):
@@ -429,6 +429,8 @@ def recursively_save_dict_contents_to_group(h5file, dic, path='/'):
         elif isinstance(item, u.quantity.Quantity):
             h5file[path].attrs[key] = item.value
             h5file[path].attrs[key+'_unit'] = item.unit.to_string()
+        elif isinstance(item, np.bool_):
+            h5file[path].attrs[key] = int(item)
         elif isinstance(item, np.ndarray):
             if (key == 'bands'): # & np.isscalar(item):
                 item = np.array(item).astype('|S99')
@@ -480,7 +482,7 @@ def recursively_save_dict_contents_to_group(h5file, dic, path='/'):
         # other types cannot be saved and will result in an error
         else:
             #print(item)
-            logger.warning('Cannot save %s type.' % type(item))
+            logger.debug(f'Cannot save {key} of type {type(item)}')
 
 def recursively_load_dict_contents_from_group(h5file, path='/', ans=None): 
 

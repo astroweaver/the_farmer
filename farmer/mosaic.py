@@ -143,12 +143,12 @@ class Mosaic(BaseImage):
         # Return it
         return brick
 
-    def spawn_brick(self, brick_id=None, position=None, size=None):
+    def spawn_brick(self, brick_id=None, position=None, size=None, silent=False):
         # Instantiate brick
         if brick_id is None:
-            brick = Brick(position, size, load=False)
+            brick = Brick(position, size, load=False, silent=silent)
         else:
-            brick = Brick(brick_id, load=False)
+            brick = Brick(brick_id, load=False, silent=silent)
         
         # Cut up science, weight, and mask, if available
         brick.add_band(self)
