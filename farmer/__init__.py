@@ -263,7 +263,6 @@ def detect_sources(brick_ids=None, band='detection', imgtype='science', brick=No
 
         # detection
         brick.detect_sources(band=band, imgtype=imgtype)
-        brick.transfer_maps()
 
         if write:
             brick.write(allow_update=True)

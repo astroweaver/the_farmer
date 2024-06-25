@@ -1477,26 +1477,26 @@ class BaseImage():
                     axes[0,1].text(0, 0.4, f'        <$\chi$> = {stats["chi_pc50"]:2.2f} | $\sigma$($\chi$) = {stats["chi_pc84"] - stats["chi_pc16"]:2.2f} | $K^2$ = {stats["chi_k2"]:2.2f}', transform=axes[0,1].transAxes)
 
                     source = get_params(model)
-                    mag, mag_err = source[f'{band}.mag'].value, source[f'{band}.mag.err']
-                    flux, flux_err = source[f'{band}.flux.ujy'].value, source[f'{band}.flux.ujy.err'].value
-                    zpt = source[f'_{band}.zpt']
+                    mag, mag_err = source[f'{band}_mag'].value, source[f'{band}_mag_err']
+                    flux, flux_err = source[f'{band}_flux_ujy'].value, source[f'{band}_flux_ujy_err'].value
+                    zpt = source[f'_{band}_zpt']
                     str_fracdev = ''
                     if isinstance(model, FixedCompositeGalaxy):
-                        fracdev, fracdev_err = source['fracdev'], source['fracdev.err']
+                        fracdev, fracdev_err = source['fracdev'], source['fracdev_err']
                         str_fracdev = r'$\mathcal{F}$(Dev)' + f'{fracdev:2.2f}+/-{fracdev_err:2.2f}'
                     axes[0,1].text(0, 0.3, f'{bandname}: {mag:2.2f}+/-{mag_err:2.2f} AB {flux:2.2f}+/-{flux_err:2.2f} uJy (zpt = {zpt}) {str_fracdev}', transform=axes[0,1].transAxes)
                     pos = source['ra'], source['dec']
                     axes[0,1].text(0, 0.2, f'Position:   ({pos[0]:2.2f}, {pos[1]:2.2f})', transform=axes[0,1].transAxes)
                     if isinstance(model, (ExpGalaxy, DevGalaxy)) & ~isinstance(model, SimpleGalaxy):
-                        reff, reff_err = source['reff'].value, source['reff.err'].value
-                        ba, ba_err = source['ba'], source['ba.err']
-                        pa, pa_err = source['pa'].value, source['pa.err'].value
+                        reff, reff_err = source['reff'].value, source['reff_err'].value
+                        ba, ba_err = source['ba'], source['ba_err']
+                        pa, pa_err = source['pa'].value, source['pa_err'].value
                         axes[0,1].text(0, 0.1, r'Shape:   $R_{\rm eff} = $' + f'{reff:2.2f}+/-{reff_err:2.2f}\" $b/a$ = {ba:2.2f}+/{ba_err:2.2f}  $\\theta$ = {pa:2.1f}+/-{pa_err:2.1f}'+r'$\degree$', transform=axes[0,1].transAxes)
                     elif isinstance(model, FixedCompositeGalaxy):
                         for skind, yloc in zip(('_exp', '_dev'), (0.1, 0.0)):
-                            reff, reff_err = source[f'reff{skind}'].value, source[f'reff{skind}.err'].value
-                            ba, ba_err = source[f'ba{skind}'], source[f'ba{skind}.err']
-                            pa, pa_err = source[f'pa{skind}'].value, source[f'pa{skind}.err'].value
+                            reff, reff_err = source[f'reff{skind}'].value, source[f'reff{skind}_err'].value
+                            ba, ba_err = source[f'ba{skind}'], source[f'ba{skind}_err']
+                            pa, pa_err = source[f'pa{skind}'].value, source[f'pa{skind}_err'].value
                             axes[0,1].text(0, yloc, f'Shape {skind[1:]}:   '+r'$R_{\rm eff} = $' + f'{reff:2.2f}+/-{reff_err}\" $b/a$ = {ba:2.2f}+/{ba_err:2.2f}  $\\theta$ = {pa:2.2f}+/-{pa_err:2.2f}', transform=axes[0,1].transAxes)
 
                 
