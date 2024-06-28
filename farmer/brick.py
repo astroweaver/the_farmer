@@ -25,8 +25,8 @@ class Brick(BaseImage):
         
         self.filename = f'B{brick_id}.h5'
         self.logger = logging.getLogger(f'farmer.brick_{brick_id}')
-        if silent:
-            self.logger.setLevel(logging.ERROR)
+        # if silent:
+        #     self.logger.setLevel(logging.ERROR)
 
         if load:
             self.logger.info(f'Trying to load brick from {self.filename}...')

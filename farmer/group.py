@@ -16,8 +16,8 @@ class Group(BaseImage):
 
         # Load the logger
         self.logger = logging.getLogger(f'farmer.group_{group_id}')
-        if silent:
-            self.logger.setLevel(logging.ERROR)
+        # if silent:
+        #     self.logger.setLevel(logging.ERROR)
 
         if load and (brick_id is not None):
             self.filename = f'G{group_id}_B{brick_id}.h5'

@@ -162,7 +162,7 @@ class BaseImage():
             if imgtype in self.data[band]:
                 self.data[band][imgtype].data = image
             else:
-                self.data[band][imgtype] = Cutout2D(np.zeros_like(self.data[band]['science'].data), self.position, self.size, wcs=self.wcs[band])
+                self.data[band][imgtype] = Cutout2D(np.zeros_like(self.data[band]['science'].data), self.position, self.buffsize[::-1], wcs=self.wcs[band], mode='strict')
                 self.data[band][imgtype].data = image
 
         self.logger.debug(f'Setting {imgtype} image for {band} (sum = {np.nansum(image):2.5f})')
@@ -1042,9 +1042,9 @@ class BaseImage():
         # only do the bands we can do
         # bands = [band for band in self.engine.bands if band != 'detection']
 
-        self.build_model_image(bands, source_id, overwrite, reconstruct=reconstruct)
-        self.build_residual_image(bands, source_id, overwrite)
-        self.build_chi_image(bands, source_id, overwrite)
+        self.build_model_image(bands, source_id, overwrite=overwrite, reconstruct=reconstruct)
+        self.build_residual_image(bands, source_id, overwrite=overwrite)
+        self.build_chi_image(bands, source_id, overwrite=overwrite)
 
     def build_model_image(self, bands=None, source_id=None, overwrite=True, reconstruct=True):
         if bands is None:
@@ -1093,6 +1093,7 @@ class BaseImage():
                 model = self.engine.getModelImage(self.images[band])
             
             self.set_image(model, 'model', band)
+            self.headers[band]['model'] = self.headers[band]['science']
 
             self.logger.debug(f'Built model image for {band}')
             if len(bands) == 1:
@@ -1112,12 +1113,13 @@ class BaseImage():
         for band in bands:
             if source_id is not None:
                 model = self.build_model_image(band, source_id, overwrite, reconstruct=False)
-                residual = self.get_image('science', band) - model
+                residual = self.get_image(imgtype, band) - model
             else:
                 model = self.get_image('model', band)
-                residual = self.get_image('science', band) - model
+                residual = self.get_image(imgtype, band) - model
                 self.set_image(residual, 'residual', band)
 
+            self.headers[band]['residual'] = self.headers[band][imgtype]
             self.logger.debug(f'Built residual image for {band}')
             if len(bands) == 1:
                 return residual
@@ -1142,6 +1144,7 @@ class BaseImage():
                 chi = self.get_image('residual', band) * np.sqrt(self.get_image('weight', band))
                 self.set_image(chi, 'chi', band)
             
+            self.headers[band]['chi'] = self.headers[band][imgtype]
             self.logger.debug(f'Built chi image for {band}')
             if len(bands) == 1:
                 return chi
@@ -1932,7 +1935,7 @@ class BaseImage():
             else:
                 raise RuntimeError('Cannot write catalogs to disk as none are present!')
 
-    def write_fits(self, bands=None, allow_update=False, filename=None, directory=conf.PATH_BRICKS):
+    def write_fits(self, bands=None, imgtypes=None, allow_update=False, filename=None, directory=conf.PATH_BRICKS):
         if filename is None:
             filename = self.filename.replace('.h5', '.fits')
         self.logger.debug(f'Writing to {filename} (allow_update = {allow_update})')
@@ -1961,6 +1964,9 @@ class BaseImage():
         self.logger.debug(f'... adding data to fits')
         for band in write_bands:
             for attr in self.data[band]:
+                if imgtypes is not None:
+                    if attr not in imgtypes: 
+                        continue
                 if attr.startswith('psf'): # skip this stuff.
                     continue
                 if (band != 'detection') & ('map' in attr):
@@ -1975,11 +1981,23 @@ class BaseImage():
                         self.logger.debug(f'Appended {attr} {band}')
                     else: 
                         if attr == 'model': # go after science
-                            hdul.insert(hdul.index_of(f'{band}_SCIENCE')+1, fits.ImageHDU(name=ext_name))
+                            if f'{band}_SCIENCE' not in hdul:
+                                idx = np.argmax([band.upper() in hdu.name for hdu in hdul])
+                                hdul.insert(idx+1, fits.ImageHDU(name=ext_name))
+                            else:
+                                hdul.insert(hdul.index_of(f'{band}_SCIENCE')+1, fits.ImageHDU(name=ext_name))
                         elif attr == 'residual': # go after model
-                            hdul.insert(hdul.index_of(f'{band}_MODEL')+1, fits.ImageHDU(name=ext_name))
+                            if f'{band}_MODEL' not in hdul:
+                                idx = np.argmax([band.upper() in hdu.name for hdu in hdul])
+                                hdul.insert(idx+1, fits.ImageHDU(name=ext_name))
+                            else:
+                                hdul.insert(hdul.index_of(f'{band}_MODEL')+1, fits.ImageHDU(name=ext_name))
                         elif attr == 'chi': # go after residual
-                            hdul.insert(hdul.index_of(f'{band}_RESIDUAL')+1, fits.ImageHDU(name=ext_name))
+                            if f'{band}_RESIDUAL' not in hdul:
+                                idx = np.argmax([band.upper() in hdu.name for hdu in hdul])
+                                hdul.insert(idx+1, fits.ImageHDU(name=ext_name))
+                            else:
+                                hdul.insert(hdul.index_of(f'{band}_RESIDUAL')+1, fits.ImageHDU(name=ext_name))
                         else:
                             idx = [hdul.index_of(hdu.name) for hdu in hdul if (band.upper() == '_'.join(hdu.name.split('_')[:-1]))][-1] + 1
                             if idx == len(hdul):
@@ -1994,7 +2012,7 @@ class BaseImage():
                     hdul[ext_name].data = self.data[band][attr].data
                 # update WCS in header
                 if attr in self.headers[band]:
-                    for (key, value, comment) in self.headers[band][attr].cards:
+                    for (key, value, comment) in self.headers[band]['science'].cards:
                         hdul[ext_name].header[key] = (value, comment)
                 for (key, value, comment) in self.data[band][attr].wcs.to_header().cards:
                     hdul[ext_name].header[key] = (value, comment)
