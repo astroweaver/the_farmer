@@ -722,7 +722,7 @@ def get_params(model):
         # statistics
         if band in model.statistics:
             for stat in model.statistics[band]:
-                source[f'{band}.{stat}'] = model.statistics[band][stat]
+                source[f'{band}_{stat}'] = model.statistics[band][stat]
 
     return source
 
