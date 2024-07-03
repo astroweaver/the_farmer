@@ -234,24 +234,25 @@ def validate_psfmodel(band, return_psftype=False):
     psfmodel = (psfcoords, psflist)
 
     # try out the first one
-    fname = psfmodel[1][0]
+    if psftype == 'constant':
+        fname = str(psfmodel[1][0])
 
-    if fname.endswith('.psf'):
-        try:
-            test_psf = PixelizedPsfEx(fn=fname)
-            logger.debug(f'PSF model for {band} identified as {psftype} PixelizedPsfEx.')
+        if fname.endswith('.psf'):
+            try:
+                PixelizedPsfEx(fn=fname)
+                logger.debug(f'PSF model for {band} identified as {psftype} PixelizedPsfEx.')
 
-        except:
+            except:
+                img = fits.open(fname)[0].data
+                img = img.astype('float32')
+                PixelizedPSF(img)
+                logger.debug(f'PSF model for {band} identified as {psftype} PixelizedPSF.')
+            
+        elif fname.endswith('.fits'):
             img = fits.open(fname)[0].data
             img = img.astype('float32')
-            test_psf = PixelizedPSF(img)
+            PixelizedPSF(img)
             logger.debug(f'PSF model for {band} identified as {psftype} PixelizedPSF.')
-        
-    elif fname.endswith('.fits'):
-        img = fits.open(fname)[0].data
-        img = img.astype('float32')
-        test_psf = PixelizedPSF(img)
-        logger.debug(f'PSF model for {band} identified as {psftype} PixelizedPSF.')
 
     if return_psftype:
         return psfmodel, psftype
@@ -372,6 +373,19 @@ def map_discontinuous(input, out_wcs, out_shape, thresh=0.1, force_simple=False)
             mask = reproject_interp((mask, in_wcs), out_wcs, out_shape, return_footprint=False)
             y, x = (mask > thresh).nonzero() # x and y for that segment
             outdict[seg] = y, x
+
+        # for seg in tqdm(segs):
+        #     mask = (array == seg).astype(np.int8)
+        #     nz_mask = np.nonzero(mask)
+        #     cx, cy = nz_mask.mean(axis=1)
+        #     dx, dy = nz_mask.max(axis=1) - nz_mask.min(axis=1)
+        #     pos = in_wcs.pixel_to_world(cx, cy)
+        #     dra = abs(in_wcs.pixel_to_world(dx, dy).ra - pos.ra) * np.cos(np.deg2rad(pos.dec.to(u.degree).value))
+        #     ddec = abs(in_wcs.pixel_to_world(dx, dy).dec - pos.dec)
+        #     cutout = Cutout2D(mask, pos, (ddec, dra), wcs=in_wcs)
+        #     mask = reproject_interp((cutout, cutout.wcs), out_wcs, out_shape, return_footprint=False)
+        #     y, x = (mask > thresh).nonzero() # x and y for that segment
+        #     outdict[seg] = y, x
 
     return outdict
     

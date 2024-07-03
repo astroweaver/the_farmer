@@ -1225,7 +1225,7 @@ class BaseImage():
                     # fig.colorbar(im, orientation="horizontal", pad=0.2)
                     pixscl = self.pixel_scales[band][0].to(u.deg).value, self.pixel_scales[band][1].to(u.deg).value
                     if self.type == 'brick':
-                        brick_buffer_pix = conf.BRICK_BUFFER.to(u.deg).value / pixscl[0], conf.BRICK_BUFFER.to(u.deg).value / pixscl[1]
+                        brick_buffer_pix = conf.BRICK_BUFFER.to(u.deg).value / pixscl[0] / 2., conf.BRICK_BUFFER.to(u.deg).value / pixscl[1] / 2.
                         ax.add_patch(Rectangle(brick_buffer_pix, self.size[0].to(u.deg).value / pixscl[0], self.size[1].to(u.deg).value / pixscl[1],
                                         fill=False, alpha=0.3, edgecolor='purple', linewidth=1))
                     # show centroids
