@@ -545,10 +545,10 @@ class BaseImage():
                     if stat in self.bands:
                         for substat in self.model_tracker[source_id][low_idx][stat]:
                             if substat.endswith('chisq'):
-                                self.model_catalog[source_id].statistics[stat][f'{substat}.nomodel'] = \
+                                self.model_catalog[source_id].statistics[stat][f'{substat}_nomodel'] = \
                                                 self.model_tracker[source_id][low_idx][stat][substat]
                     elif substat.endswith('chisq'):
-                        self.model_catalog[source_id].statistics[f'{stat}.nomodel'] = \
+                        self.model_catalog[source_id].statistics[f'{stat}_nomodel'] = \
                                                     self.model_tracker[source_id][low_idx][stat]
 
     def stage_engine(self, bands=conf.MODEL_BANDS):
