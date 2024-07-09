@@ -141,7 +141,7 @@ class Brick(BaseImage):
                 self.transfer_maps()
             elif imgtype in ('psfcoords', 'psflist'):
                 if imgtype == 'psflist': continue # do these together!
-                if self.data[mosaic.band]['psfcoords'] != 'none':
+                if mosaic.data[mosaic.band]['psfcoords'] != 'none':
                     within_brick = np.array([coord.contained_by(self.wcs[mosaic.band]) for coord in mosaic.data['psfcoords']])
                     self.data[mosaic.band]['psfcoords'] = mosaic.data['psfcoords'][within_brick]
                     self.data[mosaic.band]['psflist'] = mosaic.data['psflist'][within_brick]
@@ -268,7 +268,7 @@ class Brick(BaseImage):
         # Cut up science, weight, and mask, if available
         group.add_bands(self, bands=bands)
         
-        nsrcs = group.n_sources['detection'][imgtype]
+        nsrcs = group.n_sources[group.catalog_band][imgtype]
         source_ids = np.array(group.get_catalog()['id'])
         group.source_ids = source_ids
         if not silent:
