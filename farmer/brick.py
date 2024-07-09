@@ -143,8 +143,13 @@ class Brick(BaseImage):
                 if imgtype == 'psflist': continue # do these together!
                 if mosaic.data['psfcoords'] != 'none':
                     within_brick = np.array([coord.contained_by(self.wcs[mosaic.band]) for coord in mosaic.data['psfcoords']])
-                    self.data[mosaic.band]['psfcoords'] = mosaic.data['psfcoords'][within_brick]
-                    self.data[mosaic.band]['psflist'] = mosaic.data['psflist'][within_brick]
+                    if len(within_brick) == 0:
+                        nearest = np.argmin([coord.separation(self.position) for coord in mosaic.data['psfcoords']])
+                        self.data[mosaic.band]['psfcoords'] = [mosaic.data['psfcoords'][nearest]]
+                        self.data[mosaic.band]['psflist'] = [mosaic.data['psflist'][nearest]]
+                    else:
+                        self.data[mosaic.band]['psfcoords'] = mosaic.data['psfcoords'][within_brick]
+                        self.data[mosaic.band]['psflist'] = mosaic.data['psflist'][within_brick]
                 else:
                     self.data[mosaic.band]['psfcoords'] = mosaic.data['psfcoords']
                     self.data[mosaic.band]['psflist'] = mosaic.data['psflist']
