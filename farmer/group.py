@@ -124,6 +124,8 @@ class Group(BaseImage):
             bands = brick.bands
         elif np.isscalar(bands):
             bands = [bands,]
+        if ('detection' not in bands) & ('detection' not in self.data):
+            bands.insert(0, 'detection')
             
         for band in bands:
         # Add band information
@@ -179,12 +181,12 @@ class Group(BaseImage):
                     if imgtype == 'science':
                         self.wcs[band] = cutout.wcs
 
+                elif imgtype in ('psfcoords', 'psflist'):
+                    if imgtype == 'psflist': continue # do these together!
+                    self.data[band]['psfcoords'] = brick.data['psfcoords'] # grab them all! groups are SMALL.
+                    self.data[band]['psflist'] = brick.data['psflist']
                 else:
-                    if imgtype.startswith('psf'):
-                        self.data[band][imgtype] = brick.data[band][imgtype]
-                    else:
-                        print(band, imgtype)
-                        self.data[band][imgtype] = brick.data[band][imgtype]
+                    self.data[band][imgtype] = brick.data[band][imgtype]
                     self.logger.debug(f'... data \"{imgtype}\" adopted from brick')
 
             # # Clean up

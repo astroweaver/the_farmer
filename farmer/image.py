@@ -2076,18 +2076,13 @@ class BaseImage():
         hf.close()
         return attr
 
-    def write_catalog(self, bands=None, catalog_imgtype=None, catalog_band=None, allow_update=False, filename=None, directory=conf.PATH_CATALOGS, overwrite=False):
+    def write_catalog(self, catalog_imgtype=None, catalog_band=None, allow_update=False, filename=None, directory=conf.PATH_CATALOGS, overwrite=False):
 
         if catalog_imgtype is None:
             catalog_imgtype = self.catalog_imgtype
         if catalog_band is None:
             catalog_band = self.catalog_band
-        if bands is None:
-            bands = self.bands
-        elif np.isscalar(bands):
-            bands = [bands,]
         
-
         if filename is None:
             filename = self.filename.replace('.h5', '.cat')
         self.logger.debug(f'Preparing catalog to be written to {filename} (allow_update = {allow_update})')
@@ -2112,6 +2107,32 @@ class BaseImage():
             group_id = catalog['group_id'][catalog['id'] == source_id][0]
             params = get_params(source)
 
+            # for forced photometry, rename parameters if they are unfrozen
+            if self.stage > 10: # forced photometry
+                pos_names = 'ra', 'dec', 'ra_err', 'dec_err'
+                reff_names = 'logre', 'logre_err', 'reff', 'reff_err'
+                reff_names += 'logre_exp', 'logre_exp_err', 'reff_exp', 'reff_exp_err'
+                reff_names += 'logre_dev', 'logre_dev_err', 'reff_dev', 'reff_dev_err'
+                shape_names = 'ellip', 'ellip_err', 'ee1', 'ee1_err', 'ee2', 'ee2_err', 'theta', 'theta_err', 'ba', 'ba_err', 'pa', 'pa_err'
+                shape_names += 'ellip_exp', 'ellip_exp_err', 'ee1_exp', 'ee1_exp_err', 'ee2_exp', 'ee2_exp_err', 'theta_exp', 'theta_exp_err', 'ba_exp', 'ba_exp_err', 'pa_exp', 'pa_exp_err'
+                shape_names += 'ellip_dev', 'ellip_dev_err', 'ee1_dev', 'ee1_dev_err', 'ee2_dev', 'ee2_dev_err', 'theta_dev', 'theta_dev_err', 'ba_dev', 'ba_dev_err', 'pa_dev', 'pa_dev_err'
+                fracdev_names = 'fracdev', 'fracdev_err', 'softfracdev', 'softfracdev_err'
+                
+                if np.any([prior=='freeze' for prior in self.model_priors]):
+                    if len(params['_bands']) > 1:
+                        band = 'phot'
+                    elif len(params['_bands']) == 1:
+                        band = params['_bands'][0]
+                if self.model_priors['pos'] != 'freeze':
+                    for name in params:
+                        if ((name in pos_names) & (self.model_prirors['pos'] != 'freeze')) \
+                            | ((name in reff_names) & (self.model_priors['reff'] != 'freeze')) \
+                            | ((name in shape_names) & (self.model_priors['shape'] != 'freeze')) \
+                            | ((name in fracdev_names) & (self.model_priors['fracdev'] != 'freeze')):
+                                value = params[name]
+                                params.pop(name)
+                                params[f'{band}_{name}'] = value
+                    
             for name in params:
                 if name.startswith('_') | (name == 'total_total'):
                     continue

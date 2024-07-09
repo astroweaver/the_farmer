@@ -139,6 +139,17 @@ class Brick(BaseImage):
                     self.estimate_properties(band=mosaic.band, imgtype=imgtype)
             elif imgtype in ('segmap', 'groupmap'):
                 self.transfer_maps()
+            elif imgtype in ('psfcoords', 'psflist'):
+                if imgtype == 'psflist': continue # do these together!
+                if self.data[mosaic.band]['psfcoords'] != 'none':
+                    within_brick = np.array([coord.contained_by(self.wcs[mosaic.band]) for coord in mosaic.data['psfcoords']])
+                    self.data[mosaic.band]['psfcoords'] = mosaic.data['psfcoords'][within_brick]
+                    self.data[mosaic.band]['psflist'] = mosaic.data['psflist'][within_brick]
+                else:
+                    self.data[mosaic.band]['psfcoords'] = mosaic.data['psfcoords']
+                    self.data[mosaic.band]['psflist'] = mosaic.data['psflist']
+                for imgtype in ('psfcoords', 'psflist'):
+                    self.logger.debug(f'... data \"{imgtype}\" adopted from mosaic')
             else:
                 self.data[mosaic.band][imgtype] = mosaic.data[imgtype]
                 self.logger.debug(f'... data \"{imgtype}\" adopted from mosaic')
@@ -308,7 +319,7 @@ class Brick(BaseImage):
 
         return self.catalogs[band][imgtype]
 
-    def process_groups(self, group_ids=None, imgtype='science', mode='all'):
+    def process_groups(self, group_ids=None, imgtype='science', bands=None, mode='all'):
 
         tstart = time.time()
 
@@ -317,7 +328,6 @@ class Brick(BaseImage):
         elif np.isscalar(group_ids):
             group_ids = [group_ids,]
 
-        bands = None
         if mode == 'pass':
             bands = ['detection',]
 
