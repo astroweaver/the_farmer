@@ -183,8 +183,8 @@ class Group(BaseImage):
 
                 elif imgtype in ('psfcoords', 'psflist'):
                     if imgtype == 'psflist': continue # do these together!
-                    self.data[band]['psfcoords'] = brick.data['psfcoords'] # grab them all! groups are SMALL.
-                    self.data[band]['psflist'] = brick.data['psflist']
+                    self.data[band]['psfcoords'] = brick.data[band]['psfcoords'] # grab them all! groups are SMALL.
+                    self.data[band]['psflist'] = brick.data[band]['psflist']
                 else:
                     self.data[band][imgtype] = brick.data[band][imgtype]
                     self.logger.debug(f'... data \"{imgtype}\" adopted from brick')
