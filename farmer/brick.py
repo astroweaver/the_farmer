@@ -141,7 +141,7 @@ class Brick(BaseImage):
                 self.transfer_maps()
             elif imgtype in ('psfcoords', 'psflist'):
                 if imgtype == 'psflist': continue # do these together!
-                if mosaic.data[mosaic.band]['psfcoords'] != 'none':
+                if mosaic.data['psfcoords'] != 'none':
                     within_brick = np.array([coord.contained_by(self.wcs[mosaic.band]) for coord in mosaic.data['psfcoords']])
                     self.data[mosaic.band]['psfcoords'] = mosaic.data['psfcoords'][within_brick]
                     self.data[mosaic.band]['psflist'] = mosaic.data['psflist'][within_brick]
