@@ -128,6 +128,10 @@ class BaseImage():
             d2d = d2d[0]
             self.logger.debug(f'Found the nearest PSF for {band} {d2d.to(u.arcmin)} away.')
             psf_path = psflist[psf_idx]
+            try:
+                psf_path = psf_path.decode('utf-8')
+            except:
+                pass
 
         # Try to open
         if psf_path.endswith('.psf'):
