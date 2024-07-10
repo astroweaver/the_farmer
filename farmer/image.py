@@ -132,6 +132,11 @@ class BaseImage():
                 psf_path = psf_path.decode('utf-8')
             except:
                 pass
+            try:
+                num = int(psf_path.split('gp')[-1].split('.fits')[0])
+                psf_path = psf_path.replace(str(num), f'{num:06}')  
+            except:
+                pass
 
         # Try to open
         if psf_path.endswith('.psf'):
@@ -570,6 +575,9 @@ class BaseImage():
         self.logger.debug('Measuring photometry...')
 
         self.existing_model_catalog = copy.deepcopy(self.model_catalog)
+        if len(self.existing_model_catalog) == 0:
+            self.logger.warning('No existing models to force!')
+            return False
         self.engine = None
         self.stage = None
 

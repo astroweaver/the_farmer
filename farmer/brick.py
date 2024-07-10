@@ -297,12 +297,6 @@ class Brick(BaseImage):
             for stage, stats in self.model_tracker[source_id].items():
                 group.model_tracker[source_id][stage] = stats
 
-        if len(group.model_catalog) == 0:
-            if not silent:
-                self.logger.warning(f'Group #{group_id} has no models to force! Was probably skipped earlier...')
-            group.rejected = True
-            return group
-
         group.model_tracker['group'] = {}
         if group_id in self.model_tracker_groups:
             for stage, stats in self.model_tracker_groups[group_id].items():
