@@ -112,7 +112,7 @@ class BaseImage():
         else:
             psfcoords, psflist = self.data[band]['psfcoords'], self.data[band]['psflist']
 
-        if psfcoords == 'none': # single psf!
+        if np.any(psfcoords == 'none'): # single psf!
             if coord is not None:
                 self.logger.warning(f'{band} has only a single PSF! Coordinates ignored.')
             psf_path = psflist
@@ -1047,64 +1047,95 @@ class BaseImage():
                 self.transfer_maps(band)
 
         self.stage_images(bands=bands) # assumes a single PSF!
-        # self.stage_models(bands=bands)
-        if set_engine:
-            self.engine = Tractor(list(self.images.values()), list(self.model_catalog.values()))
-            self.engine.bands = list(self.images.keys())
-        
-        # only do the bands we can do
-        # bands = [band for band in self.engine.bands if band != 'detection']
 
-        self.build_model_image(bands, source_id, overwrite=overwrite, reconstruct=reconstruct)
-        self.build_residual_image(bands, source_id, overwrite=overwrite)
-        self.build_chi_image(bands, source_id, overwrite=overwrite)
+        self.build_model_image(bands, source_id, overwrite=overwrite, reconstruct=reconstruct, set_engine=set_engine)
+        self.build_residual_image(bands, overwrite=overwrite)
+        self.build_chi_image(bands, overwrite=overwrite)
 
-    def build_model_image(self, bands=None, source_id=None, overwrite=True, reconstruct=True):
+    def build_model_image(self, bands=None, source_id=None, overwrite=True, reconstruct=True, set_engine=True):
         if bands is None:
             bands = self.bands
         elif np.isscalar(bands):
             bands = [bands,]
+
+        if np.isscalar(source_id):
+            source_id = [source_id,]
+
         models = {}
 
-        # if source_id is not None:
-        #     if np.isscalar(source_id):
-        #         srcs.append(self.model_catalog[source_id])
-        #     else:
-        #         for sid in source_id:
-        #             srcs.append(self.model_catalog[sid])
-        # else:
-        used_srcs = []
-        srcs = self.model_catalog.copy()
-
-        # check for rejections
-        if reconstruct & ((conf.RESIDUAL_BA_MIN != 'none') | (conf.RESIDUAL_REFF_MAX != 'none') | (conf.RESIDUAL_SHOW_NEGATIVE == False)):
-            for sid, src in srcs.items():
-                source = get_params(src)
-                if conf.RESIDUAL_SHOW_NEGATIVE == False:
-                    for band in source['_bands']:
-                        flux = src.getBrightness().getFlux(band)
-                        if flux < 0: 
-                            src.getBrightness().setFlux(band, 0)
-                            self.logger.warning(f'Source {sid} has negative model flux in {band} and has been rejected from reconstruction')
-                if (conf.RESIDUAL_BA_MIN != 'none') & ('ba' in source):
-                    if source['ba'] < conf.RESIDUAL_BA_MIN:
-                        self.logger.warning(f'Source {sid} model is too narrow and has been rejected from reconstruction')
-                        continue
-                if (conf.RESIDUAL_REFF_MAX != 'none') & ('reff' in source):
-                    if source['reff'] > conf.RESIDUAL_REFF_MAX:
-                        self.logger.warning(f'Source {sid} model is too large and has been rejected from reconstruction')
-                        continue
-
-                used_srcs.append(src)
+        # check that the model_catalog is ok
+        if not set_engine:
+            use_sources = list(self.model_catalog.values())
         else:
-            used_srcs = self.model_catalog.values()
+            use_sources = []
+            use_source_ids = []
+            for source in self.get_catalog(self.catalog_band, self.catalog_imgtype):
+                sid = source['id']
+
+                if source_id is not None:
+                    if sid not in source_id:
+                        continue
+
+                if sid not in self.model_catalog:
+                    self.logger.warning(f'Source {sid} not in model catalog')
+                    continue
+                
+                src = self.model_catalog[sid]
+
+                # Only use models with the photometry bands requested (must have ALL)
+                if not np.all([testband in src.getBrightness().order for testband in bands]):
+                    self.logger.warning(f'Source {sid} does not have photometry in all requested bands')
+                    continue
+
+                # check for rejections
+                if reconstruct & ((conf.RESIDUAL_BA_MIN != 'none') | (conf.RESIDUAL_REFF_MAX != 'none') | (conf.RESIDUAL_SHOW_NEGATIVE == False)):
+                    if not hasattr(src, 'statistics'):
+                        self.logger.warning(f'Source {sid} does not have statistics!')
+                        continue
+                    source = get_params(src)
+                    if conf.RESIDUAL_SHOW_NEGATIVE == False:
+                        for band in source['_bands']:
+                            flux = src.getBrightness().getFlux(band)
+                            if flux < 0: 
+                                src.getBrightness().setFlux(band, 0)
+                                self.logger.warning(f'Source {sid} has negative model flux in {band} and has been rejected from reconstruction')
+                    if (conf.RESIDUAL_BA_MIN != 'none') & ('ba' in source):
+                        if source['ba'] < conf.RESIDUAL_BA_MIN:
+                            self.logger.warning(f'Source {sid} model is too narrow and has been rejected from reconstruction')
+                            continue
+                    if (conf.RESIDUAL_REFF_MAX != 'none') & ('reff' in source):
+                        if source['reff'] > conf.RESIDUAL_REFF_MAX:
+                            self.logger.warning(f'Source {sid} model is too large and has been rejected from reconstruction')
+                            continue
+
+                use_sources.append(src)
+                use_source_ids.append(sid)
+                
+            self.logger.debug(f'Only including the {len(use_sources)} ({100*len(use_sources)/len(self.model_catalog):2.1f}%) valid models with photometry in all requested bands')
 
         for band in bands:
-            if source_id is not None:
-                model = Tractor([self.images[band],], Catalog(*used_srcs)).getModelImage(0)
-            else:
-                model = self.engine.getModelImage(self.images[band])
-            
+            if (self.data[band]['psfcoords'] == 'none'):
+                model = Tractor([self.images[band],], Catalog(*use_sources)).getModelImage(0)
+            else: # Uses a different PSF for each group
+                model = np.zeros_like(self.get_image('science', band))
+                group_ids = list(self.data[band]['groupmap'].keys())
+                catalog = self.catalogs[self.catalog_band]['science']
+                wcs = self.get_wcs(band=band)
+                for group_id in tqdm(group_ids, total=len(group_ids)):
+                    group_sources = np.array(catalog[catalog['group_id'] == group_id]['id'])
+                    cy, cx = self.data[band]['groupmap'][group_id]
+                    coord = wcs.pixel_to_world(np.mean(cy), np.mean(cx))
+                    psfmodel = self.get_psfmodel(band, coord)
+
+                    group_models = []
+                    for source_id in group_sources:
+                        if source_id in use_source_ids:
+                            group_models.append(self.model_catalog[source_id])
+                    
+                    group_image = self.images[band].copy()
+                    group_image.psf = psfmodel
+                    model += Tractor([group_image,], Catalog(*group_models)).getModelImage(0)
+
             self.set_image(model, 'model', band)
             self.headers[band]['model'] = self.headers[band]['science']
 
@@ -1238,7 +1269,7 @@ class BaseImage():
                     # fig.colorbar(im, orientation="horizontal", pad=0.2)
                     pixscl = self.pixel_scales[band][0].to(u.deg).value, self.pixel_scales[band][1].to(u.deg).value
                     if self.type == 'brick':
-                        brick_buffer_pix = conf.BRICK_BUFFER.to(u.deg).value / pixscl[0] / 2., conf.BRICK_BUFFER.to(u.deg).value / pixscl[1] / 2.
+                        brick_buffer_pix = conf.BRICK_BUFFER.to(u.deg).value / pixscl[0], conf.BRICK_BUFFER.to(u.deg).value / pixscl[1]
                         ax.add_patch(Rectangle(brick_buffer_pix, self.size[0].to(u.deg).value / pixscl[0], self.size[1].to(u.deg).value / pixscl[1],
                                         fill=False, alpha=0.3, edgecolor='purple', linewidth=1))
                     # show centroids
@@ -1265,6 +1296,9 @@ class BaseImage():
                         for group_id in tqdm(self.group_ids[catalog_band][catalog_imgtype]):
 
                             # use groupmap from brick to get position and buffsize
+                            if group_id not in groupmap:
+                                self.logger.warning(f'Group #{group_id} not found in groupmap! Skipping.')
+                                continue
                             if band == 'detection':
                                 idy, idx = (groupmap==group_id).nonzero()
                             else:
@@ -1883,7 +1917,7 @@ class BaseImage():
             self.logger.info(f'Saving figure: {outname}') 
             pdf.close()
 
-    def transfer_maps(self, bands=None, catalog_band='detection'):
+    def transfer_maps(self, bands=None, catalog_band='detection', overwrite=False):
         # rescale segmaps and groupmaps to other bands
         segmap = self.data[catalog_band]['segmap']
         groupmap = self.data[catalog_band]['groupmap']
@@ -1894,18 +1928,26 @@ class BaseImage():
         elif np.isscalar(bands):
             bands = [bands,]
 
+        if overwrite:
+            for band in self.bands:
+                if band == catalog_band: continue
+                if 'groupmap' in self.data[band]:
+                    del self.data[band]['groupmap']
+                if 'segmap' in self.data[band]:
+                    del self.data[band]['segmap']
+
         # loop over bands
         for band in bands:
-            if band == 'detection':
+            if band == catalog_band:
                 continue
-            if ('segmap' in self.data[band]) & ('groupmap' in self.data[band]):
+            if ('segmap' in self.data[band]) & ('groupmap' in self.data[band]) & (not overwrite):
                 self.logger.debug(f'Segmap and groupmap for {band} already exists! Skipping.')
                 continue
             pixscl = np.array([self.pixel_scales[band][0].value, self.pixel_scales[band][1].value])
             
             already_made = False
             for mband in self.bands:
-                if mband == 'detection': continue
+                if mband == catalog_band: continue
                 if mband == band: continue
                 if 'groupmap' in self.data[mband]:
                     mpixscl = np.array([self.pixel_scales[mband][0].value, self.pixel_scales[mband][1].value])
@@ -1948,9 +1990,11 @@ class BaseImage():
             else:
                 raise RuntimeError('Cannot write catalogs to disk as none are present!')
 
-    def write_fits(self, bands=None, imgtypes=None, allow_update=False, filename=None, directory=conf.PATH_BRICKS):
+    def write_fits(self, bands=None, imgtypes=None, allow_update=False, tag=None, filename=None, directory=conf.PATH_BRICKS):
         if filename is None:
             filename = self.filename.replace('.h5', '.fits')
+        if tag is not None:
+            filename = filename.replace('.fits', f'_{tag}.fits')
         self.logger.debug(f'Writing to {filename} (allow_update = {allow_update})')
         path = os.path.join(directory, filename)
         if os.path.exists(path):
@@ -2051,9 +2095,11 @@ class BaseImage():
             self.logger.info(f'Updated {filename} (allow_update = {allow_update})')
             
 
-    def write_hdf5(self, allow_update=False, filename=None, directory=conf.PATH_BRICKS):
+    def write_hdf5(self, allow_update=False, tag=None, filename=None, directory=conf.PATH_BRICKS):
         if filename is None:
             filename = self.filename
+        if tag is not None:
+            filename = filename.replace('.h5', f'_{tag}.h5')
         self.logger.debug(f'Writing to {filename} (allow_update = {allow_update})')
         path = os.path.join(directory, filename) 
         if os.path.exists(path):
@@ -2088,7 +2134,7 @@ class BaseImage():
         hf.close()
         return attr
 
-    def write_catalog(self, catalog_imgtype=None, catalog_band=None, allow_update=False, filename=None, directory=conf.PATH_CATALOGS, overwrite=False):
+    def write_catalog(self, catalog_imgtype=None, band_tag='phot', catalog_band=None, allow_update=False, tag=None, filename=None, directory=conf.PATH_CATALOGS, overwrite=False):
 
         if catalog_imgtype is None:
             catalog_imgtype = self.catalog_imgtype
@@ -2097,6 +2143,8 @@ class BaseImage():
         
         if filename is None:
             filename = self.filename.replace('.h5', '.cat')
+        if tag is not None:
+            filename = filename.replace('.cat', f'_{tag}.cat')
         self.logger.debug(f'Preparing catalog to be written to {filename} (allow_update = {allow_update})')
         path = os.path.join(directory, filename) 
         if os.path.exists(path):
@@ -2116,6 +2164,9 @@ class BaseImage():
         # loop over set
         for source_id in self.model_catalog:
             source = self.model_catalog[source_id]
+            if not hasattr(source, 'statistics'):
+                self.logger.warning(f'Source {source_id} was not fit. Skipping.')
+                continue
             group_id = catalog['group_id'][catalog['id'] == source_id][0]
             params = get_params(source)
 
@@ -2123,7 +2174,7 @@ class BaseImage():
             if 11 in self.model_tracker[source_id]:
                 if np.any([prior != 'freeze' for prior in self.phot_priors.values()]):
                     if len(params['_bands']) > 1:
-                        band = 'phot'
+                        band = band_tag
                     elif len(params['_bands']) == 1:
                         band = params['_bands'][0]
                     
@@ -2157,7 +2208,7 @@ class BaseImage():
                     unit = None
                 dtype = type(value)
                 if type(value) == str:
-                    dtype = 'S11'
+                    dtype = 'S20'
                 if name not in catalog.colnames:
                     catalog.add_column(Column(length=len(catalog), name=name, dtype=dtype, unit=unit))
                 catalog[name][catalog['id'] == source_id] = value

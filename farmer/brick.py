@@ -242,7 +242,7 @@ class Brick(BaseImage):
                       outpath = os.path.join(conf.PATH_ANCILLARY, f'B{self.brick_id}_{band}_{imgtype}_objects.reg'))
 
 
-    def identify_groups(self, band='detection', imgtype='science', radius=conf.DILATION_RADIUS):
+    def identify_groups(self, band='detection', imgtype='science', radius=conf.DILATION_RADIUS, overwrite=False):
         """Takes the catalog and segmap 
         """
         catalog = self.catalogs[band][imgtype]
@@ -254,8 +254,12 @@ class Brick(BaseImage):
 
         group_ids, group_pops, groupmap = dilate_and_group(catalog, segmap, radius=radius_rpx, fill_holes=True)
 
-        self.catalogs[band][imgtype].add_column(group_ids, name='group_id', index=3)
-        self.catalogs[band][imgtype].add_column(group_pops, name='group_pop', index=3)
+        if overwrite:
+            self.catalogs[band][imgtype]['group_id'] = group_ids
+            self.catalogs[band][imgtype]['group_pop'] = group_pops
+        else:
+            self.catalogs[band][imgtype].add_column(group_ids, name='group_id', index=3)
+            self.catalogs[band][imgtype].add_column(group_pops, name='group_pop', index=3)
         self.data[band]['groupmap'] = Cutout2D(groupmap, self.position, self.buffsize[::-1], self.wcs[band], mode='partial', fill_value = 0)
         self.group_ids[band][imgtype] = np.unique(group_ids)
         # self.group_pops[band][imgtype] = dict(zip(group_ids, group_pops))
@@ -280,7 +284,7 @@ class Brick(BaseImage):
             self.logger.debug(f'Group #{group_id} has {nsrcs} sources: {source_ids}')
         if nsrcs > conf.GROUP_SIZE_LIMIT:
             if not silent:
-                self.logger.warning(f'Group #{group_id} has {nsrcs} sources, but the limit is set to {conf.GROUP_SIZE_LIMIT}!')
+                self.logger.warning(f'Group #{group_id} has {nsrcs} sources, but the limit is set to {conf.GROUP_SIZE_LIMIT}! Skipping...')
             group.rejected = True
             return group
         

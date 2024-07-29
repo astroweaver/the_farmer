@@ -173,7 +173,7 @@ class Mosaic(BaseImage):
         self.catalogs['science'].add_column(skycoords[1], name=f'dec')
 
 
-    def identify_groups(self, radius=conf.DILATION_RADIUS):
+    def identify_groups(self, radius=conf.DILATION_RADIUS, overwrite=False):
         """Takes the catalog and segmap 
         """
 
@@ -186,6 +186,10 @@ class Mosaic(BaseImage):
 
         group_ids, group_pops, groupmap = dilate_and_group(catalog, segmap, radius=radius_rpx, fill_holes=True)
 
-        self.catalogs['science'].add_column(group_ids, name='group_id')
-        self.catalogs['science'].add_column(group_pops, name='group_pop', index=3)
+        if overwrite:
+            self.catalogs['science']['group_id'] = group_ids
+            self.catalogs['science']['group_pop'] = group_pops
+        else:
+            self.catalogs['science'].add_column(group_ids, name='group_id')
+            self.catalogs['science'].add_column(group_pops, name='group_pop', index=3)
         self.data['groupmap'] = groupmap

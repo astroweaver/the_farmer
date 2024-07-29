@@ -87,7 +87,9 @@ def read_wcs(wcs, scl=1):
 def load_brick_position(brick_id):
     logger = logging.getLogger('farmer.load_brick_position')
     # Do this relative to the detection image
-    wcs = WCS(fits.getheader(conf.DETECTION['science']))
+    if 'extension' in conf.DETECTION:
+        ext = conf.DETECTION['extension']
+    wcs = WCS(fits.getheader(conf.DETECTION['science'], ext=ext))
     nx, ny = wcs.array_shape
     brick_width = nx / conf.N_BRICKS[0]
     brick_height = ny / conf.N_BRICKS[1]
@@ -434,7 +436,7 @@ def recursively_save_dict_contents_to_group(h5file, dic, path='/'):
         elif isinstance(item, utils.Cutout2D):
             recursively_save_dict_contents_to_group(h5file, item.__dict__, path + key + '/')
         elif isinstance(item, SkyCoord):
-            h5file[path].attrs[key] = item.to_string(precision=50) # overkill, but I don't care!
+            h5file[path].attrs[key] = item.to_string(precision=10) # overkill, but I don't care!
         elif isinstance(item, WCS):
             h5file[path].attrs[key] = item.to_header_string()
         elif isinstance(item, fits.header.Header):
@@ -565,7 +567,7 @@ def recursively_load_dict_contents_from_group(h5file, path='/', ans=None):
                 is_variance = False
                 for item in (item, item['variance']):
                     name = item.attrs['name']
-                    pos = RaDecPos(item.attrs['pos_ra'], item.attrs['pos_dec'])
+                    pos = RaDecPos(item.attrs['pos.ra'], item.attrs['pos.dec'])
                     fluxes = {}
                     for param in item.attrs:
                         if param.startswith('brightness'):
@@ -578,15 +580,15 @@ def recursively_load_dict_contents_from_group(h5file, path='/', ans=None):
                     elif name == 'SimpleGalaxy':
                         model = SimpleGalaxy(pos, flux)
                     elif name == 'ExpGalaxy':
-                        shape = EllipseESoft(item.attrs['shape_logre'], item.attrs['shape_ee1'], item.attrs['shape_ee2'])
+                        shape = EllipseESoft(item.attrs['shape.logre'], item.attrs['shape.ee1'], item.attrs['shape.ee2'])
                         model = ExpGalaxy(pos, flux, shape)
                     elif name == 'DevGalaxy':
-                        shape = EllipseESoft(item.attrs['shape_logre'], item.attrs['shape_ee1'], item.attrs['shape_ee2'])
+                        shape = EllipseESoft(item.attrs['shape.logre'], item.attrs['shape.ee1'], item.attrs['shape.ee2'])
                         model = DevGalaxy(pos, flux, shape)
                     elif name == 'FixedCompositeGalaxy':
-                        shape_exp = EllipseESoft(item.attrs['shapeExp_logre'], item.attrs['shapeExp_ee1'], item.attrs['shapeExp_ee2'])
-                        shape_dev = EllipseESoft(item.attrs['shapeDev_logre'], item.attrs['shapeDev_ee1'], item.attrs['shapeDev_ee2'])
-                        model = FixedCompositeGalaxy(pos, flux, SoftenedFracDev(item.attrs['fracDev_SoftenedFracDev']), shape_exp, shape_dev)
+                        shape_exp = EllipseESoft(item.attrs['shapeExp.logre'], item.attrs['shapeExp.ee1'], item.attrs['shapeExp.ee2'])
+                        shape_dev = EllipseESoft(item.attrs['shapeDev.logre'], item.attrs['shapeDev.ee1'], item.attrs['shapeDev.ee2'])
+                        model = FixedCompositeGalaxy(pos, flux, SoftenedFracDev(item.attrs['fracDev.SoftenedFracDev']), shape_exp, shape_dev)
                     
                     if not is_variance:
                         ans[key] = model
@@ -600,6 +602,12 @@ def recursively_load_dict_contents_from_group(h5file, path='/', ans=None):
                     logger.debug(f'  ...... attribute: {key2}')
                     if '_unit' in key2: continue
                     value = item.attrs[key2]
+                    if key2 == 'psfcoords':
+                        if np.any(value == 'none'):
+                            ans[key][key2] = value
+                        else:
+                            ra, dec = np.array([val.split() for val in value]).astype(np.float64).T
+                            ans[key][key2] = SkyCoord(ra*u.deg, dec*u.deg)
                     if 'headers' in item.name:
                         ans[key][key2] = fits.header.Header.fromstring(value)
                     elif 'wcs' in item.name:
@@ -906,20 +914,19 @@ def run_group(group, mode='all'):
         if mode == 'all':
             status = group.determine_models()
             if status:
-                group.force_models()
+                status = group.force_models()
     
         elif mode == 'model':
-            group.determine_models()
+            status = group.determine_models()
 
         elif mode == 'photometry':
-            group.force_models()
+            status = group.force_models()
 
         elif mode == 'pass':
-            for source_id in group.source_ids:
-                group.model_catalog[source_id] = -99
-                group.model_tracker[source_id] = -99
-            group.model_tracker['group'] = -99
-            pass
+            status = False
+
+        # if not status:
+        #     group.rejected = True
 
     # else:
     #     self.logger.warning(f'Group {group.group_id} has been rejected!')
