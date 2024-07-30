@@ -1121,7 +1121,7 @@ class BaseImage():
                 group_ids = list(self.data[band]['groupmap'].keys())
                 catalog = self.catalogs[self.catalog_band]['science']
                 wcs = self.get_wcs(band=band)
-                for group_id in tqdm(group_ids, total=len(group_ids)):
+                for group_id in group_ids:
                     group_sources = np.array(catalog[catalog['group_id'] == group_id]['id'])
                     cy, cx = self.data[band]['groupmap'][group_id]
                     coord = wcs.pixel_to_world(np.mean(cy), np.mean(cx))
