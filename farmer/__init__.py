@@ -162,8 +162,8 @@ def build_bricks(brick_ids=None, include_detection=True, bands=None, write=True)
             del mosaic
         return [bid for bid in brick_ids if bid not in skiplist] # return the useful brick numbers
 
-def load_brick(brick_id, silent=False):
-    return Brick(brick_id, load=True, silent=silent)
+def load_brick(brick_id, silent=False, tag=None):
+    return Brick(brick_id, load=True, silent=silent, tag=tag)
 
 def update_bricks(brick_ids=None, bands=None):
     if bands is not None: # some kind of manual job

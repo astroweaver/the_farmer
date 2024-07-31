@@ -87,6 +87,7 @@ def read_wcs(wcs, scl=1):
 def load_brick_position(brick_id):
     logger = logging.getLogger('farmer.load_brick_position')
     # Do this relative to the detection image
+    ext = None
     if 'extension' in conf.DETECTION:
         ext = conf.DETECTION['extension']
     wcs = WCS(fits.getheader(conf.DETECTION['science'], ext=ext))
@@ -730,8 +731,8 @@ def get_params(model):
         # photometry
         flux_err = np.sqrt(model.variance.getBrightness().getFlux(band))
         mask = ((flux_err > 0) & np.isfinite(flux_err)).astype(np.int8)
-        source[f'{band}_flux_err'] = flux_err * mask
         source[f'{band}_flux'] = model.getBrightness().getFlux(band) * mask
+        source[f'{band}_flux_err'] = flux_err * mask
         
         source[f'_{band}_zpt'] = conf.BANDS[band]['zeropoint']
 

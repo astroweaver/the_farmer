@@ -16,14 +16,16 @@ from astropy.wcs.utils import proj_plane_pixel_scales
 
 
 class Brick(BaseImage):
-    def __init__(self, brick_id=None, position=None, size=None, load=True, silent=False) -> None:
+    def __init__(self, brick_id=None, position=None, size=None, load=True, silent=False, tag=None) -> None:
 
 
         if not np.isscalar(brick_id):
             if len(brick_id) == 1:
                 brick_id = brick_id[0]
-        
-        self.filename = f'B{brick_id}.h5'
+        stag = ''
+        if tag is not None:
+            stag = f'_{tag}'
+        self.filename = f'B{brick_id}{stag}.h5'
         self.logger = logging.getLogger(f'farmer.brick_{brick_id}')
         # if silent:
         #     self.logger.setLevel(logging.ERROR)

@@ -2217,6 +2217,25 @@ class BaseImage():
                 else:
                     self.logger.debug(f'G{group_id}.S{source_id} :: {name} = {value:2.2f}')
 
+            for name in params['total_total']:
+                value = params[name]
+                name = f'total_{name}'
+                try:
+                    unit = value.unit
+                    value = value.value
+                except:
+                    unit = None
+                dtype = type(value)
+                if type(value) == str:
+                    dtype = 'S20'
+                if name not in catalog.colnames:
+                    catalog.add_column(Column(length=len(catalog), name=name, dtype=dtype, unit=unit))
+                catalog[name][catalog['id'] == source_id] = value
+                if type(value) == str:
+                    self.logger.debug(f'G{group_id}.S{source_id} :: {name} = {value}')
+                else:
+                    self.logger.debug(f'G{group_id}.S{source_id} :: {name} = {value:2.2f}')
+
         # update catalog for self
         self.set_catalog(catalog, catalog_band=catalog_band, catalog_imgtype=catalog_imgtype)
 
