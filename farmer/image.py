@@ -2218,7 +2218,7 @@ class BaseImage():
                     self.logger.debug(f'G{group_id}.S{source_id} :: {name} = {value:2.2f}')
 
             for name in params['total_total']:
-                value = params[name]
+                value = params['total_total'][name]
                 name = f'total_{name}'
                 try:
                     unit = value.unit
