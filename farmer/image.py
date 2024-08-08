@@ -282,11 +282,11 @@ class BaseImage():
         except:
             image = self.get_image(imgtype, band)
             if self.type == 'mosaic':
-                cleanimg = image[image!=0]
-                mean = np.nanmean(image)
-                median = np.nanmedian(image)
-                rms = np.nanstd(cleanimg)
-                del cleanimg
+                cleanimage = image[image!=0]
+                mean = np.nanmean(cleanimage)
+                median = np.nanmedian(cleanimage)
+                rms = np.nanstd(cleanimage)
+                del cleanimage
             else:
                 mean, median, rms = sigma_clipped_stats(image[image!=0])
             self.logger.debug(f'Estimated stats of \"{imgtype}\" image (@3 sig)')
