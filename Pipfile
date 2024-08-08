@@ -15,6 +15,7 @@ reproject = "*"
 h5py = "*"
 sep = "*"
 regions = "*"
+photutils = "*"
 
 [dev-packages]
 
