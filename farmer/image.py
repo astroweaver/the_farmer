@@ -273,6 +273,7 @@ class BaseImage():
         return catalog, segmap
 
     def estimate_properties(self, band=None, imgtype='science'):
+        self.logger.debug(f'Estimating properties for {band}...')
         try:
             self.get_property('mean', band)
             self.get_property('median', band)
@@ -280,7 +281,14 @@ class BaseImage():
             return mean, median, rms
         except:
             image = self.get_image(imgtype, band)
-            mean, median, rms = sigma_clipped_stats(image[image!=0])
+            if self.type == 'mosaic':
+                cleanimg = image[image!=0]
+                mean = np.nanmean(image)
+                median = np.nanmedian(image)
+                rms = np.nanstd(cleanimg)
+                del cleanimg
+            else:
+                mean, median, rms = sigma_clipped_stats(image[image!=0])
             self.logger.debug(f'Estimated stats of \"{imgtype}\" image (@3 sig)')
             self.logger.debug(f'    Mean:   {mean:2.3f}')
             self.logger.debug(f'    Median: {median:2.3f}')
