@@ -119,8 +119,8 @@ class Mosaic(BaseImage):
                         ext = self.properties['extension']
                     self.data[attr] = fits.getdata(self.paths[attr], ext=ext)
                     self.headers[attr] = fits.getheader(self.paths[attr], ext=ext)
-                if attr in ('science', 'weight'):
-                    self.estimate_properties(band=band, imgtype=attr)
+                # if attr in ('science', 'weight'):
+                #     self.estimate_properties(band=band, imgtype=attr)
             if band in conf.BANDS:
                 if 'backregion' in conf.BANDS[band]:
                     if conf.BANDS[band]['backregion'] == 'mosaic':
