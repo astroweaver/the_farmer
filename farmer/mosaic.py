@@ -14,7 +14,7 @@ from astropy.wcs.utils import proj_plane_pixel_scales
 default_properties = {}
 default_properties['subtract_background'] = False
 default_properties['backtype'] = 'flat'
-default_properties['backregion'] = 'mosaic'
+default_properties['backregion'] = 'brick'
 default_properties['zeropoint'] = -99
 
 class Mosaic(BaseImage):
@@ -119,8 +119,8 @@ class Mosaic(BaseImage):
                         ext = self.properties['extension']
                     self.data[attr] = fits.getdata(self.paths[attr], ext=ext)
                     self.headers[attr] = fits.getheader(self.paths[attr], ext=ext)
-                # if attr in ('science', 'weight'):
-                #     self.estimate_properties(band=band, imgtype=attr)
+                if attr in ('science', 'weight'):
+                    self.estimate_properties(band=band, imgtype=attr)
             if band in conf.BANDS:
                 if 'backregion' in conf.BANDS[band]:
                     if conf.BANDS[band]['backregion'] == 'mosaic':
