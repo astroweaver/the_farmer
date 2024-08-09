@@ -177,22 +177,22 @@ class Brick(BaseImage):
         # if weights or masks dont exist, make them as dummy arrays
         if 'weight' not in self.data[mosaic.band]:
             self.logger.debug(f'... data \"weight\" subimage generated as ones at {cutout.input_position_original}')
-            self.data[mosaic.band]['weight'] = filler.copy()
+            self.data[mosaic.band]['weight'] = cutout.copy()
             self.headers[mosaic.band]['weight'] = subheader
 
         if 'mask' not in self.data[mosaic.band]:
             self.logger.debug(f'... data \"mask\" subimage generated as ones at {cutout.input_position_original}')
-            self.data[mosaic.band]['mask'] = filler.copy()
+            self.data[mosaic.band]['mask'] = cutout.copy()
             self.headers[mosaic.band]['mask'] = subheader
 
         if 'background' not in self.data[mosaic.band]:
             self.logger.debug(f'... data \"background\" subimage generated as ones at {cutout.input_position_original}')
-            self.data[mosaic.band]['background'] = filler.copy()
+            self.data[mosaic.band]['background'] = cutout.copy()
             self.headers[mosaic.band]['background'] = subheader
 
         if 'rms' not in self.data[mosaic.band]:
             self.logger.debug(f'... data \"rms\" subimage generated as ones at {cutout.input_position_original}')
-            self.data[mosaic.band]['rms'] = filler.copy()
+            self.data[mosaic.band]['rms'] = cutout.copy()
             self.headers[mosaic.band]['rms'] = subheader
 
         # get background info if backregion is 'brick' -- WILL overwrite inhereted info if it exists...
