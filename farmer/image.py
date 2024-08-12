@@ -1133,7 +1133,10 @@ class BaseImage():
                     group_sources = np.array(catalog[catalog['group_id'] == group_id]['id'])
                     cy, cx = self.data[band]['groupmap'][group_id]
                     coord = wcs.pixel_to_world(np.mean(cy), np.mean(cx))
-                    psfmodel = self.get_psfmodel(band, coord)
+                    try:
+                        psfmodel = self.get_psfmodel(band, coord)
+                    except:
+                        psfmodel = self.get_psfmodel(band) # default to the global PSF for brick
 
                     group_models = []
                     for source_id in group_sources:
