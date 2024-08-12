@@ -106,7 +106,7 @@ class Brick(BaseImage):
     def add_band(self, mosaic, overwrite=False):
 
         if (~overwrite) & (mosaic.band in self.bands):
-            raise RuntimeError('{mosaic.band} already exists in brick #{self.brick_id}!')
+            raise RuntimeError(f'{mosaic.band} already exists in brick #{self.brick_id}!')
 
         # Loop over provided data
         for imgtype in mosaic.data.keys():
@@ -147,7 +147,7 @@ class Brick(BaseImage):
                     within_brick = np.array([coord.contained_by(self.wcs[mosaic.band]) for coord in mosaic.data['psfcoords']])
                     if np.sum(within_brick) == 0:
                         self.logger.debug('No PSF coords within brick! Adopting nearest...')
-                        nearest = np.argmin([coord.separation(self.position) for coord in mosaic.data['psfcoords']])
+                        nearest = np.argmin([coord.separation(self.position).to(u.arcsec).value for coord in mosaic.data['psfcoords']])
                         self.data[mosaic.band]['psfcoords'] = [mosaic.data['psfcoords'][nearest]]
                         self.data[mosaic.band]['psflist'] = [mosaic.data['psflist'][nearest]]
                     else:
