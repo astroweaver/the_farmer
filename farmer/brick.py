@@ -149,8 +149,8 @@ class Brick(BaseImage):
                         separation = np.array([coord.separation(self.position).to(u.arcsec).value for coord in mosaic.data['psfcoords']])
                         nearest = np.argmin(separation)
                         self.logger.warning(f'No PSF coords within brick for {mosaic.band}! Adopting nearest at {mosaic.data["psfcoords"][nearest]}')
-                        self.data[mosaic.band]['psfcoords'] = [mosaic.data['psfcoords'][nearest]]
-                        self.data[mosaic.band]['psflist'] = [mosaic.data['psflist'][nearest]]
+                        self.data[mosaic.band]['psfcoords'] = mosaic.data['psfcoords'][nearest]
+                        self.data[mosaic.band]['psflist'] = mosaic.data['psflist'][nearest]
                     else:
                         self.data[mosaic.band]['psfcoords'] = mosaic.data['psfcoords'][within_brick]
                         self.data[mosaic.band]['psflist'] = mosaic.data['psflist'][within_brick]
