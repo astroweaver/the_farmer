@@ -170,7 +170,7 @@ class Brick(BaseImage):
 
 
         # make a big filler
-        filler = np.ones_like(mosaic.data['science']) # big, but OK...
+        filler = np.zeros_like(mosaic.data['science']) # big, but OK...
         cutout = Cutout2D(filler, self.position, self.buffsize[::-1], wcs=mosaic.wcs, mode='partial', fill_value = np.nan, copy=True)
         del filler
         subheader = self.headers[mosaic.band]['science'].copy()
@@ -184,9 +184,7 @@ class Brick(BaseImage):
 
         if 'mask' not in self.data[mosaic.band]:
             self.logger.debug(f'... data \"mask\" subimage generated as ones at {cutout.input_position_original}')
-            cutout_bool = np.copy(cutout)
-            cutout_bool.data = np.ones_like(cutout.data, dtype=bool)
-            self.data[mosaic.band]['mask'] = cutout_bool
+            self.data[mosaic.band]['mask'] = cutout
             self.headers[mosaic.band]['mask'] = subheader
 
         if 'background' not in self.data[mosaic.band]:

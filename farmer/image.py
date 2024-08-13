@@ -354,9 +354,9 @@ class BaseImage():
                 x, y = self.get_image(band=band, imgtype='groupmap')[self.group_id]
                 filler = np.ones(masked.shape, dtype=bool)
                 filler[x, y] = False
-                masked[filler] = True
+                masked[filler] = 1
                 del filler
-            weight[np.isnan(data) | masked] = 0
+            weight[np.isnan(data) | (masked==1)] = 0
 
             if np.sum(weight) == 0:
                 self.logger.warning(f'All weight pixels in {band} are zero! Check your data + masks!')
