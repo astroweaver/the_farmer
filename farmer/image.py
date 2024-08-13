@@ -352,7 +352,7 @@ class BaseImage():
             masked = self.get_image(band=band, imgtype='mask').copy()
             if self.type == 'group':
                 x, y = self.get_image(band=band, imgtype='groupmap')[self.group_id]
-                filler = np.ones_like(masked)
+                filler = np.ones(masked.shape, dtype=bool)
                 filler[x, y] = False
                 masked[filler] = True
                 del filler
@@ -1975,10 +1975,10 @@ class BaseImage():
                 self.logger.info(f'Copied maps for segmap and groupmap of {mband} to {band} by ({mpixscl} -> {pixscl})')
             
             else:
-                self.logger.info(f'Creating mapping for segmap and groupmap of {catalog_band} to {band} ({catalog_pixscl} -> {pixscl})')
+                self.logger.info(f'Creating mapping for segmap and groupmap of {catalog_band} to {band}')
                 self.data[band]['segmap']= map_discontinuous((segmap.data, segmap.wcs), self.wcs[band], np.shape(self.data[band]['science'].data), force_simple=conf.FORCE_SIMPLE_MAPPING)
                 self.data[band]['groupmap'] = map_discontinuous((groupmap.data, groupmap.wcs), self.wcs[band], np.shape(self.data[band]['science'].data), force_simple=conf.FORCE_SIMPLE_MAPPING)
-                self.logger.debug(f'Created maps for segmap and groupmap of {catalog_band} to {band} by ({catalog_pixscl} -> {pixscl})')
+                self.logger.debug(f'Created maps for segmap and groupmap of {catalog_band} to {band}')
 
     def write(self, filetype=None, allow_update=False, filename=None):
         if (filetype is None):

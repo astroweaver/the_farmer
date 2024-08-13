@@ -28,6 +28,9 @@ import h5py
 from astropy.table import meta
 from tractor.wcs import RaDecPos
 
+# from concurrent.futures import ProcessPoolExecutor
+from multiprocessing import Pool
+
 
 def start_logger():
     print('Starting up logging system...')
@@ -340,58 +343,189 @@ def map_discontinuous(input, out_wcs, out_shape, thresh=0.1, force_simple=False)
     # for some resolution regimes, you cannot make a new, complete segmap with the new pixel scale!
     array, in_wcs = input
     logger = logging.getLogger('farmer.map_discontinuous')
-    segs = np.unique(array.flatten()).astype(int)
-    segs = segs[segs!=0]
+    logger.info(f'Mapping {len(np.unique(array)[1:])} regions to new resolution...')
+
     scl_in = np.array([val.value for val in in_wcs.proj_plane_pixel_scales()])
     scl_out = np.array([val.value for val in out_wcs.proj_plane_pixel_scales()])
 
-    if (scl_out < 1.2*scl_in).all() | force_simple: # similar to better resolution can just use reinterpolation with order = 0
-        if force_simple:
-            logger.warning(f'Simple mapping has been forced! Small regions may be cannibalized... ')
-        if (array.shape == out_shape) & (np.abs(scl_in - scl_out).max() < 0.001):
-            logger.debug('No reprojection needed -- same shape and pixel scale')
-            array_out = array
-        else:
-            logger.info(f'Mapping to new resolution using reproject_interp for {len(segs)} regions')
-            array_out, __ = reproject_interp((array, in_wcs), out_wcs, out_shape, order=0)
+    if (array.shape == out_shape) & (np.abs(scl_in - scl_out).max() < 0.001):
+        logger.debug('No reprojection needed -- same shape and pixel scale')
+        segs = np.unique(array.flatten()).astype(int)
+        segs = segs[segs!=0]
 
         outdict = {}
-
         logger.info('Building a mapping dictionary...')
         for seg in tqdm(segs):
-            y, x = (array_out==seg).nonzero()
+            y, x = (array==seg).nonzero()
+            outdict[seg] = y, x
+
+    elif force_simple:
+        logger.warning(f'Simple mapping has been forced! Small regions may be cannibalized... ')
+        segs = np.unique(array.flatten()).astype(int)
+        segs = segs[segs!=0]
+
+        outdict = {}
+        logger.info('Building a mapping dictionary...')
+        for seg in tqdm(segs):
+            y, x = (array==seg).nonzero()
             outdict[seg] = y, x
 
     else: # avoids cannibalizing small objects when going to lower resolution
-        logger.info(f'Mapping to much lower resolution using reproject_interp for {len(segs)} regions (this may take a while)')
-        outdict = {}
-
-        sizes = np.array([np.sum(array==segid) for segid in segs])
-        zorder = np.argsort(sizes)[::-1]
-        sizes = sizes[zorder]
-        segs = segs[zorder]
-
-        for seg in tqdm(segs):
-            mask = (array == seg).astype(np.int8)
-            mask = reproject_interp((mask, in_wcs), out_wcs, out_shape, return_footprint=False)
-            y, x = (mask > thresh).nonzero() # x and y for that segment
-            outdict[seg] = y, x
-
-        # for seg in tqdm(segs):
-        #     mask = (array == seg).astype(np.int8)
-        #     nz_mask = np.nonzero(mask)
-        #     cx, cy = nz_mask.mean(axis=1)
-        #     dx, dy = nz_mask.max(axis=1) - nz_mask.min(axis=1)
-        #     pos = in_wcs.pixel_to_world(cx, cy)
-        #     dra = abs(in_wcs.pixel_to_world(dx, dy).ra - pos.ra) * np.cos(np.deg2rad(pos.dec.to(u.degree).value))
-        #     ddec = abs(in_wcs.pixel_to_world(dx, dy).dec - pos.dec)
-        #     cutout = Cutout2D(mask, pos, (ddec, dra), wcs=in_wcs)
-        #     mask = reproject_interp((cutout, cutout.wcs), out_wcs, out_shape, return_footprint=False)
-        #     y, x = (mask > thresh).nonzero() # x and y for that segment
-        #     outdict[seg] = y, x
+        logger.info(f'Mapping to different resolution using full reprojection (NCPU = {conf.NCPUS})')
+        outdict = parallel_process(array, out_wcs, in_wcs, n_processes=conf.NCPUS)
 
     return outdict
+
+        # else:
+        #     logger.info(f'Mapping to new resolution using reproject_interp for {len(segs)} regions')
+        #     array_out, __ = reproject_interp((array, in_wcs), out_wcs, out_shape, order=0)
+
+
+    # else: # avoids cannibalizing small objects when going to lower resolution
+    #     logger.info(f'Mapping to much lower resolution using reproject_interp for {len(segs)} regions (this may take a while)')
+    #     outdict = {}
+
+    #     # sizes = np.array([np.sum(array==segid) for segid in segs])
+    #     # zorder = np.argsort(sizes)[::-1]
+    #     # sizes = sizes[zorder]
+    #     # segs = segs[zorder]
+
+    #     # for seg in tqdm(segs):
+    #     #     mask = (array == seg).astype(np.int8)
+    #     #     mask = reproject_interp((mask, in_wcs), out_wcs, out_shape, return_footprint=False)
+    #     #     y, x = (mask > thresh).nonzero() # x and y for that segment
+    #     #     outdict[seg] = y, x
+
+    #     outdict = parallel_process(array, out_wcs, in_wcs, n_processes=conf.NCPUS)
+
+
+        
+    #     # cutouts = {}
+    #     # for segid in segs:
+    #     #     mask = (array == segid)
+    #     #     nz_mask = np.nonzero(mask)
+    #     #     cx, cy = nz_mask.mean(axis=1)
+    #     #     dx, dy = nz_mask.max(axis=1) - nz_mask.min(axis=1)
+    #     #     pos = in_wcs.pixel_to_world(cx, cy)
+    #     #     dra = abs(in_wcs.pixel_to_world(dx, dy).ra - pos.ra) * np.cos(np.deg2rad(pos.dec.to(u.degree).value))
+    #     #     ddec = abs(in_wcs.pixel_to_world(dx, dy).dec - pos.dec)
+    #     #     cutouts[segid] = Cutout2D(mask, pos, (ddec, dra), wcs=in_wcs)
+
+    #     # if conf.NCPUS > 0:
+    #     #     from pathos.multiprocessing import ProcessingPool as Pool
+    #     #     with Pool(conf.NCPUS) as p:
+    #     #         results = p.amap(reproject_segment, cutouts.items())
+
+    #     # else:
+    #     #     outdict = {}
+    #     #     for segid in tqdm(segs):
+    #     #         outdict[segid] = reproject_segment(cutouts[segid], segid)
+
+
+
+    #         # make a whole lot of cutouts of the main image
+    #         # then do multiprocessing
+    #         # then strip neighbors
+    #         # then reproject
+    #         # then get coords and hand back to main process
+
+    #     # for seg in tqdm(segs):
+    #     #     mask = (array == seg).astype(np.int8)
+    #     #     nz_mask = np.nonzero(mask)
+    #     #     cx, cy = nz_mask.mean(axis=1)
+    #     #     dx, dy = nz_mask.max(axis=1) - nz_mask.min(axis=1)
+    #     #     pos = in_wcs.pixel_to_world(cx, cy)
+    #     #     dra = abs(in_wcs.pixel_to_world(dx, dy).ra - pos.ra) * np.cos(np.deg2rad(pos.dec.to(u.degree).value))
+    #     #     ddec = abs(in_wcs.pixel_to_world(dx, dy).dec - pos.dec)
+    #     #     cutout = Cutout2D(mask, pos, (ddec, dra), wcs=in_wcs)
+    #     #     mask = reproject_interp((cutout, cutout.wcs), out_wcs, out_shape, return_footprint=False)
+    #     #     y, x = (mask > thresh).nonzero() # x and y for that segment
+    #     #     outdict[seg] = y, x
+
+    # return outdict
     
+# def reproject_segment(cutout, segid, out_wcs):
+#     mask = (cutout.data == segid).astype(np.int8)
+#     mask = reproject_interp((mask, cutout.wcs), out_wcs, out_shape, return_footprint=False)
+
+
+def map_ids_to_coarse_pixels(fine_pixel_data, coarse_wcs, fine_wcs):
+    """
+    Map the object IDs in the fine grid to the corresponding pixels in the coarse grid.
+    """
+    id_to_coarse_pixel_map = {}
+
+    # Iterate over each pixel in the fine grid
+    for y in range(fine_pixel_data.shape[0]):
+        for x in range(fine_pixel_data.shape[1]):
+            obj_id = fine_pixel_data[y, x]
+            if obj_id == 0:
+                continue  # Skip background pixels
+
+            # Define the corners of the fine pixel in pixel coordinates
+            pixel_corners = [
+                (x, y),        # bottom-left
+                (x + 1, y),    # bottom-right
+                (x, y + 1),    # top-left
+                (x + 1, y + 1) # top-right
+            ]
+
+            # Convert pixel corners to world coordinates
+            world_corners = fine_wcs.pixel_to_world_values(
+                [corner[0] for corner in pixel_corners],
+                [corner[1] for corner in pixel_corners]
+            )
+
+            # Convert world coordinates back to coarse grid pixel coordinates
+            coarse_pixel_coords = coarse_wcs.world_to_pixel_values(
+                world_corners[0],
+                world_corners[1]
+            )
+
+            # Find the bounding box in the coarse grid that this fine pixel overlaps
+            min_x, max_x = int(np.floor(min(coarse_pixel_coords[0]))), int(np.ceil(max(coarse_pixel_coords[0])))
+            min_y, max_y = int(np.floor(min(coarse_pixel_coords[1]))), int(np.ceil(max(coarse_pixel_coords[1])))
+
+            # Accumulate the object ID in all the overlapping coarse grid pixels
+            for coarse_x in range(min_x, max_x):
+                for coarse_y in range(min_y, max_y):
+                    if obj_id not in id_to_coarse_pixel_map:
+                        id_to_coarse_pixel_map[obj_id] = [], []
+                    id_to_coarse_pixel_map[obj_id][0].append(coarse_y)
+                    id_to_coarse_pixel_map[obj_id][1].append(coarse_x)
+
+    return id_to_coarse_pixel_map
+
+def process_chunk(chunk, coarse_wcs, fine_wcs):
+    """
+    Process a chunk of the fine pixel data and map object IDs to coarse pixels.
+    """
+    return map_ids_to_coarse_pixels(chunk, coarse_wcs, fine_wcs)
+
+def parallel_process(fine_pixel_data, coarse_wcs, fine_wcs, n_processes=1):
+    """
+    Parallelize the processing of fine grid chunks.
+    """
+    if n_processes < 1:
+        n_processes = 1
+
+    # Split the fine grid into chunks
+    chunks = np.array_split(fine_pixel_data, n_processes)
+    
+    # # Use multiprocessing to process chunks in parallel
+    with Pool(n_processes) as pool:
+        results = pool.starmap(process_chunk, [(chunk, coarse_wcs, fine_wcs) for chunk in chunks])
+
+    # Combine results from all processes
+    combined_results = {}
+    for result in results:
+        for obj_id, pixels in result.items():
+                combined_results[obj_id] = pixels
+
+    # Sort the combined results by object ID and return as an OrderedDict
+    sorted_combined_results = OrderedDict(sorted(combined_results.items()))
+    
+    return sorted_combined_results
 
 def recursively_save_dict_contents_to_group(h5file, dic, path='/'):
 

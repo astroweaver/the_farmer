@@ -184,7 +184,9 @@ class Brick(BaseImage):
 
         if 'mask' not in self.data[mosaic.band]:
             self.logger.debug(f'... data \"mask\" subimage generated as ones at {cutout.input_position_original}')
-            self.data[mosaic.band]['mask'] = cutout
+            cutout_bool = np.copy(cutout)
+            cutout_bool.data = np.ones_like(cutout.data, dtype=bool)
+            self.data[mosaic.band]['mask'] = cutout_bool
             self.headers[mosaic.band]['mask'] = subheader
 
         if 'background' not in self.data[mosaic.band]:
