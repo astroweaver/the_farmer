@@ -168,34 +168,37 @@ class Brick(BaseImage):
             self.properties[mosaic.band][attr] = mosaic.properties[attr]
             self.logger.debug(f'... property \"{attr}\" adopted from mosaic')
 
-
         # make a big filler
         filler = np.zeros_like(mosaic.data['science']) # big, but OK...
-        cutout = Cutout2D(filler, self.position, self.buffsize[::-1], wcs=mosaic.wcs, mode='partial', fill_value = np.nan, copy=True)
-        del filler
         subheader = self.headers[mosaic.band]['science'].copy()
         subheader.update(cutout.wcs.to_header())
 
         # if weights or masks dont exist, make them as dummy arrays
         if 'weight' not in self.data[mosaic.band]:
             self.logger.debug(f'... data \"weight\" subimage generated as ones at {cutout.input_position_original}')
+            cutout = Cutout2D(filler, self.position, self.buffsize[::-1], wcs=mosaic.wcs, mode='partial', fill_value = np.nan, copy=True)
             self.data[mosaic.band]['weight'] = cutout
             self.headers[mosaic.band]['weight'] = subheader
 
         if 'mask' not in self.data[mosaic.band]:
             self.logger.debug(f'... data \"mask\" subimage generated as ones at {cutout.input_position_original}')
+            cutout = Cutout2D(filler, self.position, self.buffsize[::-1], wcs=mosaic.wcs, mode='partial', fill_value = np.nan, copy=True)
             self.data[mosaic.band]['mask'] = cutout
             self.headers[mosaic.band]['mask'] = subheader
 
         if 'background' not in self.data[mosaic.band]:
             self.logger.debug(f'... data \"background\" subimage generated as ones at {cutout.input_position_original}')
+            cutout = Cutout2D(filler, self.position, self.buffsize[::-1], wcs=mosaic.wcs, mode='partial', fill_value = np.nan, copy=True)
             self.data[mosaic.band]['background'] = cutout
             self.headers[mosaic.band]['background'] = subheader
 
         if 'rms' not in self.data[mosaic.band]:
             self.logger.debug(f'... data \"rms\" subimage generated as ones at {cutout.input_position_original}')
+            cutout = Cutout2D(filler, self.position, self.buffsize[::-1], wcs=mosaic.wcs, mode='partial', fill_value = np.nan, copy=True)
             self.data[mosaic.band]['rms'] = cutout
             self.headers[mosaic.band]['rms'] = subheader
+
+        del filler
 
         # get background info if backregion is 'brick' -- WILL overwrite inhereted info if it exists...
         if 'backregion' in self.properties[mosaic.band]:
