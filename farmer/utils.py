@@ -355,9 +355,18 @@ def map_discontinuous(input, out_wcs, out_shape, thresh=0.1, force_simple=False)
 
         outdict = {}
         logger.info('Building a mapping dictionary...')
-        for seg in tqdm(segs):
-            y, x = (array==seg).nonzero()
-            outdict[seg] = y, x
+        # for seg in tqdm(segs):
+        #     y, x = (array==seg).nonzero()
+        #     outdict[seg] = y, x
+        # Get all unique segment values and their indices at once
+        y, x = np.nonzero(array)
+        all_segments = array[y, x]
+
+        # Use np.unique to split the coordinates by segment
+        unique_segs, inverse = np.unique(all_segments, return_inverse=True)
+        for idx, seg in enumerate(unique_segs):
+            seg_indices = np.where(inverse == idx)
+            outdict[seg] = (y[seg_indices], x[seg_indices])
 
     elif force_simple:
         logger.warning(f'Simple mapping has been forced! Small regions may be cannibalized... ')
@@ -366,9 +375,15 @@ def map_discontinuous(input, out_wcs, out_shape, thresh=0.1, force_simple=False)
 
         outdict = {}
         logger.info('Building a mapping dictionary...')
-        for seg in tqdm(segs):
-            y, x = (array==seg).nonzero()
-            outdict[seg] = y, x
+        # Get all unique segment values and their indices at once
+        y, x = np.nonzero(array)
+        all_segments = array[y, x]
+
+        # Use np.unique to split the coordinates by segment
+        unique_segs, inverse = np.unique(all_segments, return_inverse=True)
+        for idx, seg in enumerate(unique_segs):
+            seg_indices = np.where(inverse == idx)
+            outdict[seg] = (y[seg_indices], x[seg_indices])
 
     else: # avoids cannibalizing small objects when going to lower resolution
         logger.info(f'Mapping to different resolution using full reprojection (NCPU = {conf.NCPUS})')

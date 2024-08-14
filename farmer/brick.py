@@ -331,6 +331,7 @@ class Brick(BaseImage):
         return self.catalogs[band][imgtype]
 
     def process_groups(self, group_ids=None, imgtype='science', bands=None, mode='all'):
+        self.logger.info(f'Processing groups for brick {self.brick_id}...')
 
         tstart = time.time()
 
