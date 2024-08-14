@@ -967,7 +967,7 @@ class BaseImage():
                 sci = self.get_image('science', band)
                 wht = self.get_image('weight', band)
                 mask = self.get_image('mask', band)
-                flag = np.sum((sci[segmask] == 0) | (np.isnan(sci[segmask])) | (wht[segmask] <= 0) | (mask[segmask])  ) > 0
+                flag = np.sum((sci[segmask] == 0) | (np.isnan(sci[segmask])) | (wht[segmask] <= 0) | (mask[segmask] == 1)  ) > 0
                 try:
                     nparam = self.model_catalog[source_id].numberOfParams() - np.nansum(np.array(bands)!=band).astype(np.int32)
                     tr = Tractor([self.images[band],], Catalog(*[model,]))
