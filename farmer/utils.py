@@ -760,7 +760,7 @@ def recursively_load_dict_contents_from_group(h5file, path='/', ans=None):
                                 value = np.array([value])
                             ra, dec = np.array([val.split() for val in value]).astype(np.float64).T
                             ans[key][key2] = SkyCoord(ra*u.deg, dec*u.deg)
-                    if 'headers' in item.name:
+                    elif 'headers' in item.name:
                         ans[key][key2] = fits.header.Header.fromstring(value)
                     elif 'wcs' in item.name:
                         ans[key][key2] = WCS(fits.header.Header.fromstring(value))
