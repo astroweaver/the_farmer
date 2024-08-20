@@ -355,9 +355,6 @@ def map_discontinuous(input, out_wcs, out_shape, thresh=0.1, force_simple=False)
 
         outdict = {}
         logger.info('Building a mapping dictionary...')
-        # for seg in tqdm(segs):
-        #     y, x = (array==seg).nonzero()
-        #     outdict[seg] = y, x
         # Get all unique segment values and their indices at once
         y, x = np.nonzero(array)
         all_segments = array[y, x]
@@ -390,78 +387,6 @@ def map_discontinuous(input, out_wcs, out_shape, thresh=0.1, force_simple=False)
         outdict = parallel_process(array, out_wcs, in_wcs, n_processes=conf.NCPUS)
 
     return outdict
-
-        # else:
-        #     logger.info(f'Mapping to new resolution using reproject_interp for {len(segs)} regions')
-        #     array_out, __ = reproject_interp((array, in_wcs), out_wcs, out_shape, order=0)
-
-
-    # else: # avoids cannibalizing small objects when going to lower resolution
-    #     logger.info(f'Mapping to much lower resolution using reproject_interp for {len(segs)} regions (this may take a while)')
-    #     outdict = {}
-
-    #     # sizes = np.array([np.sum(array==segid) for segid in segs])
-    #     # zorder = np.argsort(sizes)[::-1]
-    #     # sizes = sizes[zorder]
-    #     # segs = segs[zorder]
-
-    #     # for seg in tqdm(segs):
-    #     #     mask = (array == seg).astype(np.int8)
-    #     #     mask = reproject_interp((mask, in_wcs), out_wcs, out_shape, return_footprint=False)
-    #     #     y, x = (mask > thresh).nonzero() # x and y for that segment
-    #     #     outdict[seg] = y, x
-
-    #     outdict = parallel_process(array, out_wcs, in_wcs, n_processes=conf.NCPUS)
-
-
-        
-    #     # cutouts = {}
-    #     # for segid in segs:
-    #     #     mask = (array == segid)
-    #     #     nz_mask = np.nonzero(mask)
-    #     #     cx, cy = nz_mask.mean(axis=1)
-    #     #     dx, dy = nz_mask.max(axis=1) - nz_mask.min(axis=1)
-    #     #     pos = in_wcs.pixel_to_world(cx, cy)
-    #     #     dra = abs(in_wcs.pixel_to_world(dx, dy).ra - pos.ra) * np.cos(np.deg2rad(pos.dec.to(u.degree).value))
-    #     #     ddec = abs(in_wcs.pixel_to_world(dx, dy).dec - pos.dec)
-    #     #     cutouts[segid] = Cutout2D(mask, pos, (ddec, dra), wcs=in_wcs)
-
-    #     # if conf.NCPUS > 0:
-    #     #     from pathos.multiprocessing import ProcessingPool as Pool
-    #     #     with Pool(conf.NCPUS) as p:
-    #     #         results = p.amap(reproject_segment, cutouts.items())
-
-    #     # else:
-    #     #     outdict = {}
-    #     #     for segid in tqdm(segs):
-    #     #         outdict[segid] = reproject_segment(cutouts[segid], segid)
-
-
-
-    #         # make a whole lot of cutouts of the main image
-    #         # then do multiprocessing
-    #         # then strip neighbors
-    #         # then reproject
-    #         # then get coords and hand back to main process
-
-    #     # for seg in tqdm(segs):
-    #     #     mask = (array == seg).astype(np.int8)
-    #     #     nz_mask = np.nonzero(mask)
-    #     #     cx, cy = nz_mask.mean(axis=1)
-    #     #     dx, dy = nz_mask.max(axis=1) - nz_mask.min(axis=1)
-    #     #     pos = in_wcs.pixel_to_world(cx, cy)
-    #     #     dra = abs(in_wcs.pixel_to_world(dx, dy).ra - pos.ra) * np.cos(np.deg2rad(pos.dec.to(u.degree).value))
-    #     #     ddec = abs(in_wcs.pixel_to_world(dx, dy).dec - pos.dec)
-    #     #     cutout = Cutout2D(mask, pos, (ddec, dra), wcs=in_wcs)
-    #     #     mask = reproject_interp((cutout, cutout.wcs), out_wcs, out_shape, return_footprint=False)
-    #     #     y, x = (mask > thresh).nonzero() # x and y for that segment
-    #     #     outdict[seg] = y, x
-
-    # return outdict
-    
-# def reproject_segment(cutout, segid, out_wcs):
-#     mask = (cutout.data == segid).astype(np.int8)
-#     mask = reproject_interp((mask, cutout.wcs), out_wcs, out_shape, return_footprint=False)
 
 
 def map_ids_to_coarse_pixels(fine_pixel_data, coarse_wcs, fine_wcs):
