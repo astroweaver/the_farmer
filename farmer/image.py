@@ -1398,8 +1398,26 @@ class BaseImage():
             
                 if imgtype in ('segmap', 'groupmap'):
                     if band != 'detection':
-                       self.logger.warning(f'plot_image for {band} {imgtype} is NOT IMPLEMENTED YET.')
-                       continue
+                    #    self.logger.warning(f'plot_image for {band} {imgtype} is NOT IMPLEMENTED YET.')
+                        # get the map + identify pixels in fake image
+                        groupmap = self.get_image('groupmap', band=band)
+                        segmap = self.get_image('segmap', band=band)
+                        source_ids = [sid for sid in segmap.keys()]
+                        cmap = plt.get_cmap('rainbow', len(source_ids))
+                        img = self.get_image('mask', band=band).copy().astype(np.int16)  #[src]
+                        y, x = self.get_image(band=band, imgtype='groupmap')[self.group_id]
+                        img[y, x] = 1
+                        colors = ['white','grey']
+                        bounds = [0, 1, 2]
+                        for i, sid in enumerate(source_ids):
+                            img[segmap[sid][0], segmap[sid][1]] = i + 2
+                            colors.append(cmap(i))
+                            bounds.append(i + 3)
+                        # make a color map of fixed colors
+                        cust_cmap = ListedColormap(colors)
+                        norm = BoundaryNorm(bounds, cust_cmap.N)
+                        ax.imshow(img, cmap=cust_cmap, norm=norm, origin='lower')
+                        continue
                     if np.sum(image!=0) == 0:
                         continue
                     options = dict(cmap='prism', vmin=np.min(image[image!=0]), vmax=np.max(image))
