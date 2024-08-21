@@ -340,6 +340,10 @@ class SimpleGalaxy(ExpGalaxy):
 
 
 def map_discontinuous(input, out_wcs, out_shape, thresh=0.1, force_simple=False):
+    # print(input[0].shape)
+    # print(input[1])
+    # print(out_wcs)
+    # print(out_shape)
     # for some resolution regimes, you cannot make a new, complete segmap with the new pixel scale!
     array, in_wcs = input
     logger = logging.getLogger('farmer.map_discontinuous')
@@ -385,11 +389,12 @@ def map_discontinuous(input, out_wcs, out_shape, thresh=0.1, force_simple=False)
     else: # avoids cannibalizing small objects when going to lower resolution
         logger.info(f'Mapping to different resolution using full reprojection (NCPU = {conf.NCPUS})')
         outdict = parallel_process(array, out_wcs, in_wcs, n_processes=conf.NCPUS)
+        # print(outdict[1247])
 
     return outdict
 
 
-def map_ids_to_coarse_pixels(fine_pixel_data, coarse_wcs, fine_wcs):
+def map_ids_to_coarse_pixels(fine_pixel_data, coarse_wcs, fine_wcs, offset=0):
     """
     Map the object IDs in the fine grid to the corresponding pixels in the coarse grid.
     """
@@ -401,13 +406,15 @@ def map_ids_to_coarse_pixels(fine_pixel_data, coarse_wcs, fine_wcs):
             obj_id = fine_pixel_data[y, x]
             if obj_id == 0:
                 continue  # Skip background pixels
+            # if obj_id == 1247:
+            #     print('orig', y, x)
 
             # Define the corners of the fine pixel in pixel coordinates
             pixel_corners = [
-                (x, y),        # bottom-left
-                (x + 1, y),    # bottom-right
-                (x, y + 1),    # top-left
-                (x + 1, y + 1) # top-right
+                (x, y + offset),        # bottom-left
+                (x + 1, y + offset),    # bottom-right
+                (x, y + offset + 1),    # top-left
+                (x + 1, y + offset + 1) # top-right
             ]
 
             # Convert pixel corners to world coordinates
@@ -431,16 +438,12 @@ def map_ids_to_coarse_pixels(fine_pixel_data, coarse_wcs, fine_wcs):
                 for coarse_y in range(min_y, max_y):
                     if obj_id not in id_to_coarse_pixel_map:
                         id_to_coarse_pixel_map[obj_id] = [], []
+                    # if obj_id == 1247:
+                    #     print('coarse', coarse_y, coarse_x)
                     id_to_coarse_pixel_map[obj_id][0].append(coarse_y)
                     id_to_coarse_pixel_map[obj_id][1].append(coarse_x)
 
     return id_to_coarse_pixel_map
-
-def process_chunk(chunk, coarse_wcs, fine_wcs):
-    """
-    Process a chunk of the fine pixel data and map object IDs to coarse pixels.
-    """
-    return map_ids_to_coarse_pixels(chunk, coarse_wcs, fine_wcs)
 
 def parallel_process(fine_pixel_data, coarse_wcs, fine_wcs, n_processes=1):
     """
@@ -451,16 +454,28 @@ def parallel_process(fine_pixel_data, coarse_wcs, fine_wcs, n_processes=1):
 
     # Split the fine grid into chunks
     chunks = np.array_split(fine_pixel_data, n_processes)
+    arrs = np.array_split(np.arange(len(fine_pixel_data)), n_processes)
+    offsets = [0]
+    for i, arr in enumerate(arrs[:-1]):
+        offsets.append(offsets[i] + len(arr))
+    # print(offsets)
     
     # # Use multiprocessing to process chunks in parallel
     with Pool(n_processes) as pool:
-        results = pool.starmap(process_chunk, [(chunk, coarse_wcs, fine_wcs) for chunk in chunks])
+        results = pool.starmap(map_ids_to_coarse_pixels, [(chunk, coarse_wcs, fine_wcs, offset) for (chunk, offset) in zip(chunks, offsets)])
 
     # Combine results from all processes
     combined_results = {}
     for result in results:
         for obj_id, pixels in result.items():
-                combined_results[obj_id] = pixels
+                if obj_id in combined_results:
+                    # print(combined_results[obj_id][0])
+                    # print(type(combined_results[obj_id][0]))
+                    # print(pixels[0])
+                    combined_results[obj_id][0].extend(pixels[0])
+                    combined_results[obj_id][1].extend(pixels[1])
+                else:
+                    combined_results[obj_id] = pixels
 
     # Sort the combined results by object ID and return as an OrderedDict
     sorted_combined_results = OrderedDict(sorted(combined_results.items()))

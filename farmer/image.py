@@ -1958,7 +1958,7 @@ class BaseImage():
             bands = [bands,]
 
         if overwrite:
-            for band in self.bands:
+            for band in bands:
                 if band == catalog_band: continue
                 if 'groupmap' in self.data[band]:
                     del self.data[band]['groupmap']
