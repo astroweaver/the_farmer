@@ -87,30 +87,76 @@ def read_wcs(wcs, scl=1):
     wcs = ConstantFitsWcs(t)
     return wcs
 
+# def load_brick_position(brick_id):
+#     logger = logging.getLogger('farmer.load_brick_position')
+#     # Do this relative to the detection image
+#     ext = None
+#     if 'extension' in conf.DETECTION:
+#         ext = conf.DETECTION['extension']
+#     wcs = WCS(fits.getheader(conf.DETECTION['science'], ext=ext))
+#     nx, ny = wcs.array_shape
+#     brick_width = nx / conf.N_BRICKS[0]
+#     brick_height = ny / conf.N_BRICKS[1]
+#     if brick_id <= 0:
+#         raise RuntimeError(f'Cannot request brick #{brick_id} (<=0)!')
+#     if brick_id > (nx * ny):
+#         raise RuntimeError(f'Cannot request brick #{brick_id} on grid {nx} X {ny}!')
+#     logger.debug(f'Using bricks of size ({brick_width:2.2f}, {brick_height:2.2f}) px, in grid {nx} X {ny} px')
+#     xc = 0.5 * brick_width + int(((brick_id - 1) * brick_height) / nx) * brick_width
+#     yc = 0.5 * brick_height + int(((brick_id - 1) * brick_height) % ny)
+#     logger.debug(f'Brick #{brick_id} found at ({xc:2.2f}, {yc:2.2f}) px with size {brick_width:2.2f} X {brick_height:2.2f} px')
+#     position = wcs.pixel_to_world(xc, yc)
+#     upper = wcs.pixel_to_world(xc+brick_width/2., yc+brick_height/2.)
+#     lower = wcs.pixel_to_world(xc-brick_width/2., yc-brick_height/2.)
+#     size = abs(lower.ra - upper.ra) * np.cos(np.deg2rad(position.dec.to(u.degree).value)), abs(upper.dec - lower.dec)
+
+#     logger.debug(f'Brick #{brick_id} found at ({position.ra:2.1f}, {position.dec:2.1f}) with size {size[0]:2.1f} X {size[1]:2.1f}')
+#     return position, size
+
 def load_brick_position(brick_id):
     logger = logging.getLogger('farmer.load_brick_position')
-    # Do this relative to the detection image
+    
     ext = None
     if 'extension' in conf.DETECTION:
         ext = conf.DETECTION['extension']
     wcs = WCS(fits.getheader(conf.DETECTION['science'], ext=ext))
     nx, ny = wcs.array_shape
-    brick_width = nx / conf.N_BRICKS[0]
-    brick_height = ny / conf.N_BRICKS[1]
+    
+    # Determine the number of bricks in x and y directions
+    num_bricks_x = conf.N_BRICKS[0]
+    num_bricks_y = conf.N_BRICKS[1]
+    
+    # Calculate the width and height of each brick
+    brick_width = nx / num_bricks_x
+    brick_height = ny / num_bricks_y
+    
     if brick_id <= 0:
         raise RuntimeError(f'Cannot request brick #{brick_id} (<=0)!')
-    if brick_id > (nx * ny):
-        raise RuntimeError(f'Cannot request brick #{brick_id} on grid {nx} X {ny}!')
-    logger.debug(f'Using bricks of size ({brick_width:2.2f}, {brick_height:2.2f}) px, in grid {nx} X {ny} px')
-    xc = 0.5 * brick_width + int(((brick_id - 1) * brick_height) / nx) * brick_width
-    yc = 0.5 * brick_height + int(((brick_id - 1) * brick_height) % ny)
+    if brick_id > (num_bricks_x * num_bricks_y):
+        raise RuntimeError(f'Cannot request brick #{brick_id} on grid {num_bricks_x} X {num_bricks_y}!')
+    
+    # Calculate the row and column for this brick_id
+    row = (brick_id - 1) // num_bricks_x
+    column = (brick_id - 1) % num_bricks_x
+    
+    # Calculate the center of the brick in pixel coordinates
+    xc = (column + 0.5) * brick_width
+    yc = (row + 0.5) * brick_height
+    
     logger.debug(f'Brick #{brick_id} found at ({xc:2.2f}, {yc:2.2f}) px with size {brick_width:2.2f} X {brick_height:2.2f} px')
+    
+    # Convert to world coordinates (RA, Dec)
     position = wcs.pixel_to_world(xc, yc)
-    upper = wcs.pixel_to_world(xc+brick_width/2., yc+brick_height/2.)
-    lower = wcs.pixel_to_world(xc-brick_width/2., yc-brick_height/2.)
-    size = abs(lower.ra - upper.ra) * np.cos(np.deg2rad(position.dec.to(u.degree).value)), abs(upper.dec - lower.dec)
-
+    upper = wcs.pixel_to_world(xc + brick_width / 2., yc + brick_height / 2.)
+    lower = wcs.pixel_to_world(xc - brick_width / 2., yc - brick_height / 2.)
+    
+    size = (
+        abs(lower.ra - upper.ra) * np.cos(np.deg2rad(position.dec.to(u.degree).value)),
+        abs(upper.dec - lower.dec)
+    )
+    
     logger.debug(f'Brick #{brick_id} found at ({position.ra:2.1f}, {position.dec:2.1f}) with size {size[0]:2.1f} X {size[1]:2.1f}')
+    
     return position, size
 
 def clean_catalog(catalog, mask, segmap=None):
