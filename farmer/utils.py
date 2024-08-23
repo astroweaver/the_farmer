@@ -122,28 +122,28 @@ def load_brick_position(brick_id):
     wcs = WCS(fits.getheader(conf.DETECTION['science'], ext=ext))
     nx, ny = wcs.array_shape
     
-    # Determine the number of bricks in x and y directions
+    # Number of bricks in x and y directions
     num_bricks_x = conf.N_BRICKS[0]
     num_bricks_y = conf.N_BRICKS[1]
     
-    # Calculate the width and height of each brick
-    brick_width = nx / num_bricks_x
-    brick_height = ny / num_bricks_y
+    # Calculate the exact width and height of each brick
+    brick_width = nx // num_bricks_x
+    brick_height = ny // num_bricks_y
     
     if brick_id <= 0:
         raise RuntimeError(f'Cannot request brick #{brick_id} (<=0)!')
     if brick_id > (num_bricks_x * num_bricks_y):
         raise RuntimeError(f'Cannot request brick #{brick_id} on grid {num_bricks_x} X {num_bricks_y}!')
     
-    # Calculate the row and column for this brick_id
+    # Calculate the row and column for this brick_id (0-indexed)
     row = (brick_id - 1) // num_bricks_x
     column = (brick_id - 1) % num_bricks_x
     
     # Calculate the center of the brick in pixel coordinates
-    xc = (column + 0.5) * brick_width
-    yc = (row + 0.5) * brick_height
+    xc = (column * brick_width) + (brick_width / 2)
+    yc = (row * brick_height) + (brick_height / 2)
     
-    logger.debug(f'Brick #{brick_id} found at ({xc:2.2f}, {yc:2.2f}) px with size {brick_width:2.2f} X {brick_height:2.2f} px')
+    logger.debug(f'Brick #{brick_id} found at ({xc:2.2f}, {yc:2.2f}) px with size {brick_width} X {brick_height} px')
     
     # Convert to world coordinates (RA, Dec)
     position = wcs.pixel_to_world(xc, yc)
