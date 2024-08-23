@@ -115,7 +115,7 @@ class Brick(BaseImage):
                 if imgtype == 'mask':
                     fill_value = True
                 try:
-                    cutout = Cutout2D(mosaic.data[imgtype], self.position, self.buffsize[::-1], wcs=mosaic.wcs,
+                    cutout = Cutout2D(mosaic.data[imgtype], self.position, self.buffsize, wcs=mosaic.wcs,
                                     copy=True, mode='partial', fill_value = fill_value)
                     if imgtype == 'science':
                         # Add band information
@@ -178,25 +178,25 @@ class Brick(BaseImage):
         # if weights or masks dont exist, make them as dummy arrays
         if 'weight' not in self.data[mosaic.band]:
             self.logger.debug(f'... data \"weight\" subimage generated as ones at {cutout.input_position_original}')
-            cutout = Cutout2D(filler, self.position, self.buffsize[::-1], wcs=mosaic.wcs, mode='partial', fill_value = np.nan, copy=True)
+            cutout = Cutout2D(filler, self.position, self.buffsize, wcs=mosaic.wcs, mode='partial', fill_value = np.nan, copy=True)
             self.data[mosaic.band]['weight'] = cutout
             self.headers[mosaic.band]['weight'] = subheader
 
         if 'mask' not in self.data[mosaic.band]:
             self.logger.debug(f'... data \"mask\" subimage generated as ones at {cutout.input_position_original}')
-            cutout = Cutout2D(filler, self.position, self.buffsize[::-1], wcs=mosaic.wcs, mode='partial', fill_value = np.nan, copy=True)
+            cutout = Cutout2D(filler, self.position, self.buffsize, wcs=mosaic.wcs, mode='partial', fill_value = np.nan, copy=True)
             self.data[mosaic.band]['mask'] = cutout
             self.headers[mosaic.band]['mask'] = subheader
 
         if 'background' not in self.data[mosaic.band]:
             self.logger.debug(f'... data \"background\" subimage generated as ones at {cutout.input_position_original}')
-            cutout = Cutout2D(filler, self.position, self.buffsize[::-1], wcs=mosaic.wcs, mode='partial', fill_value = np.nan, copy=True)
+            cutout = Cutout2D(filler, self.position, self.buffsize, wcs=mosaic.wcs, mode='partial', fill_value = np.nan, copy=True)
             self.data[mosaic.band]['background'] = cutout
             self.headers[mosaic.band]['background'] = subheader
 
         if 'rms' not in self.data[mosaic.band]:
             self.logger.debug(f'... data \"rms\" subimage generated as ones at {cutout.input_position_original}')
-            cutout = Cutout2D(filler, self.position, self.buffsize[::-1], wcs=mosaic.wcs, mode='partial', fill_value = np.nan, copy=True)
+            cutout = Cutout2D(filler, self.position, self.buffsize, wcs=mosaic.wcs, mode='partial', fill_value = np.nan, copy=True)
             self.data[mosaic.band]['rms'] = cutout
             self.headers[mosaic.band]['rms'] = subheader
 
@@ -219,9 +219,9 @@ class Brick(BaseImage):
 
         # clean out buffer -- these are bricks!
         self.logger.info('Removing sources detected in brick buffer...')
-        cutout = Cutout2D(self.data[band][imgtype].data, self.position, self.size[::-1], wcs=self.data[band][imgtype].wcs)
-        mask = Cutout2D(np.zeros(cutout.data.shape), self.position, self.buffsize[::-1], wcs=cutout.wcs, fill_value=1, mode='partial').data.astype(bool)
-        segmap = Cutout2D(segmap, self.position, self.buffsize[::-1], self.wcs[band], fill_value=0, mode='partial')
+        cutout = Cutout2D(self.data[band][imgtype].data, self.position, self.size, wcs=self.data[band][imgtype].wcs)
+        mask = Cutout2D(np.zeros(cutout.data.shape), self.position, self.buffsize, wcs=cutout.wcs, fill_value=1, mode='partial').data.astype(bool)
+        segmap = Cutout2D(segmap, self.position, self.buffsize, self.wcs[band], fill_value=0, mode='partial')
         # do I actually need to do this?
         if np.any(mask):
             catalog, segmap.data = clean_catalog(catalog, mask, segmap=segmap.data)

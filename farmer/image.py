@@ -172,7 +172,7 @@ class BaseImage():
             if imgtype in self.data[band]:
                 self.data[band][imgtype].data = image
             else:
-                self.data[band][imgtype] = Cutout2D(np.zeros_like(self.data[band]['science'].data), self.position, self.buffsize[::-1], wcs=self.wcs[band], mode='partial')
+                self.data[band][imgtype] = Cutout2D(np.zeros_like(self.data[band]['science'].data), self.position, self.buffsize, wcs=self.wcs[band], mode='partial')
                 self.data[band][imgtype].data = image
 
         self.logger.debug(f'Setting {imgtype} image for {band} (sum = {np.nansum(image):2.5f})')
