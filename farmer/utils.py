@@ -154,10 +154,15 @@ def load_brick_position(brick_id):
         abs(lower.ra - upper.ra) * np.cos(np.deg2rad(position.dec.to(u.degree).value)),
         abs(upper.dec - lower.dec)
     )
+
+    buffsize = (
+        (abs(lower.ra - upper.ra) + conf.BRICK_BUFFER) * np.cos(np.deg2rad(position.dec.to(u.degree).value)),
+        abs(upper.dec - lower.dec) + conf.BRICK_BUFFER
+    )
     
     logger.debug(f'Brick #{brick_id} found at ({position.ra:2.1f}, {position.dec:2.1f}) with size {size[0]:2.1f} X {size[1]:2.1f}')
     
-    return position, size
+    return position, size, buffsize
 
 def clean_catalog(catalog, mask, segmap=None):
     logger = logging.getLogger('farmer.clean_catalog')

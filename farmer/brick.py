@@ -70,10 +70,10 @@ class Brick(BaseImage):
             if (brick_id is not None) & ((position is not None) | (size is not None)):
                 raise RuntimeError('Cannot create brick from BOTH brick_id AND position/size!')
             if brick_id is not None:
-                self.position, self.size = load_brick_position(brick_id)
+                self.position, self.size, self.buffsize = load_brick_position(brick_id)
             else:
                 self.position, self.size = position, size
-            self.buffsize = (self.size[0]+2*conf.BRICK_BUFFER, self.size[1]+2*conf.BRICK_BUFFER)
+                self.buffsize = (self.size[0]+2*conf.BRICK_BUFFER, self.size[1]+2*conf.BRICK_BUFFER)
 
         self.logger.info(f'Spawned brick #{self.brick_id} at ({self.position.ra:2.1f}, {self.position.dec:2.1f}) with size {self.size[0].to(u.arcmin):2.1f} X {self.size[1].to(u.arcmin):2.1f}')
 
@@ -88,7 +88,6 @@ class Brick(BaseImage):
     def summary(self):
         print(f'Summary of brick {self.brick_id}')
         print(f'Located at ({self.position.ra:2.2f}, {self.position.dec:2.2f}) with size {self.size[0]:2.2f} x {self.size[1]:2.2f}')
-        print(f'   (w/ buffer: {self.buffsize[0]:2.2f} x {self.buffsize[1]:2.2f})')
         print(f'   (w/ buffer: {self.buffsize[0]:2.2f} x {self.buffsize[1]:2.2f})')
         print(f'Has {len(self.bands)} bands: {self.bands}')
         for band in self.bands:
