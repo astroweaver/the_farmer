@@ -216,22 +216,22 @@ class Brick(BaseImage):
             background = self.get_background(band)
         catalog, segmap = self._extract(band, imgtype='science', background=background)
 
-        # # clean out buffer -- these are bricks!
-        # self.logger.info('Removing sources detected in brick buffer...')
-        # cutout = Cutout2D(self.data[band][imgtype].data, self.position, self.size, wcs=self.data[band][imgtype].wcs)
-        # mask = Cutout2D(np.zeros(cutout.data.shape), self.position, self.buffsize, wcs=cutout.wcs, fill_value=1, mode='partial').data.astype(bool)
-        # segmap = Cutout2D(segmap, self.position, self.buffsize, self.wcs[band], fill_value=0, mode='partial')
-        # # do I actually need to do this?
-        # if np.any(mask):
-        #     catalog, segmap.data = clean_catalog(catalog, mask, segmap=segmap.data)
-        #     mask[mask & (segmap.data>0)] = False
+        # clean out buffer -- these are bricks!
+        self.logger.info('Removing sources detected in brick buffer...')
+        cutout = Cutout2D(self.data[band][imgtype].data, self.position, self.size, wcs=self.data[band][imgtype].wcs)
+        mask = Cutout2D(np.zeros(cutout.data.shape), self.position, self.buffsize, wcs=cutout.wcs, fill_value=1, mode='partial').data.astype(bool)
+        segmap = Cutout2D(segmap, self.position, self.buffsize, self.wcs[band], fill_value=0, mode='partial')
+        # do I actually need to do this?
+        if np.any(mask):
+            catalog, segmap.data = clean_catalog(catalog, mask, segmap=segmap.data)
+            mask[mask & (segmap.data>0)] = False
 
         # save stuff
         self.catalogs[band][imgtype] = catalog
-        # self.data[band]['segmap'] = segmap
-        # self.headers[band]['segmap'] = self.headers[band]['science']
-        # self.data[band]['weight'].data[mask] = 0 #removes buffer but keeps segment pixels
-        # self.data[band]['mask'].data[mask] = True # adds buffer to existing mask
+        self.data[band]['segmap'] = segmap
+        self.headers[band]['segmap'] = self.headers[band]['science']
+        self.data[band]['weight'].data[mask] = 0 #removes buffer but keeps segment pixels
+        self.data[band]['mask'].data[mask] = True # adds buffer to existing mask
         self.n_sources[band][imgtype] = len(catalog)
 
         # add ids
