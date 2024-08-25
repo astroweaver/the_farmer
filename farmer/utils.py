@@ -159,8 +159,8 @@ def load_brick_position(brick_id):
 
     # Calculate the width and height in sky coordinates
     # The RA width must be corrected for the declination
-    ra_width = (np.max(sky_corners.ra) - np.min(sky_corners.ra)) * np.cos(np.deg2rad(center.dec.deg))
-    dec_height = np.max(sky_corners.dec) - np.min(sky_corners.dec)
+    ra_width = sky_corners[0].separation(sky_corners[1])
+    dec_height = sky_corners[1].separation(sky_corners[2])
 
     size = (ra_width.to(u.deg), dec_height.to(u.deg))
 
@@ -180,8 +180,8 @@ def load_brick_position(brick_id):
 
     # Calculate the width and height in sky coordinates
     # The RA width must be corrected for the declination
-    ra_width = (np.max(sky_corners.ra) - np.min(sky_corners.ra)) * np.cos(np.deg2rad(center.dec.deg))
-    dec_height = np.max(sky_corners.dec) - np.min(sky_corners.dec)
+    ra_width = sky_corners[0].separation(sky_corners[1])
+    dec_height = sky_corners[1].separation(sky_corners[2])
 
     buffsize = (ra_width.to(u.deg), dec_height.to(u.deg))
     
