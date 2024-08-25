@@ -233,7 +233,7 @@ class Brick(BaseImage):
         # self.headers[band]['segmap'] = self.headers[band]['science']
         # self.data[band]['weight'].data[mask] = 0 #removes buffer but keeps segment pixels
         # self.data[band]['mask'].data[mask] = True # adds buffer to existing mask
-        # self.n_sources[band][imgtype] = len(catalog)
+        self.n_sources[band][imgtype] = len(catalog)
 
         # add ids
         self.catalogs[band][imgtype].add_column(self.brick_id * np.ones(self.n_sources[band][imgtype], dtype=np.int32), name='brick_id', index=0)
