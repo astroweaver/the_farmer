@@ -323,7 +323,7 @@ class Brick(BaseImage):
         # detection
         self.extract(band=band, imgtype=imgtype)
 
-        # # grouping
+        # # # grouping
         # self.identify_groups(band=band, imgtype=imgtype)
 
         # # transfer maps

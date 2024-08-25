@@ -145,22 +145,10 @@ def load_brick_position(brick_id):
     
     logger.debug(f'Brick #{brick_id} found at ({xc:2.2f}, {yc:2.2f}) px with size {brick_width} X {brick_height} px')
     
-    # # Convert to world coordinates (RA, Dec)
-    # position = wcs.pixel_to_world(xc, yc)
-    # upper = wcs.pixel_to_world(xc + brick_width / 2., yc + brick_height / 2.)
-    # lower = wcs.pixel_to_world(xc - brick_width / 2., yc - brick_height / 2.)
-    
-    # size = (
-    #     abs(lower.ra - upper.ra) * np.cos(np.deg2rad(position.dec.to(u.degree).value)),
-    #     abs(upper.dec - lower.dec)
-    # )
+    # Calculate the center of the region in sky coordinates
+    center = wcs.pixel_to_world(xc, yc)
 
-    # buffsize = (
-    #     (abs(lower.ra - upper.ra) + conf.BRICK_BUFFER) * np.cos(np.deg2rad(position.dec.to(u.degree).value)),
-    #     abs(upper.dec - lower.dec) + conf.BRICK_BUFFER
-    # )
-
-        # Define the four corners of the pixel square
+    # Define the four corners of the pixel square
     corners_x = np.array([xc - brick_width / 2., xc + brick_width / 2.,
                           xc + brick_width / 2., xc - brick_width / 2.])
     corners_y = np.array([yc - brick_height / 2., yc - brick_height / 2.,
@@ -169,11 +157,6 @@ def load_brick_position(brick_id):
     # Convert pixel coordinates to sky coordinates
     sky_corners = wcs.pixel_to_world(corners_x, corners_y)
 
-    # Calculate the center of the region in sky coordinates
-    ra_center = np.mean(sky_corners.ra)
-    dec_center = np.mean(sky_corners.dec)
-    center = SkyCoord(ra=ra_center, dec=dec_center, frame='icrs')
-
     # Calculate the width and height in sky coordinates
     # The RA width must be corrected for the declination
     ra_width = (np.max(sky_corners.ra) - np.min(sky_corners.ra)) * np.cos(np.deg2rad(center.dec.deg))
@@ -181,8 +164,27 @@ def load_brick_position(brick_id):
 
     size = (ra_width.to(u.deg), dec_height.to(u.deg))
 
-    buffsize = (size[0]+conf.BRICK_BUFFER.to(u.deg), size[1]+conf.BRICK_BUFFER.to(u.deg))
+    pixel_scale = wcs.proj_plane_pixel_scales()[0]
+    buff_size = conf.BRICK_BUFFER.to(u.deg) / pixel_scale.to(u.deg)
+    brick_buffwidth = brick_width + 2 * buff_size
+    brick_buffheight = brick_height + 2 * buff_size
 
+    # Define the four corners of the pixel square
+    corners_x = np.array([xc - brick_buffwidth / 2., xc + brick_buffwidth / 2.,
+                          xc + brick_buffwidth / 2., xc - brick_buffwidth / 2.])
+    corners_y = np.array([yc - brick_buffheight / 2., yc - brick_buffheight / 2.,
+                          yc + brick_buffheight / 2., yc + brick_buffheight / 2.])
+
+    # Convert pixel coordinates to sky coordinates
+    sky_corners = wcs.pixel_to_world(corners_x, corners_y)
+
+    # Calculate the width and height in sky coordinates
+    # The RA width must be corrected for the declination
+    ra_width = (np.max(sky_corners.ra) - np.min(sky_corners.ra)) * np.cos(np.deg2rad(center.dec.deg))
+    dec_height = np.max(sky_corners.dec) - np.min(sky_corners.dec)
+
+    buffsize = (ra_width.to(u.deg), dec_height.to(u.deg))
+    
     logger.debug(f'Brick #{brick_id} found at ({center.ra:2.1f}, {center.dec:2.1f}) with size {size[0]:2.1f} X {size[1]:2.1f}')
 
     return center, size, buffsize
