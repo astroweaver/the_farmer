@@ -75,7 +75,7 @@ class Brick(BaseImage):
                 self.position, self.size = position, size
                 self.buffsize = (self.size[0]+2*conf.BRICK_BUFFER, self.size[1]+2*conf.BRICK_BUFFER)
 
-        self.logger.info(f'Spawned brick #{self.brick_id} at ({self.position.ra:2.1f}, {self.position.dec:2.1f}) with size {self.size[0].to(u.arcmin):2.1f} X {self.size[1].to(u.arcmin):2.1f}')
+        self.logger.info(f'Spawned brick #{self.brick_id} at ({self.position.ra:2.1f}, {self.position.dec:2.1f}) with size {self.size[0].to(u.arcmin):2.3f} X {self.size[1].to(u.arcmin):2.3f}')
 
 
 
@@ -323,11 +323,11 @@ class Brick(BaseImage):
         # detection
         self.extract(band=band, imgtype=imgtype)
 
-        # # # grouping
-        # self.identify_groups(band=band, imgtype=imgtype)
+        # # grouping
+        self.identify_groups(band=band, imgtype=imgtype)
 
-        # # transfer maps
-        # self.transfer_maps()
+        # transfer maps
+        self.transfer_maps()
 
         if conf.PLOT > 1:
             self.plot_image(imgtype='science')
