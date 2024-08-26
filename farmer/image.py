@@ -116,10 +116,18 @@ class BaseImage():
             if coord is not None:
                 self.logger.debug(f'{band} has only a single PSF! Coordinates ignored.')
             psf_path = psflist
+            try:
+                psf_path = psf_path.decode('utf-8')
+            except:
+                pass
             self.logger.debug(f'Found a constant PSF for {band}.')
         elif np.size(psfcoords) == 1:
-                self.logger.debug(f'{band} has only a single PSF! Coordinates ignored.')
-                psf_path = psflist[0]
+            self.logger.debug(f'{band} has only a single PSF! Coordinates ignored.')
+            psf_path = psflist[0]
+            try:
+                psf_path = psf_path.decode('utf-8')
+            except:
+                pass
         else:
             if coord is None:
                 if self.type != 'group':

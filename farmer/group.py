@@ -124,6 +124,8 @@ class Group(BaseImage):
             bands = brick.bands
         elif np.isscalar(bands):
             bands = [bands,]
+        if bands[0] != 'detection':
+            bands.remove('detection')
         if ('detection' not in bands) & ('detection' not in self.data):
             bands.insert(0, 'detection')
             
