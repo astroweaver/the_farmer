@@ -114,34 +114,32 @@ class BaseImage():
 
         if np.any(psfcoords == 'none'): # single psf!
             if coord is not None:
-                self.logger.warning(f'{band} has only a single PSF! Coordinates ignored.')
+                self.logger.debug(f'{band} has only a single PSF! Coordinates ignored.')
             psf_path = psflist
             self.logger.debug(f'Found a constant PSF for {band}.')
-        else:
-            if np.size(psfcoords) == 1:
-                self.logger.warning(f'{band} has only a single PSF! Coordinates ignored.')
+        elif np.size(psfcoords) == 1:
+                self.logger.debug(f'{band} has only a single PSF! Coordinates ignored.')
                 psf_path = psflist[0]
-
-            else:
-                if coord is None:
-                    if self.type != 'group':
-                        self.logger.debug(f'{band} has mutliple PSFs but no coordinates supplied. Picking the nearest.')
-                    coord = self.position
-                
-                # find nearest to coord
-                psf_idx, d2d, __ = coord.match_to_catalog_sky(psfcoords, 1)
-                d2d = d2d[0]
-                self.logger.debug(f'Found the nearest PSF for {band} {d2d.to(u.arcmin)} away.')
-                psf_path = psflist[psf_idx]
-                try:
-                    psf_path = psf_path.decode('utf-8')
-                except:
-                    pass
-                try:
-                    num = int(psf_path.split('gp')[-1].split('.fits')[0])
-                    psf_path = psf_path.replace(str(num), f'{num:06}')  
-                except:
-                    pass
+        else:
+            if coord is None:
+                if self.type != 'group':
+                    self.logger.debug(f'{band} has mutliple PSFs but no coordinates supplied. Picking the nearest.')
+                coord = self.position
+            
+            # find nearest to coord
+            psf_idx, d2d, __ = coord.match_to_catalog_sky(psfcoords, 1)
+            d2d = d2d[0]
+            self.logger.debug(f'Found the nearest PSF for {band} {d2d.to(u.arcmin)} away.')
+            psf_path = psflist[psf_idx]
+            try:
+                psf_path = psf_path.decode('utf-8')
+            except:
+                pass
+            try:
+                num = int(psf_path.split('gp')[-1].split('.fits')[0])
+                psf_path = psf_path.replace(str(num), f'{num:06}')  
+            except:
+                pass
 
         # Try to open
         if psf_path.endswith('.psf'):
