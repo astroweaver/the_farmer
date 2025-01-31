@@ -148,6 +148,10 @@ def build_bricks(brick_ids=None, include_detection=True, bands=None, write=True)
                     continue
                 if band == 'detection':
                     brick = mosaic.spawn_brick(brick_id, silent=(conf.CONSOLE_LOGGING_LEVEL != 'DEBUG'))
+                    if 'detection' not in brick.data:
+                        logger.warning(f'Brick {brick_id} has no detection information! Skipping...')
+                        skiplist.append(brick_id)
+                        continue
                     if np.nansum(brick.data['detection']['science'].data>0) == 0:
                         logger.warning(f'Brick {brick_id} has no detection information! Skipping...')
                         skiplist.append(brick_id)

@@ -2035,7 +2035,7 @@ class BaseImage():
             filename = self.filename.replace('.h5', '.fits')
         if tag is not None:
             filename = filename.replace('.fits', f'_{tag}.fits')
-        self.logger.debug(f'Writing to {filename} (allow_update = {allow_update})')
+        self.logger.info(f'Writing to {filename} (allow_update = {allow_update})')
         path = os.path.join(directory, filename)
         if os.path.exists(path):
             if not allow_update:
