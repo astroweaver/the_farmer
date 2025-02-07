@@ -302,8 +302,19 @@ def validate_psfmodel(band, return_psftype=False):
     # maybe it's a table of ra, dec, and path_ending?
     try:
         psfgrid = Table.read(psfmodel_path)
-        psfgrid_ra = psfgrid['ra']
-        psfgrid_dec = psfgrid['dec']
+        ra_try = ('ra', 'RA', 'ra_deg')
+        dec_try = ('dec', 'DEC', 'dec_deg')
+
+        if np.any([ra in psfgrid.colnames for ra in ra_try]) & np.any([dec in psfgrid.colnames for dec in dec_try]):
+            ra_col = [ra for ra in ra_try if ra in psfgrid.colnames][0]
+            dec_col = [dec for dec in dec_try if dec in psfgrid.colnames][0]
+
+            psfgrid_ra = psfgrid[ra_col]
+            psfgrid_dec = psfgrid[dec_col]
+        
+        else:
+            raise RuntimeError(f'Could not find ra, dec columns in {psfmodel_path}!')
+            
         psfcoords = SkyCoord(ra=psfgrid_ra*u.degree, dec=psfgrid_dec*u.degree)
         # I'm expecting that all of these psfnames are based in PATH_PSFMODELS
         psflist = np.array(psfgrid['filename'])
