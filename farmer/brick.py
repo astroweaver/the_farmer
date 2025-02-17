@@ -266,7 +266,7 @@ class Brick(BaseImage):
         else:
             self.catalogs[band][imgtype].add_column(group_ids, name='group_id', index=3)
             self.catalogs[band][imgtype].add_column(group_pops, name='group_pop', index=3)
-        self.data[band]['groupmap'] = Cutout2D(groupmap, self.position, self.buffsize[::-1], self.wcs[band], mode='partial', fill_value = 0)
+        self.data[band]['groupmap'] = Cutout2D(groupmap, self.position, self.buffsize, self.wcs[band], mode='partial', fill_value = 0)
         self.group_ids[band][imgtype] = np.unique(group_ids)
         # self.group_pops[band][imgtype] = dict(zip(group_ids, group_pops))
         self.headers[band]['groupmap'] = self.headers[band]['science']
