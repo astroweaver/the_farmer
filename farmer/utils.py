@@ -120,7 +120,7 @@ def load_brick_position(brick_id):
     if 'extension' in conf.DETECTION:
         ext = conf.DETECTION['extension']
     wcs = WCS(fits.getheader(conf.DETECTION['science'], ext=ext))
-    nx, ny = wcs.array_shape
+    ny, nx = wcs.array_shape
     
     # Number of bricks in x and y directions
     num_bricks_x = conf.N_BRICKS[0]
@@ -162,7 +162,7 @@ def load_brick_position(brick_id):
     ra_width = sky_corners[0].separation(sky_corners[1])
     dec_height = sky_corners[1].separation(sky_corners[2])
 
-    size = (ra_width.to(u.deg), dec_height.to(u.deg))
+    size = (dec_height.to(u.deg), ra_width.to(u.deg))
 
     pixel_scale = wcs.proj_plane_pixel_scales()[0]
     buff_size = conf.BRICK_BUFFER.to(u.deg) / pixel_scale.to(u.deg)
@@ -183,7 +183,7 @@ def load_brick_position(brick_id):
     ra_width = sky_corners[0].separation(sky_corners[1])
     dec_height = sky_corners[1].separation(sky_corners[2])
 
-    buffsize = (ra_width.to(u.deg), dec_height.to(u.deg))
+    buffsize = (dec_height.to(u.deg), ra_width.to(u.deg))
     
     logger.debug(f'Brick #{brick_id} found at ({center.ra:2.1f}, {center.dec:2.1f}) with size {size[0]:2.1f} X {size[1]:2.1f}')
 
