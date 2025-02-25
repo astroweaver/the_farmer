@@ -120,7 +120,7 @@ def load_brick_position(brick_id):
     if 'extension' in conf.DETECTION:
         ext = conf.DETECTION['extension']
     wcs = WCS(fits.getheader(conf.DETECTION['science'], ext=ext))
-    nx, ny = wcs.array_shape
+    ny, nx = wcs.array_shape
     
     # Number of bricks in x and y directions
     num_bricks_x = conf.N_BRICKS[0]
