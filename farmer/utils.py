@@ -918,8 +918,8 @@ def get_params(model):
         source[f'{band}_flux_ujy'] = source[f'{band}_flux'] * 10**(-0.4 * (source[f'_{band}_zpt'] - 23.9)) * u.microjansky * mask
         source[f'{band}_flux_ujy_err'] = source[f'{band}_flux_err'] * 10**(-0.4 * (source[f'_{band}_zpt'] - 23.9)) * u.microjansky * mask
 
-        source[f'{band}_mag'] = -2.5 * np.log10(source[f'{band}_flux']) * u.mag + source[f'_{band}_zpt'] * u.mag * mask
-        source[f'{band}_mag_err'] = 2.5 * np.log10(np.e) / (source[f'{band}_flux'] / source[f'{band}_flux_err']) * mask
+        source[f'{band}_mag'] = (-2.5 * np.log10(source[f'{band}_flux']) * u.mag + source[f'_{band}_zpt'] * u.mag) * mask
+        source[f'{band}_mag_err'] = (2.5 * np.log10(np.e) / (source[f'{band}_flux'] / source[f'{band}_flux_err'])) * mask
 
         # statistics
         if band in model.statistics:

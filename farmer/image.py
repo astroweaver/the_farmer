@@ -1226,7 +1226,7 @@ class BaseImage():
         self.catalogs[catalog_band][catalog_imgtype] = catalog
 
     def plot_image(self, band=None, imgtype=None, tag='', show_catalog=True, catalog_band='detection', catalog_imgtype='science', show_groups=True):
-        # for each band, plot all available images: science, weight, mask, segmap, blobmap, background, rms
+        # for each band, plot all available images: science, weight, mask, segmap, groupmap, background, rms
         if band is None:
             bands = self.get_bands()
         elif np.isscalar(band):
