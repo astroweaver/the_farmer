@@ -367,7 +367,11 @@ class BaseImage():
                 filler[x, y] = False
                 masked[filler] = 1
                 del filler
-            weight[np.isnan(data) | (masked==1)] = 0
+            weight[np.isnan(data) | (masked==1) | np.isnan(masked)] = 0
+
+            # ensure that there are no nans in data or weight
+            data[np.isnan(data) | ~np.isfinite(data)] = 0
+            weight[np.isnan(weight) | ~np.isfinite(weight)] = 0
 
             if np.sum(weight) == 0:
                 self.logger.warning(f'All weight pixels in {band} are zero! Check your data + masks!')

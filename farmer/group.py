@@ -130,7 +130,16 @@ class Group(BaseImage):
             bands.insert(0, 'detection')
             
         for band in bands:
-        # Add band information
+
+            # Check overlap
+            try:
+                Cutout2D(brick.data[band]['science'].data, self.position, self.buffsize, wcs=brick.data[band]['science'].wcs,
+                    mode='partial', fill_value=0 copy=True)
+            except:
+                self.logger.warning(f'{band} does not overlap with group. Skipping!')
+                continue
+
+            # Add band information
             self.logger.debug(f'Adopting data and properties for {band}')
             self.data[band] = {}
             self.properties[band] = {}
@@ -148,7 +157,7 @@ class Group(BaseImage):
             # Loop over provided data
             for imgtype in brick.data[band].keys():
                 if imgtype in ('science', 'weight', 'mask', 'segmap', 'groupmap', 'background', 'back', 'rms', 'model', 'residual', 'chi'):
-                    fill_value = np.nan
+                    fill_value = 0 # Nans are bad for Tractor
                     if imgtype == 'mask':
                         fill_value = True
                     elif imgtype in ('segmap', 'groupmap'):
