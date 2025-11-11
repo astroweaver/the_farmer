@@ -134,7 +134,7 @@ class Group(BaseImage):
             # Check overlap
             try:
                 Cutout2D(brick.data[band]['science'].data, self.position, self.buffsize, wcs=brick.data[band]['science'].wcs,
-                    mode='partial', fill_value=0 copy=True)
+                    mode='partial', fill_value=0, copy=True)
             except:
                 self.logger.warning(f'{band} does not overlap with group. Skipping!')
                 continue
