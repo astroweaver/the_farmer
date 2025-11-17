@@ -362,11 +362,14 @@ class BaseImage():
             weight = self.get_image(band=band, imgtype='weight').copy()
             masked = self.get_image(band=band, imgtype='mask').copy()
             if self.type == 'group':
-                x, y = self.get_image(band=band, imgtype='groupmap')[self.group_id]
-                filler = np.ones(masked.shape, dtype=bool)
-                filler[x, y] = False
-                masked[filler] = 1
-                del filler
+                try:
+                    x, y = self.get_image(band=band, imgtype='groupmap')[self.group_id]
+                    filler = np.ones(masked.shape, dtype=bool)
+                    filler[x, y] = False
+                    masked[filler] = 1
+                    del filler
+                except:
+                    self.logger.warning(f'Failed to mask group {self.group_id} in band {band}. Continuing...')
             weight[np.isnan(data) | (masked==1) | np.isnan(masked)] = 0
 
             # ensure that there are no nans in data or weight
