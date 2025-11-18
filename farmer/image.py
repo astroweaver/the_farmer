@@ -465,7 +465,11 @@ class BaseImage():
             qflux = np.zeros(len(bands))
             for j, band in enumerate(bands):
                 src_seg = self.data[band]['segmap'][source_id]
-                qflux[j] = np.nansum(self.images[band].data[src_seg[0], src_seg[1]])
+                try:
+                    qflux[j] = np.nansum(self.images[band].data[src_seg[0], src_seg[1]])
+                except Exception as e:
+                    self.logger.warning(f'Failed to sum flux for source #{source_id} in band {band}: {e}')
+                    qflux[j] = 0
             flux = Fluxes(**dict(zip(bands, qflux)), order=bands)
 
             # initial shapes
