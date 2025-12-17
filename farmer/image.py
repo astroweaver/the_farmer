@@ -2121,6 +2121,8 @@ class BaseImage():
                 # update WCS in header
                 if attr in self.headers[band]:
                     for (key, value, comment) in self.headers[band]['science'].cards:
+                        if key == 'EXTNAME': 
+                            continue
                         hdul[ext_name].header[key] = (value, comment)
                 for (key, value, comment) in self.data[band][attr].wcs.to_header().cards:
                     hdul[ext_name].header[key] = (value, comment)
