@@ -23,8 +23,8 @@ from tqdm import tqdm
 # Local imports
 try:
     import config as conf
-except:
-    raise RuntimeError('Cannot find configuration file!')
+except ImportError as e:
+    raise RuntimeError(f'Cannot find configuration file! Error: {e}')
 if 'name' not in conf.DETECTION:
     conf.DETECTION['name'] = 'Detection'
 for band in conf.BANDS:
@@ -79,8 +79,15 @@ import numpy as np
 from tqdm import tqdm
 
 
-# Look at mosaics and check they exist
 def validate():
+    """Validate that all configured mosaics exist and are properly configured.
+    
+    Checks the detection mosaic and all configured photometric bands to ensure
+    they can be loaded and have valid WCS, PSF models, and data paths.
+    
+    Raises:
+        RuntimeError: If any mosaic fails validation
+    """
     logger.info('Validate bands...')
     Mosaic('detection', load=False)
     for band in conf.BANDS.keys():
@@ -89,6 +96,15 @@ def validate():
 
 
 def get_mosaic(band, load=True):
+    """Get a Mosaic object for the specified band.
+    
+    Args:
+        band: Band name (e.g., 'detection', 'g', 'r', 'i')
+        load: If True, load image data into memory. If False, only load metadata.
+        
+    Returns:
+        Mosaic object for the specified band
+    """
     return Mosaic(band, load=load)
 
 def build_bricks(brick_ids=None, include_detection=True, bands=None, write=True):
@@ -167,6 +183,19 @@ def build_bricks(brick_ids=None, include_detection=True, bands=None, write=True)
         return [bid for bid in brick_ids if bid not in skiplist] # return the useful brick numbers
 
 def load_brick(brick_id, silent=False, tag=None):
+    """Load an existing brick from disk.
+    
+    Args:
+        brick_id: Brick identifier (integer)
+        silent: If True, suppress logger output
+        tag: Optional tag for alternate brick versions
+        
+    Returns:
+        Brick object loaded from disk
+        
+    Raises:
+        IOError: If brick file cannot be found or loaded
+    """
     return Brick(brick_id, load=True, silent=silent, tag=tag)
 
 def update_bricks(brick_ids=None, bands=None):
@@ -205,12 +234,12 @@ def update_bricks(brick_ids=None, bands=None):
             logger.info(f'Spawning or updating bricks for band {band}...')
             for brick_id in arr:
                 brick = load_brick(brick_id)
-                for band in bands:
-                    if band not in brick.bands:
-                        logger.debug(f'{band} not found in brick #{brick_id}! Updating...')
-                        mosaic = get_mosaic(band, load=True)
-                        mosaic.add_to_brick(brick)
-                        del mosaic
+                for band_to_update in bands:
+                    if band_to_update not in brick.bands:
+                        logger.debug(f'{band_to_update} not found in brick #{brick_id}! Updating...')
+                        mosaic_update = get_mosaic(band_to_update, load=True)
+                        mosaic_update.add_to_brick(brick)
+                        del mosaic_update
                         brick.write(allow_update=False, filetype='hdf5')
                 if conf.PLOT > 2:
                     brick.plot_image(show_catalog=False, show_groups=False)
@@ -246,11 +275,8 @@ def detect_sources(brick_ids=None, band='detection', imgtype='science', brick=No
 
     elif brick_ids is None and brick is None:
         # Generate brick_ids
-        if brick_ids is None:
-            n_bricks = conf.N_BRICKS[0] * conf.N_BRICKS[1]
-            brick_ids = 1 + np.arange(n_bricks)
-        elif np.isscalar(brick_ids):
-            brick_ids = [brick_ids,]
+        n_bricks = conf.N_BRICKS[0] * conf.N_BRICKS[1]
+        brick_ids = 1 + np.arange(n_bricks)
 
     else:
         raise RuntimeError('Arguments are overspecified! Either provide brick_id(s) or a brick directly, not both.')
@@ -261,9 +287,9 @@ def detect_sources(brick_ids=None, band='detection', imgtype='science', brick=No
         # does the brick exist? load it.
         try:
             brick = load_brick(brick_id)
-        except:
-            logger.warning(f'Could not load brick {brick_id}! Building a new brick from mosaics...')
-            brick = build_bricks(brick_id,  bands='detection')
+        except (IOError, FileNotFoundError) as e:
+            logger.warning(f'Could not load brick {brick_id} ({e}). Building a new brick from mosaics...')
+            brick = build_bricks(brick_id, bands='detection')
 
         # detection
         brick.detect_sources(band=band, imgtype=imgtype)
@@ -282,10 +308,11 @@ def generate_models(brick_ids=None, group_ids=None, bands=conf.MODEL_BANDS, imgt
 
     # Loop over bricks (or just one!)
     for brick_id in brick_ids:
-        # does the brick exist? load it.
+        # Attempt to load existing brick; if it doesn't exist, build it from scratch
         try:
             brick = load_brick(brick_id)
-        except:
+        except (IOError, FileNotFoundError):
+            logger.info(f'Brick #{brick_id} not found, building from mosaics...')
             brick = build_bricks(brick_id,  bands=bands)
 
         # check that detection exists
@@ -328,7 +355,8 @@ def photometer(brick_ids=None, group_ids=None, bands=None, imgtype='science'):
         try:
             brick = load_brick(brick_id)
             update_bricks(brick_id, bands)
-        except:
+        except (IOError, FileNotFoundError) as e:
+            logger.critical(f'Could not load brick {brick_id} ({e}). Building from scratch.')
             brick = build_bricks(brick_id)
 
         # detect sources
@@ -355,10 +383,13 @@ def photometer(brick_ids=None, group_ids=None, bands=None, imgtype='science'):
         return brick
 
 def quick_group(brick_id=1, group_id=524, brick=None):
+    """Convenience function to quickly process a single group."""
     if not ((brick is not None) & isinstance(brick, Brick)):
+        # Load existing brick or build if not found
         try:
             brick = load_brick(brick_id)
-        except:
+        except (IOError, FileNotFoundError):
+            logger.info(f'Brick #{brick_id} not found, building...')
             brick = build_bricks(brick_id)
     brick.detect_sources()
     group = brick.spawn_group(group_id)

@@ -80,9 +80,23 @@ class Brick(BaseImage):
 
 
     def get_figprefix(self, imgtype, band):
+        """Generate filename prefix for output figures.
+        
+        Args:
+            imgtype: Type of image (e.g., 'science', 'model', 'residual')
+            band: Band name
+            
+        Returns:
+            str: Filename prefix in format 'B{brick_id}_{band}_{imgtype}'
+        """
         return f'B{self.brick_id}_{band}_{imgtype}'
 
     def get_bands(self):
+        """Get list of bands available in this brick.
+        
+        Returns:
+            numpy array of band names
+        """
         return np.array(self.bands)
 
     def summary(self):
@@ -128,8 +142,8 @@ class Brick(BaseImage):
                         self.group_ids[mosaic.band] = {}
                         # self.group_pops[mosaic.band] = {}
                         self.bands.append(mosaic.band)
-                except:
-                    self.logger.warning(f'{mosaic.band} mosaic has no overlap with detection footprint! Skipping band.')
+                except (ValueError, IndexError) as e:
+                    self.logger.warning(f'{mosaic.band} mosaic has no overlap with detection footprint ({e})! Skipping band.')
                     return
 
                 self.logger.debug(f'... data \"{imgtype}\" subimage cut from {mosaic.band} at {cutout.input_position_original}')
@@ -253,7 +267,13 @@ class Brick(BaseImage):
 
 
     def identify_groups(self, band='detection', imgtype='science', radius=conf.DILATION_RADIUS, overwrite=False):
-        """Takes the catalog and segmap 
+        """Identify groups of nearby sources using morphological dilation.
+        
+        Args:
+            band: Band to process (default: 'detection')
+            imgtype: Image type to process (default: 'science')
+            radius: Dilation radius (default: from config)
+            overwrite: If True, overwrite existing columns; if False, add new columns
         """
         catalog = self.catalogs[band][imgtype]
         segmap = self.data[band]['segmap'].data
@@ -269,7 +289,7 @@ class Brick(BaseImage):
             self.catalogs[band][imgtype]['group_pop'] = group_pops
         else:
             self.catalogs[band][imgtype].add_column(group_ids, name='group_id', index=3)
-            self.catalogs[band][imgtype].add_column(group_pops, name='group_pop', index=3)
+            self.catalogs[band][imgtype].add_column(group_pops, name='group_pop', index=4)
         self.data[band]['groupmap'] = Cutout2D(groupmap, self.position, self.buffsize, self.wcs[band], mode='partial', fill_value = 0)
         self.group_ids[band][imgtype] = np.unique(group_ids)
         # self.group_pops[band][imgtype] = dict(zip(group_ids, group_pops))

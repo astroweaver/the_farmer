@@ -116,18 +116,20 @@ class BaseImage():
             if coord is not None:
                 self.logger.debug(f'{band} has only a single PSF! Coordinates ignored.')
             psf_path = psflist
+            # Convert bytes to string if needed (HDF5 compatibility)
             try:
                 psf_path = psf_path.decode('utf-8')
-            except:
-                pass
+            except (AttributeError, UnicodeDecodeError):
+                pass  # Already a string or not decodeable
             self.logger.debug(f'Found a constant PSF for {band}.')
         elif np.size(psfcoords) == 1:
             self.logger.debug(f'{band} has only a single PSF! Coordinates ignored.')
             psf_path = psflist[0]
+            # Convert bytes to string if needed (HDF5 compatibility)
             try:
                 psf_path = psf_path.decode('utf-8')
-            except:
-                pass
+            except (AttributeError, UnicodeDecodeError):
+                pass  # Already a string or not decodeable
         else:
             if coord is None:
                 if self.type != 'group':
@@ -139,25 +141,30 @@ class BaseImage():
             d2d = d2d[0]
             self.logger.debug(f'Found the nearest PSF for {band} {d2d.to(u.arcmin)} away.')
             psf_path = psflist[psf_idx]
+            # Convert bytes to string if needed (HDF5 compatibility)
             try:
                 psf_path = psf_path.decode('utf-8')
-            except:
-                pass
+            except (AttributeError, UnicodeDecodeError):
+                pass  # Already a string or not decodeable
+            # Reformat PSF filename to use zero-padded numbers (e.g., gp000123.fits)
             try:
                 num = int(psf_path.split('gp')[-1].split('.fits')[0])
                 psf_path = psf_path.replace(str(num), f'{num:06}')  
-            except:
-                pass
+            except (ValueError, IndexError):
+                pass  # Filename doesn't match expected pattern
 
-        # Try to open
+        # Load PSF model from file
         if psf_path.endswith('.psf'):
+            # Try loading as PsfEx format first
             try:
                 psfmodel = PixelizedPsfEx(fn=psf_path)
                 self.logger.debug(f'PSF model for {band} identified as PixelizedPsfEx.')
 
-            except:
+            except (ValueError, RuntimeError) as e:
+                # Fall back to generic pixelized PSF format
+                self.logger.debug(f'PsfEx loading failed ({e}), trying PixelizedPSF...')
                 img = fits.getdata(psf_path)
-                img[(img<1e-31) | np.isnan(img)] = 1e-31
+                img[(img<1e-31) | np.isnan(img)] = 1e-31  # Replace bad pixels
                 img = img.astype('float32')
                 psfmodel = PixelizedPSF(img)
                 self.logger.debug(f'PSF model for {band} identified as PixelizedPSF.')
@@ -239,13 +246,13 @@ class BaseImage():
             try:
                 wgt = self.data[band][wgttype].data
                 var = np.where(wgt>0, 1/np.sqrt(wgt), 0)
-            except:
-                raise RuntimeError(f'Weight not found!')
+            except (KeyError, AttributeError):
+                raise RuntimeError(f'Weight image "{wgttype}" not found for band {band}!')
         if conf.USE_DETECTION_MASK:
             try:
                 mask = self.data[band][masktype].data
-            except:
-                raise RuntimeError(f'Mask not found!')
+            except (KeyError, AttributeError):
+                raise RuntimeError(f'Mask image "{masktype}" not found for band {band}!')
 
         # Deal with background
         if background is None:
@@ -285,12 +292,14 @@ class BaseImage():
 
     def estimate_properties(self, band=None, imgtype='science'):
         self.logger.debug(f'Estimating properties for {band}...')
+        # Try to retrieve cached statistics, compute if not available
         try:
-            self.get_property('mean', band)
-            self.get_property('median', band)
-            self.get_property('clipped_rms', band)
+            mean = self.get_property('mean', band)
+            median = self.get_property('median', band)
+            rms = self.get_property('clipped_rms', band)
             return mean, median, rms
-        except:
+        except (KeyError, AttributeError):
+            # Properties not yet computed, calculate now
             image = self.get_image(imgtype, band)
             if self.type == 'mosaic':
                 cleanimage = image[image!=0]
@@ -311,11 +320,12 @@ class BaseImage():
             return mean, median, rms
 
     def generate_weight(self, band=None, imgtype='science', overwrite=False):
-        """Uses rms from image to estimate inverse variance weights
+        """Generate inverse variance weight map from image RMS.
         """
+        # Try to use cached RMS, compute if not available
         try:
-            rms = self.get_property(band)
-        except:
+            rms = self.get_property('clipped_rms', band)
+        except (KeyError, AttributeError):
             __, __, rms = self.estimate_properties(band, imgtype)
         image = self.get_image(imgtype, band)
         if ('weight' in self.data[band].keys()) & ~overwrite:
@@ -362,14 +372,15 @@ class BaseImage():
             weight = self.get_image(band=band, imgtype='weight').copy()
             masked = self.get_image(band=band, imgtype='mask').copy()
             if self.type == 'group':
+                # Mask pixels outside this group to prevent contamination
                 try:
                     x, y = self.get_image(band=band, imgtype='groupmap')[self.group_id]
                     filler = np.ones(masked.shape, dtype=bool)
                     filler[x, y] = False
                     masked[filler] = 1
                     del filler
-                except:
-                    self.logger.warning(f'Failed to mask group {self.group_id} in band {band}. Continuing...')
+                except (KeyError, IndexError) as e:
+                    self.logger.warning(f'Failed to mask group {self.group_id} in band {band} ({e}). Continuing...')
             weight[np.isnan(data) | (masked==1) | np.isnan(masked)] = 0
 
             # ensure that there are no nans in data or weight
@@ -377,7 +388,8 @@ class BaseImage():
             weight[np.isnan(weight) | ~np.isfinite(weight)] = 0
 
             if np.sum(weight) == 0:
-                self.logger.warning(f'All weight pixels in {band} are zero! Check your data + masks!')
+                self.logger.warning(f'All weight pixels in {band} are zero! Skipping this band.')
+                continue
 
             self.images[band] = Image(
                 data=data,
@@ -524,12 +536,13 @@ class BaseImage():
         self.logger.debug('Running engine...')
         tstart = time.time()
         for i in range(conf.MAX_STEPS):
+            # Run one optimization step
             try:
                 dlnp, X, alpha, var = self.engine.optimize(variance=True, damping=conf.DAMPING)
-            except:
-                self.logger.warning(f'Optimization failed on step {i+1}!')
+            except (RuntimeError, ValueError, np.linalg.LinAlgError) as e:
+                self.logger.warning(f'Optimization failed on step {i+1}: {e}')
                 if not conf.IGNORE_FAILURES:
-                    raise RuntimeError(f'Optimization failed on step {i+1}!')
+                    raise RuntimeError(f'Optimization failed on step {i+1}: {e}')
                 return False
 
             if conf.PLOT > 4:
@@ -620,15 +633,59 @@ class BaseImage():
 
         self.stage = 11
         self.add_tracker()
-        self.update_models(bands=bands)
+        # Only update models with bands that have actual image data
+        optimized_bands = list(self.images.keys())
+        self.update_models(bands=optimized_bands)
         self.engine = Tractor(list(self.images.values()), list(self.model_catalog.values()))
-        self.engine.bands = list(self.images.keys())
+        self.engine.bands = optimized_bands
         self.engine.freezeParam('images')
 
         status = self.optimize()
         if not status:
             return False
-        self.measure_stats(bands=bands, stage=self.stage) 
+        
+        # Add back any missing bands that were requested but had zero weight
+        missing_bands = [b for b in bands if b not in optimized_bands and b != 'detection']
+        if missing_bands:
+            self.logger.debug(f'Adding back {len(missing_bands)} zero-weight bands to models: {missing_bands}')
+            for source_id in self.model_catalog:
+                model = self.model_catalog[source_id]
+                # Get existing bands and fluxes
+                existing_bands = list(model.getBrightness().getParamNames())
+                existing_fluxes = dict(zip(existing_bands, model.getBrightness().getParams()))
+                existing_var_fluxes = dict(zip(existing_bands, model.variance.getBrightness().getParams()))
+                
+                # Add missing bands with zero flux and variance
+                for band in missing_bands:
+                    existing_fluxes[band] = 0.0
+                    existing_var_fluxes[band] = 0.0
+                
+                # Rebuild brightness in the order: optimized bands first, then missing bands
+                all_bands = optimized_bands + missing_bands
+                model.brightness = Fluxes(**{b: existing_fluxes[b] for b in all_bands}, order=all_bands)
+                model.variance.brightness = Fluxes(**{b: existing_var_fluxes[b] for b in all_bands}, order=all_bands)
+            
+            # Add placeholder statistics for missing bands so model_tracker doesn't break
+            for band in missing_bands:
+                if self.type == 'group':
+                    self.model_tracker[self.type][self.stage][band] = {
+                        'chisq': 0.0, 'rchisq': 0.0, 'rchisqmodel': np.nan,
+                        'ndata': 0, 'nparam': 0, 'ndof': 0, 'nres': 0,
+                        'chi_k2': np.nan
+                    }
+                    for pc in (5, 16, 50, 84, 95):
+                        self.model_tracker[self.type][self.stage][band][f'chi_pc{pc:02d}'] = np.nan
+                
+                for source_id in self.source_ids:
+                    self.model_tracker[source_id][self.stage][band] = {
+                        'chisq': 0.0, 'rchisq': 0.0, 'rchisqmodel': np.nan,
+                        'ndata': 0, 'nparam': 0, 'ndof': 0, 'nres': 0,
+                        'chi_k2': np.nan, 'flag': True
+                    }
+                    for pc in (5, 16, 50, 84, 95):
+                        self.model_tracker[source_id][self.stage][band][f'chi_pc{pc}'] = np.nan
+        
+        self.measure_stats(bands=optimized_bands, stage=self.stage) 
         self.store_models()
         if conf.PLOT > 2:
                 self.plot_image(band=bands, imgtype=('science', 'model', 'residual'))     
@@ -848,11 +905,12 @@ class BaseImage():
         elif np.isscalar(bands):
             bands = [bands,]
 
+        # Use current stage if not explicitly provided
         if stage is None:
             try:
                 stage = self.stage
-            except:
-                pass
+            except AttributeError:
+                pass  # No stage set yet
 
         self.build_all_images(bands=bands, reconstruct=False)
 

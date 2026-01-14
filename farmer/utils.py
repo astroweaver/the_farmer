@@ -77,11 +77,12 @@ def read_wcs(wcs, scl=1):
     t = Tan()
     t.set_crpix(wcs.wcs.crpix[0] * scl, wcs.wcs.crpix[1] * scl)
     t.set_crval(wcs.wcs.crval[0], wcs.wcs.crval[1])
+    # Try PC matrix first, fall back to CD matrix if not available
     try:
         cd = wcs.wcs.pc / scl
-    except:
+    except AttributeError:
         cd = wcs.wcs.cd / scl
-    # assume your images have no rotation...
+    # Assumes images have no rotation (off-diagonal terms are zero)
     t.set_cd(cd[0,0], cd[0,1], cd[1,0], cd[1,1])
     t.set_imagesize(wcs.array_shape[0] * scl, wcs.array_shape[1] * scl)
     wcs = ConstantFitsWcs(t)
@@ -191,6 +192,19 @@ def load_brick_position(brick_id):
 
 
 def clean_catalog(catalog, mask, segmap=None):
+    """Remove masked sources from catalog and renumber segmentation map.
+    
+    Args:
+        catalog: Source catalog (astropy Table)
+        mask: Boolean mask indicating pixels to exclude
+        segmap: Segmentation map (optional). If provided, will be updated in-place.
+        
+    Returns:
+        tuple: (cleaned_catalog, segmap) if segmap provided, else just cleaned_catalog
+        
+    Note:
+        Segmentation map is modified in-place for efficiency with large images.
+    """
     logger = logging.getLogger('farmer.clean_catalog')
     if segmap is not None:
         assert mask.shape == segmap.shape, f'Mask {mask.shape} is not the same shape as the segmentation map {segmap.shape}!'
@@ -201,16 +215,21 @@ def clean_catalog(catalog, mask, segmap=None):
     # map the pixel coordinates to the map
     x, y = np.round(catalog['x']).astype(int), np.round(catalog['y']).astype(int)
     keep = ~mask[y, x]
-    segmap[np.isin(segmap, np.argwhere(~keep)+1)] = 0
     cleancat = catalog[keep]
-
-    # relabel segmentation map
-    uniques = np.unique(segmap)
-    uniques = uniques[uniques>0]
-    ids = 1 + np.arange(len(cleancat))
-    for (id, uni) in zip(ids, uniques):
-        segmap[segmap == uni] = id
-
+    
+    # Create a mapping array for vectorized relabeling
+    # Original segment IDs are 1-indexed (1 to len(catalog))
+    # Make mapping large enough to handle max segment ID in the map
+    max_seg_id = max(len(catalog), np.max(segmap))
+    mapping = np.zeros(max_seg_id + 1, dtype=segmap.dtype)
+    
+    # Set removed segments to 0, kept segments to new sequential IDs
+    kept_indices = np.where(keep)[0]
+    new_ids = np.arange(1, len(kept_indices) + 1, dtype=segmap.dtype)
+    mapping[kept_indices + 1] = new_ids
+    
+    # Apply mapping in one vectorized operation
+    segmap[:] = mapping[segmap]
 
     pc = (np.sum(segmap==0) - zero_seg) / np.size(segmap)
     logger.info(f'Cleaned {np.sum(~keep)} sources ({pc*100:2.2f}% by area), {np.sum(keep)} remain. ({time.time()-tstart:2.2f}s)')
@@ -220,9 +239,27 @@ def clean_catalog(catalog, mask, segmap=None):
         return cleancat
 
 def dilate_and_group(catalog, segmap, radius=0, fill_holes=False):
-    logger = logging.getLogger('farmer.identify_groups')
-    """Takes the catalog and segmap and performs a dilation + grouping. ASSUMES RADIUS IN PIXELS!
+    """Dilate segmentation map and group nearby sources together.
+    
+    Uses morphological dilation to merge nearby sources into groups, then applies
+    union-find algorithm to handle sources split across multiple groups.
+    
+    Args:
+        catalog: Source catalog with x, y positions
+        segmap: Segmentation map with source IDs
+        radius: Dilation radius in pixels (default: 0, no dilation)
+        fill_holes: If True, fill holes in dilated regions (default: False)
+        
+    Returns:
+        tuple: (group_ids, group_populations, groupmap)
+            - group_ids: Array of group IDs for each source
+            - group_populations: Array of population counts for each source's group
+            - groupmap: 2D array with group IDs for each pixel
+            
+    Note:
+        Radius is assumed to be in pixels, not physical units.
     """
+    logger = logging.getLogger('farmer.identify_groups')
 
     # segmask
     segmask = np.where(segmap>0, 1, 0)
@@ -241,27 +278,61 @@ def dilate_and_group(catalog, segmap, radius=0, fill_holes=False):
     groupmap, n_groups = label(segmask)
 
     # need to check for detached mislabels
+    # Build a mapping of segment ID -> list of group IDs it appears in
     logger.debug('Checking for bad groups...')
-    for gid in np.arange(1, n_groups):
-        sids = np.unique(segmap[groupmap==gid])
-        sids = sids[sids>0]
-        for sid in sids:
-            gids = np.unique(groupmap[segmap==sid])
-            if len(gids) > 1:
-                bad_gids = gids[gids!=gid]
-                for bgid in bad_gids:
-                    groupmap[groupmap==bgid] = gid
-                    n_groups -= 1
-                    logger.debug(f'  * set bad group {bgid} to owner group {gid}')
+    
+    # Get non-zero segments
+    seg_mask = segmap > 0
+    seg_vals = segmap[seg_mask]
+    grp_vals = groupmap[seg_mask]
+    
+    # For each unique segment, find all groups it appears in
+    unique_segs = np.unique(seg_vals)
+    seg_to_groups = {}
+    for seg_id in unique_segs:
+        seg_pixels = (seg_vals == seg_id)
+        groups_for_seg = np.unique(grp_vals[seg_pixels])
+        if len(groups_for_seg) > 1:
+            seg_to_groups[seg_id] = groups_for_seg
+    
+    # Create a union-find style mapping to merge groups
+    group_mapping = np.arange(n_groups + 1)
+    
+    for seg_id, groups in seg_to_groups.items():
+        # Merge all these groups to the first (smallest) one
+        primary_group = groups[0]
+        for bad_group in groups[1:]:
+            group_mapping[bad_group] = primary_group
+            logger.debug(f'  * set bad group {bad_group} to owner group {primary_group}')
+    
+    # Apply the mapping to compress group IDs
+    # Use recursive mapping to handle transitive merges
+    for i in range(1, len(group_mapping)):
+        root = i
+        while group_mapping[root] != root:
+            root = group_mapping[root]
+        group_mapping[i] = root
+    
+    # Apply mapping to groupmap
+    groupmap = group_mapping[groupmap]
+    
+    # Renumber groups to be sequential starting from 1
+    unique_groups = np.unique(groupmap)
+    unique_groups = unique_groups[unique_groups > 0]
+    n_groups = len(unique_groups)
+    final_mapping = np.zeros(groupmap.max() + 1, dtype=groupmap.dtype)
+    final_mapping[unique_groups] = np.arange(1, n_groups + 1)
+    groupmap = final_mapping[groupmap]
 
     # report back
     logger.debug(f'Found {np.max(groupmap)} groups for {np.max(segmap)} sources.')
     segid, idx = np.unique(segmap.flatten(), return_index=True)
     group_ids = groupmap.flatten()[idx[segid>0]]
 
-    group_pops = -99 * np.ones(len(catalog), dtype=np.int16)
-    for i, group_id in enumerate(group_ids):
-        group_pops[i] =  np.sum(group_ids == group_id)  # np.unique with indices might be faster.
+    # Vectorized group population counting
+    unique_gids, gid_counts = np.unique(group_ids, return_counts=True)
+    gid_to_count = dict(zip(unique_gids, gid_counts))
+    group_pops = np.array([gid_to_count[gid] for gid in group_ids], dtype=np.int16)
     
     __, idx_first = np.unique(group_ids, return_index=True)
     ugroup_pops, ngroup_pops = np.unique(group_pops[idx_first], return_counts=True)
@@ -280,13 +351,14 @@ def dilate_and_group(catalog, segmap, radius=0, fill_holes=False):
     return group_ids, group_pops, groupmap
 
 def get_fwhm(img):
-    # super dirty!
+    # Simple FWHM estimation: find pixels above half-maximum
     dx, dy = np.nonzero(img > np.nanmax(img)/2.)
     try:
         fwhm = np.mean([dx[-1] - dx[0], dy[-1] - dy[0]])
-    except:
+    except (IndexError, ValueError):
+        # Empty array or single pixel - cannot compute FWHM
         fwhm = np.nan
-    return np.nanmin([1.0, fwhm]) #HACK
+    return np.nanmin([1.0, fwhm])  # Cap at 1.0 to prevent unrealistic values
 
 def get_resolution(img, sig=3.):
     fwhm = get_fwhm(img)
@@ -306,8 +378,12 @@ def validate_psfmodel(band, return_psftype=False):
         dec_try = ('dec', 'DEC', 'dec_deg')
 
         if np.any([ra in psfgrid.colnames for ra in ra_try]) & np.any([dec in psfgrid.colnames for dec in dec_try]):
-            ra_col = [ra for ra in ra_try if ra in psfgrid.colnames][0]
-            dec_col = [dec for dec in dec_try if dec in psfgrid.colnames][0]
+            ra_matches = [ra for ra in ra_try if ra in psfgrid.colnames]
+            dec_matches = [dec for dec in dec_try if dec in psfgrid.colnames]
+            if not ra_matches or not dec_matches:
+                raise RuntimeError(f'Could not find ra, dec columns in {psfmodel_path}!')
+            ra_col = ra_matches[0]
+            dec_col = dec_matches[0]
 
             psfgrid_ra = psfgrid[ra_col]
             psfgrid_dec = psfgrid[dec_col]
@@ -332,11 +408,13 @@ def validate_psfmodel(band, return_psftype=False):
         fname = str(psfmodel[1][0])
 
         if fname.endswith('.psf'):
+            # Try loading as PsfEx format first
             try:
                 PixelizedPsfEx(fn=fname)
                 logger.debug(f'PSF model for {band} identified as {psftype} PixelizedPsfEx.')
 
-            except:
+            except (ValueError, RuntimeError):
+                # Fall back to generic pixelized PSF format
                 img = fits.open(fname)[0].data
                 img = img.astype('float32')
                 PixelizedPSF(img)
@@ -590,11 +668,12 @@ def recursively_save_dict_contents_to_group(h5file, dic, path='/'):
         if path not in h5file.keys():
             h5file.create_group(path)
         if isinstance(item, (list, tuple)):
+            # Convert to numpy array; handle astropy Quantity objects
             try:
                 item = np.array(item)
-            except:
+            except (ValueError, TypeError):
+                # Items are Quantity objects - extract values in degrees
                 item = np.array([i.to(u.deg).value for i in item])
-            #print(item)
         # save strings, numpy.int64, and numpy.float64 types
         if isinstance(item, (np.int32, np.int64, np.float64, str, float, np.float32, int)):
             h5file[path].attrs[key]= item
@@ -625,25 +704,31 @@ def recursively_save_dict_contents_to_group(h5file, dic, path='/'):
         elif isinstance(item, np.bool_):
             h5file[path].attrs[key] = int(item)
         elif isinstance(item, np.ndarray):
-            if (key == 'bands'): # & np.isscalar(item):
+            if (key == 'bands'):
+                # Convert band names to byte strings for HDF5 compatibility
                 item = np.array(item).astype('|S99')
                 try:
                     h5file[path].create_dataset(key, data=item)
-                except:
+                except (ValueError, RuntimeError):
+                    # Dataset already exists - delete and recreate
                     item = np.array(item)
                     del h5file[path][key]
                     h5file[path].create_dataset(key, data=item)
             else:
+                # Try creating new dataset, update if exists, convert to bytes as last resort
                 try:
                     try:
                         h5file[path].create_dataset(key, data=item)
-                    except:
+                    except (ValueError, RuntimeError):
+                        # Dataset exists - update in place
                         h5file[path][key][...] = item
-                except:
+                except (TypeError, ValueError):
+                    # Type incompatible - try as byte string
                     try:
                         item = np.array(item).astype('|S99')
                         h5file[path].create_dataset(key, data=item)
-                    except:
+                    except (ValueError, RuntimeError):
+                        # Update existing dataset
                         h5file[path][key][...] = item
 
         elif isinstance(item, Table):

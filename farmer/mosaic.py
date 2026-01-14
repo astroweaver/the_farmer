@@ -89,8 +89,8 @@ class Mosaic(BaseImage):
                 self.wcs = WCS(fits.getheader(self.properties['science'], ext=ext))
                 self.pixel_scale = proj_plane_pixel_scales(self.wcs) * u.deg
                 wcs_status = good
-            except:
-                raise RuntimeError(f'The World Coordinate System for {band} cannot be understood!')
+            except Exception as e:
+                raise RuntimeError(f'The World Coordinate System for {band} cannot be understood! Error: {e}')
 
             arr_shape = self.wcs.array_shape
             self.position = self.wcs.pixel_to_world(arr_shape[0]/2., arr_shape[1]/2.)
@@ -131,12 +131,37 @@ class Mosaic(BaseImage):
                             self.estimate_background(band=band, imgtype='science')
 
     def get_bands(self):
+        """Get list of bands in this mosaic.
+        
+        Returns:
+            numpy array containing single band name
+        """
         return np.array([self.band])
 
     def get_figprefix(self, imgtype, band=None):
+        """Generate filename prefix for output figures.
+        
+        Args:
+            imgtype: Type of image
+            band: Band name (unused for mosaics, uses self.band)
+            
+        Returns:
+            str: Filename prefix
+        """
         return f'{self.band}_{imgtype}'
 
     def add_to_brick(self, brick):
+        """Add this mosaic's data to a brick.
+        
+        Cuts out the brick region from the mosaic and adds all
+        relevant data (science, weight, mask, PSF) to the brick.
+        
+        Args:
+            brick: Brick object to add data to
+            
+        Returns:
+            Brick: The modified brick object
+        """
         # Cut up science, weight, and mask, if available
         brick.add_band(self)
 
@@ -191,5 +216,5 @@ class Mosaic(BaseImage):
             self.catalogs['science']['group_pop'] = group_pops
         else:
             self.catalogs['science'].add_column(group_ids, name='group_id')
-            self.catalogs['science'].add_column(group_pops, name='group_pop', index=3)
+            self.catalogs['science'].add_column(group_pops, name='group_pop', index=4)
         self.data['groupmap'] = groupmap

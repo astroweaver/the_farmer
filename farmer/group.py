@@ -66,8 +66,8 @@ class Group(BaseImage):
             else:
                 try:
                     idx, idy = np.array(groupmap==group_id).nonzero()
-                except:
-                    raise RuntimeError(f'Cannot extract dimensions of Group #{group_id}!')
+                except Exception as e:
+                    raise RuntimeError(f'Cannot extract dimensions of Group #{group_id}! Error: {e}')
                 xlo, xhi = np.min(idx), np.max(idx)
                 ylo, yhi = np.min(idy), np.max(idy)
                 group_width = xhi - xlo
@@ -86,15 +86,33 @@ class Group(BaseImage):
 
 
     def get_figprefix(self, imgtype, band):
+        """Generate filename prefix for output figures.
+        
+        Args:
+            imgtype: Type of image
+            band: Band name
+            
+        Returns:
+            str: Filename prefix with group and brick identifiers
+        """
         if hasattr(self, 'brick_id'):
             return f'G{self.group_id}_B{self.brick_id}_{band}_{imgtype}'
         else:
             return f'G{self.group_id}_mosaic_{band}_{imgtype}'
 
     def get_bands(self):
+        """Get list of bands available in this group.
+        
+        Returns:
+            numpy array of band names
+        """
         return np.array(self.bands)
     
     def farm(self):
+        """Complete modeling workflow: determine models, fit photometry, and plot results.
+        
+        This is a convenience method that runs the full processing pipeline.
+        """
         self.determine_models()
         self.force_models()
         self.plot_summary()
@@ -124,9 +142,10 @@ class Group(BaseImage):
             bands = brick.bands
         elif np.isscalar(bands):
             bands = [bands,]
-        if bands[0] != 'detection':
+        # Remove 'detection' if present, we'll add it back at the start if needed
+        if 'detection' in bands:
             bands.remove('detection')
-        if ('detection' not in bands) & ('detection' not in self.data):
+        if 'detection' not in self.data:
             bands.insert(0, 'detection')
             
         for band in bands:
@@ -135,8 +154,8 @@ class Group(BaseImage):
             try:
                 Cutout2D(brick.data[band]['science'].data, self.position, self.buffsize, wcs=brick.data[band]['science'].wcs,
                     mode='partial', fill_value=0, copy=True)
-            except:
-                self.logger.warning(f'{band} does not overlap with group. Skipping!')
+            except (ValueError, IndexError) as e:
+                self.logger.warning(f'{band} does not overlap with group ({e}). Skipping!')
                 continue
 
             # Add band information
