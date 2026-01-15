@@ -476,6 +476,12 @@ class BaseImage():
             # initial fluxes
             qflux = np.zeros(len(bands))
             for j, band in enumerate(bands):
+                # Skip bands that weren't staged (e.g., all weight pixels are zero)
+                if band not in self.data or band not in self.images:
+                    self.logger.warning(f'Band {band} not staged for source #{source_id}. Setting flux to 0.')
+                    qflux[j] = 0
+                    continue
+                    
                 src_seg = self.data[band]['segmap'][source_id]
                 try:
                     qflux[j] = np.nansum(self.images[band].data[src_seg[0], src_seg[1]])
@@ -486,7 +492,9 @@ class BaseImage():
 
             # initial shapes
             pa = src['theta']
-            pixscl = self.pixel_scales[band][0].to(u.arcsec).value
+            # Use the first available band for pixel scale (or detection if available)
+            shape_band = 'detection' if 'detection' in self.pixel_scales else bands[0]
+            pixscl = self.pixel_scales[shape_band][0].to(u.arcsec).value
             guess_radius = np.sqrt(src['a']*src['b']) * pixscl
             shape = EllipseESoft.fromRAbPhi(guess_radius, src['b'] / src['a'], pa)
             nre = SersicIndex(2.5) # Just a guess for the seric index
@@ -648,6 +656,35 @@ class BaseImage():
         missing_bands = [b for b in bands if b not in optimized_bands and b != 'detection']
         if missing_bands:
             self.logger.debug(f'Adding back {len(missing_bands)} zero-weight bands to models: {missing_bands}')
+            
+            # First, expand self.variance to include zero variance for missing bands
+            # Get the current catalog to determine parameter structure
+            cat = self.engine.getCatalog()
+            n_models = len(cat)
+            
+            # Count parameters per model for optimized bands
+            n_params_per_model_optimized = len(cat[0].getParams()) if n_models > 0 else 0
+            
+            # Each missing band adds one parameter per model (flux)
+            n_params_per_model_missing = len(missing_bands)
+            
+            # Expand variance array with zeros for missing band parameters
+            variance_expanded = []
+            for i in range(n_models):
+                # Get variance for this model's optimized parameters
+                start_idx = i * n_params_per_model_optimized
+                end_idx = start_idx + n_params_per_model_optimized
+                model_var = self.variance[start_idx:end_idx]
+                
+                # Add zero variance for missing band fluxes
+                missing_var = [0.0] * n_params_per_model_missing
+                
+                # Combine: optimized params variance + missing params variance
+                variance_expanded.extend(list(model_var) + missing_var)
+            
+            self.variance = np.array(variance_expanded)
+            
+            # Now add missing bands to the models
             for source_id in self.model_catalog:
                 model = self.model_catalog[source_id]
                 # Get existing bands and fluxes
@@ -940,6 +977,9 @@ class BaseImage():
                     chi_pc = np.nan * np.ones(5)
                 area = 0
                 for source_id in self.catalogs[self.catalog_band][self.catalog_imgtype]['id']:
+                    if source_id not in segmap:
+                        self.logger.warning(f'Source {source_id} missing segmap for band {band}. Skipping.')
+                        continue
                     data = self.images[band].data.copy()
                     segmask = np.zeros(shape=data.shape, dtype=bool)
                     segmask[segmap[source_id][0], segmap[source_id][1]] = True
@@ -992,7 +1032,9 @@ class BaseImage():
             except:
                 nparam = 0
             ndof = np.max([len(bands), ntotal_pix - nparam])
-            chi2 = np.sum(np.array([self.model_tracker[self.type][stage][band]['chisq'] for band in bands]))
+            # Only include bands that were staged and have model_tracker entries
+            tracked_bands = [band for band in bands if band in self.model_tracker[self.type][stage]]
+            chi2 = np.sum(np.array([self.model_tracker[self.type][stage][band]['chisq'] for band in tracked_bands]))
             self.model_tracker[self.type][stage]['total'] = {}
             self.model_tracker[self.type][stage]['total']['chisq'] = chi2
             tot_rchi2_model = np.sum(rchi2_model_top) / np.sum(rchi2_model_bot)
@@ -1042,6 +1084,9 @@ class BaseImage():
                     continue
                     
                 segmap = self.get_image('segmap', band)
+                if source_id not in segmap:
+                    self.logger.warning(f'Source {source_id} missing segmap for band {band}. Skipping.')
+                    continue
                 chi = self.get_image('chi', band=band)[segmap[source_id][0], segmap[source_id][1]].flatten()
                 totchi += list(chi)
                 chi2, chi_pc = np.nansum(chi**2), np.nanpercentile(chi, q=q_pc)
@@ -1105,7 +1150,9 @@ class BaseImage():
             except:
                 nparam = 0
             ndof = np.max([len(bands), ntotal_pix - nparam]).astype(np.int32)
-            chi2 = np.sum(np.array([self.model_tracker[source_id][stage][band]['chisq'] for band in bands]))
+            # Only include bands that were staged and have model_tracker entries
+            tracked_bands = [band for band in bands if band in self.model_tracker[source_id][stage]]
+            chi2 = np.sum(np.array([self.model_tracker[source_id][stage][band]['chisq'] for band in tracked_bands]))
             self.model_tracker[source_id][stage]['total'] = {}
             self.model_tracker[source_id][stage]['total']['rchisq'] = chi2 / ndof
             tot_rchi2_model = np.sum(rchi2_model_top) / np.sum(rchi2_model_bot)
@@ -1141,6 +1188,10 @@ class BaseImage():
 
         # check all bands have group and segmaps
         for band in bands:
+            # Skip bands that weren't loaded (e.g., all weight pixels are zero)
+            if band not in self.data:
+                self.logger.warning(f'Band {band} not in data. Skipping transfer_maps.')
+                continue
             if 'segmap' not in self.data[band]:
                 self.transfer_maps(band)
 
@@ -1340,6 +1391,11 @@ class BaseImage():
         pdf = matplotlib.backends.backend_pdf.PdfPages(outname)
 
         for band in bands:
+            # Skip bands that weren't loaded (e.g., all weight pixels are zero)
+            if (self.type != 'mosaic') and (band not in self.data):
+                self.logger.warning(f'Band {band} not in data. Skipping plot_image.')
+                continue
+                
             if in_imgtype is None:
                 if self.type == 'mosaic':
                     imgtypes = self.data.keys()
@@ -1703,6 +1759,9 @@ class BaseImage():
                 else:
                     ira, idec = catalog['ra'][catalog['id'] == source_id], catalog['dec'][catalog['id'] == source_id]
                     position = SkyCoord(ira, idec)
+                    if source_id not in segmap:
+                        self.logger.warning(f'Source {source_id} missing segmap for band {band}. Skipping plot segment.')
+                        continue
                     idy, idx = segmap[source_id]
                     xlo, xhi = np.min(idx), np.max(idx)
                     ylo, yhi = np.min(idy), np.max(idy)
@@ -2073,6 +2132,10 @@ class BaseImage():
         # loop over bands
         for band in bands:
             if band == catalog_band:
+                continue
+            # Skip bands that weren't loaded (e.g., all weight pixels are zero)
+            if band not in self.data:
+                self.logger.warning(f'Band {band} not in data. Skipping transfer_maps.')
                 continue
             if ('segmap' in self.data[band]) & ('groupmap' in self.data[band]) & (not overwrite):
                 self.logger.debug(f'Segmap and groupmap for {band} already exists! Skipping.')

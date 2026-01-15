@@ -1195,7 +1195,7 @@ def run_group(group, mode='all'):
 
     # else:
     #     self.logger.warning(f'Group {group.group_id} has been rejected!')
-    output = group.group_id.copy(), group.model_catalog.copy(), group.model_tracker.copy()
+    output = group.group_id, group.model_catalog.copy(), group.model_tracker.copy()
     del group
     return output
 
