@@ -926,6 +926,11 @@ class BaseImage():
             rchi2_model_top = []
             rchi2_model_bot = []
             for band in bands:
+                # Skip bands that were not staged (e.g., all weight pixels are zero)
+                if band not in self.images:
+                    self.logger.warning(f'Band {band} not in staged images. Skipping.')
+                    continue
+                    
                 groupmap = self.get_image('groupmap', band)[self.group_id]
                 segmap = self.get_image('segmap', band)
                 chi = self.get_image('chi', band=band)[groupmap[0], groupmap[1]].flatten()
@@ -1031,6 +1036,11 @@ class BaseImage():
             rchi2_model_top = []
             rchi2_model_bot = []
             for band in bands:
+                # Skip bands that were not staged (e.g., all weight pixels are zero)
+                if band not in self.images:
+                    self.logger.warning(f'Band {band} not in staged images. Skipping.')
+                    continue
+                    
                 segmap = self.get_image('segmap', band)
                 chi = self.get_image('chi', band=band)[segmap[source_id][0], segmap[source_id][1]].flatten()
                 totchi += list(chi)
@@ -1202,6 +1212,11 @@ class BaseImage():
             self.logger.debug(f'Only including the {len(use_sources)} ({100*len(use_sources)/len(self.model_catalog):2.1f}%) valid models with photometry in all requested bands')
 
         for band in bands:
+            # Skip bands that were not staged (e.g., all weight pixels are zero)
+            if band not in self.images:
+                self.logger.warning(f'Band {band} not in staged images. Skipping.')
+                continue
+                
             if (self.data[band]['psfcoords'] == 'none'):
                 model = Tractor([self.images[band],], Catalog(*use_sources)).getModelImage(0)
             else: # Uses a different PSF for each group
@@ -1246,6 +1261,11 @@ class BaseImage():
         residuals = {}
 
         for band in bands:
+            # Skip bands that were not staged (e.g., all weight pixels are zero)
+            if band not in self.images:
+                self.logger.warning(f'Band {band} not in staged images. Skipping.')
+                continue
+                
             if source_id is not None:
                 model = self.build_model_image(band, source_id, overwrite, reconstruct=False)
                 residual = self.get_image(imgtype, band) - model
@@ -1272,6 +1292,11 @@ class BaseImage():
         chis = {}
 
         for band in bands:
+            # Skip bands that were not staged (e.g., all weight pixels are zero)
+            if band not in self.images:
+                self.logger.warning(f'Band {band} not in staged images. Skipping.')
+                continue
+                
             if source_id is not None:
                 residual = self.build_residual_image(band, source_id, imgtype, overwrite)
                 chi = residual * np.sqrt(self.get_image('weight', band))
