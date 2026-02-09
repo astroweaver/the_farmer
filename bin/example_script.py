@@ -1,8 +1,8 @@
-import farmer
-farmer.validate()
+import farmer_local
+farmer_local.validate()
 
 # get one brick + run it
-brick = farmer.build_bricks(1)
+brick = farmer_local.build_bricks(1)
 
 # detect sources
 brick.detect_sources()

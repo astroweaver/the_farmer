@@ -160,16 +160,16 @@ def build_bricks(brick_ids=None, include_detection=True, bands=None, write=True)
             logger.info('Spawning or updating bricks...')
             for brick_id in arr:
                 if brick_id in skiplist:
-                    logger.warning(f'Brick {brick_id} has been skipped due to no detection information! Skipping...')
+                    logger.debug(f'Brick {brick_id} has been skipped due to no detection information! Skipping...')
                     continue
                 if band == 'detection':
                     brick = mosaic.spawn_brick(brick_id, silent=(conf.CONSOLE_LOGGING_LEVEL != 'DEBUG'))
                     if 'detection' not in brick.data:
-                        logger.warning(f'Brick {brick_id} has no detection information! Skipping...')
+                        logger.debug(f'Brick {brick_id} has no detection information! Skipping...')
                         skiplist.append(brick_id)
                         continue
                     if np.nansum(brick.data['detection']['science'].data>0) == 0:
-                        logger.warning(f'Brick {brick_id} has no detection information! Skipping...')
+                        logger.debug(f'Brick {brick_id} has no detection information! Skipping...')
                         skiplist.append(brick_id)
                         continue
                 else:
@@ -245,7 +245,109 @@ def update_bricks(brick_ids=None, bands=None):
                     brick.plot_image(show_catalog=False, show_groups=False)
             del mosaic
 
-def detect_sources(brick_ids=None, band='detection', imgtype='science', brick=None, write=False):
+def detect_sources_lite(brick_ids=None, band='detection', imgtype='science', 
+                       write_catalog=True, cleanup=True):
+    """Hit-and-run source detection with minimal memory footprint.
+    
+    Extract source catalogs from bricks without keeping large image arrays
+    or model tracking data in memory. Ideal for batch processing many bricks
+    when you only need the catalogs.
+    
+    Args:
+        brick_ids: Brick ID(s) to process. If None, process all bricks.
+        band: Detection band (default: 'detection')
+        imgtype: Image type to process (default: 'science')
+        write_catalog: If True, write catalog to disk immediately
+        cleanup: If True, aggressively clean up temporary data after detection
+        
+    Returns:
+        For single brick: returns the brick object
+        For multiple: returns list of successful brick IDs
+        
+    Example:
+        # Process all bricks, write catalogs only
+        detect_sources_lite(write_catalog=True)
+        
+        # Process specific bricks
+        detect_sources_lite(brick_ids=[1, 2, 3])
+    """
+    from .utils import log_memory_usage
+    
+    logger.info(f'Running detect_sources_lite (cleanup={cleanup})')
+    
+    if brick_ids is None:
+        n_bricks = conf.N_BRICKS[0] * conf.N_BRICKS[1]
+        brick_ids = 1 + np.arange(n_bricks)
+    elif np.isscalar(brick_ids):
+        brick_ids = [brick_ids,]
+    
+    successful_bricks = []
+    last_brick = None
+    
+    for brick_id in tqdm(brick_ids, desc='Detecting sources (lite mode)'):
+        try:
+            # Load brick
+            try:
+                brick = load_brick(brick_id, silent=True)
+            except (IOError, FileNotFoundError) as e:
+                logger.debug(f'Building brick #{brick_id} from mosaics...')
+                brick = build_bricks(brick_id, bands='detection')
+            
+            # Log initial memory
+            log_memory_usage(logger, f'Brick {brick_id} start', verbose=False)
+            
+            # Detection
+            brick.detect_sources(band=band, imgtype=imgtype)
+            brick.transfer_maps()
+            
+            # Write catalog immediately
+            if write_catalog:
+                brick.write_catalog(allow_update=True)
+                logger.debug(f'Wrote catalog for brick {brick_id}')
+            
+            # Aggressive cleanup
+            if cleanup:
+                brick.cleanup_after_detection(keep_segmap=False, keep_groupmap=False)
+                brick.cleanup_headers(keep_wcs_only=True)
+                
+                # Delete image data if not needed for anything else
+                for band_name in brick.data:
+                    brick.data[band_name] = {}
+                
+                logger.debug(f'Memory cleanup for brick {brick_id}')
+            
+            log_memory_usage(logger, f'Brick {brick_id} end', verbose=False)
+            successful_bricks.append(brick_id)
+            last_brick = brick
+            
+            del brick
+            
+        except Exception as e:
+            logger.error(f'Error processing brick {brick_id}: {e}')
+    
+    if len(successful_bricks) == 1 and len(brick_ids) == 1:
+        return last_brick
+    else:
+        return successful_bricks
+
+def detect_sources(brick_ids=None, band='detection', imgtype='science', brick=None, 
+                   write=False, lite_mode=False, cleanup=False):
+    """Detect sources in one or more bricks.
+    
+    Args:
+        brick_ids: Brick ID(s) to process
+        band: Detection band (default: 'detection')
+        imgtype: Image type (default: 'science')
+        brick: Single brick object to process directly
+        write: If True, write brick to disk after detection
+        lite_mode: If True, use minimal memory mode (experimental)
+        cleanup: If True, clean up temporary data after detection
+    """
+
+    if lite_mode:
+        logger.info('Using lite_mode for detect_sources')
+        return detect_sources_lite(brick_ids=brick_ids, band=band, imgtype=imgtype,
+                                   write_catalog=write, cleanup=True)
 
     if brick_ids is None and brick is not None:
         # run the brick given directly
@@ -255,6 +357,9 @@ def detect_sources(brick_ids=None, band='detection', imgtype='science', brick=No
 
         if write:
             brick.write(allow_update=True)
+
+        if cleanup:
+            brick.cleanup_after_detection()
 
         return brick
 
@@ -267,6 +372,9 @@ def detect_sources(brick_ids=None, band='detection', imgtype='science', brick=No
 
             if write:
                 brick.write(allow_update=True)
+
+            if cleanup:
+                brick.cleanup_after_detection()
 
             return brick
         else:
@@ -297,6 +405,8 @@ def detect_sources(brick_ids=None, band='detection', imgtype='science', brick=No
         if write:
             brick.write(allow_update=True)
 
+        if cleanup:
+            brick.cleanup_after_detection()
 
 def generate_models(brick_ids=None, group_ids=None, bands=conf.MODEL_BANDS, imgtype='science'):
     # get bricks with 'brick_ids' for 'bands'

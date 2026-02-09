@@ -552,6 +552,11 @@ def map_discontinuous(input, out_wcs, out_shape, thresh=0.1, force_simple=False)
             seg_indices = np.where(inverse == idx)
             outdict[seg] = (y[seg_indices], x[seg_indices])
 
+    elif conf.NCPUS == 0:
+        logger.info('Mapping to different resolution using single-core reprojection')
+        outdict = map_ids_to_coarse_pixels(array, out_wcs, in_wcs)
+        # print(outdict[1247])
+
     else: # avoids cannibalizing small objects when going to lower resolution
         logger.info(f'Mapping to different resolution using full reprojection (NCPU = {conf.NCPUS})')
         outdict = parallel_process(array, out_wcs, in_wcs, n_processes=conf.NCPUS)
@@ -1172,7 +1177,50 @@ def prepare_psf(filename, outfilename=None, pixel_scale=None, mask_radius=None, 
 
     return psfmodel
 
+def spawn_and_run_group(brick, group_id, imgtype='science', bands=None, mode='all'):
+    """Spawn a group from brick and process it, returning only essential results.
+    
+    This function is designed for parallel processing to avoid holding all groups in memory.
+    It spawns the group, processes it, extracts results, and deletes the group object.
+    """
+    import time
+    tstart = time.time()
+    
+    # Spawn the group
+    group = brick.spawn_group(group_id, imgtype=imgtype, bands=bands, silent=True)
+    
+    if not group.rejected:
+        if mode == 'all':
+            status = group.determine_models()
+            if status:
+                status = group.force_models()
+        elif mode == 'model':
+            status = group.determine_models()
+        elif mode == 'photometry':
+            status = group.force_models()
+        elif mode == 'pass':
+            status = False
+    
+    # Record group processing time in model_tracker for all sources
+    elapsed = time.time() - tstart
+    for source_id in group.source_ids:
+        if source_id in group.model_tracker:
+            if len(group.model_tracker[source_id]) > 0:
+                final_stage = max(group.model_tracker[source_id].keys())
+                if final_stage not in group.model_tracker[source_id]:
+                    group.model_tracker[source_id][final_stage] = {}
+                group.model_tracker[source_id][final_stage]['group_time'] = elapsed
+    
+    # Extract only what's needed and delete the group
+    output = group.group_id, group.model_catalog.copy(), group.model_tracker.copy()
+    del group
+    return output
+
+
 def run_group(group, mode='all'):
+    """Process an already-spawned group object (for serial processing)."""
+    import time
+    tstart = time.time()
 
     if not group.rejected:
     
@@ -1195,9 +1243,23 @@ def run_group(group, mode='all'):
 
     # else:
     #     self.logger.warning(f'Group {group.group_id} has been rejected!')
+    
+    # Record group processing time in model_tracker for all sources
+    elapsed = time.time() - tstart
+    for source_id in group.source_ids:
+        if source_id in group.model_tracker:
+            # Find the final stage that was run for this source
+            if len(group.model_tracker[source_id]) > 0:
+                final_stage = max(group.model_tracker[source_id].keys())
+                if final_stage not in group.model_tracker[source_id]:
+                    group.model_tracker[source_id][final_stage] = {}
+                group.model_tracker[source_id][final_stage]['group_time'] = elapsed
+    
+    # Log completion
+    group.logger.info(f'Group #{group.group_id} processing completed ({elapsed:.2f}s)')
+    
     output = group.group_id, group.model_catalog.copy(), group.model_tracker.copy()
     del group
     return output
 
     # return group
-

@@ -5,7 +5,7 @@ from .utils import load_brick_position, dilate_and_group, clean_catalog, build_r
 from .group import Group
 
 import logging
-import os, time
+import os, time, gc
 from functools import partial
 from astropy.nddata import Cutout2D
 import astropy.units as u
@@ -121,7 +121,8 @@ class Brick(BaseImage):
     def add_band(self, mosaic, overwrite=False):
 
         if (~overwrite) & (mosaic.band in self.bands):
-            raise RuntimeError(f'{mosaic.band} already exists in brick #{self.brick_id}!')
+            self.logger.warning(f'{mosaic.band} already exists in brick #{self.brick_id}!')
+            return
 
         # Loop over provided data
         for imgtype in mosaic.data.keys():
@@ -143,7 +144,7 @@ class Brick(BaseImage):
                         # self.group_pops[mosaic.band] = {}
                         self.bands.append(mosaic.band)
                 except (ValueError, IndexError) as e:
-                    self.logger.warning(f'{mosaic.band} mosaic has no overlap with detection footprint ({e})! Skipping band.')
+                    self.logger.debug(f'{mosaic.band} mosaic has no overlap with detection footprint ({e})! Skipping band.')
                     return
 
                 self.logger.debug(f'... data \"{imgtype}\" subimage cut from {mosaic.band} at {cutout.input_position_original}')
@@ -296,9 +297,10 @@ class Brick(BaseImage):
         self.headers[band]['groupmap'] = self.headers[band]['science']
 
     def spawn_group(self, group_id=None, imgtype='science', bands=None, silent=False):
-        # Instantiate brick
+        # Instantiate group
         if not silent:
-            self.logger.info(f'Spawning Group #{group_id} from Brick #{self.brick_id}...')
+            n_sources = np.sum(self.catalogs['detection'][imgtype]['group_id'] == group_id)
+            self.logger.info(f'Spawning Group #{group_id} with {n_sources} sources...')
         group = Group(group_id, self, imgtype=imgtype, silent=silent)
         if group.rejected:
             self.logger.warning(f'Group #{group_id} cannot be created!')
@@ -306,15 +308,37 @@ class Brick(BaseImage):
 
         # Cut up science, weight, and mask, if available
         group.add_bands(self, bands=bands)
-        
+
         nsrcs = group.n_sources[group.catalog_band][imgtype]
         source_ids = np.array(group.get_catalog()['id'])
         group.source_ids = source_ids
+        
+        # Validate segmap - skip group if coordinates are out of bounds
+        for band_name in group.bands:
+            if band_name not in group.data or 'segmap' not in group.data[band_name]:
+                continue
+            segmap_dict = group.data[band_name]['segmap']
+            if isinstance(segmap_dict, dict) and 'science' in group.data[band_name]:
+                # Get image shape to check bounds
+                img_shape = group.data[band_name]['science'].data.shape
+                
+                # Check each source's coordinates are within bounds
+                for source_id, (seg_y, seg_x) in segmap_dict.items():
+                    out_of_bounds = (seg_y < 0) | (seg_y >= img_shape[0]) | (seg_x < 0) | (seg_x >= img_shape[1])
+                    if np.any(out_of_bounds):
+                        if not silent:
+                            self.logger.warning(
+                                f'Group #{group_id} has source {source_id} with {np.sum(out_of_bounds)}/{len(seg_y)} '
+                                f'pixels out of bounds in {band_name} ({img_shape}). Edge case from dilation. Skipping group.'
+                            )
+                        group.rejected = True
+                        return group
+        
         if not silent:
             self.logger.debug(f'Group #{group_id} has {nsrcs} sources: {source_ids}')
         if nsrcs > conf.GROUP_SIZE_LIMIT:
             if not silent:
-                self.logger.warning(f'Group #{group_id} has {nsrcs} sources, but the limit is set to {conf.GROUP_SIZE_LIMIT}! Skipping...')
+                self.logger.debug(f'Group #{group_id} has {nsrcs} sources, but the limit is set to {conf.GROUP_SIZE_LIMIT}! Skipping...')
             group.rejected = True
             return group
         
@@ -371,49 +395,31 @@ class Brick(BaseImage):
         if mode == 'pass':
             bands = ['detection',]
 
-        groups = (self.spawn_group(group_id, bands=bands, silent=(conf.NCPUS > 0)) for group_id in group_ids)
-
-        # loop or parallel groups
+        # Serial processing: use generator to spawn groups one at a time
         if (conf.NCPUS == 0) | (len(group_ids) == 1):
-            for group in groups:
-
+            for group_id in group_ids:
+                group = self.spawn_group(group_id, bands=bands, silent=False)
                 group = run_group(group, mode=mode)
-
-                # cleanup and hand back to brick
                 self.absorb(group)
         else:
+            # Parallel processing: use generator with imap to spawn groups in small chunks
+            # This avoids both: (1) materializing all groups at once, and (2) copying brick to workers
+            groups_gen = (self.spawn_group(group_id, bands=bands, silent=True) for group_id in group_ids)
             with ProcessPool(ncpus=conf.NCPUS) as pool:
                 pool.restart()
                 import tqdm
-                result = list(tqdm.tqdm(pool.imap(partial(run_group, mode=mode), groups), total=len(group_ids)))
-                # result = list(pool.imap(partial(run_group, mode=mode), groups))
-                [self.absorb(group) for group in result]
-                # self.logger.setLevel(level)
+                # imap consumes generator lazily in chunks - only spawns ~ncpus groups at a time
+                # Collect results to avoid OrderedDict mutation during iteration
+                results = list(tqdm.tqdm(pool.imap(partial(run_group, mode=mode), groups_gen, chunksize=1), total=len(group_ids)))
+            
+            # Absorb results after pool is closed to avoid concurrent modification
+            self.logger.info('Absorbing results from parallel processing...')
+            ttstart = time.time()
+            for result in results:
+                self.absorb(result)
+            self.logger.info(f'All results absorbed. ({time.time() - ttstart:2.2f}s)')
 
         self.logger.info(f'Brick {self.brick_id} has processed {len(group_ids)} groups ({time.time() - tstart:2.2f}s)')
-
-    # def run_group(self, group, mode='all'):
-
-    #     if not group.rejected:
-        
-    #         if mode == 'all':
-    #             status = group.determine_models()
-    #             if status:
-    #                 group.force_models()
-        
-    #         elif mode == 'model':
-    #             group.determine_models()
-
-    #         elif mode == 'photometry':
-    #             group.force_models()
-
-    #         elif mode == 'pass':
-    #             pass
-
-    #     else:
-    #         self.logger.warning(f'Group {group.group_id} has been rejected!')
-
-    #     return group
 
 
     def absorb(self, group): # eventually allow mosaic to do this too! absorb bricks + make a huge model catalog!

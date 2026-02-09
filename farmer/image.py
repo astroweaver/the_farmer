@@ -11,6 +11,7 @@ import time
 import h5py
 import copy
 import sys
+import gc
 
 from collections import OrderedDict
 import matplotlib
@@ -22,6 +23,7 @@ from astropy.io import fits
 from astropy.table import Table, Column
 import astropy.units as u
 from astropy.coordinates import SkyCoord
+from astropy.wcs import WCS
 from matplotlib.patches import Rectangle, Circle, Ellipse
 from tractor import RaDecPos
 from tqdm import tqdm
@@ -35,6 +37,7 @@ from tractor.sercore import SersicCoreGalaxy
 from tractor.galaxy import ExpGalaxy, DevGalaxy, FixedCompositeGalaxy, SoftenedFracDev
 from tractor.pointsource import PointSource
 from tractor.constrained_optimizer import ConstrainedOptimizer
+# from tractor.ceres_optimizer import CeresOptimizer
 
 
 class BaseImage():
@@ -87,6 +90,108 @@ class BaseImage():
         self.stage = None
         self.model_tracker = OrderedDict()
         self.model_catalog = OrderedDict()
+
+    def cleanup_after_detection(self, keep_segmap=True, keep_groupmap=False):
+        """Remove non-essential data after source detection to save memory.
+        
+        Deletes temporary arrays like background estimates and RMS that are
+        not needed after detection completes. Useful for low-memory workflows.
+        
+        Args:
+            keep_segmap: If True, keep segmentation map (needed for groups)
+            keep_groupmap: If True, keep group map (rarely needed)
+        """
+        if not hasattr(self, 'data'):
+            return
+        
+        self.logger.debug('Cleaning up post-detection data...')
+        
+        # Remove temporary background/RMS data
+        temp_keys = ['background', 'rms', 'back', 'rmsimg', 'backimg']
+        for band in self.data:
+            for key in temp_keys:
+                if key in self.data[band]:
+                    del self.data[band][key]
+                    self.logger.debug(f'  Deleted {band}/{key}')
+        
+        # Optionally remove segmentation maps
+        if not keep_segmap:
+            for band in self.data:
+                if 'segmap' in self.data[band]:
+                    del self.data[band]['segmap']
+                    self.logger.debug(f'  Deleted {band}/segmap')
+        
+        if not keep_groupmap:
+            for band in self.data:
+                if 'groupmap' in self.data[band]:
+                    del self.data[band]['groupmap']
+                    self.logger.debug(f'  Deleted {band}/groupmap')
+        
+        self.logger.debug('Cleanup complete.')
+
+    def cleanup_after_modeling(self, keep_models=True, clear_tracker=True):
+        """Remove non-essential data after modeling to save memory.
+        
+        Clears model tracking information and computed residuals/chi images
+        if they won't be written to disk. Keeps the final model catalog.
+        
+        Args:
+            keep_models: If True, keep model_catalog (needed for writing)
+            clear_tracker: If True, delete detailed model_tracker (analysis only)
+        """
+        if not hasattr(self, 'model_tracker'):
+            return
+        
+        self.logger.debug('Cleaning up post-modeling data...')
+        
+        # Clear model tracker (detailed convergence history)
+        if clear_tracker:
+            self.model_tracker = OrderedDict()
+            self.logger.debug('  Deleted model_tracker')
+        
+        # Remove computed residuals/chi images (only needed if writing)
+        for band in self.data:
+            for key in ['residual', 'chi']:
+                if key in self.data[band]:
+                    del self.data[band][key]
+                    self.logger.debug(f'  Deleted {band}/{key}')
+        
+        self.logger.debug('Cleanup complete.')
+
+    def cleanup_headers(self, keep_wcs_only=True):
+        """Remove FITS headers from memory to save space.
+        
+        Headers are only needed for WCS information during image operations.
+        This method keeps WCS information while removing bulky header objects.
+        
+        Args:
+            keep_wcs_only: If True, keep only WCS not full headers
+        """
+        if not hasattr(self, 'headers'):
+            return
+        
+        self.logger.debug('Cleaning up FITS headers...')
+        
+        if keep_wcs_only:
+            # Extract WCS if not already stored
+            if not hasattr(self, 'wcs'):
+                self.wcs = {}
+                
+            for band in self.headers:
+                for imgtype in self.headers[band]:
+                    if band not in self.wcs:
+                        try:
+                            self.wcs[band] = WCS(self.headers[band][imgtype])
+                            self.logger.debug(f'  Extracted WCS from {band}/{imgtype}')
+                        except:
+                            pass
+            
+            # Clear headers
+            self.headers = {}
+            self.logger.debug('  Deleted all headers (WCS preserved)')
+        else:
+            self.headers = {}
+    
    
     def get_image(self, imgtype=None, band=None):
 
@@ -380,7 +485,7 @@ class BaseImage():
                     masked[filler] = 1
                     del filler
                 except (KeyError, IndexError) as e:
-                    self.logger.warning(f'Failed to mask group {self.group_id} in band {band} ({e}). Continuing...')
+                    self.logger.debug(f'Failed to mask group {self.group_id} in band {band} ({e}). Continuing...')
             weight[np.isnan(data) | (masked==1) | np.isnan(masked)] = 0
 
             # ensure that there are no nans in data or weight
@@ -388,7 +493,7 @@ class BaseImage():
             weight[np.isnan(weight) | ~np.isfinite(weight)] = 0
 
             if np.sum(weight) == 0:
-                self.logger.warning(f'All weight pixels in {band} are zero! Skipping this band.')
+                self.logger.debug(f'All weight pixels in {band} are zero! Skipping this band.')
                 continue
 
             self.images[band] = Image(
@@ -467,38 +572,46 @@ class BaseImage():
 
             source_id = src['id']
             if source_id not in self.model_catalog:
-                self.logger.warning(f'Source #{source_id} is not in the model catalog! Skipping...')
+                self.logger.debug(f'Source #{source_id} is not in the model catalog! Skipping...')
                 continue
                 
             # inital position
             position = RaDecPos(src['ra'], src['dec'])
 
             # initial fluxes
-            qflux = np.zeros(len(bands))
-            for j, band in enumerate(bands):
-                # Skip bands that weren't staged (e.g., all weight pixels are zero)
-                if band not in self.data or band not in self.images:
-                    self.logger.warning(f'Band {band} not staged for source #{source_id}. Setting flux to 0.')
-                    qflux[j] = 0
-                    continue
-                    
+            # Only use bands that were actually staged (e.g., skip bands with all zero weight pixels)
+            staged_bands = [band for band in bands if band in self.images]
+            
+            # If no bands were staged, skip this source
+            if len(staged_bands) == 0:
+                self.logger.debug(f'No bands staged for source #{source_id}. Skipping model creation.')
+                continue
+            qflux = np.zeros(len(staged_bands))
+            for j, band in enumerate(staged_bands):
                 src_seg = self.data[band]['segmap'][source_id]
                 try:
                     qflux[j] = np.nansum(self.images[band].data[src_seg[0], src_seg[1]])
                 except Exception as e:
-                    self.logger.warning(f'Failed to sum flux for source #{source_id} in band {band}: {e}')
+                    self.logger.debug(f'Failed to sum flux for source #{source_id} in band {band}: {e}')
                     qflux[j] = 0
-            flux = Fluxes(**dict(zip(bands, qflux)), order=bands)
+            flux = Fluxes(**dict(zip(staged_bands, qflux)), order=staged_bands)
 
-            # initial shapes
-            pa = src['theta']
+            # initial shapes pa = 90. * u.deg + np.rad2deg(shape.theta) * u.deg
+            pa = 90 - np.rad2deg(src['theta'])
+            self.logger.debug(f'Source #{source_id}: qflux[0]={qflux[0]}, axis_ratio={src["b"]/src["a"]}, pa={pa}, theta={src["theta"]}')
             # Use the first available band for pixel scale (or detection if available)
-            shape_band = 'detection' if 'detection' in self.pixel_scales else bands[0]
+            if 'detection' in self.pixel_scales:
+                shape_band = 'detection'
+            elif len(staged_bands) > 0:
+                shape_band = staged_bands[0]
+            else:
+                self.logger.debug(f'No bands available for shape calculation for source #{source_id}.')
+                continue
             pixscl = self.pixel_scales[shape_band][0].to(u.arcsec).value
             guess_radius = np.sqrt(src['a']*src['b']) * pixscl
             shape = EllipseESoft.fromRAbPhi(guess_radius, src['b'] / src['a'], pa)
-            nre = SersicIndex(2.5) # Just a guess for the seric index
-            fluxcore = Fluxes(**dict(zip(bands, np.zeros(len(bands)))), order=bands) # Just a simple init condition
+            nre = SersicIndex(1) # Just a guess for the seric index
+            fluxcore = Fluxes(**dict(zip(staged_bands, np.zeros(len(staged_bands)))), order=staged_bands) # Just a simple init condition
 
             # set shape bounds for sanity
             shape.lowers = [-5, -np.inf, -np.inf]
@@ -536,9 +649,9 @@ class BaseImage():
             model.statistics = {}
             self.model_catalog[source_id] = model
 
-
     def optimize(self):
         self.engine.optimizer = ConstrainedOptimizer()
+        # self.engine.optimizer = CeresOptimizer()
 
         # cat = self.engine.getCatalog()
         self.logger.debug('Running engine...')
@@ -547,8 +660,8 @@ class BaseImage():
             # Run one optimization step
             try:
                 dlnp, X, alpha, var = self.engine.optimize(variance=True, damping=conf.DAMPING)
-            except (RuntimeError, ValueError, np.linalg.LinAlgError) as e:
-                self.logger.warning(f'Optimization failed on step {i+1}: {e}')
+            except (RuntimeError, ValueError, np.linalg.LinAlgError, IndexError) as e:
+                self.logger.debug(f'Optimization failed on step {i+1}: {e}')
                 if not conf.IGNORE_FAILURES:
                     raise RuntimeError(f'Optimization failed on step {i+1}: {e}')
                 return False
@@ -614,6 +727,12 @@ class BaseImage():
     def stage_engine(self, bands=conf.MODEL_BANDS):
         self.add_tracker()
         self.stage_images(bands=bands)
+        
+        # Check if any images were successfully staged
+        if len(self.images) == 0:
+            self.logger.error('No images were successfully staged. All bands may have zero weight pixels.')
+            return False
+            
         self.stage_models(bands=bands)
         self.engine = Tractor(list(self.images.values()), list(self.model_catalog.values()))
         self.engine.bands = list(self.images.keys())
@@ -634,6 +753,12 @@ class BaseImage():
 
         self.add_tracker(init_stage=10)
         self.stage_images(bands=bands)
+        
+        # Check if any images were successfully staged
+        if len(self.images) == 0:
+            self.logger.error('No images were successfully staged. All bands may have zero weight pixels.')
+            return False
+            
         self.stage_models(bands=bands)
         self.measure_stats(bands=bands, stage=self.stage)
         if conf.PLOT > 2:
@@ -729,13 +854,12 @@ class BaseImage():
         if conf.PLOT > 0:
                 self.plot_summary(bands=bands, source_id='group', tag='PHOT')
 
-        self.logger.debug(f'Photometry completed ({time.time()-tstart:2.2f}s)')
+        self.logger.info(f'Photometry completed ({time.time()-tstart:2.2f}s)')
 
 
     def determine_models(self, bands=conf.MODEL_BANDS):
 
         self.logger.debug('Determining best-choice models...')
-        tstart = time.time()
 
         # clean up
         self.model_priors = conf.MODEL_PRIORS
@@ -744,11 +868,18 @@ class BaseImage():
         # stage 0
         self.add_tracker()
         self.stage_images(bands=bands)
+        
+        # Check if any images were successfully staged
+        if len(self.images) == 0:
+            self.logger.error('No images were successfully staged. All bands may have zero weight pixels.')
+            return False
+            
         # self.stage_models(bands=bands)
         # self.measure_stats(bands=bands, stage=self.stage)
         if conf.PLOT > 2:
             self.plot_image(tag=f's{self.stage}', band=bands, show_catalog=True, imgtype=('science', 'model', 'residual', 'chi'))
 
+        tstart = time.time()
         while not self.solved.all():
             self.stage += 1
             self.add_tracker()
@@ -769,7 +900,7 @@ class BaseImage():
             self.store_models()
             if conf.PLOT > 2:
                 self.plot_image(tag=f's{self.stage}', band=bands, show_catalog=True, imgtype=('science', 'model', 'residual', 'chi'))
-            self.decision_tree()    
+            self.decision_tree()
 
         # run final time
         self.stage += 1
@@ -783,6 +914,7 @@ class BaseImage():
         status = self.optimize()
         if not status:
             return False
+
         self.measure_stats(bands=bands, stage=self.stage) 
         self.store_models()
         if conf.PLOT > 2:
@@ -790,8 +922,7 @@ class BaseImage():
         if conf.PLOT > 1:
                 self.plot_summary(bands=bands, source_id='group', tag='MODEL')
 
-        self.logger.debug(f'Modelling completed ({time.time()-tstart:2.2f}s)')
-
+        self.logger.info(f'Modelling completed ({time.time()-tstart:2.2f}s)')
         return True
 
     def decision_tree(self):
@@ -965,7 +1096,7 @@ class BaseImage():
             for band in bands:
                 # Skip bands that were not staged (e.g., all weight pixels are zero)
                 if band not in self.images:
-                    self.logger.warning(f'Band {band} not in staged images. Skipping.')
+                    self.logger.debug(f'Band {band} not in staged images. Skipping.')
                     continue
                     
                 groupmap = self.get_image('groupmap', band)[self.group_id]
@@ -978,7 +1109,7 @@ class BaseImage():
                 area = 0
                 for source_id in self.catalogs[self.catalog_band][self.catalog_imgtype]['id']:
                     if source_id not in segmap:
-                        self.logger.warning(f'Source {source_id} missing segmap for band {band}. Skipping.')
+                        self.logger.debug(f'Source {source_id} missing segmap for band {band}. Skipping.')
                         continue
                     data = self.images[band].data.copy()
                     segmask = np.zeros(shape=data.shape, dtype=bool)
@@ -1080,12 +1211,12 @@ class BaseImage():
             for band in bands:
                 # Skip bands that were not staged (e.g., all weight pixels are zero)
                 if band not in self.images:
-                    self.logger.warning(f'Band {band} not in staged images. Skipping.')
+                    self.logger.debug(f'Band {band} not in staged images. Skipping.')
                     continue
                     
                 segmap = self.get_image('segmap', band)
                 if source_id not in segmap:
-                    self.logger.warning(f'Source {source_id} missing segmap for band {band}. Skipping.')
+                    self.logger.debug(f'Source {source_id} missing segmap for band {band}. Skipping.')
                     continue
                 chi = self.get_image('chi', band=band)[segmap[source_id][0], segmap[source_id][1]].flatten()
                 totchi += list(chi)
@@ -1190,7 +1321,7 @@ class BaseImage():
         for band in bands:
             # Skip bands that weren't loaded (e.g., all weight pixels are zero)
             if band not in self.data:
-                self.logger.warning(f'Band {band} not in data. Skipping transfer_maps.')
+                self.logger.debug(f'Band {band} not in data. Skipping transfer_maps.')
                 continue
             if 'segmap' not in self.data[band]:
                 self.transfer_maps(band)
@@ -1215,6 +1346,7 @@ class BaseImage():
         # check that the model_catalog is ok
         if not set_engine:
             use_sources = list(self.model_catalog.values())
+            use_source_ids = list(self.model_catalog.keys())
         else:
             use_sources = []
             use_source_ids = []
@@ -1233,7 +1365,7 @@ class BaseImage():
 
                 # Only use models with the photometry bands requested (must have ALL)
                 if not np.all([testband in src.getBrightness().order for testband in bands]):
-                    self.logger.warning(f'Source {sid} does not have photometry in all requested bands')
+                    self.logger.debug(f'Source {sid} does not have photometry in all requested bands')
                     continue
 
                 # check for rejections
@@ -1265,7 +1397,7 @@ class BaseImage():
         for band in bands:
             # Skip bands that were not staged (e.g., all weight pixels are zero)
             if band not in self.images:
-                self.logger.warning(f'Band {band} not in staged images. Skipping.')
+                self.logger.debug(f'Band {band} not in staged images. Skipping.')
                 continue
                 
             if (self.data[band]['psfcoords'] == 'none'):
@@ -1314,7 +1446,7 @@ class BaseImage():
         for band in bands:
             # Skip bands that were not staged (e.g., all weight pixels are zero)
             if band not in self.images:
-                self.logger.warning(f'Band {band} not in staged images. Skipping.')
+                self.logger.debug(f'Band {band} not in staged images. Skipping.')
                 continue
                 
             if source_id is not None:
@@ -1345,7 +1477,7 @@ class BaseImage():
         for band in bands:
             # Skip bands that were not staged (e.g., all weight pixels are zero)
             if band not in self.images:
-                self.logger.warning(f'Band {band} not in staged images. Skipping.')
+                self.logger.debug(f'Band {band} not in staged images. Skipping.')
                 continue
                 
             if source_id is not None:
@@ -1393,7 +1525,7 @@ class BaseImage():
         for band in bands:
             # Skip bands that weren't loaded (e.g., all weight pixels are zero)
             if (self.type != 'mosaic') and (band not in self.data):
-                self.logger.warning(f'Band {band} not in data. Skipping plot_image.')
+                self.logger.debug(f'Band {band} not in data. Skipping plot_image.')
                 continue
                 
             if in_imgtype is None:
@@ -1469,7 +1601,7 @@ class BaseImage():
 
                             # use groupmap from brick to get position and buffsize
                             if group_id not in groupmap:
-                                self.logger.warning(f'Group #{group_id} not found in groupmap! Skipping.')
+                                self.logger.debug(f'Group #{group_id} not found in groupmap! Skipping.')
                                 continue
                             if band == 'detection':
                                 idy, idx = (groupmap==group_id).nonzero()
@@ -1477,7 +1609,7 @@ class BaseImage():
                                 idy, idx = groupmap[group_id]
                             group_npix = len(idx)
                             if group_npix == 0:
-                                self.logger.warning(f'No pixels belong to group #{group_id}! Skipping.')
+                                self.logger.debug(f'No pixels belong to group #{group_id}! Skipping.')
                                 continue
                             xlo, xhi = np.min(idx), np.max(idx) + 1
                             ylo, yhi = np.min(idy), np.max(idy) + 1
@@ -2396,6 +2528,14 @@ class BaseImage():
                                     params.pop(name)
                                     params[f'{band}_{name}'] = value
                     
+            # Add group_time from statistics
+            if hasattr(source, 'statistics') and 'group_time' in source.statistics:
+                group_time = source.statistics['group_time']
+                if 'group_time' not in catalog.colnames:
+                    catalog.add_column(Column(length=len(catalog), name='group_time', dtype=float, unit=u.s))
+                catalog['group_time'][catalog['id'] == source_id] = group_time
+                self.logger.debug(f'G{group_id}.S{source_id} :: group_time = {group_time:2.2f} s')
+            
             for name in params:
                 if name.startswith('_') | (name == 'total_total'):
                     continue

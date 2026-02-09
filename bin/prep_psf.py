@@ -12,7 +12,7 @@ BAND = 'HSC-I'
 import astropy.units as u
 import os, glob
 
-from farmer.utils import prepare_psf
+from farmer_local.utils import prepare_psf
 
 path = f'/n25data1/dawn_cats/farmer_test/data/interim/psfmodels/{BAND}'
 out = path.replace(BAND, f'{BAND}_proc/')
