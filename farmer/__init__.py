@@ -157,7 +157,7 @@ def build_bricks(brick_ids=None, include_detection=True, bands=None, write=True)
             arr = brick_ids
             if conf.CONSOLE_LOGGING_LEVEL != 'DEBUG':
                 arr = tqdm(brick_ids)
-            logger.info('Spawning or updating bricks...')
+            logger.info(f'Spawning or updating bricks for band {band}...')
             for brick_id in arr:
                 if brick_id in skiplist:
                     logger.debug(f'Brick {brick_id} has been skipped due to no detection information! Skipping...')
@@ -173,6 +173,11 @@ def build_bricks(brick_ids=None, include_detection=True, bands=None, write=True)
                         skiplist.append(brick_id)
                         continue
                 else:
+                    # Lazy load: check if band already exists before loading full brick
+                    if brick_has_band(brick_id, band, silent=(conf.CONSOLE_LOGGING_LEVEL != 'DEBUG')):
+                        logger.debug(f'Brick {brick_id} already has band {band}, skipping...')
+                        continue
+                    
                     brick = load_brick(brick_id, silent=(conf.CONSOLE_LOGGING_LEVEL != 'DEBUG'))
                     mosaic.add_to_brick(brick)
                 brick.write(allow_update=True, filetype='hdf5')
@@ -181,6 +186,37 @@ def build_bricks(brick_ids=None, include_detection=True, bands=None, write=True)
                 del brick
             del mosaic
         return [bid for bid in brick_ids if bid not in skiplist] # return the useful brick numbers
+
+def brick_has_band(brick_id, band, tag=None, silent=True):
+    """Check if a brick has a specific band without loading full image data.
+    
+    Reads only the metadata from the HDF5 file to check if the brick already
+    contains the specified band. This is much faster than loading the full brick.
+    
+    Args:
+        brick_id: Brick identifier (integer)
+        band: Band name to check for
+        tag: Optional tag for alternate brick versions
+        silent: If True, suppress logger output
+        
+    Returns:
+        bool: True if brick has the band, False if not or brick doesn't exist
+    """
+    import h5py
+    from .utils import recursively_load_dict_contents_from_group
+    
+    stag = f'_{tag}' if tag is not None else ''
+    filename = f'B{brick_id}{stag}.h5'
+    path = os.path.join(conf.PATH_BRICKS, filename)
+    
+    try:
+        with h5py.File(path, 'r') as hf:
+            attr = recursively_load_dict_contents_from_group(hf)
+            if 'bands' in attr:
+                return band in attr['bands']
+        return False
+    except (IOError, FileNotFoundError, Exception):
+        return False
 
 def load_brick(brick_id, silent=False, tag=None):
     """Load an existing brick from disk.
@@ -198,7 +234,21 @@ def load_brick(brick_id, silent=False, tag=None):
     """
     return Brick(brick_id, load=True, silent=silent, tag=tag)
 
-def update_bricks(brick_ids=None, bands=None):
+def update_bricks(brick_ids=None, bands=None, overwrite=False):
+    """Update existing bricks with missing bands.
+    
+    Uses lazy loading to check if a brick already has a band before loading
+    the full brick into memory. Only loads and modifies bricks that need updates.
+    
+    Args:
+        brick_ids: Brick ID(s) to update. If None, update all bricks.
+        bands: Bands to add/update. If None, use all configured bands.
+        overwrite: If True, re-add all bands even if they exist.
+        
+    Returns:
+        For single brick: returns the brick object
+        For multiple: returns list of updated brick IDs
+    """
     if bands is not None: # some kind of manual job
         if np.isscalar(bands):
             bands = [bands,]
@@ -215,35 +265,43 @@ def update_bricks(brick_ids=None, bands=None):
     if np.isscalar(brick_ids): # single brick built in memory and saved
         brick = load_brick(brick_ids)
         for band in bands:
-            if band not in brick.bands:
+            if overwrite or band not in brick.bands:
                 logger.warning(f'{band} not found in brick #{brick_ids}! Updating...')
                 mosaic = get_mosaic(band, load=True)
                 mosaic.add_to_brick(brick)
                 del mosaic
-                brick.write(allow_update=False, filetype='hdf5')
+                brick.write(allow_update=True, filetype='hdf5')
         if conf.PLOT > 2:
             brick.plot_image(show_catalog=False, show_groups=False)
         return brick
 
-    else: # If brick_ids is none, then we're in production. Load in mosaics, make bricks, update files.
+    else: # Multiple bricks - use lazy loading to check before full load
+        updated_bricks = []
         for band in bands:
             mosaic = get_mosaic(band, load=True)
             arr = brick_ids
             if conf.CONSOLE_LOGGING_LEVEL != 'DEBUG':
-                arr = tqdm(brick_ids)
-            logger.info(f'Spawning or updating bricks for band {band}...')
+                arr = tqdm(brick_ids, desc=f'Updating bricks with {band}')
+            logger.info(f'Updating bricks for band {band}...')
+            
             for brick_id in arr:
-                brick = load_brick(brick_id)
-                for band_to_update in bands:
-                    if band_to_update not in brick.bands:
-                        logger.debug(f'{band_to_update} not found in brick #{brick_id}! Updating...')
-                        mosaic_update = get_mosaic(band_to_update, load=True)
-                        mosaic_update.add_to_brick(brick)
-                        del mosaic_update
-                        brick.write(allow_update=False, filetype='hdf5')
+                # Lazy load: check if band already exists before loading full brick
+                if not overwrite and brick_has_band(brick_id, band, silent=(conf.CONSOLE_LOGGING_LEVEL != 'DEBUG')):
+                    logger.debug(f'Brick {brick_id} already has band {band}, skipping...')
+                    continue
+                
+                # Only load brick if it needs updating
+                brick = load_brick(brick_id, silent=(conf.CONSOLE_LOGGING_LEVEL != 'DEBUG'))
+                mosaic.add_to_brick(brick)
+                brick.write(allow_update=True, filetype='hdf5')
+                updated_bricks.append((brick_id, band))
+                
                 if conf.PLOT > 2:
                     brick.plot_image(show_catalog=False, show_groups=False)
+                del brick
             del mosaic
+        
+        return updated_bricks
 
 def detect_sources_lite(brick_ids=None, band='detection', imgtype='science', 
                        write_catalog=True, cleanup=True):
