@@ -328,7 +328,7 @@ class BaseImage():
         if image is None:
             image = self.get_image(imgtype, band)
         if image.dtype.byteorder == '>':
-                image = image.byteswap().newbyteorder()
+                image = image.astype(image.dtype.newbyteorder())
         self.logger.debug(f'Estimating background...')
         background = sep.Background(image, 
                                 bw = conf.BACK_BW, bh = conf.BACK_BH,

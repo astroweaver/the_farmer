@@ -146,10 +146,10 @@ class Brick(BaseImage):
                         # self.group_pops[mosaic.band] = {}
                         self.bands.append(mosaic.band)
                 except (ValueError, IndexError) as e:
-                    self.logger.debug(f'{mosaic.band} mosaic has no overlap with detection footprint ({e})! Skipping band.')
+                    self.logger.warning(f'{mosaic.band} mosaic has no overlap with detection footprint ({e})! Skipping band.')
                     return
 
-                self.logger.debug(f'... data \"{imgtype}\" subimage cut from {mosaic.band} at {cutout.input_position_original}')
+                self.logger.info(f'... data \"{imgtype}\" subimage cut from {mosaic.band} at {cutout.input_position_original}')
                 self.data[mosaic.band][imgtype] = cutout
                 if imgtype in ('science', 'weight', 'mask'):
                     self.headers[mosaic.band][imgtype] = mosaic.headers[imgtype] #TODO update WCS!
