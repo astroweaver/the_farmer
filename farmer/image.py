@@ -751,6 +751,9 @@ class BaseImage():
         self.engine = None
         self.stage = None
 
+        self.model_priors = conf.PHOT_PRIORS
+        self.reset_models()
+
         self.add_tracker(init_stage=10)
         self.stage_images(bands=bands)
         
@@ -1066,7 +1069,6 @@ class BaseImage():
 
                         self.logger.warning(f' Source #{source_id} did not meet Chi2 requirements! ({np.argmin(chi2):2.2f} > {conf.SUFFICIENT_THRESH}:2.2f)')
 
-
     def measure_stats(self, bands=None, stage=None):
         if bands is None:
             bands = self.engine.bands
@@ -1129,8 +1131,8 @@ class BaseImage():
                 except:
                     nparam = 0
                     rchi2_model = np.nan
-                    rchi2_model_top = np.nan
-                    rchi2_model_bot = np.nan
+                    rchi2_model_top.append(np.nan)
+                    rchi2_model_bot.append(np.nan)
                 ndof = np.max([1, ndata - nparam])
                 rchi2 = chi2 / ndof
                 
@@ -1245,8 +1247,8 @@ class BaseImage():
                 except:
                     nparam = 0
                     rchi2_model = np.nan
-                    rchi2_model_top = np.nan
-                    rchi2_model_bot = np.nan
+                    rchi2_model_top.append(np.nan)
+                    rchi2_model_bot.append(np.nan)
                 ndof = np.max([1, ndata - nparam]).astype(np.int32)
                 rchi2 = chi2 / ndof
                 
@@ -1464,8 +1466,7 @@ class BaseImage():
             else:
                 residuals[band] = residual
                     
-        return residuals
-            
+        return residuals            
 
     def build_chi_image(self, bands=None, source_id=None, imgtype='science', overwrite=True):
         if bands is None:

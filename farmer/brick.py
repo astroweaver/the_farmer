@@ -13,6 +13,8 @@ import numpy as np
 from pathos.pools import ProcessPool
 from copy import copy
 from astropy.wcs.utils import proj_plane_pixel_scales
+import tqdm
+                
 
 
 class Brick(BaseImage):
@@ -67,7 +69,7 @@ class Brick(BaseImage):
                     self.config[key] = conf.__dict__[key]
             
             # Position
-            if (brick_id is not None) & ((position is not None) | (size is not None)):
+            if (brick_id is not None) and ((position is not None) or (size is not None)):
                 raise RuntimeError('Cannot create brick from BOTH brick_id AND position/size!')
             if brick_id is not None:
                 self.position, self.size, self.buffsize = load_brick_position(brick_id)
@@ -120,7 +122,7 @@ class Brick(BaseImage):
 
     def add_band(self, mosaic, overwrite=False):
 
-        if (~overwrite) & (mosaic.band in self.bands):
+        if (not overwrite) and (mosaic.band in self.bands):
             self.logger.warning(f'{mosaic.band} already exists in brick #{self.brick_id}!')
             return
 
@@ -407,17 +409,25 @@ class Brick(BaseImage):
             groups_gen = (self.spawn_group(group_id, bands=bands, silent=True) for group_id in group_ids)
             with ProcessPool(ncpus=conf.NCPUS) as pool:
                 pool.restart()
-                import tqdm
-                # imap consumes generator lazily in chunks - only spawns ~ncpus groups at a time
-                # Collect results to avoid OrderedDict mutation during iteration
-                results = list(tqdm.tqdm(pool.imap(partial(run_group, mode=mode), groups_gen, chunksize=1), total=len(group_ids)))
+
+                # Stream results directly - imap yields as workers complete
+                for result in tqdm.tqdm(pool.imap(partial(run_group, mode=mode), groups_gen, chunksize=1), total=len(group_ids)):
+                    self.absorb(result)
+
+            self.logger.info('All results absorbed.')
+            # with ProcessPool(ncpus=conf.NCPUS) as pool:
+            #     pool.restart()
+            #     import tqdm
+            #     # imap consumes generator lazily in chunks - only spawns ~ncpus groups at a time
+            #     # Collect results to avoid OrderedDict mutation during iteration
+            #     results = list(tqdm.tqdm(pool.imap(partial(run_group, mode=mode), groups_gen, chunksize=1), total=len(group_ids)))
             
-            # Absorb results after pool is closed to avoid concurrent modification
-            self.logger.info('Absorbing results from parallel processing...')
-            ttstart = time.time()
-            for result in results:
-                self.absorb(result)
-            self.logger.info(f'All results absorbed. ({time.time() - ttstart:2.2f}s)')
+            # # Absorb results after pool is closed to avoid concurrent modification
+            # self.logger.info('Absorbing results from parallel processing...')
+            # ttstart = time.time()
+            # for result in results:
+            #     self.absorb(result)
+            # self.logger.info(f'All results absorbed. ({time.time() - ttstart:2.2f}s)')
 
         self.logger.info(f'Brick {self.brick_id} has processed {len(group_ids)} groups ({time.time() - tstart:2.2f}s)')
 

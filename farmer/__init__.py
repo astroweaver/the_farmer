@@ -37,10 +37,6 @@ from .brick import Brick
 plt.ioff()
 import warnings
 warnings.filterwarnings("ignore")# General imports
-if os.path.exists(os.path.join(os.getcwd(), 'config')): # You're 1 up from config?
-    sys.path.insert(0, os.path.join(os.getcwd(), 'config'))
-else: # You're working from a directory parallel with config?
-    sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), '../config')))
 
 print(
 f"""
@@ -137,7 +133,7 @@ def build_bricks(brick_ids=None, include_detection=True, bands=None, write=True)
         n_bricks = len(brick_ids)
 
     # Build bricks
-    if np.isscalar(brick_ids) | (n_bricks == 1): # single brick built in memory and saved
+    if np.isscalar(brick_ids) or (n_bricks == 1): # single brick built in memory and saved
         for band in bands:
             mosaic = get_mosaic(band, load=True)
             if band == 'detection':
@@ -365,8 +361,7 @@ def detect_sources(brick_ids=None, band='detection', imgtype='science', brick=No
 
     if brick_ids is not None and brick is None:
         if np.isscalar(brick_ids):
-            # run the brick given directly
-            # This can also be run by brick.detect_sources, but we also write it out if asked for!
+            brick = load_brick(brick_ids)
             brick.detect_sources(band=band, imgtype=imgtype)
             brick.transfer_maps()
 
