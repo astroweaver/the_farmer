@@ -36,8 +36,14 @@ from tractor.sersic import SersicIndex, SersicGalaxy
 from tractor.sercore import SersicCoreGalaxy
 from tractor.galaxy import ExpGalaxy, DevGalaxy, FixedCompositeGalaxy, SoftenedFracDev
 from tractor.pointsource import PointSource
-from tractor.constrained_optimizer import ConstrainedOptimizer
-# from tractor.ceres_optimizer import CeresOptimizer
+if conf.USE_CERES:
+    try:
+        from tractor.ceres_optimizer import CeresOptimizer as optimizer
+    except ImportError:
+        logging.warning('Ceres not found! Falling back to ConstrainedOptimizer. Install Ceres for faster optimization!')
+        from tractor.constrained_optimizer import ConstrainedOptimizer as optimizer
+else:
+    from tractor.constrained_optimizer import ConstrainedOptimizer as optimizer
 
 
 class BaseImage():
@@ -650,8 +656,7 @@ class BaseImage():
             self.model_catalog[source_id] = model
 
     def optimize(self):
-        self.engine.optimizer = ConstrainedOptimizer()
-        # self.engine.optimizer = CeresOptimizer()
+        self.engine.optimizer = optimizer()
 
         # cat = self.engine.getCatalog()
         self.logger.debug('Running engine...')
