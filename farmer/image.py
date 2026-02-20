@@ -661,36 +661,47 @@ class BaseImage():
         # cat = self.engine.getCatalog()
         self.logger.debug('Running engine...')
         tstart = time.time()
-        for i in range(conf.MAX_STEPS):
-            # Run one optimization step
-            try:
-                dlnp, X, alpha, var = self.engine.optimize(variance=True, damping=conf.DAMPING)
-            except (RuntimeError, ValueError, np.linalg.LinAlgError, IndexError) as e:
-                self.logger.debug(f'Optimization failed on step {i+1}: {e}')
-                if not conf.IGNORE_FAILURES:
-                    raise RuntimeError(f'Optimization failed on step {i+1}: {e}')
-                return False
 
-            if conf.PLOT > 4:
-                self.build_all_images(set_engine=False, reconstruct=False, bands=self.engine.bands)
-                self.plot_image(tag=f's{self.stage}_n{i}', band=self.engine.bands,
-                                 show_catalog=True, imgtype=('science', 'model', 'residual'))
-                
-            self.logger.debug(f'   step: {i+1} dlnp: {dlnp:2.5f}')
+        # Prepare for suppressing Ceres C++ optimizer output
+        import sys
+        from contextlib import redirect_stdout, redirect_stderr
+        devnull = open(os.devnull, 'w')
+
+        try:
+            for i in range(conf.MAX_STEPS):
+                # Run one optimization step
+                try:
+                    # Suppress Ceres C++ optimizer output to stdout/stderr
+                    with redirect_stdout(devnull), redirect_stderr(devnull):
+                        dlnp, X, alpha, var = self.engine.optimize(variance=True, damping=conf.DAMPING)
+                except (RuntimeError, ValueError, np.linalg.LinAlgError, IndexError) as e:
+                    self.logger.debug(f'Optimization failed on step {i+1}: {e}')
+                    if not conf.IGNORE_FAILURES:
+                        raise RuntimeError(f'Optimization failed on step {i+1}: {e}')
+                    return False
+
+                if conf.PLOT > 4:
+                    self.build_all_images(set_engine=False, reconstruct=False, bands=self.engine.bands)
+                    self.plot_image(tag=f's{self.stage}_n{i}', band=self.engine.bands,
+                                     show_catalog=True, imgtype=('science', 'model', 'residual'))
+
+                self.logger.debug(f'   step: {i+1} dlnp: {dlnp:2.5f}')
+                if dlnp < conf.DLNP_CRIT:
+                    break
+
+            self.variance = var
+
             if dlnp < conf.DLNP_CRIT:
-                break
+                self.logger.debug(f'Fit converged in {i+1} steps ({time.time()-tstart:2.2f}s)')
+            else:
+                self.logger.warning(f'Fit did not converge in {i+1} steps ({time.time()-tstart:2.2f}s)')
+            for source_id in self.model_tracker:
+                self.model_tracker[source_id][self.stage]['nstep'] = i+1   # TODO should check this against MAX_STEP in a binary flag output...
 
-        self.variance = var
-        
-        if dlnp < conf.DLNP_CRIT:
-            self.logger.debug(f'Fit converged in {i+1} steps ({time.time()-tstart:2.2f}s)')
-        else:
-            self.logger.warning(f'Fit did not converge in {i+1} steps ({time.time()-tstart:2.2f}s)')
-        for source_id in self.model_tracker:
-            self.model_tracker[source_id][self.stage]['nstep'] = i+1   # TODO should check this against MAX_STEP in a binary flag output...
-        
-        # return i, dlnp, X, alpha, var
-        return True
+            # return i, dlnp, X, alpha, var
+            return True
+        finally:
+            devnull.close()
 
     def store_models(self):
         self.logger.debug(f'Storing models...')
