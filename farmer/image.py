@@ -662,18 +662,18 @@ class BaseImage():
         self.logger.debug('Running engine...')
         tstart = time.time()
 
-        # Prepare for suppressing Ceres C++ optimizer output
-        import sys
-        from contextlib import redirect_stdout, redirect_stderr
-        devnull = open(os.devnull, 'w')
+        # Suppress Ceres C++ optimizer output at file descriptor level (once, not per step)
+        devnull_fd = os.open(os.devnull, os.O_WRONLY)
+        saved_stdout = os.dup(1)  # Save stdout fd
+        saved_stderr = os.dup(2)  # Save stderr fd
+        os.dup2(devnull_fd, 1)   # Redirect stdout
+        os.dup2(devnull_fd, 2)   # Redirect stderr
 
         try:
             for i in range(conf.MAX_STEPS):
                 # Run one optimization step
                 try:
-                    # Suppress Ceres C++ optimizer output to stdout/stderr
-                    with redirect_stdout(devnull), redirect_stderr(devnull):
-                        dlnp, X, alpha, var = self.engine.optimize(variance=True, damping=conf.DAMPING)
+                    dlnp, X, alpha, var = self.engine.optimize(variance=True, damping=conf.DAMPING)
                 except (RuntimeError, ValueError, np.linalg.LinAlgError, IndexError) as e:
                     self.logger.debug(f'Optimization failed on step {i+1}: {e}')
                     if not conf.IGNORE_FAILURES:
@@ -701,7 +701,12 @@ class BaseImage():
             # return i, dlnp, X, alpha, var
             return True
         finally:
-            devnull.close()
+            # Restore stdout/stderr
+            os.dup2(saved_stdout, 1)
+            os.dup2(saved_stderr, 2)
+            os.close(devnull_fd)
+            os.close(saved_stdout)
+            os.close(saved_stderr)
 
     def store_models(self):
         self.logger.debug(f'Storing models...')
