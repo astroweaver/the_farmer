@@ -114,6 +114,7 @@ MAX_STEPS = 50
 DAMPING = 1e-1
 DLNP_CRIT = 1e-3
 IGNORE_FAILURES = True
+USE_CERES = False
 
 # Priors and parameters
 # Use 'none' for no prior and 'freeze' for frozen parameter
