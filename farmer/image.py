@@ -2341,7 +2341,7 @@ class BaseImage():
             else:
                 raise RuntimeError('Cannot write catalogs to disk as none are present!')
 
-    def write_fits(self, bands=None, imgtypes=None, allow_update=False, tag=None, filename=None, directory=conf.PATH_BRICKS):
+    def write_fits(self, bands=None, imgtypes=None, allow_update=False, tag=None, filename=None, directory=conf.PATH_ANCILLARY):
         if filename is None:
             filename = self.filename.replace('.h5', '.fits')
         if tag is not None:
