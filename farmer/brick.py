@@ -39,6 +39,8 @@ class Brick(BaseImage):
                 self.__dict__[key] = attributes[key]
                 self.logger.debug(f'  ... {key}')
 
+            self._condition_all_bands()
+
             # TODO cross-check with config
         
         else:
@@ -78,6 +80,56 @@ class Brick(BaseImage):
                 self.buffsize = (self.size[0]+2*conf.BRICK_BUFFER, self.size[1]+2*conf.BRICK_BUFFER)
 
         self.logger.info(f'Spawned brick #{self.brick_id} at ({self.position.ra:2.1f}, {self.position.dec:2.1f}) with size {self.size[0].to(u.arcmin):2.3f} X {self.size[1].to(u.arcmin):2.3f}')
+
+
+    def _condition_band_data(self, band):
+        """Condition a band once at brick ingest/read time.
+
+        Enforces no-NaN science arrays and a consistent mask/weight convention:
+        masked or invalid pixels must have zero weight.
+        """
+        if band not in self.data:
+            return
+        if 'science' not in self.data[band]:
+            return
+
+        science = self.data[band]['science'].data
+        bad_science = ~np.isfinite(science)
+        if np.any(bad_science):
+            science[bad_science] = 0
+
+        mask_bool = np.zeros(science.shape, dtype=bool)
+        bad_mask = np.zeros(science.shape, dtype=bool)
+        if 'mask' in self.data[band]:
+            mask = self.data[band]['mask'].data
+            if np.asarray(mask).dtype == bool:
+                mask_bool = mask.copy()
+            else:
+                bad_mask = ~np.isfinite(mask)
+                mask_bool = (mask != 0)
+                if np.any(bad_mask):
+                    mask_bool[bad_mask] = True
+            self.data[band]['mask'].data = mask_bool
+
+        if 'weight' in self.data[band]:
+            weight = self.data[band]['weight'].data
+            bad_weight = ~np.isfinite(weight) | (weight < 0)
+            if np.any(bad_weight):
+                weight[bad_weight] = 0
+            weight[bad_science | mask_bool] = 0
+            if 'mask' in self.data[band]:
+                mask_bool = mask_bool | (weight <= 0)
+                self.data[band]['mask'].data = mask_bool
+
+        self.logger.debug(
+            f'Conditioned band {band}: bad_sci={np.sum(bad_science)}, '
+            f'bad_mask={np.sum(bad_mask)}, masked={np.sum(mask_bool)}'
+        )
+
+
+    def _condition_all_bands(self):
+        for band in self.bands:
+            self._condition_band_data(band)
 
 
 
@@ -156,7 +208,6 @@ class Brick(BaseImage):
                 if imgtype == 'science':
                     self.wcs[mosaic.band] = cutout.wcs
                     self.pixel_scales[mosaic.band] = proj_plane_pixel_scales(cutout.wcs) * u.deg
-                    self.estimate_properties(band=mosaic.band, imgtype=imgtype)
             elif imgtype in ('segmap', 'groupmap'):
                 self.transfer_maps()
             elif imgtype in ('psfcoords', 'psflist'):
@@ -207,6 +258,9 @@ class Brick(BaseImage):
             cutout.data *= 0.
             self.data[mosaic.band]['mask'] = cutout
             self.headers[mosaic.band]['mask'] = subheader
+
+        self._condition_band_data(mosaic.band)
+        self.estimate_properties(band=mosaic.band, imgtype='science')
 
         if 'background' not in self.data[mosaic.band]:
             self.logger.debug(f'... data \"background\" subimage generated as ones at {cutout.input_position_original}')
