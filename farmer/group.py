@@ -65,7 +65,8 @@ class Group(BaseImage):
                 self.rejected = True
             else:
                 try:
-                    idx, idy = np.array(groupmap==group_id).nonzero()
+                    # Direct nonzero without unnecessary np.array() wrapper
+                    idx, idy = (groupmap == group_id).nonzero()
                 except Exception as e:
                     raise RuntimeError(f'Cannot extract dimensions of Group #{group_id}! Error: {e}')
                 xlo, xhi = np.min(idx), np.max(idx)

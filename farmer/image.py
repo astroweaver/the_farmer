@@ -189,8 +189,8 @@ class BaseImage():
                         try:
                             self.wcs[band] = WCS(self.headers[band][imgtype])
                             self.logger.debug(f'  Extracted WCS from {band}/{imgtype}')
-                        except:
-                            pass
+                        except (KeyError, ValueError, TypeError) as e:
+                            self.logger.debug(f'  Failed to extract WCS from {band}/{imgtype}: {e}')
             
             # Clear headers
             self.headers = {}
@@ -1149,7 +1149,8 @@ class BaseImage():
                     rchi2_model = np.sum(chi_model**2 * src_model) / np.sum(src_model)
                     rchi2_model_top.append(np.sum(chi_model**2 * src_model))
                     rchi2_model_bot.append(np.sum(src_model))
-                except:
+                except (AttributeError, ValueError, ZeroDivisionError) as e:
+                    self.logger.debug(f'Chi image calculation failed for {band}: {e}')
                     nparam = 0
                     rchi2_model = np.nan
                     rchi2_model_top.append(np.nan)
@@ -1183,7 +1184,8 @@ class BaseImage():
                     self.model_tracker[self.type][stage][band]['nres'] = nres_elem
             try:
                 nparam = self.engine.getCatalog().numberOfParams()
-            except:
+            except (AttributeError, TypeError) as e:
+                self.logger.debug(f'Failed to get number of parameters: {e}')
                 nparam = 0
             ndof = np.max([len(bands), ntotal_pix - nparam])
             # Only include bands that were staged and have model_tracker entries
@@ -1218,7 +1220,7 @@ class BaseImage():
             model = self.model_catalog[source_id]
             try:
                 modelname = model.name
-            except:
+            except AttributeError:
                 modelname = 'PointSource'
             if self.stage == 0:
                 modelname = 'None'
@@ -1265,7 +1267,8 @@ class BaseImage():
                     rchi2_model = np.nansum(chi_model**2 * src_model) / np.nansum(src_model)
                     rchi2_model_top.append(np.nansum(chi_model**2 * src_model))
                     rchi2_model_bot.append(np.nansum(src_model))
-                except:
+                except (AttributeError, ValueError, ZeroDivisionError) as e:
+                    self.logger.debug(f'Chi image calculation failed for source {source_id} in {band}: {e}')
                     nparam = 0
                     rchi2_model = np.nan
                     rchi2_model_top.append(np.nan)
@@ -1301,7 +1304,8 @@ class BaseImage():
                     self.model_tracker[source_id][stage][band]['flag'] = flag
             try:
                 nparam = self.model_catalog[source_id].numberOfParams()
-            except:
+            except (AttributeError, TypeError, KeyError) as e:
+                self.logger.debug(f'Failed to get parameters for source {source_id}: {e}')
                 nparam = 0
             ndof = np.max([len(bands), ntotal_pix - nparam]).astype(np.int32)
             # Only include bands that were staged and have model_tracker entries
@@ -1436,7 +1440,8 @@ class BaseImage():
                     coord = wcs.pixel_to_world(np.mean(cy), np.mean(cx))
                     try:
                         psfmodel = self.get_psfmodel(band, coord)
-                    except:
+                    except (KeyError, ValueError, IndexError) as e:
+                        self.logger.debug(f'Failed to get PSF at coord for {band}, using global PSF: {e}')
                         psfmodel = self.get_psfmodel(band) # default to the global PSF for brick
 
                     group_models = []
@@ -1615,7 +1620,8 @@ class BaseImage():
                     if show_groups:
                         try:
                             groupmap = self.get_image(band=band, imgtype='groupmap')
-                        except:
+                        except (KeyError, AttributeError) as e:
+                            self.logger.debug(f'Groupmap not found for {band}, transferring maps: {e}')
                             self.transfer_maps(bands=band)
                             groupmap = self.get_image(band=band, imgtype='groupmap')
 
@@ -2383,7 +2389,7 @@ class BaseImage():
                 ext_name = f'{band}_{attr}'
                 try:
                     hdul[ext_name]
-                except:
+                except KeyError:
                     if np.sum([(band.upper() in hdu.name) for hdu in hdul]) == 0:
                         hdul.append(fits.ImageHDU(name=ext_name))
                         self.logger.debug(f'Appended {attr} {band}')
@@ -2433,7 +2439,7 @@ class BaseImage():
                 ext_name = f'{band}_catalog'
                 try:
                     hdul[ext_name]
-                except:
+                except KeyError:
                     hdul.append(fits.BinTableHDU(name=ext_name))
                 hdul[ext_name].data = self.catalogs[band]
                 
@@ -2565,7 +2571,7 @@ class BaseImage():
                 try:
                     unit = value.unit
                     value = value.value
-                except:
+                except AttributeError:
                     unit = None
                 dtype = type(value)
                 if type(value) == str:
@@ -2585,7 +2591,7 @@ class BaseImage():
                     try:
                         unit = value.unit
                         value = value.value
-                    except:
+                    except AttributeError:
                         unit = None
                     dtype = type(value)
                     if type(value) == str:

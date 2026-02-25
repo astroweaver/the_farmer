@@ -55,11 +55,17 @@ class Mosaic(BaseImage):
             bad = 'X'
             # verify the band
             self.paths = {}
+            # Verify required data products
+            good = '✓'
+            bad = 'X'
             data_status = bad
             data_provided = []
-            for imgtype in ['science', 'weight', 'mask', 'psfmodel']:
+            
+            # Check for required image types efficiently
+            required_types = ['science', 'weight', 'mask', 'psfmodel']
+            for imgtype in required_types:
                 if imgtype not in self.properties.keys():
-                    if (imgtype.startswith('psf')) & (band == 'detection'):
+                    if imgtype.startswith('psf') and band == 'detection':
                         continue
                     self.logger.warning(f'{imgtype} is not configured for {band}!')
                     if imgtype == 'science':
@@ -169,6 +175,20 @@ class Mosaic(BaseImage):
         return brick
 
     def spawn_brick(self, brick_id=None, position=None, size=None, silent=False):
+        """Create a new brick from this mosaic.
+        
+        Creates a Brick object and adds this mosaic's data to it using cutouts
+        at the specified position and size.
+        
+        Args:
+            brick_id: Brick identifier (if None, use position/size)
+            position: Sky coordinates for brick center (if brick_id is None)
+            size: Angular size of brick (if brick_id is None)
+            silent: If True, suppress logging output
+            
+        Returns:
+            Brick: New brick object with mosaic data added
+        """
         # Instantiate brick
         if brick_id is None:
             brick = Brick(position, size, load=False, silent=silent)
@@ -182,6 +202,17 @@ class Mosaic(BaseImage):
         return brick
 
     def extract(self, background=None):
+        """Extract sources from the mosaic.
+        
+        Runs source detection, creates segmentation map, and adds sky coordinates
+        to the catalog.
+        
+        Args:
+            background: Pre-computed background to subtract (optional)
+            
+        Note:
+            Results stored in self.catalogs['science'] and self.data['segmap']
+        """
         catalog, segmap = self._extract(band=None, background=background)
 
         self.catalogs['science'] = catalog

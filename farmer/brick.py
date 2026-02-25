@@ -102,7 +102,8 @@ class Brick(BaseImage):
         bad_mask = np.zeros(science.shape, dtype=bool)
         if 'mask' in self.data[band]:
             mask = self.data[band]['mask'].data
-            if np.asarray(mask).dtype == bool:
+            # Check dtype without converting to array
+            if mask.dtype == bool:
                 mask_bool = mask.copy()
             else:
                 bad_mask = ~np.isfinite(mask)

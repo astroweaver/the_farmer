@@ -1,3 +1,16 @@
+"""Utility functions for The Farmer astronomical source detection pipeline.
+
+This module provides core utilities for:
+- Loading and processing brick position data with WCS transformations
+- Source detection and grouping using morphological operations
+- Optimized coordinate transformations between multi-resolution grids
+- Tractor model parameter extraction and caching
+- HDF5 serialization/deserialization for complex nested structures
+- Segmentation map manipulation and analysis
+
+Optimized for memory efficiency and performance on large astronomical images.
+"""
+
 import config as conf
 import os
 import logging
@@ -30,6 +43,32 @@ from tractor.wcs import RaDecPos
 
 # from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import Pool
+
+
+# Module constants for dtype selection
+# Integer type ranges
+INT16_MIN = -32768
+INT16_MAX = 32767
+INT32_MIN = -2147483648
+INT32_MAX = 2147483647
+UINT16_MAX = 65535
+UINT32_MAX = 4294967295
+
+# Model type names
+MODEL_TYPES = {
+    'POINT': 'PointSource',
+    'SIMPLE': 'SimpleGalaxy',
+    'EXP': 'ExpGalaxy',
+    'DEV': 'DevGalaxy',
+    'COMP': 'FixedCompositeGalaxy',
+}
+
+# HDF5 string encoding
+HDF5_STRING_DTYPE = '|S99'
+
+# PSF-related constants
+DEFAULT_FWHM_MIN = 1.0  # Minimum FWHM cap
+PSF_SIGMA_FACTOR = 2.5  # Factor for resolution calculation
 
 
 def start_logger():
@@ -115,6 +154,17 @@ def read_wcs(wcs, scl=1):
 #     return position, size
 
 def load_brick_position(brick_id):
+    """Calculate brick position and size from brick ID.
+    
+    Args:
+        brick_id: Integer brick identifier (1-indexed)
+        
+    Returns:
+        tuple: (center, size, buffsize) where:
+            - center: SkyCoord of brick center
+            - size: Tuple of (dec_height, ra_width) in degrees
+            - buffsize: Tuple of buffered (dec_height, ra_width) in degrees
+    """
     logger = logging.getLogger('farmer.load_brick_position')
     
     ext = None
@@ -149,46 +199,32 @@ def load_brick_position(brick_id):
     # Calculate the center of the region in sky coordinates
     center = wcs.pixel_to_world(xc, yc)
 
-    # Define the four corners of the pixel square
-    corners_x = np.array([xc - brick_width / 2., xc + brick_width / 2.,
-                          xc + brick_width / 2., xc - brick_width / 2.])
-    corners_y = np.array([yc - brick_height / 2., yc - brick_height / 2.,
-                          yc + brick_height / 2., yc + brick_height / 2.])
+    # Helper function to calculate sky size from pixel dimensions
+    def _calculate_sky_size(width, height):
+        """Calculate sky size from pixel dimensions centered at (xc, yc)."""
+        corners_x = np.array([xc - width / 2., xc + width / 2.,
+                              xc + width / 2., xc - width / 2.])
+        corners_y = np.array([yc - height / 2., yc - height / 2.,
+                              yc + height / 2., yc + height / 2.])
+        sky_corners = wcs.pixel_to_world(corners_x, corners_y)
+        ra_width = sky_corners[0].separation(sky_corners[1])
+        dec_height = sky_corners[1].separation(sky_corners[2])
+        return (dec_height.to(u.deg), ra_width.to(u.deg))
 
-    # Convert pixel coordinates to sky coordinates
-    sky_corners = wcs.pixel_to_world(corners_x, corners_y)
+    # Calculate base brick size in sky coordinates
+    size = _calculate_sky_size(brick_width, brick_height)
 
-    # Calculate the width and height in sky coordinates
-    # The RA width must be corrected for the declination
-    ra_width = sky_corners[0].separation(sky_corners[1])
-    dec_height = sky_corners[1].separation(sky_corners[2])
-
-    size = (dec_height.to(u.deg), ra_width.to(u.deg))
-
+    # Calculate buffered size
     pixel_scale = wcs.proj_plane_pixel_scales()[0]
     buff_size = conf.BRICK_BUFFER.to(u.deg) / pixel_scale.to(u.deg)
     brick_buffwidth = brick_width + 2 * buff_size
     brick_buffheight = brick_height + 2 * buff_size
-
-    # Define the four corners of the pixel square
-    corners_x = np.array([xc - brick_buffwidth / 2., xc + brick_buffwidth / 2.,
-                          xc + brick_buffwidth / 2., xc - brick_buffwidth / 2.])
-    corners_y = np.array([yc - brick_buffheight / 2., yc - brick_buffheight / 2.,
-                          yc + brick_buffheight / 2., yc + brick_buffheight / 2.])
-
-    # Convert pixel coordinates to sky coordinates
-    sky_corners = wcs.pixel_to_world(corners_x, corners_y)
-
-    # Calculate the width and height in sky coordinates
-    # The RA width must be corrected for the declination
-    ra_width = sky_corners[0].separation(sky_corners[1])
-    dec_height = sky_corners[1].separation(sky_corners[2])
-
-    buffsize = (dec_height.to(u.deg), ra_width.to(u.deg))
+    buffsize = _calculate_sky_size(brick_buffwidth, brick_buffheight)
     
     logger.debug(f'Brick #{brick_id} found at ({center.ra:2.1f}, {center.dec:2.1f}) with size {size[0]:2.1f} X {size[1]:2.1f}')
 
     return center, size, buffsize
+
 
 
 def clean_catalog(catalog, mask, segmap=None):
@@ -242,7 +278,7 @@ def dilate_and_group(catalog, segmap, radius=0, fill_holes=False):
     """Dilate segmentation map and group nearby sources together.
     
     Uses morphological dilation to merge nearby sources into groups, then applies
-    union-find algorithm to handle sources split across multiple groups.
+    optimized union-find algorithm to handle sources split across multiple groups.
     
     Args:
         catalog: Source catalog with x, y positions
@@ -261,67 +297,80 @@ def dilate_and_group(catalog, segmap, radius=0, fill_holes=False):
     """
     logger = logging.getLogger('farmer.identify_groups')
 
-    # segmask
-    segmask = np.where(segmap>0, 1, 0)
+    # Create binary mask
+    segmask = (segmap > 0).astype(np.uint8)
 
     # dilation
     if (radius is not None) & (radius > 0):
         logger.debug(f'Dilating segments with radius of {radius:2.2f} px')
         struct2 = create_circular_mask(2*radius, 2*radius, radius=radius)
-        segmask = binary_dilation(segmask, structure=struct2).astype(int)
+        segmask = binary_dilation(segmask, structure=struct2).astype(np.uint8)
 
     if fill_holes:
         logger.debug(f'Filling holes...')
-        segmask = binary_fill_holes(segmask).astype(int)
+        segmask = binary_fill_holes(segmask).astype(np.uint8)
 
-    # relabel
+    # relabel connected components
     groupmap, n_groups = label(segmask)
 
-    # need to check for detached mislabels
-    # Build a mapping of segment ID -> list of group IDs it appears in
-    logger.debug('Checking for bad groups...')
+    # Need to check for segments split across multiple groups
+    # Build mapping of segment ID -> list of group IDs it appears in
+    logger.debug('Checking for split segments...')
     
-    # Get non-zero segments
+    # Vectorized approach: get all (segment, group) pairs
     seg_mask = segmap > 0
+    if not np.any(seg_mask):
+        # No segments - return empty results
+        return np.array([]), np.array([]), groupmap
+        
     seg_vals = segmap[seg_mask]
     grp_vals = groupmap[seg_mask]
     
-    # For each unique segment, find all groups it appears in
+    # Find segments appearing in multiple groups
+    # Use numpy's efficient group-by functionality
     unique_segs = np.unique(seg_vals)
     seg_to_groups = {}
+    
     for seg_id in unique_segs:
         seg_pixels = (seg_vals == seg_id)
         groups_for_seg = np.unique(grp_vals[seg_pixels])
         if len(groups_for_seg) > 1:
             seg_to_groups[seg_id] = groups_for_seg
     
-    # Create a union-find style mapping to merge groups
-    group_mapping = np.arange(n_groups + 1)
-    
-    for seg_id, groups in seg_to_groups.items():
-        # Merge all these groups to the first (smallest) one
-        primary_group = groups[0]
-        for bad_group in groups[1:]:
-            group_mapping[bad_group] = primary_group
-            logger.debug(f'  * set bad group {bad_group} to owner group {primary_group}')
-    
-    # Apply the mapping to compress group IDs
-    # Use recursive mapping to handle transitive merges
-    for i in range(1, len(group_mapping)):
-        root = i
-        while group_mapping[root] != root:
-            root = group_mapping[root]
-        group_mapping[i] = root
-    
-    # Apply mapping to groupmap
-    groupmap = group_mapping[groupmap]
+    if seg_to_groups:
+        logger.debug(f'Found {len(seg_to_groups)} segments split across multiple groups')
+        
+        # Union-find with path compression
+        group_mapping = np.arange(n_groups + 1, dtype=np.int32)
+        
+        for seg_id, groups in seg_to_groups.items():
+            # Merge all groups to the smallest one
+            primary_group = groups[0]
+            for bad_group in groups[1:]:
+                group_mapping[bad_group] = primary_group
+                logger.debug(f'  * merging group {bad_group} into {primary_group}')
+        
+        # Vectorized path compression using find-root operation
+        # This replaces the slow Python loop
+        def find_root(mapping):
+            """Find root for all nodes with path compression."""
+            changed = True
+            while changed:
+                new_mapping = mapping[mapping]
+                changed = not np.array_equal(mapping, new_mapping)
+                mapping = new_mapping
+            return mapping
+        
+        group_mapping = find_root(group_mapping)
+        
+        # Apply mapping to groupmap
+        groupmap = group_mapping[groupmap]
     
     # Renumber groups to be sequential starting from 1
-    unique_groups = np.unique(groupmap)
-    unique_groups = unique_groups[unique_groups > 0]
+    unique_groups = np.unique(groupmap[groupmap > 0])
     n_groups = len(unique_groups)
     final_mapping = np.zeros(groupmap.max() + 1, dtype=groupmap.dtype)
-    final_mapping[unique_groups] = np.arange(1, n_groups + 1)
+    final_mapping[unique_groups] = np.arange(1, n_groups + 1, dtype=groupmap.dtype)
     groupmap = final_mapping[groupmap]
 
     # report back
@@ -358,11 +407,11 @@ def get_fwhm(img):
     except (IndexError, ValueError):
         # Empty array or single pixel - cannot compute FWHM
         fwhm = np.nan
-    return np.nanmin([1.0, fwhm])  # Cap at 1.0 to prevent unrealistic values
+    return np.nanmin([DEFAULT_FWHM_MIN, fwhm])  # Cap to prevent unrealistic values
 
 def get_resolution(img, sig=3.):
     fwhm = get_fwhm(img)
-    return np.pi * (sig / (2 * 2.5)* fwhm)**2
+    return np.pi * (sig / (2 * PSF_SIGMA_FACTOR) * fwhm)**2
 
 def validate_psfmodel(band, return_psftype=False):
     logger = logging.getLogger('farmer.validate_psfmodel')
@@ -375,7 +424,7 @@ def validate_psfmodel(band, return_psftype=False):
     try:
         psfgrid = Table.read(psfmodel_path)
         ra_try = ('ra', 'RA', 'ra_deg')
-        dec_try = ('dec', 'DEC', 'dec_deg')
+        dec_try = ('dec', 'DEC', 'dec_try')
 
         if np.any([ra in psfgrid.colnames for ra in ra_try]) & np.any([dec in psfgrid.colnames for dec in dec_try]):
             ra_matches = [ra for ra in ra_try if ra in psfgrid.colnames]
@@ -396,7 +445,8 @@ def validate_psfmodel(band, return_psftype=False):
         psflist = np.array(psfgrid['filename'])
         psftype = 'variable'
 
-    except: # better be a single file
+    except (IOError, OSError, KeyError, ValueError, RuntimeError):
+        # Not a valid table or missing required columns - treat as single file
         psfcoords = 'none'
         psflist = os.path.join(conf.PATH_PSFMODELS, psfmodel_path)
         psftype = 'constant'
@@ -471,6 +521,53 @@ def create_circular_mask(h, w, center=None, radius=None):
     mask = np.zeros((h, w), dtype=int)
     mask[dist_from_center <= radius] = 1
     return mask
+
+
+def _select_optimal_dtype(coordinates):
+    """Select optimal numpy dtype based on coordinate range.
+    
+    Chooses the smallest dtype that can represent the coordinate values,
+    preferring unsigned types for non-negative coordinates.
+    
+    Args:
+        coordinates: Array-like or iterable of coordinate values
+        
+    Returns:
+        numpy dtype: Optimal dtype (uint16, uint32, uint64, int16, int32, or int64)
+        
+    Examples:
+        >>> _select_optimal_dtype([0, 100, 1000])
+        dtype('uint16')
+        >>> _select_optimal_dtype([-100, 100])
+        dtype('int16')
+    """
+    if not hasattr(coordinates, '__len__') or len(coordinates) == 0:
+        return np.uint16  # Default for empty
+    
+    coords_array = np.asarray(coordinates)
+    if coords_array.size == 0:
+        return np.uint16
+        
+    max_coord = coords_array.max()
+    min_coord = coords_array.min()
+    
+    # Select appropriate dtype based on data range
+    if min_coord < 0:
+        # Need signed integer
+        if max_coord < INT16_MAX and min_coord >= INT16_MIN:
+            return np.int16
+        elif max_coord < INT32_MAX and min_coord >= INT32_MIN:
+            return np.int32
+        else:
+            return np.int64
+    else:
+        # Can use unsigned integer (more range for same bytes)
+        if max_coord < UINT16_MAX:
+            return np.uint16  # 2 bytes, range: 0-65,535
+        elif max_coord < UINT32_MAX:
+            return np.uint32  # 4 bytes, range: 0-4,294,967,295
+        else:
+            return np.uint64  # 8 bytes
     
 
 class SimpleGalaxy(ExpGalaxy):
@@ -566,22 +663,7 @@ def map_discontinuous(input, out_wcs, out_shape, force_simple=False):
         all_segments = array[y, x]
         
         # Determine optimal dtype based on coordinate range
-        if len(y) > 0 and len(x) > 0:
-            max_coord = max(y.max(), x.max())
-            min_coord = min(y.min(), x.min())
-            
-            # Select appropriate dtype
-            if min_coord < 0:
-                dtype = np.int16 if (max_coord < 32767 and min_coord >= -32768) else np.int32
-            else:
-                if max_coord < 65535:
-                    dtype = np.uint16
-                elif max_coord < 4294967295:
-                    dtype = np.uint32
-                else:
-                    dtype = np.uint64
-        else:
-            dtype = np.uint16  # Default for empty arrays
+        dtype = _select_optimal_dtype(np.concatenate([y, x]) if len(y) > 0 else [])
 
         # Use np.unique to split the coordinates by segment
         unique_segs, inverse = np.unique(all_segments, return_inverse=True)
@@ -590,97 +672,145 @@ def map_discontinuous(input, out_wcs, out_shape, force_simple=False):
             # Store as numpy arrays with efficient dtype
             outdict[seg] = (y[seg_indices].astype(dtype), x[seg_indices].astype(dtype))
 
-    # elif conf.NCPUS == 0:
-    if True:
-        logger.info('Mapping to different resolution using single-core reprojection (multiprocessing has been disabled!)')
+    # Determine processing strategy based on configuration
+    # NOTE: Multiprocessing is disabled by default (NCPUS=0) due to high memory overhead
+    # when copying WCS objects across processes. The vectorized single-core version
+    # (map_ids_to_coarse_pixels) is typically faster for most use cases.
+    if conf.NCPUS == 0:
+        logger.info('Mapping to different resolution using single-core vectorized reprojection')
         outdict = map_ids_to_coarse_pixels(array, out_wcs, in_wcs)
-        # print(outdict[1247])
-
-    # else: # avoids cannibalizing small objects when going to lower resolution
-    #     logger.info(f'Mapping to different resolution using full reprojection (NCPU = {conf.NCPUS})')
-    #     outdict = parallel_process(array, out_wcs, in_wcs, n_processes=conf.NCPUS)
-    #     # print(outdict[1247])
+    else:
+        logger.info(f'Mapping to different resolution using multiprocessing (NCPU = {conf.NCPUS})')
+        logger.warning('Multiprocessing may consume significant memory due to WCS object copying')
+        outdict = parallel_process(array, out_wcs, in_wcs, n_processes=conf.NCPUS)
 
     return outdict
 
 
 
 def map_ids_to_coarse_pixels(fine_pixel_data, coarse_wcs, fine_wcs, offset=0):
+    """Map object IDs from fine grid to coarse grid pixels.
+    
+    Vectorized implementation for performance - transforms all pixels in batches
+    rather than looping over individual pixels.
+    
+    Args:
+        fine_pixel_data: 2D array with object IDs
+        coarse_wcs: WCS for coarse (output) grid
+        fine_wcs: WCS for fine (input) grid
+        offset: Y-offset for parallel processing chunks (default: 0)
+        
+    Returns:
+        dict: Mapping of object_id -> (y_coords, x_coords) as numpy arrays
+        
+    Note:
+        Uses sets to eliminate duplicate coordinates, then converts to
+        memory-efficient numpy arrays with optimal dtype.
     """
-    Map the object IDs in the fine grid to the corresponding pixels in the coarse grid.
-    Memory-optimized version using sets and numpy arrays.
-    """
+    logger = logging.getLogger('farmer.map_ids_to_coarse_pixels')
+    
+    # Get non-zero pixels (vectorized)
+    y_fine, x_fine = np.nonzero(fine_pixel_data)
+    obj_ids = fine_pixel_data[y_fine, x_fine]
+    
+    if len(obj_ids) == 0:
+        logger.warning('No objects found in fine pixel data')
+        return {}
+    
+    logger.debug(f'Processing {len(obj_ids)} non-zero pixels from {len(np.unique(obj_ids))} objects')
+    
+    # Process in chunks to avoid memory issues with very large images
+    chunk_size = 10000  # Adjust based on available memory
     id_to_coarse_pixel_map = {}
-
-    # Iterate over each pixel in the fine grid
-    for y in range(fine_pixel_data.shape[0]):
-        for x in range(fine_pixel_data.shape[1]):
-            obj_id = fine_pixel_data[y, x]
+    
+    for chunk_start in range(0, len(obj_ids), chunk_size):
+        chunk_end = min(chunk_start + chunk_size, len(obj_ids))
+        y_chunk = y_fine[chunk_start:chunk_end]
+        x_chunk = x_fine[chunk_start:chunk_end]
+        ids_chunk = obj_ids[chunk_start:chunk_end]
+        
+        # Create all 4 corners for all pixels in this chunk (vectorized)
+        # Shape: (n_pixels, 4) for each coordinate
+        x_corners = np.column_stack([
+            x_chunk,        # bottom-left
+            x_chunk + 1,    # bottom-right
+            x_chunk,        # top-left
+            x_chunk + 1     # top-right
+        ])
+        y_corners = np.column_stack([
+            y_chunk + offset,      # bottom-left
+            y_chunk + offset,      # bottom-right
+            y_chunk + offset + 1,  # top-left
+            y_chunk + offset + 1   # top-right
+        ])
+        
+        # Flatten to transform all corners at once
+        x_all = x_corners.flatten()
+        y_all = y_corners.flatten()
+        
+        # Batch WCS transformation (much faster than individual transforms)
+        try:
+            world_coords = fine_wcs.pixel_to_world_values(x_all, y_all)
+            coarse_coords = coarse_wcs.world_to_pixel_values(world_coords[0], world_coords[1])
+        except Exception as e:
+            logger.error(f'WCS transformation failed: {e}')
+            # Fall back to pixel-by-pixel for this chunk
+            logger.warning(f'Falling back to slow per-pixel processing for chunk {chunk_start}-{chunk_end}')
+            for i, (y, x, obj_id) in enumerate(zip(y_chunk, x_chunk, ids_chunk)):
+                if obj_id == 0:
+                    continue
+                pixel_corners = [(x, y + offset), (x + 1, y + offset), 
+                                (x, y + offset + 1), (x + 1, y + offset + 1)]
+                try:
+                    world_corners = fine_wcs.pixel_to_world_values(
+                        [c[0] for c in pixel_corners], [c[1] for c in pixel_corners])
+                    coarse_pixel_coords = coarse_wcs.world_to_pixel_values(
+                        world_corners[0], world_corners[1])
+                    
+                    min_x = int(np.floor(min(coarse_pixel_coords[0])))
+                    max_x = int(np.ceil(max(coarse_pixel_coords[0])))
+                    min_y = int(np.floor(min(coarse_pixel_coords[1])))
+                    max_y = int(np.ceil(max(coarse_pixel_coords[1])))
+                    
+                    if obj_id not in id_to_coarse_pixel_map:
+                        id_to_coarse_pixel_map[obj_id] = set()
+                    for cx in range(min_x, max_x):
+                        for cy in range(min_y, max_y):
+                            id_to_coarse_pixel_map[obj_id].add((cy, cx))
+                except Exception as e2:
+                    logger.warning(f'Failed to process pixel ({x}, {y}): {e2}')
+                    continue
+            continue
+        
+        # Reshape back to (n_pixels, 4, 2) - 4 corners per pixel
+        coarse_x = coarse_coords[0].reshape(-1, 4)
+        coarse_y = coarse_coords[1].reshape(-1, 4)
+        
+        # For each pixel, find bounding box in coarse grid
+        min_x = np.floor(coarse_x.min(axis=1)).astype(int)
+        max_x = np.ceil(coarse_x.max(axis=1)).astype(int)
+        min_y = np.floor(coarse_y.min(axis=1)).astype(int)
+        max_y = np.ceil(coarse_y.max(axis=1)).astype(int)
+        
+        # Accumulate coordinates for each object
+        for i, obj_id in enumerate(ids_chunk):
             if obj_id == 0:
-                continue  # Skip background pixels
-            # if obj_id == 1247:
-            #     print('orig', y, x)
-
-            # Define the corners of the fine pixel in pixel coordinates
-            pixel_corners = [
-                (x, y + offset),        # bottom-left
-                (x + 1, y + offset),    # bottom-right
-                (x, y + offset + 1),    # top-left
-                (x + 1, y + offset + 1) # top-right
-            ]
-
-            # Convert pixel corners to world coordinates
-            world_corners = fine_wcs.pixel_to_world_values(
-                [corner[0] for corner in pixel_corners],
-                [corner[1] for corner in pixel_corners]
-            )
-
-            # Convert world coordinates back to coarse grid pixel coordinates
-            coarse_pixel_coords = coarse_wcs.world_to_pixel_values(
-                world_corners[0],
-                world_corners[1]
-            )
-
-            # Find the bounding box in the coarse grid that this fine pixel overlaps
-            min_x, max_x = int(np.floor(min(coarse_pixel_coords[0]))), int(np.ceil(max(coarse_pixel_coords[0])))
-            min_y, max_y = int(np.floor(min(coarse_pixel_coords[1]))), int(np.ceil(max(coarse_pixel_coords[1])))
-
-            # Use a set to avoid duplicate coordinates (saves memory)
+                continue
+                
             if obj_id not in id_to_coarse_pixel_map:
                 id_to_coarse_pixel_map[obj_id] = set()
             
-            # Accumulate the object ID in all the overlapping coarse grid pixels
-            for coarse_x in range(min_x, max_x):
-                for coarse_y in range(min_y, max_y):
-                    # if obj_id == 1247:
-                    #     print('coarse', coarse_y, coarse_x)
-                    id_to_coarse_pixel_map[obj_id].add((coarse_y, coarse_x))
-
+            # Add all pixels in the bounding box
+            for cx in range(min_x[i], max_x[i]):
+                for cy in range(min_y[i], max_y[i]):
+                    id_to_coarse_pixel_map[obj_id].add((cy, cx))
+    
+    logger.debug(f'Mapped {len(id_to_coarse_pixel_map)} objects to coarse grid')
+    
     # Convert sets to numpy arrays for efficient storage and usage
     # Determine optimal dtype based on coordinate range
-    max_coord = max((max(c[0] for c in coords_set) if coords_set else 0 
-                     for coords_set in id_to_coarse_pixel_map.values()), default=0)
-    min_coord = min((min(c[0] for c in coords_set) if coords_set else 0 
-                     for coords_set in id_to_coarse_pixel_map.values()), default=0)
-    
-    # Select appropriate dtype based on data range
-    # Prefer unsigned for non-negative coordinates (more efficient)
-    if min_coord < 0:
-        # Need signed integer
-        if max_coord < 32767 and min_coord >= -32768:
-            dtype = np.int16
-        elif max_coord < 2147483647 and min_coord >= -2147483648:
-            dtype = np.int32
-        else:
-            dtype = np.int64
-    else:
-        # Can use unsigned integer (more range for same bytes)
-        if max_coord < 65535:
-            dtype = np.uint16  # 2 bytes, range: 0-65,535
-        elif max_coord < 4294967295:
-            dtype = np.uint32  # 4 bytes, range: 0-4,294,967,295
-        else:
-            dtype = np.uint64  # 8 bytes, range: 0-18+ quintillion
+    all_coords = [c for coords_set in id_to_coarse_pixel_map.values() for c in coords_set]
+    dtype = _select_optimal_dtype([c[0] for c in all_coords] + [c[1] for c in all_coords] if all_coords else [])
     
     for obj_id in id_to_coarse_pixel_map:
         coords_set = id_to_coarse_pixel_map[obj_id]
@@ -731,64 +861,58 @@ def parallel_process(fine_pixel_data, coarse_wcs, fine_wcs, n_processes=1):
     return sorted_combined_results
 
 def recursively_save_dict_contents_to_group(h5file, dic, path='/'):
-
+    """Recursively save dictionary to HDF5 group.
+    
+    Optimized version with type checking ordered by frequency of occurrence
+    and pre-compiled type tuples for faster isinstance() checks.
+    
+    Args:
+        h5file: Open h5py file handle
+        dic: Dictionary to save
+        path: HDF5 group path (default: '/')
+        
+    Raises:
+        ValueError: If arguments are invalid types
+    """
     logger = logging.getLogger('farmer.hdf5')
 
-    # argument type checking
+    # Argument type checking
     if not isinstance(dic, dict):
         raise ValueError("must provide a dictionary")        
     if not isinstance(path, str):
         raise ValueError("path must be a string")
     if not isinstance(h5file, h5py._hl.files.File):
         raise ValueError("must be an open h5py file")
-    # save items to the hdf5 file
+    
+    # Pre-compiled type tuples (faster than repeating in each isinstance call)
+    numeric_types = (np.int32, np.int64, np.float64, str, float, np.float32, int)
+    tractor_model_types = (PointSource, SimpleGalaxy, ExpGalaxy, DevGalaxy, FixedCompositeGalaxy)
+    
+    # Ensure path exists
+    if path not in h5file.keys():
+        h5file.create_group(path)
+    
+    # Save items to the hdf5 file
     for key, item in dic.items():
         logger.debug(f'  ... {path}{key} ({type(item)})')
         key = str(key)
         if key == 'logger':
             continue
-        if path not in h5file.keys():
-            h5file.create_group(path)
+            
+        # Convert lists/tuples to numpy arrays early
         if isinstance(item, (list, tuple)):
-            # Convert to numpy array; handle astropy Quantity objects
             try:
                 item = np.array(item)
             except (ValueError, TypeError):
                 # Items are Quantity objects - extract values in degrees
                 item = np.array([i.to(u.deg).value for i in item])
-        # save strings, numpy.int64, and numpy.float64 types
-        if isinstance(item, (np.int32, np.int64, np.float64, str, float, np.float32, int)):
-            h5file[path].attrs[key]= item
-            # print(h5file[path+key].value)
-            # if not h5file[path + key][...] == item:
-            #     raise ValueError('The data representation in the HDF5 file does not match the original dict.')
-        # save numpy arrays
-        elif isinstance(item, (PointSource, SimpleGalaxy, ExpGalaxy, DevGalaxy, FixedCompositeGalaxy)):
-            if key == 'variance': continue
-            item.unfreezeParams()
-            item.variance.unfreezeParams()
-            model_params = dict(zip(item.getParamNames(), item.getParams()))
-            model_params['name'] = item.name
-            model_params['variance'] = dict(zip(item.variance.getParamNames(), item.variance.getParams()))
-            model_params['variance']['name'] = item.name
-            recursively_save_dict_contents_to_group(h5file, model_params, path + key + '/')
-        elif isinstance(item, utils.Cutout2D):
-            recursively_save_dict_contents_to_group(h5file, item.__dict__, path + key + '/')
-        elif isinstance(item, SkyCoord):
-            h5file[path].attrs[key] = item.to_string(precision=10) # overkill, but I don't care!
-        elif isinstance(item, WCS):
-            h5file[path].attrs[key] = item.to_header_string()
-        elif isinstance(item, fits.header.Header):
-            h5file[path].attrs[key] = item.tostring()
-        elif isinstance(item, u.quantity.Quantity):
-            h5file[path].attrs[key] = item.value
-            h5file[path].attrs[key+'_unit'] = item.unit.to_string()
-        elif isinstance(item, np.bool_):
-            h5file[path].attrs[key] = int(item)
-        elif isinstance(item, np.ndarray):
-            if (key == 'bands'):
+        
+        # Most common types first for faster short-circuiting
+        # 1. Numpy arrays (most common in scientific code)
+        if isinstance(item, np.ndarray):
+            if key == 'bands':
                 # Convert band names to byte strings for HDF5 compatibility
-                item = np.array(item).astype('|S99')
+                item = np.array(item).astype(HDF5_STRING_DTYPE)
                 try:
                     h5file[path].create_dataset(key, data=item)
                 except (ValueError, RuntimeError):
@@ -807,20 +931,49 @@ def recursively_save_dict_contents_to_group(h5file, dic, path='/'):
                 except (TypeError, ValueError):
                     # Type incompatible - try as byte string
                     try:
-                        item = np.array(item).astype('|S99')
+                        item = np.array(item).astype(HDF5_STRING_DTYPE)
                         h5file[path].create_dataset(key, data=item)
                     except (ValueError, RuntimeError):
                         # Update existing dataset
                         h5file[path][key][...] = item
-
+        
+        # 2. Dictionaries (also very common)
+        elif isinstance(item, dict):
+            if len(item) == 0:
+                try:
+                    h5file[path][key]
+                except KeyError:
+                    h5file[path].create_group(key)  # empty group
+            else:
+                recursively_save_dict_contents_to_group(h5file, item, path + key + '/')
+        
+        # 3. Simple numeric types (attributes)
+        elif isinstance(item, numeric_types):
+            h5file[path].attrs[key] = item
+        
+        # 4. Boolean (needs conversion)
+        elif isinstance(item, np.bool_):
+            h5file[path].attrs[key] = int(item)
+        
+        # 5. Tractor model types (recursive)
+        elif isinstance(item, tractor_model_types):
+            if key == 'variance':
+                continue
+            item.unfreezeParams()
+            item.variance.unfreezeParams()
+            model_params = dict(zip(item.getParamNames(), item.getParams()))
+            model_params['name'] = item.name
+            model_params['variance'] = dict(zip(item.variance.getParamNames(), item.variance.getParams()))
+            model_params['variance']['name'] = item.name
+            recursively_save_dict_contents_to_group(h5file, model_params, path + key + '/')
+        
+        # 6. Astropy Table
         elif isinstance(item, Table):
-            # item.write(h5file.filename, path=path+key, append=True, overwrite=True)
-            # NOTE: Default astropy.table handler MAKES a new file... we already have one open!
-            # I've copied the key parts from astropy's source code here. Could use testing.
+            # NOTE: Default astropy.table handler creates a new file - we already have one open!
             if any(col.info.dtype.kind == "U" for col in item.itercols()):
                 item = item.copy(copy_data=False)
                 item.convert_unicode_to_bytestring()
-
+            
             header_yaml = meta.get_yaml_from_table(item)
             header_encoded = np.array([h.encode("utf-8") for h in header_yaml])
             if key in h5file[path]:
@@ -828,20 +981,30 @@ def recursively_save_dict_contents_to_group(h5file, dic, path='/'):
                 del h5file[path][f"{key}.__table_column_meta__"]
             h5file[path].create_dataset(key, data=item.as_array())
             h5file[path].create_dataset(f"{key}.__table_column_meta__", data=header_encoded)
-
- 
-        # save dictionaries
-        elif isinstance(item, dict):
-            if len(item.keys()) == 0:
-                try:
-                    h5file[path][key]
-                except:
-                    h5file[path].create_group(key) # emtpy stuff
-            else:
-                recursively_save_dict_contents_to_group(h5file, item, path + key + '/')
-        # other types cannot be saved and will result in an error
+        
+        # 7. Astropy Quantity
+        elif isinstance(item, u.quantity.Quantity):
+            h5file[path].attrs[key] = item.value
+            h5file[path].attrs[key + '_unit'] = item.unit.to_string()
+        
+        # 8. Astropy SkyCoord
+        elif isinstance(item, SkyCoord):
+            h5file[path].attrs[key] = item.to_string(precision=10)
+        
+        # 9. WCS
+        elif isinstance(item, WCS):
+            h5file[path].attrs[key] = item.to_header_string()
+        
+        # 10. FITS Header
+        elif isinstance(item, fits.header.Header):
+            h5file[path].attrs[key] = item.tostring()
+        
+        # 11. Cutout2D (recursive)
+        elif isinstance(item, utils.Cutout2D):
+            recursively_save_dict_contents_to_group(h5file, item.__dict__, path + key + '/')
+        
+        # Other types cannot be saved
         else:
-            #print(item)
             logger.debug(f'Cannot save {key} of type {type(item)}')
 
 def recursively_load_dict_contents_from_group(h5file, path='/', ans=None): 
@@ -861,15 +1024,15 @@ def recursively_load_dict_contents_from_group(h5file, path='/', ans=None):
     for key, item in h5file[path].items():
         try:
             key = int(key)
-        except:
-            pass
+        except (ValueError, TypeError):
+            pass  # Key is not an integer, keep as string
         logger.debug(f'  ... {item.name} ({type(item)})')
         if isinstance(item, h5py._hl.dataset.Dataset):
             if '.__table_column_meta__' in item.name:
                 continue
             if item.shape is None:
                 ans[key] = {}
-            elif item[...].dtype in ('|S99', '|S9'):
+            elif item[...].dtype in (HDF5_STRING_DTYPE, '|S9'):
                 if key == 'bands':
                     ans[key] = item[...].astype(str).tolist()
                 else:
@@ -968,6 +1131,25 @@ def recursively_load_dict_contents_from_group(h5file, path='/', ans=None):
     return ans   
      
 def dcoord_to_offset(coord1, coord2, offset='arcsec', pixel_scale=None):
+    """Calculate offset between two sky coordinates.
+    
+    Computes the angular or pixel offset between two SkyCoord objects,
+    accounting for spherical geometry with cosine declination correction.
+    
+    Args:
+        coord1: First astropy SkyCoord
+        coord2: Second astropy SkyCoord (reference position)
+        offset: Output unit - 'arcsec' or 'pixel' (default: 'arcsec')
+        pixel_scale: Tuple of (RA, Dec) pixel scales with units (required if offset='pixel')
+        
+    Returns:
+        tuple: (dra, ddec) offset in specified units
+            - dra: RA offset with cosine declination correction (negative for westward)
+            - ddec: Declination offset
+            
+    Note:
+        Uses midpoint declination for cosine correction to handle large separations.
+    """
     if offset == 'arcsec':
         corr = np.cos(0.5*(coord1.dec.to(u.rad).value + coord2.dec.to(u.rad).value))
         dra = (corr * (coord1.ra - coord2.ra)).to(u.arcsec).value
@@ -979,114 +1161,139 @@ def dcoord_to_offset(coord1, coord2, offset='arcsec', pixel_scale=None):
     return -dra, ddec
 
 def cumulative(x):
+    """Compute cumulative distribution function from data.
+    
+    Args:
+        x: Array of numeric values (may contain NaN)
+        
+    Returns:
+        tuple: (sorted_values, cumulative_probabilities)
+            - sorted_values: x sorted in ascending order (NaN removed)
+            - cumulative_probabilities: Normalized cumulative distribution [0, 1]
+            
+    Example:
+        >>> x = np.array([3, 1, 2, np.nan, 4])
+        >>> vals, cdf = cumulative(x)
+        >>> vals
+        array([1, 2, 3, 4])
+        >>> cdf
+        array([0.  , 0.25, 0.5 , 0.75, 1.  ])
+    """
     x = x[~np.isnan(x)]
     N = len(x)
-    return np.sort(x), np.array(np.linspace(0,N,N) )/float(N)
+    return np.sort(x), np.array(np.linspace(0, N, N)) / float(N)
 
 def get_params(model):
+    """Extract source parameters from a Tractor model.
+    
+    Args:
+        model: Tractor model object (PointSource, ExpGalaxy, DevGalaxy, etc.)
+        
+    Returns:
+        OrderedDict: Dictionary of source parameters and errors
+    """
     source = OrderedDict()
 
     if isinstance(model, PointSource):
-        name = 'PointSource'
+        name = MODEL_TYPES['POINT']
     else:
         name = model.name
     source['name'] = name
-    source['_bands'] = np.array(list(model.getBrightness().getParamNames()))
+    
+    # Cache frequently accessed attributes
+    brightness = model.getBrightness()
+    variance_brightness = model.variance.getBrightness()
+    source['_bands'] = np.array(list(brightness.getParamNames()))
 
     # position
-    source['ra'] = model.pos.ra * u.deg
-    source['ra_err'] = np.sqrt(model.variance.pos.ra) * u.deg
-    source['dec'] = model.pos.dec * u.deg
-    source['dec_err'] = np.sqrt(model.variance.pos.dec) * u.deg
+    pos = model.pos
+    var_pos = model.variance.pos
+    source['ra'] = pos.ra * u.deg
+    source['ra_err'] = np.sqrt(var_pos.ra) * u.deg
+    source['dec'] = pos.dec * u.deg
+    source['dec_err'] = np.sqrt(var_pos.dec) * u.deg
 
     # total statistics
     for stat in model.statistics:
         if (stat not in source['_bands']) & (stat not in ('model', 'variance')):
             source[f'total_{stat}'] = model.statistics[stat]
 
-    # shape
-    if model.name == 'SimpleGalaxy': # this is stupid for stupid reasons.
-        pass
-    elif isinstance(model, (ExpGalaxy, DevGalaxy)):
-        # if isinstance(model, ExpGalaxy):
-        #     skind = '_exp'
-        # elif isinstance(model, DevGalaxy):
-        #     skind = '_dev'
-        variance_shape = model.variance.shape
-        source['logre'] = model.shape.logre # log(arcsec)
-        source['logre_err'] = np.sqrt(model.variance.shape.logre)
-        source['ellip'] = model.shape.e
-        source['ellip_err'] = np.sqrt(model.variance.shape.e)
-        source['ee1'] = model.shape.ee1
-        source['ee1_err'] = np.sqrt(model.variance.shape.ee1)
-        source['ee2'] = model.shape.ee2
-        source['ee2_err'] = np.sqrt(model.variance.shape.ee2)
+    # Helper function for shape parameters (reduces duplication)
+    def _extract_shape_params(shape, variance_shape, suffix=''):
+        """Extract shape parameters with optional suffix for composite models."""
+        logre = shape.logre
+        e = shape.e
+        theta = shape.theta
+        
+        source[f'logre{suffix}'] = logre
+        source[f'logre{suffix}_err'] = np.sqrt(variance_shape.logre)
+        source[f'ellip{suffix}'] = e
+        source[f'ellip{suffix}_err'] = np.sqrt(variance_shape.e)
+        source[f'ee1{suffix}'] = shape.ee1
+        source[f'ee1{suffix}_err'] = np.sqrt(variance_shape.ee1)
+        source[f'ee2{suffix}'] = shape.ee2
+        source[f'ee2{suffix}_err'] = np.sqrt(variance_shape.ee2)
 
-        source['theta'] = np.rad2deg(model.shape.theta) * u.deg
-        source['theta_err'] = np.sqrt(np.rad2deg(model.variance.shape.theta)) * u.deg
+        theta_deg = np.rad2deg(theta)
+        source[f'theta{suffix}'] = theta_deg * u.deg
+        source[f'theta{suffix}_err'] = np.sqrt(np.rad2deg(variance_shape.theta)) * u.deg
 
-        source[f'reff'] = np.exp(model.shape.logre) * u.arcsec # in arcsec
-        source[f'reff_err'] = np.sqrt(variance_shape.logre) * source[f'reff'] * np.log(10)
+        reff = np.exp(logre) * u.arcsec
+        source[f'reff{suffix}'] = reff
+        source[f'reff{suffix}_err'] = np.sqrt(variance_shape.logre) * reff * np.log(10)
 
-        boa = (1. - np.abs(model.shape.e)) / (1. + np.abs(model.shape.e))
-        if model.shape.e == 1:
+        abs_e = np.abs(e)
+        boa = (1. - abs_e) / (1. + abs_e)
+        if e == 1:
             boa_sig = np.inf
         else:
-            boa_sig = boa * np.sqrt(variance_shape.e) * np.sqrt((1/(1.-model.shape.e))**2 + (1/(1.+model.shape.e))**2)
-        source[f'ba'] = boa
-        source[f'ba_err'] = boa_sig
+            sqrt_var_e = np.sqrt(variance_shape.e)
+            boa_sig = boa * sqrt_var_e * np.sqrt((1/(1.-e))**2 + (1/(1.+e))**2)
+        source[f'ba{suffix}'] = boa
+        source[f'ba{suffix}_err'] = boa_sig
         
-        source['pa'] = 90. * u.deg + np.rad2deg(model.shape.theta) * u.deg
-        source['pa_err'] = np.rad2deg(model.variance.shape.theta) * u.deg
+        source[f'pa{suffix}'] = 90. * u.deg + theta_deg * u.deg
+        source[f'pa{suffix}_err'] = np.rad2deg(variance_shape.theta) * u.deg
 
+    # shape
+    if model.name == 'SimpleGalaxy':
+        pass  # SimpleGalaxy has fixed shape
+    elif isinstance(model, (ExpGalaxy, DevGalaxy)):
+        _extract_shape_params(model.shape, model.variance.shape)
     elif isinstance(model, FixedCompositeGalaxy):
-        source['softfracdev'] = model.fracDev.getValue()
-        source['fracdev'] = model.fracDev.clipped()
-        source['softfracdev_err'] = np.sqrt(model.variance.fracDev.getValue())
-        source['fracdev_err'] = np.sqrt(model.variance.fracDev.clipped())
-        for skind, shape, variance_shape in zip(('_exp', '_dev'), (model.shapeExp, model.shapeDev), (model.variance.shapeExp, model.variance.shapeDev)):
-            source[f'logre{skind}'] = shape.logre # log(arcsec)
-            source[f'logre{skind}_err'] = np.sqrt(variance_shape.logre)
-            source[f'ellip{skind}'] = shape.e
-            source[f'ellip{skind}_err'] = np.sqrt(variance_shape.e)
-            source[f'ee1{skind}'] = shape.ee1
-            source[f'ee1{skind}_err'] = np.sqrt(variance_shape.ee1)
-            source[f'ee2{skind}'] = shape.ee2
-            source[f'ee2{skind}_err'] = np.sqrt(variance_shape.ee2)
+        frac_dev = model.fracDev
+        var_frac_dev = model.variance.fracDev
+        source['softfracdev'] = frac_dev.getValue()
+        source['fracdev'] = frac_dev.clipped()
+        source['softfracdev_err'] = np.sqrt(var_frac_dev.getValue())
+        source['fracdev_err'] = np.sqrt(var_frac_dev.clipped())
+        
+        _extract_shape_params(model.shapeExp, model.variance.shapeExp, '_exp')
+        _extract_shape_params(model.shapeDev, model.variance.shapeDev, '_dev')
 
-            source[f'theta{skind}'] = np.rad2deg(shape.theta) * u.deg
-            source[f'theta{skind}_err'] = np.sqrt(np.rad2deg(variance_shape.theta)) * u.deg
-
-            source[f'reff{skind}'] = np.exp(shape.logre) * u.arcsec # in arcsec
-            source[f'reff{skind}_err'] = np.sqrt(variance_shape.logre) * source[f'reff{skind}'] * np.log(10)
-
-            boa = (1. - np.abs(shape.e)) / (1. + np.abs(shape.e))
-            if shape.e == 1:
-                boa_sig = np.inf
-            else:
-                boa_sig = boa * np.sqrt(variance_shape.e) * np.sqrt((1/(1.-shape.e))**2 + (1/(1.+shape.e))**2)
-            source[f'ba{skind}'] = boa
-            source[f'ba{skind}_err'] = boa_sig
-            
-            source[f'pa{skind}'] = 90. * u.deg + np.rad2deg(shape.theta) * u.deg
-            source[f'pa{skind}_err'] = np.rad2deg(variance_shape.theta) * u.deg
-
-
+    # Photometry - cache constants
+    log10_e = np.log10(np.e)
+    
     for band in source['_bands']:
-
-        # photometry
-        flux_err = np.sqrt(model.variance.getBrightness().getFlux(band))
+        # photometry - cache method calls
+        flux = brightness.getFlux(band)
+        var_flux = variance_brightness.getFlux(band)
+        flux_err = np.sqrt(var_flux)
         mask = ((flux_err > 0) & np.isfinite(flux_err)).astype(np.int8)
-        source[f'{band}_flux'] = model.getBrightness().getFlux(band) * mask
+        
+        source[f'{band}_flux'] = flux * mask
         source[f'{band}_flux_err'] = flux_err * mask
         
-        source[f'_{band}_zpt'] = conf.BANDS[band]['zeropoint']
+        zpt = conf.BANDS[band]['zeropoint']
+        source[f'_{band}_zpt'] = zpt
+        
+        # Pre-calculate conversion factor
+        flux_to_ujy = 10**(-0.4 * (zpt - 23.9))
+        source[f'{band}_flux_ujy'] = flux * flux_to_ujy * u.microjansky * mask
+        source[f'{band}_flux_ujy_err'] = flux_err * flux_to_ujy * u.microjansky * mask
 
-        source[f'{band}_flux_ujy'] = source[f'{band}_flux'] * 10**(-0.4 * (source[f'_{band}_zpt'] - 23.9)) * u.microjansky * mask
-        source[f'{band}_flux_ujy_err'] = source[f'{band}_flux_err'] * 10**(-0.4 * (source[f'_{band}_zpt'] - 23.9)) * u.microjansky * mask
-
-        source[f'{band}_mag'] = (-2.5 * np.log10(source[f'{band}_flux']) * u.mag + source[f'_{band}_zpt'] * u.mag) * mask
-        source[f'{band}_mag_err'] = (2.5 * np.log10(np.e) / (source[f'{band}_flux'] / source[f'{band}_flux_err'])) * mask
+        source[f'{band}_mag'] = (-2.5 * np.log10(flux) * u.mag + zpt * u.mag) * mask
+        source[f'{band}_mag_err'] = (2.5 * log10_e / (flux / flux_err)) * mask
 
         # statistics
         if band in model.statistics:
@@ -1193,13 +1400,14 @@ def build_regions(catalog, pixel_scale, outpath='objects.reg', scale_factor=2.0)
 
 
 def _clear_h5():
+    """Close any open HDF5 file handles to prevent file locking issues."""
     import gc
     for obj in gc.get_objects():   # Browse through ALL objects
         if isinstance(obj, h5py.File):   # Just HDF5 files
             try:
                 obj.close()
-            except:
-                pass # Was already closed
+            except (ValueError, RuntimeError):
+                pass  # File already closed or invalid
 
 
 def prepare_psf(filename, outfilename=None, pixel_scale=None, mask_radius=None, clip_radius=None, norm=None, norm_radius=None, target_pixel_scale=None, ext=0):
