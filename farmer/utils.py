@@ -505,7 +505,7 @@ class SimpleGalaxy(ExpGalaxy):
         return super(SimpleGalaxy, self).isParamFrozen(pname) 
 
 
-def map_discontinuous(input, out_wcs, out_shape, thresh=0.1, force_simple=False):
+def map_discontinuous(input, out_wcs, out_shape, force_simple=False):
     # print(input[0].shape)
     # print(input[1])
     # print(out_wcs)
@@ -528,12 +528,31 @@ def map_discontinuous(input, out_wcs, out_shape, thresh=0.1, force_simple=False)
         # Get all unique segment values and their indices at once
         y, x = np.nonzero(array)
         all_segments = array[y, x]
+        
+        # Determine optimal dtype based on coordinate range
+        if len(y) > 0 and len(x) > 0:
+            max_coord = max(y.max(), x.max())
+            min_coord = min(y.min(), x.min())
+            
+            # Select appropriate dtype
+            if min_coord < 0:
+                dtype = np.int16 if (max_coord < 32767 and min_coord >= -32768) else np.int32
+            else:
+                if max_coord < 65535:
+                    dtype = np.uint16
+                elif max_coord < 4294967295:
+                    dtype = np.uint32
+                else:
+                    dtype = np.uint64
+        else:
+            dtype = np.uint16  # Default for empty arrays
 
         # Use np.unique to split the coordinates by segment
         unique_segs, inverse = np.unique(all_segments, return_inverse=True)
         for idx, seg in enumerate(unique_segs):
             seg_indices = np.where(inverse == idx)
-            outdict[seg] = (y[seg_indices], x[seg_indices])
+            # Store as numpy arrays with efficient dtype
+            outdict[seg] = (y[seg_indices].astype(dtype), x[seg_indices].astype(dtype))
 
     elif force_simple:
         logger.warning(f'Simple mapping has been forced! Small regions may be cannibalized... ')
@@ -545,29 +564,51 @@ def map_discontinuous(input, out_wcs, out_shape, thresh=0.1, force_simple=False)
         # Get all unique segment values and their indices at once
         y, x = np.nonzero(array)
         all_segments = array[y, x]
+        
+        # Determine optimal dtype based on coordinate range
+        if len(y) > 0 and len(x) > 0:
+            max_coord = max(y.max(), x.max())
+            min_coord = min(y.min(), x.min())
+            
+            # Select appropriate dtype
+            if min_coord < 0:
+                dtype = np.int16 if (max_coord < 32767 and min_coord >= -32768) else np.int32
+            else:
+                if max_coord < 65535:
+                    dtype = np.uint16
+                elif max_coord < 4294967295:
+                    dtype = np.uint32
+                else:
+                    dtype = np.uint64
+        else:
+            dtype = np.uint16  # Default for empty arrays
 
         # Use np.unique to split the coordinates by segment
         unique_segs, inverse = np.unique(all_segments, return_inverse=True)
         for idx, seg in enumerate(unique_segs):
             seg_indices = np.where(inverse == idx)
-            outdict[seg] = (y[seg_indices], x[seg_indices])
+            # Store as numpy arrays with efficient dtype
+            outdict[seg] = (y[seg_indices].astype(dtype), x[seg_indices].astype(dtype))
 
-    elif conf.NCPUS == 0:
-        logger.info('Mapping to different resolution using single-core reprojection')
+    # elif conf.NCPUS == 0:
+    if True:
+        logger.info('Mapping to different resolution using single-core reprojection (multiprocessing has been disabled!)')
         outdict = map_ids_to_coarse_pixels(array, out_wcs, in_wcs)
         # print(outdict[1247])
 
-    else: # avoids cannibalizing small objects when going to lower resolution
-        logger.info(f'Mapping to different resolution using full reprojection (NCPU = {conf.NCPUS})')
-        outdict = parallel_process(array, out_wcs, in_wcs, n_processes=conf.NCPUS)
-        # print(outdict[1247])
+    # else: # avoids cannibalizing small objects when going to lower resolution
+    #     logger.info(f'Mapping to different resolution using full reprojection (NCPU = {conf.NCPUS})')
+    #     outdict = parallel_process(array, out_wcs, in_wcs, n_processes=conf.NCPUS)
+    #     # print(outdict[1247])
 
     return outdict
+
 
 
 def map_ids_to_coarse_pixels(fine_pixel_data, coarse_wcs, fine_wcs, offset=0):
     """
     Map the object IDs in the fine grid to the corresponding pixels in the coarse grid.
+    Memory-optimized version using sets and numpy arrays.
     """
     id_to_coarse_pixel_map = {}
 
@@ -604,15 +645,51 @@ def map_ids_to_coarse_pixels(fine_pixel_data, coarse_wcs, fine_wcs, offset=0):
             min_x, max_x = int(np.floor(min(coarse_pixel_coords[0]))), int(np.ceil(max(coarse_pixel_coords[0])))
             min_y, max_y = int(np.floor(min(coarse_pixel_coords[1]))), int(np.ceil(max(coarse_pixel_coords[1])))
 
+            # Use a set to avoid duplicate coordinates (saves memory)
+            if obj_id not in id_to_coarse_pixel_map:
+                id_to_coarse_pixel_map[obj_id] = set()
+            
             # Accumulate the object ID in all the overlapping coarse grid pixels
             for coarse_x in range(min_x, max_x):
                 for coarse_y in range(min_y, max_y):
-                    if obj_id not in id_to_coarse_pixel_map:
-                        id_to_coarse_pixel_map[obj_id] = [], []
                     # if obj_id == 1247:
                     #     print('coarse', coarse_y, coarse_x)
-                    id_to_coarse_pixel_map[obj_id][0].append(coarse_y)
-                    id_to_coarse_pixel_map[obj_id][1].append(coarse_x)
+                    id_to_coarse_pixel_map[obj_id].add((coarse_y, coarse_x))
+
+    # Convert sets to numpy arrays for efficient storage and usage
+    # Determine optimal dtype based on coordinate range
+    max_coord = max((max(c[0] for c in coords_set) if coords_set else 0 
+                     for coords_set in id_to_coarse_pixel_map.values()), default=0)
+    min_coord = min((min(c[0] for c in coords_set) if coords_set else 0 
+                     for coords_set in id_to_coarse_pixel_map.values()), default=0)
+    
+    # Select appropriate dtype based on data range
+    # Prefer unsigned for non-negative coordinates (more efficient)
+    if min_coord < 0:
+        # Need signed integer
+        if max_coord < 32767 and min_coord >= -32768:
+            dtype = np.int16
+        elif max_coord < 2147483647 and min_coord >= -2147483648:
+            dtype = np.int32
+        else:
+            dtype = np.int64
+    else:
+        # Can use unsigned integer (more range for same bytes)
+        if max_coord < 65535:
+            dtype = np.uint16  # 2 bytes, range: 0-65,535
+        elif max_coord < 4294967295:
+            dtype = np.uint32  # 4 bytes, range: 0-4,294,967,295
+        else:
+            dtype = np.uint64  # 8 bytes, range: 0-18+ quintillion
+    
+    for obj_id in id_to_coarse_pixel_map:
+        coords_set = id_to_coarse_pixel_map[obj_id]
+        if len(coords_set) > 0:
+            coords = np.array(list(coords_set), dtype=dtype)
+            # Keep as numpy arrays - much more memory efficient than Python lists
+            id_to_coarse_pixel_map[obj_id] = (coords[:, 0], coords[:, 1])
+        else:
+            id_to_coarse_pixel_map[obj_id] = (np.array([], dtype=dtype), np.array([], dtype=dtype))
 
     return id_to_coarse_pixel_map
 
@@ -639,14 +716,14 @@ def parallel_process(fine_pixel_data, coarse_wcs, fine_wcs, n_processes=1):
     combined_results = {}
     for result in results:
         for obj_id, pixels in result.items():
-                if obj_id in combined_results:
-                    # print(combined_results[obj_id][0])
-                    # print(type(combined_results[obj_id][0]))
-                    # print(pixels[0])
-                    combined_results[obj_id][0].extend(pixels[0])
-                    combined_results[obj_id][1].extend(pixels[1])
-                else:
-                    combined_results[obj_id] = pixels
+            if obj_id in combined_results:
+                # Concatenate numpy arrays efficiently
+                combined_results[obj_id] = (
+                    np.concatenate([combined_results[obj_id][0], pixels[0]]),
+                    np.concatenate([combined_results[obj_id][1], pixels[1]])
+                )
+            else:
+                combined_results[obj_id] = pixels
 
     # Sort the combined results by object ID and return as an OrderedDict
     sorted_combined_results = OrderedDict(sorted(combined_results.items()))
