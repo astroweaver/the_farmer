@@ -1566,6 +1566,20 @@ def run_group(group, mode='all'):
     if timeout is None:
         return _run_group_inline(group, mode=mode)
 
+    def _reject_and_return(reason, elapsed):
+        group.logger.error(reason)
+        group.rejected = True
+        for source_id in group.source_ids:
+            if source_id in group.model_tracker and len(group.model_tracker[source_id]) > 0:
+                final_stage = max(group.model_tracker[source_id].keys())
+                if final_stage not in group.model_tracker[source_id]:
+                    group.model_tracker[source_id][final_stage] = {}
+                group.model_tracker[source_id][final_stage]['group_time'] = elapsed
+        group.logger.warning(f'Group #{group.group_id} was rejected/failed ({elapsed:.2f}s)')
+        output = group.group_id, group.model_catalog.copy(), group.model_tracker.copy()
+        del group
+        return output
+
     import multiprocessing as mp
 
     try:
@@ -1583,7 +1597,14 @@ def run_group(group, mode='all'):
         state, payload = result_queue.get(timeout=float(timeout))
     except queue_mod.Empty:
         if not proc.is_alive():
-            raise RuntimeError(f'Group #{group.group_id} worker exited without returning a result')
+            elapsed = time.time() - tstart
+            msg = (
+                f'Group #{group.group_id} worker exited unexpectedly '
+                f'(exitcode={proc.exitcode}) without returning a result'
+            )
+            if conf.IGNORE_FAILURES:
+                return _reject_and_return(msg, elapsed)
+            raise RuntimeError(msg)
 
         proc.terminate()
         proc.join(timeout=5)
@@ -1592,20 +1613,8 @@ def run_group(group, mode='all'):
             proc.join(timeout=5)
 
         elapsed = time.time() - tstart
-        group.logger.error(f"Group #{group.group_id} timed out after {timeout}s; subprocess terminated")
-        group.rejected = True
-
-        for source_id in group.source_ids:
-            if source_id in group.model_tracker and len(group.model_tracker[source_id]) > 0:
-                final_stage = max(group.model_tracker[source_id].keys())
-                if final_stage not in group.model_tracker[source_id]:
-                    group.model_tracker[source_id][final_stage] = {}
-                group.model_tracker[source_id][final_stage]['group_time'] = elapsed
-
-        group.logger.warning(f'Group #{group.group_id} was rejected/failed ({elapsed:.2f}s)')
-        output = group.group_id, group.model_catalog.copy(), group.model_tracker.copy()
-        del group
-        return output
+        msg = f"Group #{group.group_id} timed out after {timeout}s; subprocess terminated"
+        return _reject_and_return(msg, elapsed)
 
     proc.join(timeout=5)
 
@@ -1613,4 +1622,8 @@ def run_group(group, mode='all'):
         return payload
 
     error_repr, tb = payload
+    if conf.IGNORE_FAILURES:
+        elapsed = time.time() - tstart
+        msg = f'Group #{group.group_id} worker failed: {error_repr}\n{tb}'
+        return _reject_and_return(msg, elapsed)
     raise RuntimeError(f'Group #{group.group_id} worker failed: {error_repr}\n{tb}')
