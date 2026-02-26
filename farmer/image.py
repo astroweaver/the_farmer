@@ -688,6 +688,32 @@ class BaseImage():
         # cat = self.engine.getCatalog()
         self.logger.debug('Running engine...')
         tstart = time.time()
+
+        try:
+            n_params = len(self.engine.getParams())
+        except Exception:
+            n_params = None
+
+        if n_params == 0:
+            self.logger.error('Optimization skipped: engine has zero active parameters (empty solve state).')
+            return False
+
+        has_valid_pixels = False
+        try:
+            for tim in self.engine.images:
+                invvar = getattr(tim, 'invvar', None)
+                if invvar is None:
+                    has_valid_pixels = True
+                    break
+                if np.size(invvar) > 0 and np.any(np.isfinite(invvar) & (invvar > 0)):
+                    has_valid_pixels = True
+                    break
+        except Exception:
+            has_valid_pixels = True
+
+        if not has_valid_pixels:
+            self.logger.error('Optimization skipped: no valid weighted pixels in staged images.')
+            return False
         
         if conf.USE_CERES:
             prev_dlnp = None

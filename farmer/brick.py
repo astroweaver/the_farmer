@@ -476,6 +476,7 @@ class Brick(BaseImage):
                     dynamic_ncols=True,
                     smoothing=0.1
                 )
+                pbar.refresh()
                 for result in pbar:
                     self.absorb(result)
                 pbar.close()

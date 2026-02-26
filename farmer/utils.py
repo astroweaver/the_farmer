@@ -1577,7 +1577,6 @@ def run_group(group, mode='all'):
                 group.model_tracker[source_id][final_stage]['group_time'] = elapsed
         group.logger.warning(f'Group #{group.group_id} was rejected/failed ({elapsed:.2f}s)')
         output = group.group_id, group.model_catalog.copy(), group.model_tracker.copy()
-        del group
         return output
 
     import multiprocessing as mp
