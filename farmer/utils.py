@@ -1502,69 +1502,27 @@ def spawn_and_run_group(brick, group_id, imgtype='science', bands=None, mode='al
     return output
 
 
-def run_group(group, mode='all'):
-    """Process an already-spawned group object (for serial processing)."""
+def _run_group_inline(group, mode='all'):
+    """Run group processing inline in the current process."""
     import time
-    import signal
-    import config as conf
-    
+
     tstart = time.time()
-    
-    # Set up timeout if configured
-    timeout_triggered = False
-    
-    def timeout_handler(signum, frame):
-        raise TimeoutError(f"Group {group.group_id} exceeded timeout")
-    
-    if conf.GROUP_TIMEOUT is not None:
-        old_handler = signal.signal(signal.SIGALRM, timeout_handler)
-        signal.alarm(int(conf.GROUP_TIMEOUT))
 
-    try:
-        if not group.rejected:
-        
-            if mode == 'all':
-                status = group.determine_models()
-                if status:
-                    status = group.force_models()
-        
-            elif mode == 'model':
-                status = group.determine_models()
-
-            elif mode == 'photometry':
+    if not group.rejected:
+        if mode == 'all':
+            status = group.determine_models()
+            if status:
                 status = group.force_models()
 
-            elif mode == 'pass':
-                status = False
-    
-    except TimeoutError as e:
-        # Cancel alarm and log timeout
-        if conf.GROUP_TIMEOUT is not None:
-            signal.alarm(0)
-            signal.signal(signal.SIGALRM, old_handler)
-        group.logger.error(f"Group #{group.group_id} timed out after {conf.GROUP_TIMEOUT}s")
-        group.rejected = True
-        status = False
-    
-    except Exception as e:
-        # Cancel alarm and re-raise
-        if conf.GROUP_TIMEOUT is not None:
-            signal.alarm(0)
-            signal.signal(signal.SIGALRM, old_handler)
-        raise
-    
-    else:
-        # Cancel alarm on successful completion
-        if conf.GROUP_TIMEOUT is not None:
-            signal.alarm(0)
-            signal.signal(signal.SIGALRM, old_handler)
+        elif mode == 'model':
+            status = group.determine_models()
 
-        # if not status:
-        #     group.rejected = True
+        elif mode == 'photometry':
+            status = group.force_models()
 
-    # else:
-    #     self.logger.warning(f'Group {group.group_id} has been rejected!')
-    
+        elif mode == 'pass':
+            status = False
+
     # Record group processing time in model_tracker for all sources
     elapsed = time.time() - tstart
     for source_id in group.source_ids:
@@ -1575,15 +1533,84 @@ def run_group(group, mode='all'):
                 if final_stage not in group.model_tracker[source_id]:
                     group.model_tracker[source_id][final_stage] = {}
                 group.model_tracker[source_id][final_stage]['group_time'] = elapsed
-    
+
     # Log completion
     if not group.rejected:
         group.logger.info(f'Group #{group.group_id} processing completed ({elapsed:.2f}s)')
     else:
         group.logger.warning(f'Group #{group.group_id} was rejected/failed ({elapsed:.2f}s)')
-    
+
     output = group.group_id, group.model_catalog.copy(), group.model_tracker.copy()
     del group
     return output
 
-    # return group
+
+def _run_group_timeout_worker(group, mode, result_queue):
+    """Child worker for hard timeout enforcement."""
+    import traceback
+
+    try:
+        result = _run_group_inline(group, mode=mode)
+        result_queue.put(('ok', result))
+    except Exception as exc:
+        result_queue.put(('err', (repr(exc), traceback.format_exc())))
+
+
+def run_group(group, mode='all'):
+    """Process an already-spawned group object with an optional hard timeout."""
+    import time
+    import queue as queue_mod
+    import config as conf
+
+    timeout = conf.GROUP_TIMEOUT
+    if timeout is None:
+        return _run_group_inline(group, mode=mode)
+
+    import multiprocessing as mp
+
+    try:
+        ctx = mp.get_context('fork')
+    except (ValueError, AttributeError):
+        ctx = mp.get_context()
+
+    result_queue = ctx.Queue(maxsize=1)
+    proc = ctx.Process(target=_run_group_timeout_worker, args=(group, mode, result_queue))
+
+    tstart = time.time()
+    proc.start()
+
+    try:
+        state, payload = result_queue.get(timeout=float(timeout))
+    except queue_mod.Empty:
+        if not proc.is_alive():
+            raise RuntimeError(f'Group #{group.group_id} worker exited without returning a result')
+
+        proc.terminate()
+        proc.join(timeout=5)
+        if proc.is_alive() and hasattr(proc, 'kill'):
+            proc.kill()
+            proc.join(timeout=5)
+
+        elapsed = time.time() - tstart
+        group.logger.error(f"Group #{group.group_id} timed out after {timeout}s; subprocess terminated")
+        group.rejected = True
+
+        for source_id in group.source_ids:
+            if source_id in group.model_tracker and len(group.model_tracker[source_id]) > 0:
+                final_stage = max(group.model_tracker[source_id].keys())
+                if final_stage not in group.model_tracker[source_id]:
+                    group.model_tracker[source_id][final_stage] = {}
+                group.model_tracker[source_id][final_stage]['group_time'] = elapsed
+
+        group.logger.warning(f'Group #{group.group_id} was rejected/failed ({elapsed:.2f}s)')
+        output = group.group_id, group.model_catalog.copy(), group.model_tracker.copy()
+        del group
+        return output
+
+    proc.join(timeout=5)
+
+    if state == 'ok':
+        return payload
+
+    error_repr, tb = payload
+    raise RuntimeError(f'Group #{group.group_id} worker failed: {error_repr}\n{tb}')
