@@ -497,6 +497,12 @@ class BaseImage():
             # ensure that there are no nans in data or weight
             data[np.isnan(data) | ~np.isfinite(data)] = 0
             weight[np.isnan(weight) | ~np.isfinite(weight)] = 0
+            
+            # Sanity check: ensure weights are reasonable to prevent numerical issues
+            max_weight = np.max(weight)
+            if max_weight > 1e10:
+                self.logger.warning(f'{band}: Extremely large weights detected (max={max_weight:.2e}), capping at 1e10')
+                weight = np.clip(weight, 0, 1e10)
 
             if np.sum(weight) == 0:
                 self.logger.debug(f'All weight pixels in {band} are zero! Skipping this band.')
@@ -545,10 +551,14 @@ class BaseImage():
                 if band not in existing_bands:
                     zpt = conf.BANDS[band]['zeropoint']
                     conv_fluxes = existing_fluxes * 10**(-0.4 * (existing_zpt - zpt))
-                    fluxes[band] = np.mean(conv_fluxes)
+                    avg_flux = np.mean(conv_fluxes)
+                    # Ensure positive flux for numerical stability
+                    fluxes[band] = max(avg_flux, 1e-6) if np.isfinite(avg_flux) else 1e-6
                     filler[band] = 0
                 else:
-                    fluxes[band] = existing_fluxes[existing_bands==band][0]
+                    existing_flux = existing_fluxes[existing_bands==band][0]
+                    # Ensure positive flux for numerical stability
+                    fluxes[band] = max(existing_flux, 1e-6) if np.isfinite(existing_flux) else 1e-6
                     filler[band] = 0
             self.model_catalog[source_id] = copy.deepcopy(existing_catalog[source_id])
             self.model_catalog[source_id].brightness =  Fluxes(**fluxes, order=list(fluxes.keys()))
@@ -596,15 +606,23 @@ class BaseImage():
             for j, band in enumerate(staged_bands):
                 src_seg = self.data[band]['segmap'][source_id]
                 try:
-                    qflux[j] = np.nansum(self.images[band].data[src_seg[0], src_seg[1]])
+                    flux_sum = np.nansum(self.images[band].data[src_seg[0], src_seg[1]])
+                    # Ensure positive flux to prevent Ceres failures
+                    # Use small positive value as minimum
+                    qflux[j] = max(flux_sum, 1e-6)
                 except Exception as e:
                     self.logger.debug(f'Failed to sum flux for source #{source_id} in band {band}: {e}')
-                    qflux[j] = 0
+                    qflux[j] = 1e-6
             flux = Fluxes(**dict(zip(staged_bands, qflux)), order=staged_bands)
 
             # initial shapes pa = 90. * u.deg + np.rad2deg(shape.theta) * u.deg
             pa = 90 - np.rad2deg(src['theta'])
-            self.logger.debug(f'Source #{source_id}: qflux[0]={qflux[0]}, axis_ratio={src["b"]/src["a"]}, pa={pa}, theta={src["theta"]}')
+            # Validate axis ratio to prevent degenerate shapes
+            axis_ratio = src["b"] / src["a"]
+            if axis_ratio <= 0 or axis_ratio > 1 or not np.isfinite(axis_ratio):
+                self.logger.warning(f'Source #{source_id}: invalid axis_ratio={axis_ratio}, using 0.5')
+                axis_ratio = 0.5
+            self.logger.debug(f'Source #{source_id}: qflux[0]={qflux[0]}, axis_ratio={axis_ratio}, pa={pa}, theta={src["theta"]}')
             # Use the first available band for pixel scale (or detection if available)
             if 'detection' in self.pixel_scales:
                 shape_band = 'detection'
@@ -615,13 +633,22 @@ class BaseImage():
                 continue
             pixscl = self.pixel_scales[shape_band][0].to(u.arcsec).value
             guess_radius = np.sqrt(src['a']*src['b']) * pixscl
-            shape = EllipseESoft.fromRAbPhi(guess_radius, src['b'] / src['a'], pa)
+            
+            # Validate radius to prevent singular matrices
+            if guess_radius <= 0 or not np.isfinite(guess_radius):
+                self.logger.warning(f'Source #{source_id}: invalid guess_radius={guess_radius}, using 0.5 arcsec')
+                guess_radius = 0.5
+            # Clamp to reasonable range
+            guess_radius = np.clip(guess_radius, 0.1, 10.0)  # 0.1-10 arcsec is reasonable
+            
+            shape = EllipseESoft.fromRAbPhi(guess_radius, axis_ratio, pa)
             nre = SersicIndex(1) # Just a guess for the seric index
             fluxcore = Fluxes(**dict(zip(staged_bands, np.zeros(len(staged_bands)))), order=staged_bands) # Just a simple init condition
 
-            # set shape bounds for sanity
-            shape.lowers = [-5, -np.inf, -np.inf]
-            shape.uppers = [1, np.inf, np.inf]
+            # Set stricter shape bounds to prevent Ceres failures
+            # logre bounds: 0.1 arcsec to 30 arcsec in log space
+            shape.lowers = [np.log(0.1), -0.99, -np.inf]  # Prevent axis_ratio < 0.01
+            shape.uppers = [np.log(30.0), 0.99, np.inf]   # Prevent axis_ratio > 0.99
 
             # assign model
             if isinstance(self.model_catalog[source_id], PointSource):
