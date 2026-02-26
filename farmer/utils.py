@@ -1560,69 +1560,115 @@ def run_group(group, mode='all'):
     """Process an already-spawned group object with an optional hard timeout."""
     import time
     import queue as queue_mod
+    import traceback
     import config as conf
 
-    timeout = conf.GROUP_TIMEOUT
-    if timeout is None:
-        return _run_group_inline(group, mode=mode)
+    tstart = time.time()
 
-    def _reject_and_return(reason, elapsed):
-        group.logger.error(reason)
-        group.rejected = True
-        for source_id in group.source_ids:
-            if source_id in group.model_tracker and len(group.model_tracker[source_id]) > 0:
-                final_stage = max(group.model_tracker[source_id].keys())
-                if final_stage not in group.model_tracker[source_id]:
-                    group.model_tracker[source_id][final_stage] = {}
-                group.model_tracker[source_id][final_stage]['group_time'] = elapsed
-        group.logger.warning(f'Group #{group.group_id} was rejected/failed ({elapsed:.2f}s)')
-        output = group.group_id, group.model_catalog.copy(), group.model_tracker.copy()
-        return output
+    timeout = conf.GROUP_TIMEOUT
+
+    def _reject_and_return(reason, elapsed=None):
+        if elapsed is None:
+            elapsed = time.time() - tstart
+        try:
+            group.logger.error(reason)
+        except Exception:
+            pass
+        try:
+            group.rejected = True
+        except Exception:
+            pass
+        try:
+            for source_id in group.source_ids:
+                if source_id in group.model_tracker and len(group.model_tracker[source_id]) > 0:
+                    final_stage = max(group.model_tracker[source_id].keys())
+                    if final_stage not in group.model_tracker[source_id]:
+                        group.model_tracker[source_id][final_stage] = {}
+                    group.model_tracker[source_id][final_stage]['group_time'] = elapsed
+        except Exception:
+            pass
+        try:
+            group.logger.warning(f'Group #{group.group_id} was rejected/failed ({elapsed:.2f}s)')
+        except Exception:
+            pass
+
+        group_id = getattr(group, 'group_id', None)
+        model_catalog = getattr(group, 'model_catalog', {})
+        model_tracker = getattr(group, 'model_tracker', {})
+        try:
+            model_catalog = model_catalog.copy()
+        except Exception:
+            model_catalog = {}
+        try:
+            model_tracker = model_tracker.copy()
+        except Exception:
+            model_tracker = {}
+        return group_id, model_catalog, model_tracker
+
+    if timeout is None:
+        try:
+            return _run_group_inline(group, mode=mode)
+        except Exception as exc:
+            if conf.IGNORE_FAILURES:
+                msg = f'Group #{group.group_id} inline worker failed: {repr(exc)}\n{traceback.format_exc()}'
+                return _reject_and_return(msg)
+            raise
 
     import multiprocessing as mp
 
+    proc = None
     try:
-        ctx = mp.get_context('fork')
-    except (ValueError, AttributeError):
-        ctx = mp.get_context()
+        try:
+            ctx = mp.get_context('fork')
+        except (ValueError, AttributeError):
+            ctx = mp.get_context()
 
-    result_queue = ctx.Queue(maxsize=1)
-    proc = ctx.Process(target=_run_group_timeout_worker, args=(group, mode, result_queue))
+        result_queue = ctx.Queue(maxsize=1)
+        proc = ctx.Process(target=_run_group_timeout_worker, args=(group, mode, result_queue))
+        proc.start()
 
-    tstart = time.time()
-    proc.start()
+        try:
+            state, payload = result_queue.get(timeout=float(timeout))
+        except queue_mod.Empty:
+            if not proc.is_alive():
+                msg = (
+                    f'Group #{group.group_id} worker exited unexpectedly '
+                    f'(exitcode={proc.exitcode}) without returning a result'
+                )
+                if conf.IGNORE_FAILURES:
+                    return _reject_and_return(msg)
+                raise RuntimeError(msg)
 
-    try:
-        state, payload = result_queue.get(timeout=float(timeout))
-    except queue_mod.Empty:
-        if not proc.is_alive():
-            elapsed = time.time() - tstart
-            msg = (
-                f'Group #{group.group_id} worker exited unexpectedly '
-                f'(exitcode={proc.exitcode}) without returning a result'
-            )
-            if conf.IGNORE_FAILURES:
-                return _reject_and_return(msg, elapsed)
-            raise RuntimeError(msg)
-
-        proc.terminate()
-        proc.join(timeout=5)
-        if proc.is_alive() and hasattr(proc, 'kill'):
-            proc.kill()
+            proc.terminate()
             proc.join(timeout=5)
+            if proc.is_alive() and hasattr(proc, 'kill'):
+                proc.kill()
+                proc.join(timeout=5)
 
-        elapsed = time.time() - tstart
-        msg = f"Group #{group.group_id} timed out after {timeout}s; subprocess terminated"
-        return _reject_and_return(msg, elapsed)
+            msg = f"Group #{group.group_id} timed out after {timeout}s; subprocess terminated"
+            return _reject_and_return(msg)
 
-    proc.join(timeout=5)
+        proc.join(timeout=5)
 
-    if state == 'ok':
-        return payload
+        if state == 'ok':
+            return payload
 
-    error_repr, tb = payload
-    if conf.IGNORE_FAILURES:
-        elapsed = time.time() - tstart
-        msg = f'Group #{group.group_id} worker failed: {error_repr}\n{tb}'
-        return _reject_and_return(msg, elapsed)
-    raise RuntimeError(f'Group #{group.group_id} worker failed: {error_repr}\n{tb}')
+        error_repr, tb = payload
+        if conf.IGNORE_FAILURES:
+            msg = f'Group #{group.group_id} worker failed: {error_repr}\n{tb}'
+            return _reject_and_return(msg)
+        raise RuntimeError(f'Group #{group.group_id} worker failed: {error_repr}\n{tb}')
+
+    except Exception as exc:
+        if conf.IGNORE_FAILURES:
+            msg = f'Group #{group.group_id} run_group failed unexpectedly: {repr(exc)}\n{traceback.format_exc()}'
+            return _reject_and_return(msg)
+        raise
+
+    finally:
+        if proc is not None and proc.is_alive():
+            proc.terminate()
+            proc.join(timeout=2)
+            if proc.is_alive() and hasattr(proc, 'kill'):
+                proc.kill()
+                proc.join(timeout=2)
