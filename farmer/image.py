@@ -662,8 +662,9 @@ class BaseImage():
         self.logger.debug('Running engine...')
         tstart = time.time()
         
-        prev_dlnp = None
-        stuck_count = 0
+        if conf.USE_CERES:
+            prev_dlnp = None
+            stuck_count = 0
 
         for i in range(conf.MAX_STEPS):
             # Run one optimization step
@@ -675,15 +676,16 @@ class BaseImage():
                 return False
             
             # Detect Ceres silent failure: dlnp unchanged means optimization is stuck
-            if prev_dlnp is not None and np.abs(dlnp - prev_dlnp) < 1e-5:
-                stuck_count += 1
-                if stuck_count >= 1:  # Fail after first stuck step
-                    self.logger.error(f'Optimization stuck on step {i+1}: dlnp={dlnp:2.5f} (unchanged from previous step)')
-                    self.logger.error('This indicates Ceres "Residual and Jacobian evaluation failed". Failing group.')
-                    return False
-            else:
-                stuck_count = 0
-            prev_dlnp = dlnp
+            if conf.USE_CERES:
+                if prev_dlnp is not None and np.abs(dlnp - prev_dlnp) < 1e-5:
+                    stuck_count += 1
+                    if stuck_count >= 1:  # Fail after first stuck step
+                        self.logger.error(f'Optimization stuck on step {i+1}: dlnp={dlnp:2.5f} (unchanged from previous step)')
+                        self.logger.error('This indicates Ceres "Residual and Jacobian evaluation failed". Failing group.')
+                        return False
+                else:
+                    stuck_count = 0
+                prev_dlnp = dlnp
 
             if conf.PLOT > 4:
                 self.build_all_images(set_engine=False, reconstruct=False, bands=self.engine.bands)

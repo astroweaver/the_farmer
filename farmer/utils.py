@@ -1505,23 +1505,59 @@ def spawn_and_run_group(brick, group_id, imgtype='science', bands=None, mode='al
 def run_group(group, mode='all'):
     """Process an already-spawned group object (for serial processing)."""
     import time
+    import signal
+    import config as conf
+    
     tstart = time.time()
-
-    if not group.rejected:
     
-        if mode == 'all':
-            status = group.determine_models()
-            if status:
+    # Set up timeout if configured
+    timeout_triggered = False
+    
+    def timeout_handler(signum, frame):
+        raise TimeoutError(f"Group {group.group_id} exceeded timeout")
+    
+    if conf.GROUP_TIMEOUT is not None:
+        old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(int(conf.GROUP_TIMEOUT))
+
+    try:
+        if not group.rejected:
+        
+            if mode == 'all':
+                status = group.determine_models()
+                if status:
+                    status = group.force_models()
+        
+            elif mode == 'model':
+                status = group.determine_models()
+
+            elif mode == 'photometry':
                 status = group.force_models()
+
+            elif mode == 'pass':
+                status = False
     
-        elif mode == 'model':
-            status = group.determine_models()
-
-        elif mode == 'photometry':
-            status = group.force_models()
-
-        elif mode == 'pass':
-            status = False
+    except TimeoutError as e:
+        # Cancel alarm and log timeout
+        if conf.GROUP_TIMEOUT is not None:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, old_handler)
+        group.logger.error(f"Group #{group.group_id} timed out after {conf.GROUP_TIMEOUT}s")
+        group.rejected = True
+        status = False
+    
+    except Exception as e:
+        # Cancel alarm and re-raise
+        if conf.GROUP_TIMEOUT is not None:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, old_handler)
+        raise
+    
+    else:
+        # Cancel alarm on successful completion
+        if conf.GROUP_TIMEOUT is not None:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, old_handler)
 
         # if not status:
         #     group.rejected = True
@@ -1541,7 +1577,10 @@ def run_group(group, mode='all'):
                 group.model_tracker[source_id][final_stage]['group_time'] = elapsed
     
     # Log completion
-    group.logger.info(f'Group #{group.group_id} processing completed ({elapsed:.2f}s)')
+    if not group.rejected:
+        group.logger.info(f'Group #{group.group_id} processing completed ({elapsed:.2f}s)')
+    else:
+        group.logger.warning(f'Group #{group.group_id} was rejected/failed ({elapsed:.2f}s)')
     
     output = group.group_id, group.model_catalog.copy(), group.model_tracker.copy()
     del group

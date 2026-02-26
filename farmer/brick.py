@@ -466,8 +466,19 @@ class Brick(BaseImage):
                 pool.restart()
 
                 # Stream results directly - imap yields as workers complete
-                for result in tqdm.tqdm(pool.imap(partial(run_group, mode=mode), groups_gen, chunksize=1), total=len(group_ids)):
+                # Use position=0 and dynamic_ncols to keep progress bar visible despite logging
+                pbar = tqdm.tqdm(
+                    pool.imap(partial(run_group, mode=mode), groups_gen, chunksize=1),
+                    total=len(group_ids),
+                    desc=f'Processing {len(group_ids)} groups',
+                    position=0,
+                    leave=True,
+                    dynamic_ncols=True,
+                    smoothing=0.1
+                )
+                for result in pbar:
                     self.absorb(result)
+                pbar.close()
 
             self.logger.info('All results absorbed.')
             # with ProcessPool(ncpus=conf.NCPUS) as pool:
