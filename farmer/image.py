@@ -667,9 +667,8 @@ class BaseImage():
             try:
                 dlnp, X, alpha, var = self.engine.optimize(variance=True, damping=conf.DAMPING)
             except (RuntimeError, ValueError, np.linalg.LinAlgError, IndexError) as e:
-                self.logger.debug(f'Optimization failed on step {i+1}: {e}')
-                if not conf.IGNORE_FAILURES:
-                    raise RuntimeError(f'Optimization failed on step {i+1}: {e}')
+                self.logger.error(f'Optimization failed on step {i+1}: {e}')
+                self.logger.error('Failing group due to optimizer exception.')
                 return False
 
             if conf.PLOT > 4:
