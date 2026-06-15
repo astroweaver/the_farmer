@@ -1,0 +1,435 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Usage Guide &mdash; The Farmer 2.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=20623aea"></script>
+      <script src="_static/doctools.js?v=9a2dae69"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="_static/copybutton.js?v=f281be69"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Configuration Reference" href="configuration.html" />
+    <link rel="prev" title="Quick Start" href="quickstart.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            The Farmer
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Usage Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#working-with-mosaics">Working with Mosaics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#working-with-bricks">Working with Bricks</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#building-bricks">Building bricks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#loading-an-existing-brick">Loading an existing brick</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#checking-whether-a-band-is-present">Checking whether a band is present</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#source-detection">Source Detection</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#group-population-and-size-limits">Group population and size limits</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#modeling">Modeling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#photometry">Photometry</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#interactive-group-inspection">Interactive Group Inspection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#adding-bands-after-the-fact">Adding Bands After the Fact</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#parallel-processing">Parallel Processing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#timeout-protection">Timeout Protection</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#output-files">Output Files</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#bricks">Bricks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#source-catalogs">Source catalogs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#figures">Figures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#ancillary-files">Ancillary files</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipeline.html">Pipeline Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/farmer.html"><code class="docutils literal notranslate"><span class="pre">farmer</span></code> — Top-Level API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/mosaic.html"><code class="docutils literal notranslate"><span class="pre">farmer.mosaic</span></code> — Mosaic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/brick.html"><code class="docutils literal notranslate"><span class="pre">farmer.brick</span></code> — Brick</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/group.html"><code class="docutils literal notranslate"><span class="pre">farmer.group</span></code> — Group</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/baseimage.html"><code class="docutils literal notranslate"><span class="pre">farmer.image</span></code> — BaseImage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/utils.html"><code class="docutils literal notranslate"><span class="pre">farmer.utils</span></code> — Utilities</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Help &amp; Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">Frequently Asked Questions</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">The Farmer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Usage Guide</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/usage.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="usage-guide">
+<h1>Usage Guide<a class="headerlink" href="#usage-guide" title="Link to this heading"></a></h1>
+<p>This page covers common workflows in detail. For the big-picture pipeline, see <a class="reference internal" href="pipeline.html"><span class="doc">Pipeline Architecture</span></a>; for individual class methods, see <a class="reference internal" href="api/index.html"><span class="doc">API Reference</span></a>.</p>
+<section id="working-with-mosaics">
+<h2>Working with Mosaics<a class="headerlink" href="#working-with-mosaics" title="Link to this heading"></a></h2>
+<p>A <a class="reference internal" href="api/mosaic.html#farmer.mosaic.Mosaic" title="farmer.mosaic.Mosaic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mosaic</span></code></a> represents one band’s full-field image. You rarely need to interact with it directly — the top-level API functions handle mosaic loading internally — but it is useful for inspection and for preparing PSF coordinate tables.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">farmer</span>
+
+<span class="c1"># Load the detection mosaic into memory</span>
+<span class="n">mosaic</span> <span class="o">=</span> <span class="n">farmer</span><span class="o">.</span><span class="n">get_mosaic</span><span class="p">(</span><span class="s1">&#39;detection&#39;</span><span class="p">,</span> <span class="n">load</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">mosaic</span><span class="o">.</span><span class="n">position</span><span class="p">)</span>   <span class="c1"># SkyCoord of the mosaic center</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">mosaic</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>       <span class="c1"># angular size as an array of astropy Quantities</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">mosaic</span><span class="o">.</span><span class="n">wcs</span><span class="p">)</span>        <span class="c1"># astropy WCS</span>
+
+<span class="c1"># Load a photometric band</span>
+<span class="n">hsc_i</span> <span class="o">=</span> <span class="n">farmer</span><span class="o">.</span><span class="n">get_mosaic</span><span class="p">(</span><span class="s1">&#39;hsc_i&#39;</span><span class="p">,</span> <span class="n">load</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="c1"># Run source detection on the full mosaic (rare; usually done per brick)</span>
+<span class="n">hsc_i</span><span class="o">.</span><span class="n">extract</span><span class="p">()</span>
+<span class="n">hsc_i</span><span class="o">.</span><span class="n">identify_groups</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Passing <code class="docutils literal notranslate"><span class="pre">load=False</span></code> validates paths and WCS without reading pixel data, which is what <code class="docutils literal notranslate"><span class="pre">farmer.validate()</span></code> uses internally.</p>
+</section>
+<section id="working-with-bricks">
+<h2>Working with Bricks<a class="headerlink" href="#working-with-bricks" title="Link to this heading"></a></h2>
+<p>The <a class="reference internal" href="api/brick.html#farmer.brick.Brick" title="farmer.brick.Brick"><code class="xref py py-class docutils literal notranslate"><span class="pre">Brick</span></code></a> class is the main unit of work. A brick is a rectangular cutout of the mosaic grid, defined by its integer ID (1-indexed).</p>
+<section id="building-bricks">
+<h3>Building bricks<a class="headerlink" href="#building-bricks" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Build brick #1 from all configured bands and save it</span>
+<span class="n">brick</span> <span class="o">=</span> <span class="n">farmer</span><span class="o">.</span><span class="n">build_bricks</span><span class="p">(</span><span class="n">brick_ids</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="c1"># Build several bricks at once (returns list of successful brick IDs)</span>
+<span class="n">good_ids</span> <span class="o">=</span> <span class="n">farmer</span><span class="o">.</span><span class="n">build_bricks</span><span class="p">(</span><span class="n">brick_ids</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
+
+<span class="c1"># Build only specific bands (e.g., just add irac_ch1 to existing bricks)</span>
+<span class="n">farmer</span><span class="o">.</span><span class="n">update_bricks</span><span class="p">(</span><span class="n">brick_ids</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="n">bands</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;irac_ch1&#39;</span><span class="p">])</span>
+</pre></div>
+</div>
+</section>
+<section id="loading-an-existing-brick">
+<h3>Loading an existing brick<a class="headerlink" href="#loading-an-existing-brick" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">brick</span> <span class="o">=</span> <span class="n">farmer</span><span class="o">.</span><span class="n">load_brick</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">brick</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>   <span class="c1"># prints a table of image statistics per band</span>
+</pre></div>
+</div>
+</section>
+<section id="checking-whether-a-band-is-present">
+<h3>Checking whether a band is present<a class="headerlink" href="#checking-whether-a-band-is-present" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Cheap check — reads only HDF5 metadata, does not load pixel data</span>
+<span class="k">if</span> <span class="n">farmer</span><span class="o">.</span><span class="n">brick_has_band</span><span class="p">(</span><span class="n">brick_id</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">band</span><span class="o">=</span><span class="s1">&#39;irac_ch1&#39;</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Band already present, skipping mosaic load&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="source-detection">
+<h2>Source Detection<a class="headerlink" href="#source-detection" title="Link to this heading"></a></h2>
+<p>Detection runs on a single dedicated image (usually a high-resolution chi-mean or stacked image). The result is a source catalog plus a segmentation map and group map stored inside the brick.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Full detection pipeline for brick #1</span>
+<span class="n">brick</span><span class="o">.</span><span class="n">detect_sources</span><span class="p">(</span><span class="n">band</span><span class="o">=</span><span class="s1">&#39;detection&#39;</span><span class="p">,</span> <span class="n">imgtype</span><span class="o">=</span><span class="s1">&#39;science&#39;</span><span class="p">)</span>
+
+<span class="c1"># Equivalent top-level call (loads brick from disk first)</span>
+<span class="n">farmer</span><span class="o">.</span><span class="n">detect_sources</span><span class="p">(</span><span class="n">brick_ids</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">write</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="c1"># Memory-efficient mode: detects, writes catalog, then discards pixel arrays</span>
+<span class="n">farmer</span><span class="o">.</span><span class="n">detect_sources_lite</span><span class="p">(</span><span class="n">brick_ids</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span> <span class="n">cleanup</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>After detection, <code class="docutils literal notranslate"><span class="pre">brick.catalogs['detection']['science']</span></code> contains an <code class="docutils literal notranslate"><span class="pre">astropy.Table</span></code> with columns <code class="docutils literal notranslate"><span class="pre">id</span></code>, <code class="docutils literal notranslate"><span class="pre">ra</span></code>, <code class="docutils literal notranslate"><span class="pre">dec</span></code>, <code class="docutils literal notranslate"><span class="pre">x</span></code>, <code class="docutils literal notranslate"><span class="pre">y</span></code>, <code class="docutils literal notranslate"><span class="pre">group_id</span></code>, <code class="docutils literal notranslate"><span class="pre">group_pop</span></code>, and standard SEP photometric columns (<code class="docutils literal notranslate"><span class="pre">a</span></code>, <code class="docutils literal notranslate"><span class="pre">b</span></code>, <code class="docutils literal notranslate"><span class="pre">theta</span></code>, <code class="docutils literal notranslate"><span class="pre">flux</span></code>, <code class="docutils literal notranslate"><span class="pre">peak</span></code>, <code class="docutils literal notranslate"><span class="pre">npix</span></code>, etc.).</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Use <a class="reference internal" href="api/farmer.html#farmer.detect_sources_lite" title="farmer.detect_sources_lite"><code class="xref py py-func docutils literal notranslate"><span class="pre">farmer.detect_sources_lite()</span></code></a> for production runs over many bricks —
+it writes the catalog immediately and discards pixel arrays to keep memory usage low.
+Use <a class="reference internal" href="api/farmer.html#farmer.detect_sources" title="farmer.detect_sources"><code class="xref py py-func docutils literal notranslate"><span class="pre">farmer.detect_sources()</span></code></a> when you need the brick object in memory for
+interactive inspection or when chaining directly into modeling.</p>
+</div>
+<section id="group-population-and-size-limits">
+<h3>Group population and size limits<a class="headerlink" href="#group-population-and-size-limits" title="Link to this heading"></a></h3>
+<p>Sources are grouped via morphological dilation (see <a class="reference internal" href="api/utils.html#farmer.utils.dilate_and_group" title="farmer.utils.dilate_and_group"><code class="xref py py-func docutils literal notranslate"><span class="pre">dilate_and_group()</span></code></a>). The <code class="docutils literal notranslate"><span class="pre">DILATION_RADIUS</span></code> config parameter controls how far apart two sources can be and still be placed in the same group. Groups larger than <code class="docutils literal notranslate"><span class="pre">GROUP_SIZE_LIMIT</span></code> (default: 5) are skipped.</p>
+</section>
+</section>
+<section id="modeling">
+<h2>Modeling<a class="headerlink" href="#modeling" title="Link to this heading"></a></h2>
+<p>Model determination runs a staged decision tree to find the best-fit profile for each source in the <code class="docutils literal notranslate"><span class="pre">MODEL_BANDS</span></code>. The tree progresses from a simple point source through increasingly complex galaxy profiles.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Determine models for all groups in brick #1</span>
+<span class="n">farmer</span><span class="o">.</span><span class="n">generate_models</span><span class="p">(</span><span class="n">brick_ids</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="c1"># Or run group-level modeling directly</span>
+<span class="n">brick</span> <span class="o">=</span> <span class="n">farmer</span><span class="o">.</span><span class="n">load_brick</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">brick</span><span class="o">.</span><span class="n">process_groups</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;model&#39;</span><span class="p">)</span>
+
+<span class="c1"># Or model just a few groups</span>
+<span class="n">brick</span><span class="o">.</span><span class="n">process_groups</span><span class="p">(</span><span class="n">group_ids</span><span class="o">=</span><span class="p">[</span><span class="mi">42</span><span class="p">,</span> <span class="mi">43</span><span class="p">,</span> <span class="mi">44</span><span class="p">],</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;model&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="photometry">
+<h2>Photometry<a class="headerlink" href="#photometry" title="Link to this heading"></a></h2>
+<p>Once morphological models are determined, fluxes are measured in every configured band by freezing morphology and optimizing only the flux parameters.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">farmer</span><span class="o">.</span><span class="n">photometer</span><span class="p">(</span><span class="n">brick_ids</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="c1"># Lower-level: already have a brick in memory</span>
+<span class="n">brick</span><span class="o">.</span><span class="n">process_groups</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;photometry&#39;</span><span class="p">)</span>
+
+<span class="c1"># All at once (determine + photometry in a single pass)</span>
+<span class="n">brick</span><span class="o">.</span><span class="n">process_groups</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;all&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="interactive-group-inspection">
+<h2>Interactive Group Inspection<a class="headerlink" href="#interactive-group-inspection" title="Link to this heading"></a></h2>
+<p>For debugging or exploring individual detections, use <code class="docutils literal notranslate"><span class="pre">quick_group</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Load brick, detect sources, spawn group, model it, and return</span>
+<span class="n">group</span> <span class="o">=</span> <span class="n">farmer</span><span class="o">.</span><span class="n">quick_group</span><span class="p">(</span><span class="n">brick_id</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">group_id</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+
+<span class="n">group</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>          <span class="c1"># print image statistics</span>
+<span class="n">group</span><span class="o">.</span><span class="n">farm</span><span class="p">()</span>             <span class="c1"># determine models + photometry + plots (in one call)</span>
+
+<span class="c1"># Step through manually</span>
+<span class="n">group</span><span class="o">.</span><span class="n">determine_models</span><span class="p">()</span>
+<span class="n">group</span><span class="o">.</span><span class="n">force_models</span><span class="p">()</span>
+<span class="n">group</span><span class="o">.</span><span class="n">plot_summary</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="adding-bands-after-the-fact">
+<h2>Adding Bands After the Fact<a class="headerlink" href="#adding-bands-after-the-fact" title="Link to this heading"></a></h2>
+<p>If you have already built and modeled bricks but need to add a new band (e.g., a newly reduced Spitzer image), use <code class="docutils literal notranslate"><span class="pre">update_bricks</span></code>. It checks whether each brick already contains the band and only loads mosaics for bricks that need updating:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">farmer</span><span class="o">.</span><span class="n">update_bricks</span><span class="p">(</span><span class="n">bands</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;irac_ch1&#39;</span><span class="p">])</span>
+
+<span class="c1"># Force re-adding even if band exists</span>
+<span class="n">farmer</span><span class="o">.</span><span class="n">update_bricks</span><span class="p">(</span><span class="n">bands</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;irac_ch1&#39;</span><span class="p">],</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>After updating, re-run <code class="docutils literal notranslate"><span class="pre">photometer</span></code> to measure fluxes in the new band.</p>
+</section>
+<section id="parallel-processing">
+<h2>Parallel Processing<a class="headerlink" href="#parallel-processing" title="Link to this heading"></a></h2>
+<p>Set <code class="docutils literal notranslate"><span class="pre">NCPUS</span></code> in <code class="docutils literal notranslate"><span class="pre">config.py</span></code> to the number of cores you want to use. Groups are distributed across workers using a <code class="docutils literal notranslate"><span class="pre">pathos.ProcessPool</span></code>:</p>
+<div class="literal-block-wrapper docutils container" id="id1">
+<div class="code-block-caption"><span class="caption-text">config/config.py</span><a class="headerlink" href="#id1" title="Link to this code"></a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">NCPUS</span> <span class="o">=</span> <span class="mi">8</span>   <span class="c1"># 0 = serial (recommended for debugging)</span>
+</pre></div>
+</div>
+</div>
+<p>Parallel processing uses <code class="docutils literal notranslate"><span class="pre">imap</span></code> with <code class="docutils literal notranslate"><span class="pre">chunksize=1</span></code>, so groups are farmed out one at a time. This keeps memory usage low but adds some overhead per group. For very small groups, serial mode (<code class="docutils literal notranslate"><span class="pre">NCPUS=0</span></code>) is often faster.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Parallel processing requires that all objects sent to worker processes are
+picklable. The Tractor WCS objects can be tricky; if you see pickling errors,
+fall back to serial mode.</p>
+</div>
+<section id="timeout-protection">
+<h3>Timeout Protection<a class="headerlink" href="#timeout-protection" title="Link to this heading"></a></h3>
+<p>To prevent a single slow or diverging group from halting a production run, set <code class="docutils literal notranslate"><span class="pre">GROUP_TIMEOUT</span></code>:</p>
+<div class="literal-block-wrapper docutils container" id="id2">
+<div class="code-block-caption"><span class="caption-text">config/config.py</span><a class="headerlink" href="#id2" title="Link to this code"></a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">GROUP_TIMEOUT</span> <span class="o">=</span> <span class="mi">120</span>   <span class="c1"># seconds; None to disable</span>
+</pre></div>
+</div>
+</div>
+<p>Groups that exceed the timeout are flagged and skipped. The failure is logged at <code class="docutils literal notranslate"><span class="pre">WARNING</span></code> level.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">GROUP_TIMEOUT</span></code> relies on <code class="docutils literal notranslate"><span class="pre">signal.alarm</span></code> (Unix only) and has no effect on Windows.</p>
+</div>
+</section>
+</section>
+<section id="output-files">
+<h2>Output Files<a class="headerlink" href="#output-files" title="Link to this heading"></a></h2>
+<section id="bricks">
+<h3>Bricks<a class="headerlink" href="#bricks" title="Link to this heading"></a></h3>
+<p>Each brick is saved as an HDF5 file under <code class="docutils literal notranslate"><span class="pre">PATH_BRICKS</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">B{brick_id}.h5</span></code> — full brick state (images, catalogs, models)</p></li>
+</ul>
+</section>
+<section id="source-catalogs">
+<h3>Source catalogs<a class="headerlink" href="#source-catalogs" title="Link to this heading"></a></h3>
+<p>FITS tables are written to <code class="docutils literal notranslate"><span class="pre">PATH_CATALOGS</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">B{brick_id}_catalog.fits</span></code> — all sources in the brick</p></li>
+</ul>
+<p>Key catalog columns:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Column</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">id</span></code></p></td>
+<td><p>Source integer ID (1-indexed within the brick)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">brick_id</span></code></p></td>
+<td><p>Parent brick integer ID</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ra</span></code>, <code class="docutils literal notranslate"><span class="pre">dec</span></code></p></td>
+<td><p>Sky position in degrees</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">group_id</span></code></p></td>
+<td><p>Group integer ID this source belongs to</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">group_pop</span></code></p></td>
+<td><p>Number of sources in the group</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">{band}_flux</span></code></p></td>
+<td><p>Tractor-fitted flux (native image units)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">{band}_flux_err</span></code></p></td>
+<td><p>1-sigma flux uncertainty from Hessian</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">{band}_flux_ujy</span></code></p></td>
+<td><p>Flux converted to microjanskys</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">{band}_mag</span></code></p></td>
+<td><p>AB magnitude from zeropoint</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">{band}_mag_err</span></code></p></td>
+<td><p>AB magnitude uncertainty</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">logre</span></code></p></td>
+<td><p>log10 effective radius (arcsec); -99 for point sources</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ellip</span></code></p></td>
+<td><p>Ellipticity ε = (1 − b/a)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">theta</span></code></p></td>
+<td><p>Position angle (degrees E of N)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">reff</span></code></p></td>
+<td><p>Effective radius (arcsec)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ba</span></code></p></td>
+<td><p>Axis ratio b/a</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">pa</span></code></p></td>
+<td><p>Position angle (degrees)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">chisq</span></code></p></td>
+<td><p>Total chi-squared residual</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">rchisq</span></code></p></td>
+<td><p>Reduced chi-squared</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ndof</span></code></p></td>
+<td><p>Degrees of freedom</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">flag</span></code></p></td>
+<td><p>Quality flag (0 = good)</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="figures">
+<h3>Figures<a class="headerlink" href="#figures" title="Link to this heading"></a></h3>
+<p>If <code class="docutils literal notranslate"><span class="pre">PLOT</span> <span class="pre">&gt;</span> <span class="pre">0</span></code>, diagnostic images are written to <code class="docutils literal notranslate"><span class="pre">PATH_FIGURES</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">B{brick_id}_{band}_{imgtype}.png</span></code> — brick-level science/model/residual images</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">G{group_id}_B{brick_id}_{band}_{imgtype}.png</span></code> — group-level cutouts</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">G{group_id}_B{brick_id}_summary.png</span></code> — per-group model summary plot</p></li>
+</ul>
+</section>
+<section id="ancillary-files">
+<h3>Ancillary files<a class="headerlink" href="#ancillary-files" title="Link to this heading"></a></h3>
+<p>DS9 region files are written to <code class="docutils literal notranslate"><span class="pre">PATH_ANCILLARY</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">B{brick_id}_detection_science_objects.reg</span></code> — elliptical apertures for all detections</p></li>
+</ul>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="quickstart.html" class="btn btn-neutral float-left" title="Quick Start" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="configuration.html" class="btn btn-neutral float-right" title="Configuration Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2018-2026, John Weaver.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,1253 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>farmer.image — BaseImage &mdash; The Farmer 2.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=20623aea"></script>
+      <script src="../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=f281be69"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="farmer.utils — Utilities" href="utils.html" />
+    <link rel="prev" title="farmer.group — Group" href="group.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            The Farmer
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quick Start</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../configuration.html">Configuration Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pipeline.html">Pipeline Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="farmer.html"><code class="docutils literal notranslate"><span class="pre">farmer</span></code> — Top-Level API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mosaic.html"><code class="docutils literal notranslate"><span class="pre">farmer.mosaic</span></code> — Mosaic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="brick.html"><code class="docutils literal notranslate"><span class="pre">farmer.brick</span></code> — Brick</a></li>
+<li class="toctree-l1"><a class="reference internal" href="group.html"><code class="docutils literal notranslate"><span class="pre">farmer.group</span></code> — Group</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">farmer.image</span></code> — BaseImage</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#farmer.image.BaseImage"><code class="docutils literal notranslate"><span class="pre">BaseImage</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.__init__"><code class="docutils literal notranslate"><span class="pre">BaseImage.__init__()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.add_tracker"><code class="docutils literal notranslate"><span class="pre">BaseImage.add_tracker()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.reset_models"><code class="docutils literal notranslate"><span class="pre">BaseImage.reset_models()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.cleanup_after_detection"><code class="docutils literal notranslate"><span class="pre">BaseImage.cleanup_after_detection()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.cleanup_after_modeling"><code class="docutils literal notranslate"><span class="pre">BaseImage.cleanup_after_modeling()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.cleanup_headers"><code class="docutils literal notranslate"><span class="pre">BaseImage.cleanup_headers()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.get_image"><code class="docutils literal notranslate"><span class="pre">BaseImage.get_image()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.get_psfmodel"><code class="docutils literal notranslate"><span class="pre">BaseImage.get_psfmodel()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.set_image"><code class="docutils literal notranslate"><span class="pre">BaseImage.set_image()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.set_property"><code class="docutils literal notranslate"><span class="pre">BaseImage.set_property()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.get_property"><code class="docutils literal notranslate"><span class="pre">BaseImage.get_property()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.get_wcs"><code class="docutils literal notranslate"><span class="pre">BaseImage.get_wcs()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.estimate_background"><code class="docutils literal notranslate"><span class="pre">BaseImage.estimate_background()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage._extract"><code class="docutils literal notranslate"><span class="pre">BaseImage._extract()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.estimate_properties"><code class="docutils literal notranslate"><span class="pre">BaseImage.estimate_properties()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.generate_weight"><code class="docutils literal notranslate"><span class="pre">BaseImage.generate_weight()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.generate_mask"><code class="docutils literal notranslate"><span class="pre">BaseImage.generate_mask()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.get_background"><code class="docutils literal notranslate"><span class="pre">BaseImage.get_background()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.stage_images"><code class="docutils literal notranslate"><span class="pre">BaseImage.stage_images()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.update_models"><code class="docutils literal notranslate"><span class="pre">BaseImage.update_models()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.stage_models"><code class="docutils literal notranslate"><span class="pre">BaseImage.stage_models()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.optimize"><code class="docutils literal notranslate"><span class="pre">BaseImage.optimize()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.store_models"><code class="docutils literal notranslate"><span class="pre">BaseImage.store_models()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.stage_engine"><code class="docutils literal notranslate"><span class="pre">BaseImage.stage_engine()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.force_models"><code class="docutils literal notranslate"><span class="pre">BaseImage.force_models()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.determine_models"><code class="docutils literal notranslate"><span class="pre">BaseImage.determine_models()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.decision_tree"><code class="docutils literal notranslate"><span class="pre">BaseImage.decision_tree()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.measure_stats"><code class="docutils literal notranslate"><span class="pre">BaseImage.measure_stats()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.build_all_images"><code class="docutils literal notranslate"><span class="pre">BaseImage.build_all_images()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.build_model_image"><code class="docutils literal notranslate"><span class="pre">BaseImage.build_model_image()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.build_residual_image"><code class="docutils literal notranslate"><span class="pre">BaseImage.build_residual_image()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.build_chi_image"><code class="docutils literal notranslate"><span class="pre">BaseImage.build_chi_image()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.get_catalog"><code class="docutils literal notranslate"><span class="pre">BaseImage.get_catalog()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.set_catalog"><code class="docutils literal notranslate"><span class="pre">BaseImage.set_catalog()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.plot_image"><code class="docutils literal notranslate"><span class="pre">BaseImage.plot_image()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.plot_psf"><code class="docutils literal notranslate"><span class="pre">BaseImage.plot_psf()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.plot_summary"><code class="docutils literal notranslate"><span class="pre">BaseImage.plot_summary()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.transfer_maps"><code class="docutils literal notranslate"><span class="pre">BaseImage.transfer_maps()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.write"><code class="docutils literal notranslate"><span class="pre">BaseImage.write()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.write_fits"><code class="docutils literal notranslate"><span class="pre">BaseImage.write_fits()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.write_hdf5"><code class="docutils literal notranslate"><span class="pre">BaseImage.write_hdf5()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.read_hdf5"><code class="docutils literal notranslate"><span class="pre">BaseImage.read_hdf5()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.image.BaseImage.write_catalog"><code class="docutils literal notranslate"><span class="pre">BaseImage.write_catalog()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html"><code class="docutils literal notranslate"><span class="pre">farmer.utils</span></code> — Utilities</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Help &amp; Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">The Farmer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">API Reference</a></li>
+      <li class="breadcrumb-item active"><code class="docutils literal notranslate"><span class="pre">farmer.image</span></code> — BaseImage</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/baseimage.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-farmer.image">
+<span id="farmer-image-baseimage"></span><h1><code class="docutils literal notranslate"><span class="pre">farmer.image</span></code> — BaseImage<a class="headerlink" href="#module-farmer.image" title="Link to this heading"></a></h1>
+<p><a class="reference internal" href="#farmer.image.BaseImage" title="farmer.image.BaseImage"><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseImage</span></code></a> is the abstract base class shared by
+<a class="reference internal" href="mosaic.html#farmer.mosaic.Mosaic" title="farmer.mosaic.Mosaic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mosaic</span></code></a>, <a class="reference internal" href="brick.html#farmer.brick.Brick" title="farmer.brick.Brick"><code class="xref py py-class docutils literal notranslate"><span class="pre">Brick</span></code></a>, and
+<a class="reference internal" href="group.html#farmer.group.Group" title="farmer.group.Group"><code class="xref py py-class docutils literal notranslate"><span class="pre">Group</span></code></a>. It contains all detection, optimization,
+plotting, and I/O logic. Subclasses override only the small number of
+methods that differ by context (<code class="docutils literal notranslate"><span class="pre">get_bands</span></code>, <code class="docutils literal notranslate"><span class="pre">get_figprefix</span></code>).</p>
+<p>Do not instantiate <a class="reference internal" href="#farmer.image.BaseImage" title="farmer.image.BaseImage"><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseImage</span></code></a> directly.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="farmer.image.BaseImage">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">farmer.image.</span></span><span class="sig-name descname"><span class="pre">BaseImage</span></span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Base class for images: mosaics, bricks, and groups
+Useful for estimating image properties + detecting sources</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.__init__" title="Link to this definition"></a></dt>
+<dd><p>Initialize empty data containers and the module-level logger.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.add_tracker">
+<span class="sig-name descname"><span class="pre">add_tracker</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">init_stage</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.add_tracker"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.add_tracker" title="Link to this definition"></a></dt>
+<dd><p>Initialize or advance the per-source model tracker.</p>
+<p>Creates <code class="docutils literal notranslate"><span class="pre">self.stage</span></code>, <code class="docutils literal notranslate"><span class="pre">self.solved</span></code>, and nested entries in
+<code class="docutils literal notranslate"><span class="pre">self.model_tracker</span></code> for each source in the current catalog.
+On the very first call (stage == <code class="docutils literal notranslate"><span class="pre">init_stage</span></code>) it also seeds
+<code class="docutils literal notranslate"><span class="pre">self.model_catalog</span></code> with placeholder <code class="docutils literal notranslate"><span class="pre">PointSource</span></code> objects and
+caches the ordered array of source IDs in <code class="docutils literal notranslate"><span class="pre">self.source_ids</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>init_stage</strong> – Stage number assigned on the first call. Subsequent
+calls increment <code class="docutils literal notranslate"><span class="pre">self.stage</span></code> before calling this method.
+Defaults to <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.reset_models">
+<span class="sig-name descname"><span class="pre">reset_models</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.reset_models"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.reset_models" title="Link to this definition"></a></dt>
+<dd><p>Clear all model state in preparation for a fresh optimization run.</p>
+<p>Sets <code class="docutils literal notranslate"><span class="pre">self.engine</span></code> and <code class="docutils literal notranslate"><span class="pre">self.stage</span></code> to <code class="docutils literal notranslate"><span class="pre">None</span></code> and empties
+<code class="docutils literal notranslate"><span class="pre">self.model_tracker</span></code> and <code class="docutils literal notranslate"><span class="pre">self.model_catalog</span></code>.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.cleanup_after_detection">
+<span class="sig-name descname"><span class="pre">cleanup_after_detection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keep_segmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keep_groupmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.cleanup_after_detection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.cleanup_after_detection" title="Link to this definition"></a></dt>
+<dd><p>Remove non-essential data after source detection to save memory.</p>
+<p>Deletes temporary arrays like background estimates and RMS that are
+not needed after detection completes. Useful for low-memory workflows.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>keep_segmap</strong> – If True, keep segmentation map (needed for groups)</p></li>
+<li><p><strong>keep_groupmap</strong> – If True, keep group map (rarely needed)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.cleanup_after_modeling">
+<span class="sig-name descname"><span class="pre">cleanup_after_modeling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keep_models</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clear_tracker</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.cleanup_after_modeling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.cleanup_after_modeling" title="Link to this definition"></a></dt>
+<dd><p>Remove non-essential data after modeling to save memory.</p>
+<p>Clears model tracking information and computed residuals/chi images
+if they won’t be written to disk. Keeps the final model catalog.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>keep_models</strong> – If True, keep model_catalog (needed for writing)</p></li>
+<li><p><strong>clear_tracker</strong> – If True, delete detailed model_tracker (analysis only)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.cleanup_headers">
+<span class="sig-name descname"><span class="pre">cleanup_headers</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keep_wcs_only</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.cleanup_headers"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.cleanup_headers" title="Link to this definition"></a></dt>
+<dd><p>Remove FITS headers from memory to save space.</p>
+<p>Headers are only needed for WCS information during image operations.
+This method keeps WCS information while removing bulky header objects.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>keep_wcs_only</strong> – If True, keep only WCS not full headers</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.get_image">
+<span class="sig-name descname"><span class="pre">get_image</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">imgtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.get_image"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.get_image" title="Link to this definition"></a></dt>
+<dd><p>Return the pixel array for the requested image type and band.</p>
+<p>For mosaics, looks up <code class="docutils literal notranslate"><span class="pre">self.data[imgtype]</span></code> directly. For
+segmentation/group maps in non-detection bands the dict-of-arrays
+representation is returned. For all other brick/group images the
+<code class="docutils literal notranslate"><span class="pre">Cutout2D.data</span></code> array is returned.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>imgtype</strong> – Image type key, e.g. <code class="docutils literal notranslate"><span class="pre">'science'</span></code>, <code class="docutils literal notranslate"><span class="pre">'weight'</span></code>,
+<code class="docutils literal notranslate"><span class="pre">'mask'</span></code>, <code class="docutils literal notranslate"><span class="pre">'segmap'</span></code>, <code class="docutils literal notranslate"><span class="pre">'groupmap'</span></code>, <code class="docutils literal notranslate"><span class="pre">'model'</span></code>,
+<code class="docutils literal notranslate"><span class="pre">'residual'</span></code>, <code class="docutils literal notranslate"><span class="pre">'chi'</span></code>, <code class="docutils literal notranslate"><span class="pre">'background'</span></code>, <code class="docutils literal notranslate"><span class="pre">'rms'</span></code>.</p></li>
+<li><p><strong>band</strong> – Band identifier, e.g. <code class="docutils literal notranslate"><span class="pre">'detection'</span></code>, <code class="docutils literal notranslate"><span class="pre">'hst_f814w'</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Pixel data for the requested image.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)">numpy.ndarray</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.get_psfmodel">
+<span class="sig-name descname"><span class="pre">get_psfmodel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">band</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coord</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.get_psfmodel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.get_psfmodel" title="Link to this definition"></a></dt>
+<dd><p>Load and return the Tractor PSF model for a given band.</p>
+<p>Selects the spatially nearest PSF from <code class="docutils literal notranslate"><span class="pre">psfcoords</span></code> / <code class="docutils literal notranslate"><span class="pre">psflist</span></code>
+stored in <code class="docutils literal notranslate"><span class="pre">self.data[band]</span></code>. Falls back to the single PSF when
+only one is available. Supports both <code class="docutils literal notranslate"><span class="pre">.psf</span></code> (PsfEx) and <code class="docutils literal notranslate"><span class="pre">.fits</span></code>
+(PixelizedPSF) file formats. If <code class="docutils literal notranslate"><span class="pre">conf.RENORM_PSF</span></code> is set the PSF
+image is renormalized before returning.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>band</strong> – Band identifier. Must not be <code class="docutils literal notranslate"><span class="pre">'detection'</span></code>.</p></li>
+<li><p><strong>coord</strong> – <code class="docutils literal notranslate"><span class="pre">astropy.coordinates.SkyCoord</span></code> used to pick the nearest
+PSF when multiple positions are stored. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, falls
+back to <code class="docutils literal notranslate"><span class="pre">self.position</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The PSF model ready to pass to a Tractor <code class="docutils literal notranslate"><span class="pre">Image</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tractor.psf.PixelizedPSF or tractor.psf.PixelizedPsfEx</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.set_image">
+<span class="sig-name descname"><span class="pre">set_image</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">imgtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.set_image"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.set_image" title="Link to this definition"></a></dt>
+<dd><p>Store a pixel array under the given image type and band.</p>
+<p>For mosaics, assigns directly to <code class="docutils literal notranslate"><span class="pre">self.data[imgtype]</span></code>. For
+brick/group images, sets the <code class="docutils literal notranslate"><span class="pre">.data</span></code> attribute on an existing
+<code class="docutils literal notranslate"><span class="pre">Cutout2D</span></code>; if the key is absent a new <code class="docutils literal notranslate"><span class="pre">Cutout2D</span></code> is created
+with the same shape as the science image.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>image</strong> – numpy.ndarray of pixel values to store.</p></li>
+<li><p><strong>imgtype</strong> – Image type key, e.g. <code class="docutils literal notranslate"><span class="pre">'background'</span></code>, <code class="docutils literal notranslate"><span class="pre">'rms'</span></code>,
+<code class="docutils literal notranslate"><span class="pre">'model'</span></code>, <code class="docutils literal notranslate"><span class="pre">'residual'</span></code>, <code class="docutils literal notranslate"><span class="pre">'chi'</span></code>.</p></li>
+<li><p><strong>band</strong> – Band identifier. Ignored for mosaics.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.set_property">
+<span class="sig-name descname"><span class="pre">set_property</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">property</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.set_property"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.set_property" title="Link to this definition"></a></dt>
+<dd><p>Store a scalar property for a band.</p>
+<p>For mosaics, stores in <code class="docutils literal notranslate"><span class="pre">self.properties[property]</span></code>. For
+bricks/groups, stores in <code class="docutils literal notranslate"><span class="pre">self.properties[band][property]</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>value</strong> – Scalar value to store.</p></li>
+<li><p><strong>property</strong> – Property key string, e.g. <code class="docutils literal notranslate"><span class="pre">'rms'</span></code>, <code class="docutils literal notranslate"><span class="pre">'background'</span></code>,
+<code class="docutils literal notranslate"><span class="pre">'mean'</span></code>, <code class="docutils literal notranslate"><span class="pre">'median'</span></code>, <code class="docutils literal notranslate"><span class="pre">'clipped_rms'</span></code>.</p></li>
+<li><p><strong>band</strong> – Band identifier. Ignored for mosaics.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.get_property">
+<span class="sig-name descname"><span class="pre">get_property</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">property</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.get_property"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.get_property" title="Link to this definition"></a></dt>
+<dd><p>Retrieve a scalar property for a band.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>property</strong> – Property key string, e.g. <code class="docutils literal notranslate"><span class="pre">'rms'</span></code>, <code class="docutils literal notranslate"><span class="pre">'background'</span></code>,
+<code class="docutils literal notranslate"><span class="pre">'mean'</span></code>, <code class="docutils literal notranslate"><span class="pre">'clipped_rms'</span></code>, <code class="docutils literal notranslate"><span class="pre">'backtype'</span></code>.</p></li>
+<li><p><strong>band</strong> – Band identifier. Ignored for mosaics.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The stored property value.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.get_wcs">
+<span class="sig-name descname"><span class="pre">get_wcs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">imgtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'science'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.get_wcs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.get_wcs" title="Link to this definition"></a></dt>
+<dd><p>Return the WCS object for a given band and image type.</p>
+<p>For mosaics, returns the single <code class="docutils literal notranslate"><span class="pre">self.wcs</span></code>. For bricks/groups,
+returns the WCS embedded in the <code class="docutils literal notranslate"><span class="pre">Cutout2D</span></code> stored at
+<code class="docutils literal notranslate"><span class="pre">self.data[band][imgtype]</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>band</strong> – Band identifier. Ignored for mosaics.</p></li>
+<li><p><strong>imgtype</strong> – Image type whose <code class="docutils literal notranslate"><span class="pre">Cutout2D</span></code> carries the desired WCS.
+Defaults to <code class="docutils literal notranslate"><span class="pre">'science'</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The WCS object for the requested image.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.astropy.org/en/stable/api/astropy.wcs.WCS.html#astropy.wcs.WCS" title="(in Astropy v7.2)">astropy.wcs.WCS</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.estimate_background">
+<span class="sig-name descname"><span class="pre">estimate_background</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">imgtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'science'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.estimate_background"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.estimate_background" title="Link to this definition"></a></dt>
+<dd><p>Estimate a 2-D background model using SEP.</p>
+<p>Computes a background map on a <code class="docutils literal notranslate"><span class="pre">BACK_BW</span></code> x <code class="docutils literal notranslate"><span class="pre">BACK_BH</span></code> mesh,
+smoothed by a <code class="docutils literal notranslate"><span class="pre">BACK_FW</span></code> x <code class="docutils literal notranslate"><span class="pre">BACK_FH</span></code> filter. Stores the 2-D
+background array as <code class="docutils literal notranslate"><span class="pre">imgtype='background'</span></code>, the RMS map as
+<code class="docutils literal notranslate"><span class="pre">imgtype='rms'</span></code>, and the global scalars via <code class="docutils literal notranslate"><span class="pre">set_property</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>image</strong> – Pixel array to estimate background from. If <code class="docutils literal notranslate"><span class="pre">None</span></code>,
+uses <code class="docutils literal notranslate"><span class="pre">self.get_image(imgtype,</span> <span class="pre">band)</span></code>.</p></li>
+<li><p><strong>band</strong> – Band identifier. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, behaviour depends on
+<code class="docutils literal notranslate"><span class="pre">self.type</span></code>.</p></li>
+<li><p><strong>imgtype</strong> – Image type key used to fetch the image when <code class="docutils literal notranslate"><span class="pre">image</span></code>
+is <code class="docutils literal notranslate"><span class="pre">None</span></code>. Defaults to <code class="docutils literal notranslate"><span class="pre">'science'</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>The SEP background object (background map and</dt><dd><p>global statistics accessible via <code class="docutils literal notranslate"><span class="pre">.back()</span></code> and
+<code class="docutils literal notranslate"><span class="pre">.globalrms</span></code>).</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>sep.Background</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage._extract">
+<span class="sig-name descname"><span class="pre">_extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'detection'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">imgtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'science'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wgttype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'weight'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">masktype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'mask'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">background</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage._extract"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage._extract" title="Link to this definition"></a></dt>
+<dd><p>Run SEP source extraction on the specified image.</p>
+<p>Builds the variance and mask arrays from <code class="docutils literal notranslate"><span class="pre">wgttype</span></code> and
+<code class="docutils literal notranslate"><span class="pre">masktype</span></code> when enabled via <code class="docutils literal notranslate"><span class="pre">conf.USE_DETECTION_WEIGHT</span></code> and
+<code class="docutils literal notranslate"><span class="pre">conf.USE_DETECTION_MASK</span></code>. After extraction, optionally applies
+the mask to cull catalog entries via <code class="docutils literal notranslate"><span class="pre">clean_catalog</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>band</strong> – Band identifier to extract from. Defaults to
+<code class="docutils literal notranslate"><span class="pre">'detection'</span></code>.</p></li>
+<li><p><strong>imgtype</strong> – Image type key for the science pixel array. Defaults
+to <code class="docutils literal notranslate"><span class="pre">'science'</span></code>.</p></li>
+<li><p><strong>wgttype</strong> – Image type key for the weight map used to derive
+per-pixel variance. Defaults to <code class="docutils literal notranslate"><span class="pre">'weight'</span></code>.</p></li>
+<li><p><strong>masktype</strong> – Image type key for the binary mask. Defaults to
+<code class="docutils literal notranslate"><span class="pre">'mask'</span></code>.</p></li>
+<li><p><strong>background</strong> – Scalar or 2-D array to subtract before extraction.
+If <code class="docutils literal notranslate"><span class="pre">None</span></code>, no subtraction is applied.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">(catalog,</span> <span class="pre">segmap)</span></code> — the SEP source table and the
+integer segmentation map with one label per detected source.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)">tuple</a>[<a class="reference external" href="https://docs.astropy.org/en/stable/api/astropy.table.Table.html#astropy.table.Table" title="(in Astropy v7.2)">astropy.table.Table</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)">numpy.ndarray</a>]</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.14)"><strong>RuntimeError</strong></a> – If a required weight or mask image is missing.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#SystemExit" title="(in Python v3.14)"><strong>SystemExit</strong></a> – If no sources are detected.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.estimate_properties">
+<span class="sig-name descname"><span class="pre">estimate_properties</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">imgtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'science'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.estimate_properties"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.estimate_properties" title="Link to this definition"></a></dt>
+<dd><p>Compute and cache basic image statistics for a band.</p>
+<p>Returns cached values when already computed. Otherwise performs
+sigma-clipped statistics on non-zero pixels (full <code class="docutils literal notranslate"><span class="pre">nanmean</span></code> /
+<code class="docutils literal notranslate"><span class="pre">nanstd</span></code> for mosaics) and stores results via <code class="docutils literal notranslate"><span class="pre">set_property</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>band</strong> – Band identifier. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, behaviour depends on
+<code class="docutils literal notranslate"><span class="pre">self.type</span></code>.</p></li>
+<li><p><strong>imgtype</strong> – Image type key to compute statistics from. Defaults
+to <code class="docutils literal notranslate"><span class="pre">'science'</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">(mean,</span> <span class="pre">median,</span> <span class="pre">rms)</span></code> of the</dt><dd><p>pixel distribution after sigma clipping.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)">tuple</a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)">float</a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)">float</a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)">float</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.generate_weight">
+<span class="sig-name descname"><span class="pre">generate_weight</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">imgtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'science'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overwrite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.generate_weight"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.generate_weight" title="Link to this definition"></a></dt>
+<dd><p>Generate an inverse-variance weight map from the image RMS.</p>
+<p>Uses the global clipped RMS (computed by <code class="docutils literal notranslate"><span class="pre">estimate_properties</span></code> if
+not already cached) to fill a uniform weight image
+<code class="docutils literal notranslate"><span class="pre">1</span> <span class="pre">/</span> <span class="pre">rms**2</span></code>. Stores the result via <code class="docutils literal notranslate"><span class="pre">set_image(...,</span> <span class="pre">'weight')</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>band</strong> – Band identifier.</p></li>
+<li><p><strong>imgtype</strong> – Image type used to determine the array shape and to
+compute RMS when not cached. Defaults to <code class="docutils literal notranslate"><span class="pre">'science'</span></code>.</p></li>
+<li><p><strong>overwrite</strong> – If <code class="docutils literal notranslate"><span class="pre">False</span></code>, raises <code class="docutils literal notranslate"><span class="pre">RuntimeError</span></code> when a weight
+image already exists. Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The generated weight map.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)">numpy.ndarray</a></p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.14)"><strong>RuntimeError</strong></a> – If a weight image already exists and
+    <code class="docutils literal notranslate"><span class="pre">overwrite=False</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.generate_mask">
+<span class="sig-name descname"><span class="pre">generate_mask</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">imgtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'weight'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overwrite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.generate_mask"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.generate_mask" title="Link to this definition"></a></dt>
+<dd><p>Generate a binary mask from zero-weight pixels.</p>
+<p>Creates a boolean mask where pixels equal to zero in the
+<code class="docutils literal notranslate"><span class="pre">imgtype</span></code> image are flagged as masked. Stores the result via
+<code class="docutils literal notranslate"><span class="pre">set_image(...,</span> <span class="pre">'mask')</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>band</strong> – Band identifier.</p></li>
+<li><p><strong>imgtype</strong> – Image type to derive the mask from. Defaults to
+<code class="docutils literal notranslate"><span class="pre">'weight'</span></code>.</p></li>
+<li><p><strong>overwrite</strong> – If <code class="docutils literal notranslate"><span class="pre">False</span></code>, raises <code class="docutils literal notranslate"><span class="pre">RuntimeError</span></code> when a mask
+already exists. Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Boolean mask array (<code class="docutils literal notranslate"><span class="pre">True</span></code> = masked pixel).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)">numpy.ndarray</a></p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.14)"><strong>RuntimeError</strong></a> – If a weight image already exists and
+    <code class="docutils literal notranslate"><span class="pre">overwrite=False</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.get_background">
+<span class="sig-name descname"><span class="pre">get_background</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.get_background"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.get_background" title="Link to this definition"></a></dt>
+<dd><p>Return the background value or array for a band.</p>
+<p>Dispatches on the <code class="docutils literal notranslate"><span class="pre">'backtype'</span></code> property: returns the scalar global
+background for <code class="docutils literal notranslate"><span class="pre">'flat'</span></code> backgrounds, or the 2-D background image
+for <code class="docutils literal notranslate"><span class="pre">'variable'</span></code> backgrounds.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>band</strong> – Band identifier.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Scalar global background level,</dt><dd><p>or a 2-D array matching the image shape.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)">float</a> or <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)">numpy.ndarray</a> or None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.stage_images">
+<span class="sig-name descname"><span class="pre">stage_images</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_imgtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'science'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.stage_images"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.stage_images" title="Link to this definition"></a></dt>
+<dd><p>Build Tractor <code class="docutils literal notranslate"><span class="pre">Image</span></code> objects for each requested band.</p>
+<p>Loads the science pixel array, inverse-variance weight map, and
+mask, then constructs a <code class="docutils literal notranslate"><span class="pre">tractor.Image</span></code> with the nearest PSF model
+and an astrometric WCS. For group types, pixels outside the group
+boundary are masked before constructing the image. Results are stored
+in <code class="docutils literal notranslate"><span class="pre">self.images</span></code> (an <code class="docutils literal notranslate"><span class="pre">OrderedDict</span></code> keyed by band). Bands where
+all weight pixels are zero are silently skipped.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bands</strong> – List of band identifiers to stage. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, uses all
+bands returned by <code class="docutils literal notranslate"><span class="pre">self.get_bands()</span></code>. <code class="docutils literal notranslate"><span class="pre">'detection'</span></code> is
+always removed.</p></li>
+<li><p><strong>data_imgtype</strong> – Image type key to use as the data pixel array.
+Defaults to <code class="docutils literal notranslate"><span class="pre">'science'</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.update_models">
+<span class="sig-name descname"><span class="pre">update_models</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_imgtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'science'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">existing_catalog</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.update_models"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.update_models" title="Link to this definition"></a></dt>
+<dd><p>Transfer morphology from an existing catalog and extend fluxes to new bands.</p>
+<p>For each source in the current detection catalog, copies the fitted
+model from <code class="docutils literal notranslate"><span class="pre">existing_catalog</span></code> and either carries forward the
+existing flux or computes a zero-point-corrected average flux for
+bands not previously measured. Applies photometric priors via
+<code class="docutils literal notranslate"><span class="pre">set_priors</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bands</strong> – List of band identifiers to include. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, uses
+all bands from <code class="docutils literal notranslate"><span class="pre">self.get_bands()</span></code>. <code class="docutils literal notranslate"><span class="pre">'detection'</span></code> is
+always removed.</p></li>
+<li><p><strong>data_imgtype</strong> – Unused; reserved for future use. Defaults to
+<code class="docutils literal notranslate"><span class="pre">'science'</span></code>.</p></li>
+<li><p><strong>existing_catalog</strong> – <code class="docutils literal notranslate"><span class="pre">OrderedDict</span></code> of source-id → Tractor model
+to copy morphology from. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, uses
+<code class="docutils literal notranslate"><span class="pre">self.existing_model_catalog</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.stage_models">
+<span class="sig-name descname"><span class="pre">stage_models</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">conf.MODEL_BANDS</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_imgtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'science'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.stage_models"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.stage_models" title="Link to this definition"></a></dt>
+<dd><p>Populate <code class="docutils literal notranslate"><span class="pre">self.model_catalog</span></code> with initialized Tractor source models.</p>
+<p>For each source in the detection catalog, reads the current model
+type from <code class="docutils literal notranslate"><span class="pre">self.model_catalog</span></code>, initializes position from sky
+coordinates, estimates initial fluxes from segmap pixel sums,
+computes an elliptical shape from SEP moments, and constructs the
+appropriate Tractor model (<code class="docutils literal notranslate"><span class="pre">PointSource</span></code>, <code class="docutils literal notranslate"><span class="pre">SimpleGalaxy</span></code>,
+<code class="docutils literal notranslate"><span class="pre">ExpGalaxy</span></code>, <code class="docutils literal notranslate"><span class="pre">DevGalaxy</span></code>, <code class="docutils literal notranslate"><span class="pre">FixedCompositeGalaxy</span></code>,
+<code class="docutils literal notranslate"><span class="pre">SersicGalaxy</span></code>, or <code class="docutils literal notranslate"><span class="pre">SersicCoreGalaxy</span></code>). Shape bounds are clamped
+to prevent Ceres failures. Priors are applied via <code class="docutils literal notranslate"><span class="pre">set_priors</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bands</strong> – List of band identifiers whose staged images are used for
+flux initialization. Defaults to <code class="docutils literal notranslate"><span class="pre">conf.MODEL_BANDS</span></code>.</p></li>
+<li><p><strong>data_imgtype</strong> – Unused; reserved for API symmetry. Defaults to
+<code class="docutils literal notranslate"><span class="pre">'science'</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.optimize">
+<span class="sig-name descname"><span class="pre">optimize</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.optimize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.optimize" title="Link to this definition"></a></dt>
+<dd><p>Run the Tractor optimizer until convergence or <code class="docutils literal notranslate"><span class="pre">conf.MAX_STEPS</span></code>.</p>
+<p>Installs the configured optimizer (Ceres or Constrained), then
+iterates calling <code class="docutils literal notranslate"><span class="pre">self.engine.optimize</span></code> and checking the
+log-likelihood improvement <code class="docutils literal notranslate"><span class="pre">dlnp</span></code> against <code class="docutils literal notranslate"><span class="pre">conf.DLNP_CRIT</span></code>.
+Detects Ceres silent failures (stuck <code class="docutils literal notranslate"><span class="pre">dlnp</span></code>) and aborts early.
+Stores the final variance vector in <code class="docutils literal notranslate"><span class="pre">self.variance</span></code> and records
+the number of steps in <code class="docutils literal notranslate"><span class="pre">self.model_tracker</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">True</span></code> if the fit ran without fatal errors (including</dt><dd><p>non-convergence); <code class="docutils literal notranslate"><span class="pre">False</span></code> if the optimizer raised an
+exception, found no active parameters, had no valid weighted
+pixels, or detected a Ceres silent failure.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.store_models">
+<span class="sig-name descname"><span class="pre">store_models</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.store_models"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.store_models" title="Link to this definition"></a></dt>
+<dd><p>Copy the optimized Tractor catalog back into <code class="docutils literal notranslate"><span class="pre">self.model_catalog</span></code>.</p>
+<p>Reads the current catalog and variance from <code class="docutils literal notranslate"><span class="pre">self.engine</span></code>,
+attaches the variance object to each model, and writes the model
+plus its statistics into <code class="docutils literal notranslate"><span class="pre">self.model_tracker</span></code>. When all sources
+are solved (or at stage 11), also stores the final model and
+cross-references chi-squared statistics from stage 0 into
+<code class="docutils literal notranslate"><span class="pre">self.model_catalog[source_id].statistics</span></code>.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.stage_engine">
+<span class="sig-name descname"><span class="pre">stage_engine</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">conf.MODEL_BANDS</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.stage_engine"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.stage_engine" title="Link to this definition"></a></dt>
+<dd><p>Initialize the Tractor engine with images and models for the given bands.</p>
+<p>Calls <code class="docutils literal notranslate"><span class="pre">add_tracker</span></code>, <code class="docutils literal notranslate"><span class="pre">stage_images</span></code>, and <code class="docutils literal notranslate"><span class="pre">stage_models</span></code> in
+sequence, then constructs a <code class="docutils literal notranslate"><span class="pre">Tractor</span></code> instance stored in
+<code class="docutils literal notranslate"><span class="pre">self.engine</span></code> with image parameters frozen. Returns <code class="docutils literal notranslate"><span class="pre">False</span></code> if
+no images were successfully staged.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>bands</strong> – List of band identifiers to include. Defaults to
+<code class="docutils literal notranslate"><span class="pre">conf.MODEL_BANDS</span></code>.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">False</span></code> if all bands had zero valid weight</dt><dd><p>pixels; <code class="docutils literal notranslate"><span class="pre">None</span></code> on success.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)">bool</a> or None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.force_models">
+<span class="sig-name descname"><span class="pre">force_models</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.force_models"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.force_models" title="Link to this definition"></a></dt>
+<dd><p>Measure forced photometry with morphology frozen to detection-band values.</p>
+<p>Copies the existing <code class="docutils literal notranslate"><span class="pre">model_catalog</span></code> (with morphology solved in the
+detection band), initializes stage 10 for pre-forced statistics, then
+runs stage 11 which optimizes only the per-band fluxes (and any
+unfrozen parameters from <code class="docutils literal notranslate"><span class="pre">conf.PHOT_PRIORS</span></code>). Bands with zero valid
+weight pixels are excluded from optimization and receive zero-valued
+placeholder entries. Results are stored via <code class="docutils literal notranslate"><span class="pre">store_models</span></code> and the
+catalog is updated by writing plots when <code class="docutils literal notranslate"><span class="pre">conf.PLOT</span> <span class="pre">&gt;</span> <span class="pre">2</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>bands</strong> – List of band identifiers to measure photometry in. If
+<code class="docutils literal notranslate"><span class="pre">None</span></code>, uses <code class="docutils literal notranslate"><span class="pre">self.bands</span></code>.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">False</span></code> if there are no existing models, all</dt><dd><p>images failed to stage, or <code class="docutils literal notranslate"><span class="pre">optimize</span></code> fails; <code class="docutils literal notranslate"><span class="pre">None</span></code> on
+success.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)">bool</a> or None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.determine_models">
+<span class="sig-name descname"><span class="pre">determine_models</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">conf.MODEL_BANDS</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.determine_models"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.determine_models" title="Link to this definition"></a></dt>
+<dd><p>Run the full model-selection loop to determine the best morphological model.</p>
+<p>Iterates the decision tree until all sources are solved. At each
+stage, calls <code class="docutils literal notranslate"><span class="pre">stage_models</span></code>, runs the Tractor optimizer via
+<code class="docutils literal notranslate"><span class="pre">optimize</span></code>, measures chi-squared statistics, stores results, and
+advances the decision tree. After all sources are solved, runs one
+final optimization stage and records results. Generates diagnostic
+plots when <code class="docutils literal notranslate"><span class="pre">conf.PLOT</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>bands</strong> – List of band identifiers to model. Defaults to
+<code class="docutils literal notranslate"><span class="pre">conf.MODEL_BANDS</span></code>.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">False</span></code> if image staging fails or any <code class="docutils literal notranslate"><span class="pre">optimize</span></code></dt><dd><p>call fails; <code class="docutils literal notranslate"><span class="pre">True</span></code> on successful completion.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)">bool</a> or None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.decision_tree">
+<span class="sig-name descname"><span class="pre">decision_tree</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.decision_tree"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.decision_tree" title="Link to this definition"></a></dt>
+<dd><p>Advance each unsolved source to the next candidate model type.</p>
+<p>Compares reduced chi-squared values accumulated in
+<code class="docutils literal notranslate"><span class="pre">self.model_tracker</span></code> after each optimization stage and updates
+<code class="docutils literal notranslate"><span class="pre">self.model_catalog[source_id]</span></code> with the next model to try.
+Sets <code class="docutils literal notranslate"><span class="pre">self.solved[i]</span> <span class="pre">=</span> <span class="pre">True</span></code> when a source satisfies the
+sufficient-fit threshold <code class="docutils literal notranslate"><span class="pre">conf.SUFFICIENT_THRESH</span></code>. The stage
+sequence is:</p>
+<ul class="simple">
+<li><p>Stage 1: PointSource → SimpleGalaxy</p></li>
+<li><p>Stage 2: compare PS vs SG; escalate to ExpGalaxy or solve</p></li>
+<li><p>Stage 3: try DevGalaxy</p></li>
+<li><p>Stage 4: compare Exp vs Dev; escalate to CompositeGalaxy or solve</p></li>
+<li><p>Stage 5: compare Exp / Dev / Composite; solve by lowest chi-squared</p></li>
+</ul>
+<p>Modifies <code class="docutils literal notranslate"><span class="pre">self.model_catalog</span></code> and <code class="docutils literal notranslate"><span class="pre">self.solved</span></code> in place.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.measure_stats">
+<span class="sig-name descname"><span class="pre">measure_stats</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stage</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.measure_stats"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.measure_stats" title="Link to this definition"></a></dt>
+<dd><p>Compute chi-squared and goodness-of-fit statistics for all sources.</p>
+<p>Calls <code class="docutils literal notranslate"><span class="pre">build_all_images</span></code> to produce model, residual, and chi
+images, then computes per-band and total chi-squared, reduced
+chi-squared, chi percentiles, and the D’Agostino K² normality
+statistic for each source and (when <code class="docutils literal notranslate"><span class="pre">self.type</span> <span class="pre">==</span> <span class="pre">'group'</span></code>) for
+the group as a whole. Results are written into
+<code class="docutils literal notranslate"><span class="pre">self.model_tracker[source_id][stage]</span></code> and
+<code class="docutils literal notranslate"><span class="pre">self.model_tracker[self.type][stage]</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bands</strong> – List of band identifiers to measure. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, uses
+<code class="docutils literal notranslate"><span class="pre">self.engine.bands</span></code>.</p></li>
+<li><p><strong>stage</strong> – Tracker stage key under which to write statistics. If
+<code class="docutils literal notranslate"><span class="pre">None</span></code>, uses <code class="docutils literal notranslate"><span class="pre">self.stage</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.build_all_images">
+<span class="sig-name descname"><span class="pre">build_all_images</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overwrite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reconstruct</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">set_engine</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.build_all_images"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.build_all_images" title="Link to this definition"></a></dt>
+<dd><p>Build model, residual, and chi images for the given bands.</p>
+<p>Transfers segmentation and group maps to each band if not already
+present, re-stages the Tractor images, and sequentially calls
+<code class="docutils literal notranslate"><span class="pre">build_model_image</span></code>, <code class="docutils literal notranslate"><span class="pre">build_residual_image</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">build_chi_image</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bands</strong> – List of band identifiers. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, uses all bands
+except <code class="docutils literal notranslate"><span class="pre">'detection'</span></code>.</p></li>
+<li><p><strong>source_id</strong> – Restrict the model image to a single source or list
+of source IDs. <code class="docutils literal notranslate"><span class="pre">None</span></code> includes all sources.</p></li>
+<li><p><strong>overwrite</strong> – Whether to overwrite existing model/residual/chi
+images. Defaults to <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+<li><p><strong>reconstruct</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, applies quality cuts from
+<code class="docutils literal notranslate"><span class="pre">conf.RESIDUAL_BA_MIN</span></code>, <code class="docutils literal notranslate"><span class="pre">conf.RESIDUAL_REFF_MAX</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">conf.RESIDUAL_SHOW_NEGATIVE</span></code> before rendering the model.
+Defaults to <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+<li><p><strong>set_engine</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, filters the model catalog to only
+include sources with photometry in all requested bands.
+Defaults to <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.build_model_image">
+<span class="sig-name descname"><span class="pre">build_model_image</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overwrite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reconstruct</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">set_engine</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.build_model_image"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.build_model_image" title="Link to this definition"></a></dt>
+<dd><p>Render the Tractor model image for each requested band.</p>
+<p>For bricks with a single PSF, renders all sources in one
+<code class="docutils literal notranslate"><span class="pre">Tractor.getModelImage</span></code> call. For bricks with position-dependent
+PSFs, loops over groups and selects the nearest PSF per group.
+Stores results via <code class="docutils literal notranslate"><span class="pre">set_image(...,</span> <span class="pre">'model',</span> <span class="pre">band)</span></code> and updates
+<code class="docutils literal notranslate"><span class="pre">self.headers[band]['model']</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bands</strong> – List of band identifiers. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, uses
+<code class="docutils literal notranslate"><span class="pre">self.bands</span></code>.</p></li>
+<li><p><strong>source_id</strong> – Scalar or list of source IDs to include. <code class="docutils literal notranslate"><span class="pre">None</span></code>
+includes all.</p></li>
+<li><p><strong>overwrite</strong> – Reserved for future use. Defaults to <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+<li><p><strong>reconstruct</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, applies quality rejection cuts
+(negative flux, axis ratio, size) before rendering.
+Defaults to <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+<li><p><strong>set_engine</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, selects sources from the catalog that
+have photometry in all requested bands. Defaults to <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>A dict mapping band</dt><dd><p>to model array when multiple bands are processed; a single
+array when only one band is processed.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)">numpy.ndarray</a>] or <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)">numpy.ndarray</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.build_residual_image">
+<span class="sig-name descname"><span class="pre">build_residual_image</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">imgtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'science'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overwrite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.build_residual_image"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.build_residual_image" title="Link to this definition"></a></dt>
+<dd><p>Compute the science minus model residual image for each band.</p>
+<p>Subtracts the stored model image (or a freshly built single-source
+model when <code class="docutils literal notranslate"><span class="pre">source_id</span></code> is given) from the science pixel array.
+Stores results via <code class="docutils literal notranslate"><span class="pre">set_image(...,</span> <span class="pre">'residual',</span> <span class="pre">band)</span></code> and updates
+<code class="docutils literal notranslate"><span class="pre">self.headers[band]['residual']</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bands</strong> – List of band identifiers. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, uses
+<code class="docutils literal notranslate"><span class="pre">self.bands</span></code>.</p></li>
+<li><p><strong>source_id</strong> – If provided, rebuilds the model for that source only
+before subtracting.</p></li>
+<li><p><strong>imgtype</strong> – Image type to subtract from. Defaults to <code class="docutils literal notranslate"><span class="pre">'science'</span></code>.</p></li>
+<li><p><strong>overwrite</strong> – Reserved for future use. Defaults to <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Residual array(s).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)">numpy.ndarray</a>] or <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)">numpy.ndarray</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.build_chi_image">
+<span class="sig-name descname"><span class="pre">build_chi_image</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">imgtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'science'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overwrite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.build_chi_image"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.build_chi_image" title="Link to this definition"></a></dt>
+<dd><p>Compute the normalized chi image (residual / noise) for each band.</p>
+<p>Multiplies the residual image by the square root of the weight map.
+Stores results via <code class="docutils literal notranslate"><span class="pre">set_image(...,</span> <span class="pre">'chi',</span> <span class="pre">band)</span></code> and updates
+<code class="docutils literal notranslate"><span class="pre">self.headers[band]['chi']</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bands</strong> – List of band identifiers. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, uses
+<code class="docutils literal notranslate"><span class="pre">self.bands</span></code>.</p></li>
+<li><p><strong>source_id</strong> – If provided, recomputes the residual for that source
+before computing chi.</p></li>
+<li><p><strong>imgtype</strong> – Image type used for the residual calculation. Defaults
+to <code class="docutils literal notranslate"><span class="pre">'science'</span></code>.</p></li>
+<li><p><strong>overwrite</strong> – Reserved for future use. Defaults to <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Chi image array(s).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)">numpy.ndarray</a>] or <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)">numpy.ndarray</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.get_catalog">
+<span class="sig-name descname"><span class="pre">get_catalog</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">catalog_band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'detection'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">catalog_imgtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'science'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.get_catalog"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.get_catalog" title="Link to this definition"></a></dt>
+<dd><p>Return the source catalog for a given band and image type.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>catalog_band</strong> – Band identifier for the detection catalog.
+Defaults to <code class="docutils literal notranslate"><span class="pre">'detection'</span></code>.</p></li>
+<li><p><strong>catalog_imgtype</strong> – Image type used during detection. Defaults to
+<code class="docutils literal notranslate"><span class="pre">'science'</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The source catalog.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.astropy.org/en/stable/api/astropy.table.Table.html#astropy.table.Table" title="(in Astropy v7.2)">astropy.table.Table</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.set_catalog">
+<span class="sig-name descname"><span class="pre">set_catalog</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">catalog</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">catalog_band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'detection'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">catalog_imgtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'science'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.set_catalog"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.set_catalog" title="Link to this definition"></a></dt>
+<dd><p>Store a catalog in <code class="docutils literal notranslate"><span class="pre">self.catalogs</span></code> under the given band and image type.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>catalog</strong> – <code class="docutils literal notranslate"><span class="pre">astropy.table.Table</span></code> to store.</p></li>
+<li><p><strong>catalog_band</strong> – Band identifier. Defaults to <code class="docutils literal notranslate"><span class="pre">'detection'</span></code>.</p></li>
+<li><p><strong>catalog_imgtype</strong> – Image type key. Defaults to <code class="docutils literal notranslate"><span class="pre">'science'</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.plot_image">
+<span class="sig-name descname"><span class="pre">plot_image</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">imgtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_catalog</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">catalog_band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'detection'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">catalog_imgtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'science'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_groups</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.plot_image"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.plot_image" title="Link to this definition"></a></dt>
+<dd><p>Save a multi-page PDF of image diagnostic panels.</p>
+<p>For each band and image type, renders a full-field panel with an
+appropriate colour scale (log for science/model/residual, linear for
+chi, greyscale for weight/mask, colour-coded for segmap/groupmap).
+Science and model panels include a second linear-scale panel.
+Catalog positions and group boundary rectangles are overlaid when
+the corresponding flags are set.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>band</strong> – Band identifier or list of band identifiers to plot. If
+<code class="docutils literal notranslate"><span class="pre">None</span></code>, all available bands are plotted.</p></li>
+<li><p><strong>imgtype</strong> – Image type key or tuple of keys to plot. If <code class="docutils literal notranslate"><span class="pre">None</span></code>,
+plots every available image type for each band.</p></li>
+<li><p><strong>tag</strong> – String appended to the output filename. Defaults to <code class="docutils literal notranslate"><span class="pre">''</span></code>.</p></li>
+<li><p><strong>show_catalog</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, overlay source positions from the
+detection catalog. Defaults to <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+<li><p><strong>catalog_band</strong> – Band of the detection catalog used for positions.
+Defaults to <code class="docutils literal notranslate"><span class="pre">'detection'</span></code>.</p></li>
+<li><p><strong>catalog_imgtype</strong> – Image type of the detection catalog. Defaults
+to <code class="docutils literal notranslate"><span class="pre">'science'</span></code>.</p></li>
+<li><p><strong>show_groups</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, draw group bounding boxes on science
+and model panels. Automatically disabled for group-type
+images. Defaults to <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.plot_psf">
+<span class="sig-name descname"><span class="pre">plot_psf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.plot_psf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.plot_psf" title="Link to this definition"></a></dt>
+<dd><p>Save a PSF diagnostic PDF for each band.</p>
+<p>Produces a three-panel figure per band showing (1) a log-scaled 2-D
+PSF image with axis labels in arcsec, (2) column cuts through the
+PSF on a log y-axis, and (3) the cumulative radial flux curve.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>band</strong> – Band identifier or list of band identifiers. If <code class="docutils literal notranslate"><span class="pre">None</span></code>,
+plots the PSF for all available bands.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.plot_summary">
+<span class="sig-name descname"><span class="pre">plot_summary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stage</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">catalog_band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'detection'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">catalog_imgtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'science'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overwrite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.plot_summary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.plot_summary" title="Link to this definition"></a></dt>
+<dd><p>Save a 4x4 per-source (or per-group) summary PDF.</p>
+<p>For each source / group and band, produces a 4×4 grid of panels
+showing the science image, model, residual, chi map, weight, 2-D
+background, pixel-assignment map, PSF profile, X/Y slice profiles
+with model overplots, and a cumulative chi CDF. Statistical
+annotations (chi-squared, position, shape, flux) are printed on the
+figure.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>source_id</strong> – Scalar or list of source IDs to summarize. If
+<code class="docutils literal notranslate"><span class="pre">None</span></code> and <code class="docutils literal notranslate"><span class="pre">group_id</span></code> is also <code class="docutils literal notranslate"><span class="pre">None</span></code>, all tracked
+sources are plotted. The special string <code class="docutils literal notranslate"><span class="pre">'group'</span></code> plots
+group-level statistics.</p></li>
+<li><p><strong>group_id</strong> – If provided, restricts the plot to sources belonging
+to this group. Superseded by <code class="docutils literal notranslate"><span class="pre">source_id</span></code>.</p></li>
+<li><p><strong>bands</strong> – List of band identifiers. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, uses all non-
+detection bands.</p></li>
+<li><p><strong>stage</strong> – Model-tracker stage to read statistics from. If
+<code class="docutils literal notranslate"><span class="pre">None</span></code>, uses the maximum available stage in
+<code class="docutils literal notranslate"><span class="pre">self.model_tracker['group']</span></code>.</p></li>
+<li><p><strong>tag</strong> – String prepended to the output filename. Defaults to
+<code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>catalog_band</strong> – Detection catalog band. Defaults to
+<code class="docutils literal notranslate"><span class="pre">'detection'</span></code>.</p></li>
+<li><p><strong>catalog_imgtype</strong> – Detection catalog image type. Defaults to
+<code class="docutils literal notranslate"><span class="pre">'science'</span></code>.</p></li>
+<li><p><strong>overwrite</strong> – Unused; reserved for future use. Defaults to
+<code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.transfer_maps">
+<span class="sig-name descname"><span class="pre">transfer_maps</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">catalog_band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'detection'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overwrite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.transfer_maps"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.transfer_maps" title="Link to this definition"></a></dt>
+<dd><p>Reproject segmentation and group maps from the detection band to other bands.</p>
+<p>For each target band, checks whether another already-mapped band
+shares the same pixel scale (in which case the existing dict is
+reused) or calls <code class="docutils literal notranslate"><span class="pre">map_discontinuous</span></code> to remap the detection-band
+segmap and groupmap to the target WCS and shape. Results are stored
+in <code class="docutils literal notranslate"><span class="pre">self.data[band]['segmap']</span></code> and <code class="docutils literal notranslate"><span class="pre">self.data[band]['groupmap']</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bands</strong> – List of band identifiers to transfer maps to. If
+<code class="docutils literal notranslate"><span class="pre">None</span></code>, uses <code class="docutils literal notranslate"><span class="pre">self.bands</span></code>.</p></li>
+<li><p><strong>catalog_band</strong> – Source band whose maps are transferred. Defaults
+to <code class="docutils literal notranslate"><span class="pre">'detection'</span></code>.</p></li>
+<li><p><strong>overwrite</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, deletes existing segmap and groupmap
+before retransferring. Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.write">
+<span class="sig-name descname"><span class="pre">write</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filetype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_update</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.write"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.write" title="Link to this definition"></a></dt>
+<dd><p>Write image data, headers, and catalog to disk.</p>
+<p>Dispatches to <code class="docutils literal notranslate"><span class="pre">write_hdf5</span></code>, <code class="docutils literal notranslate"><span class="pre">write_fits</span></code>, and <code class="docutils literal notranslate"><span class="pre">write_catalog</span></code>
+based on <code class="docutils literal notranslate"><span class="pre">filetype</span></code>. When <code class="docutils literal notranslate"><span class="pre">filetype</span></code> is <code class="docutils literal notranslate"><span class="pre">None</span></code>, writes all
+three formats if catalogs are present.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filetype</strong> – One of <code class="docutils literal notranslate"><span class="pre">None</span></code> (write all), <code class="docutils literal notranslate"><span class="pre">'hdf5'</span></code>, <code class="docutils literal notranslate"><span class="pre">'fits'</span></code>,
+or <code class="docutils literal notranslate"><span class="pre">'cat'</span></code>.</p></li>
+<li><p><strong>allow_update</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, existing files are updated rather
+than raising an error. Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+<li><p><strong>filename</strong> – Output filename. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, uses
+<code class="docutils literal notranslate"><span class="pre">self.filename</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.14)"><strong>RuntimeError</strong></a> – When <code class="docutils literal notranslate"><span class="pre">filetype='cat'</span></code> is requested but no
+    catalogs are present.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.write_fits">
+<span class="sig-name descname"><span class="pre">write_fits</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">imgtypes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_update</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">directory</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">conf.PATH_ANCILLARY</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.write_fits"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.write_fits" title="Link to this definition"></a></dt>
+<dd><p>Write image data to a multi-extension FITS file.</p>
+<p>Creates or updates a FITS file in <code class="docutils literal notranslate"><span class="pre">directory</span></code>. Each image type for
+each band becomes a separate <code class="docutils literal notranslate"><span class="pre">ImageHDU</span></code> named <code class="docutils literal notranslate"><span class="pre">{band}_{imgtype}</span></code>,
+ordered so that model/residual/chi appear directly after science.
+WCS headers are written from <code class="docutils literal notranslate"><span class="pre">self.headers[band]</span></code>. PSF extensions
+and non-<code class="docutils literal notranslate"><span class="pre">Cutout2D</span></code> objects (segmap/groupmap dicts) are skipped.
+Catalogs stored as <code class="docutils literal notranslate"><span class="pre">Table</span></code> objects are appended as <code class="docutils literal notranslate"><span class="pre">BinTableHDU</span></code>
+extensions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bands</strong> – List of band identifiers to write. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, writes
+all bands in <code class="docutils literal notranslate"><span class="pre">self.data</span></code>.</p></li>
+<li><p><strong>imgtypes</strong> – List of image type keys to include. If <code class="docutils literal notranslate"><span class="pre">None</span></code>,
+writes all types for each band.</p></li>
+<li><p><strong>allow_update</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, opens an existing file in update
+mode. Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+<li><p><strong>tag</strong> – String inserted before <code class="docutils literal notranslate"><span class="pre">.fits</span></code> in the filename. Defaults
+to <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>filename</strong> – Output filename. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, uses
+<code class="docutils literal notranslate"><span class="pre">self.filename</span></code> with <code class="docutils literal notranslate"><span class="pre">.h5</span></code> replaced by <code class="docutils literal notranslate"><span class="pre">.fits</span></code>.</p></li>
+<li><p><strong>directory</strong> – Output directory path. Defaults to
+<code class="docutils literal notranslate"><span class="pre">conf.PATH_ANCILLARY</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.14)"><strong>RuntimeError</strong></a> – If the file already exists and
+    <code class="docutils literal notranslate"><span class="pre">allow_update=False</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.write_hdf5">
+<span class="sig-name descname"><span class="pre">write_hdf5</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">allow_update</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">directory</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">conf.PATH_BRICKS</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.write_hdf5"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.write_hdf5" title="Link to this definition"></a></dt>
+<dd><p>Serialize the entire object state to an HDF5 file.</p>
+<p>Uses <code class="docutils literal notranslate"><span class="pre">recursively_save_dict_contents_to_group</span></code> to write
+<code class="docutils literal notranslate"><span class="pre">self.__dict__</span></code> into the HDF5 file. Creates a new file or opens
+an existing one in append mode when <code class="docutils literal notranslate"><span class="pre">allow_update=True</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>allow_update</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, opens an existing file in <code class="docutils literal notranslate"><span class="pre">r+</span></code>
+mode. Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+<li><p><strong>tag</strong> – String inserted before <code class="docutils literal notranslate"><span class="pre">.h5</span></code> in the filename. Defaults
+to <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>filename</strong> – Output filename. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, uses
+<code class="docutils literal notranslate"><span class="pre">self.filename</span></code>.</p></li>
+<li><p><strong>directory</strong> – Output directory path. Defaults to
+<code class="docutils literal notranslate"><span class="pre">conf.PATH_BRICKS</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.14)"><strong>RuntimeError</strong></a> – If the file already exists and
+    <code class="docutils literal notranslate"><span class="pre">allow_update=False</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.read_hdf5">
+<span class="sig-name descname"><span class="pre">read_hdf5</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">directory</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">conf.PATH_BRICKS</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.read_hdf5"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.read_hdf5" title="Link to this definition"></a></dt>
+<dd><p>Load object state from an HDF5 file and return it as a dict.</p>
+<p>Uses <code class="docutils literal notranslate"><span class="pre">recursively_load_dict_contents_from_group</span></code> to reconstruct
+the nested attribute dictionary previously saved by <code class="docutils literal notranslate"><span class="pre">write_hdf5</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filename</strong> – HDF5 filename to read. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, uses
+<code class="docutils literal notranslate"><span class="pre">self.filename</span></code>.</p></li>
+<li><p><strong>directory</strong> – Directory containing the file. Defaults to
+<code class="docutils literal notranslate"><span class="pre">conf.PATH_BRICKS</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Nested dictionary of all attributes stored in the HDF5</dt><dd><p>file.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a></p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.14)"><strong>RuntimeError</strong></a> – If the file does not exist at the expected path.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.image.BaseImage.write_catalog">
+<span class="sig-name descname"><span class="pre">write_catalog</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">catalog_imgtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">band_tag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'phot'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">catalog_band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_update</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">directory</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">conf.PATH_CATALOGS</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overwrite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/image.html#BaseImage.write_catalog"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.image.BaseImage.write_catalog" title="Link to this definition"></a></dt>
+<dd><p>Write the photometry catalog to a FITS binary table.</p>
+<p>Iterates over <code class="docutils literal notranslate"><span class="pre">self.model_catalog</span></code> and calls <code class="docutils literal notranslate"><span class="pre">get_params</span></code> to
+extract per-source measurements (fluxes, magnitudes, positions,
+shapes, chi-squared statistics, group timing). New columns are added
+to the base detection catalog on the fly; existing columns are
+updated in place. For forced-photometry runs with unfrozen
+parameters, renames morphology columns with a band prefix. Stores
+the updated catalog back via <code class="docutils literal notranslate"><span class="pre">set_catalog</span></code> and writes to disk.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>catalog_imgtype</strong> – Image type of the catalog to update. If
+<code class="docutils literal notranslate"><span class="pre">None</span></code>, uses <code class="docutils literal notranslate"><span class="pre">self.catalog_imgtype</span></code>.</p></li>
+<li><p><strong>band_tag</strong> – Band prefix used when renaming columns during forced
+photometry with unfrozen parameters. Defaults to
+<code class="docutils literal notranslate"><span class="pre">'phot'</span></code>.</p></li>
+<li><p><strong>catalog_band</strong> – Band identifier of the catalog. If <code class="docutils literal notranslate"><span class="pre">None</span></code>,
+uses <code class="docutils literal notranslate"><span class="pre">self.catalog_band</span></code>.</p></li>
+<li><p><strong>allow_update</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, reads and updates an existing file.
+Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+<li><p><strong>tag</strong> – String inserted before <code class="docutils literal notranslate"><span class="pre">.cat</span></code> in the filename. Defaults
+to <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>filename</strong> – Output filename. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, uses
+<code class="docutils literal notranslate"><span class="pre">self.filename</span></code> with <code class="docutils literal notranslate"><span class="pre">.h5</span></code> replaced by <code class="docutils literal notranslate"><span class="pre">.cat</span></code>.</p></li>
+<li><p><strong>directory</strong> – Output directory path. Defaults to
+<code class="docutils literal notranslate"><span class="pre">conf.PATH_CATALOGS</span></code>.</p></li>
+<li><p><strong>overwrite</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, overwrites an existing file without
+reading it. Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.14)"><strong>RuntimeError</strong></a> – If the file exists and both <code class="docutils literal notranslate"><span class="pre">allow_update</span></code> and
+    <code class="docutils literal notranslate"><span class="pre">overwrite</span></code> are <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="group.html" class="btn btn-neutral float-left" title="farmer.group — Group" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="utils.html" class="btn btn-neutral float-right" title="farmer.utils — Utilities" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2018-2026, John Weaver.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

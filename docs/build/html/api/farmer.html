@@ -1,0 +1,452 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>farmer — Top-Level API &mdash; The Farmer 2.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=20623aea"></script>
+      <script src="../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=f281be69"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="farmer.mosaic — Mosaic" href="mosaic.html" />
+    <link rel="prev" title="API Reference" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            The Farmer
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quick Start</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../configuration.html">Configuration Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pipeline.html">Pipeline Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="index.html">API Reference</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">farmer</span></code> — Top-Level API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#farmer.validate"><code class="docutils literal notranslate"><span class="pre">validate()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#farmer.get_mosaic"><code class="docutils literal notranslate"><span class="pre">get_mosaic()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#farmer.build_bricks"><code class="docutils literal notranslate"><span class="pre">build_bricks()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#farmer.brick_has_band"><code class="docutils literal notranslate"><span class="pre">brick_has_band()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#farmer.load_brick"><code class="docutils literal notranslate"><span class="pre">load_brick()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#farmer.update_bricks"><code class="docutils literal notranslate"><span class="pre">update_bricks()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#farmer.detect_sources_lite"><code class="docutils literal notranslate"><span class="pre">detect_sources_lite()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#farmer.detect_sources"><code class="docutils literal notranslate"><span class="pre">detect_sources()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#farmer.generate_models"><code class="docutils literal notranslate"><span class="pre">generate_models()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#farmer.photometer"><code class="docutils literal notranslate"><span class="pre">photometer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#farmer.quick_group"><code class="docutils literal notranslate"><span class="pre">quick_group()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#farmer.rebuild_mosaic"><code class="docutils literal notranslate"><span class="pre">rebuild_mosaic()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="mosaic.html"><code class="docutils literal notranslate"><span class="pre">farmer.mosaic</span></code> — Mosaic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="brick.html"><code class="docutils literal notranslate"><span class="pre">farmer.brick</span></code> — Brick</a></li>
+<li class="toctree-l1"><a class="reference internal" href="group.html"><code class="docutils literal notranslate"><span class="pre">farmer.group</span></code> — Group</a></li>
+<li class="toctree-l1"><a class="reference internal" href="baseimage.html"><code class="docutils literal notranslate"><span class="pre">farmer.image</span></code> — BaseImage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html"><code class="docutils literal notranslate"><span class="pre">farmer.utils</span></code> — Utilities</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Help &amp; Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">The Farmer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">API Reference</a></li>
+      <li class="breadcrumb-item active"><code class="docutils literal notranslate"><span class="pre">farmer</span></code> — Top-Level API</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/farmer.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="farmer-top-level-api">
+<h1><code class="docutils literal notranslate"><span class="pre">farmer</span></code> — Top-Level API<a class="headerlink" href="#farmer-top-level-api" title="Link to this heading"></a></h1>
+<p>The <code class="docutils literal notranslate"><span class="pre">farmer</span></code> package exposes a concise set of functions that cover the full
+photometry pipeline. Import the package to access them:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">farmer</span>
+</pre></div>
+</div>
+<p>On import, The Farmer locates <code class="docutils literal notranslate"><span class="pre">config/config.py</span></code>, loads configuration, prints
+the startup banner, and initialises the logging system. Call
+<a class="reference internal" href="#farmer.validate" title="farmer.validate"><code class="xref py py-func docutils literal notranslate"><span class="pre">farmer.validate()</span></code></a> before any other function to confirm all configured
+paths and PSF models are accessible.</p>
+<dl class="py function" id="module-farmer">
+<dt class="sig sig-object py" id="farmer.validate">
+<span class="sig-prename descclassname"><span class="pre">farmer.</span></span><span class="sig-name descname"><span class="pre">validate</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer.html#validate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.validate" title="Link to this definition"></a></dt>
+<dd><p>Validate that all configured mosaics exist and are properly set up.</p>
+<p>Instantiates a <code class="docutils literal notranslate"><span class="pre">Mosaic</span></code> (without loading data) for the detection image
+and for every band in <code class="docutils literal notranslate"><span class="pre">conf.BANDS</span></code> to verify that science paths exist,
+WCS headers are parseable, and PSF models are readable.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.14)"><strong>RuntimeError</strong></a> – If any mosaic cannot be instantiated (missing file,
+    bad WCS, unreadable PSF, etc.).</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="farmer.get_mosaic">
+<span class="sig-prename descclassname"><span class="pre">farmer.</span></span><span class="sig-name descname"><span class="pre">get_mosaic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">band</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">load</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer.html#get_mosaic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.get_mosaic" title="Link to this definition"></a></dt>
+<dd><p>Return a <code class="docutils literal notranslate"><span class="pre">Mosaic</span></code> object for the specified band.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>band</strong> – Band name (e.g. <code class="docutils literal notranslate"><span class="pre">'detection'</span></code>, <code class="docutils literal notranslate"><span class="pre">'g'</span></code>, <code class="docutils literal notranslate"><span class="pre">'r'</span></code>).</p></li>
+<li><p><strong>load</strong> – If True, load all configured image arrays into memory.
+If False, only validate paths and read the WCS.
+Defaults to True.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Initialised mosaic for the requested band.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="mosaic.html#farmer.mosaic.Mosaic" title="farmer.mosaic.Mosaic">Mosaic</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="farmer.build_bricks">
+<span class="sig-prename descclassname"><span class="pre">farmer.</span></span><span class="sig-name descname"><span class="pre">build_bricks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">brick_ids</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">include_detection</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">write</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer.html#build_bricks"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.build_bricks" title="Link to this definition"></a></dt>
+<dd><p>Build or update HDF5 brick files from full-field mosaics.</p>
+<p>For each brick ID, loads the required mosaics one at a time and cuts out
+the brick sub-image.  When processing a single brick the populated
+<code class="docutils literal notranslate"><span class="pre">Brick</span></code> object is returned directly.  When processing multiple bricks
+the files are written incrementally and a list of successfully built brick
+IDs is returned.  Bricks with no detection-band flux are skipped and
+excluded from the return value.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>brick_ids</strong> – Integer or array of brick IDs to build.  <code class="docutils literal notranslate"><span class="pre">None</span></code> builds
+all bricks defined by <code class="docutils literal notranslate"><span class="pre">conf.N_BRICKS</span></code>. Defaults to None.</p></li>
+<li><p><strong>include_detection</strong> – If True, prepend <code class="docutils literal notranslate"><span class="pre">'detection'</span></code> to the band list
+even when <code class="docutils literal notranslate"><span class="pre">bands</span></code> does not include it. Defaults to True.</p></li>
+<li><p><strong>bands</strong> – Band name(s) to include.  <code class="docutils literal notranslate"><span class="pre">None</span></code> uses all bands in
+<code class="docutils literal notranslate"><span class="pre">conf.BANDS</span></code>.  Pass a single string or list of strings.
+Defaults to None.</p></li>
+<li><p><strong>write</strong> – If True, write each brick to an HDF5 file after building.
+Defaults to True.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>The populated <code class="docutils literal notranslate"><span class="pre">Brick</span></code> (single-brick mode) or a list</dt><dd><p>of successfully built brick IDs (multi-brick mode). Bricks with no
+detection-band flux are excluded from the returned list.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="brick.html#farmer.brick.Brick" title="farmer.brick.Brick">Brick</a> or <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a></p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.14)"><strong>RuntimeError</strong></a> – If a requested band is not in the configuration.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="farmer.brick_has_band">
+<span class="sig-prename descclassname"><span class="pre">farmer.</span></span><span class="sig-name descname"><span class="pre">brick_has_band</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">brick_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">band</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">silent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer.html#brick_has_band"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.brick_has_band" title="Link to this definition"></a></dt>
+<dd><p>Check whether a brick HDF5 file already contains a specific band.</p>
+<p>Opens the brick file and reads only the top-level metadata to inspect
+the <code class="docutils literal notranslate"><span class="pre">'bands'</span></code> attribute.  Much faster than loading the full brick.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>brick_id</strong> – Integer brick identifier.</p></li>
+<li><p><strong>band</strong> – Band name to look for.</p></li>
+<li><p><strong>tag</strong> – Optional tag string appended to the filename as <code class="docutils literal notranslate"><span class="pre">_{tag}</span></code>.
+Defaults to None.</p></li>
+<li><p><strong>silent</strong> – If True, suppress log output. Defaults to True.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>True if the band is present; False if not or if the brick</dt><dd><p>file does not exist.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="farmer.load_brick">
+<span class="sig-prename descclassname"><span class="pre">farmer.</span></span><span class="sig-name descname"><span class="pre">load_brick</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">brick_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">silent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer.html#load_brick"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.load_brick" title="Link to this definition"></a></dt>
+<dd><p>Load an existing brick from its HDF5 file on disk.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>brick_id</strong> – Integer brick identifier.</p></li>
+<li><p><strong>silent</strong> – If True, suppress informational log messages.
+Defaults to False.</p></li>
+<li><p><strong>tag</strong> – Optional tag string appended to the filename as <code class="docutils literal notranslate"><span class="pre">_{tag}</span></code>.
+Defaults to None.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Fully loaded brick object.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="brick.html#farmer.brick.Brick" title="farmer.brick.Brick">Brick</a></p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#IOError" title="(in Python v3.14)"><strong>IOError</strong></a> – If the brick file cannot be found or opened.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="farmer.update_bricks">
+<span class="sig-prename descclassname"><span class="pre">farmer.</span></span><span class="sig-name descname"><span class="pre">update_bricks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">brick_ids</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overwrite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer.html#update_bricks"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.update_bricks" title="Link to this definition"></a></dt>
+<dd><p>Update existing bricks with missing bands.</p>
+<p>Uses lazy loading to check if a brick already has a band before loading
+the full brick into memory. Only loads and modifies bricks that need updates.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>brick_ids</strong> – Brick ID(s) to update. If None, update all bricks.</p></li>
+<li><p><strong>bands</strong> – Bands to add/update. If None, use all configured bands.</p></li>
+<li><p><strong>overwrite</strong> – If True, re-add all bands even if they exist.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>returns the brick object
+For multiple: returns list of updated brick IDs</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>For single brick</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="farmer.detect_sources_lite">
+<span class="sig-prename descclassname"><span class="pre">farmer.</span></span><span class="sig-name descname"><span class="pre">detect_sources_lite</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">brick_ids</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'detection'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">imgtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'science'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">write_catalog</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cleanup</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer.html#detect_sources_lite"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.detect_sources_lite" title="Link to this definition"></a></dt>
+<dd><p>Hit-and-run source detection with minimal memory footprint.</p>
+<p>Extract source catalogs from bricks without keeping large image arrays
+or model tracking data in memory. Ideal for batch processing many bricks
+when you only need the catalogs.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>brick_ids</strong> – Brick ID(s) to process. If None, process all bricks.</p></li>
+<li><p><strong>band</strong> – Detection band (default: ‘detection’)</p></li>
+<li><p><strong>imgtype</strong> – Image type to process (default: ‘science’)</p></li>
+<li><p><strong>write_catalog</strong> – If True, write catalog to disk immediately</p></li>
+<li><p><strong>cleanup</strong> – If True, aggressively clean up temporary data after detection</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>returns the brick object
+For multiple: returns list of successful brick IDs</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>For single brick</p>
+</dd>
+</dl>
+<p class="rubric">Example</p>
+<p># Process all bricks, write catalogs only
+detect_sources_lite(write_catalog=True)</p>
+<p># Process specific bricks
+detect_sources_lite(brick_ids=[1, 2, 3])</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="farmer.detect_sources">
+<span class="sig-prename descclassname"><span class="pre">farmer.</span></span><span class="sig-name descname"><span class="pre">detect_sources</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">brick_ids</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'detection'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">imgtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'science'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">brick</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">write</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lite_mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cleanup</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer.html#detect_sources"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.detect_sources" title="Link to this definition"></a></dt>
+<dd><p>Detect sources in one or more bricks.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>brick_ids</strong> – Brick ID(s) to process</p></li>
+<li><p><strong>band</strong> – Detection band (default: ‘detection’)</p></li>
+<li><p><strong>imgtype</strong> – Image type (default: ‘science’)</p></li>
+<li><p><strong>brick</strong> – Single brick object to process directly</p></li>
+<li><p><strong>write</strong> – If True, write brick to disk after detection</p></li>
+<li><p><strong>lite_mode</strong> – If True, use minimal memory mode (experimental)</p></li>
+<li><p><strong>cleanup</strong> – If True, clean up temporary data after detection</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="farmer.generate_models">
+<span class="sig-prename descclassname"><span class="pre">farmer.</span></span><span class="sig-name descname"><span class="pre">generate_models</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">brick_ids</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_ids</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">conf.MODEL_BANDS</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">imgtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'science'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer.html#generate_models"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.generate_models" title="Link to this definition"></a></dt>
+<dd><p>Determine the best-fit morphological model for every source in one or more bricks.</p>
+<p>Loads (or builds) each brick, runs source detection if not already done,
+processes all groups through the model-selection decision tree, writes the
+updated brick HDF5, writes the source catalog, and reconstructs
+model/residual images.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>brick_ids</strong> – Brick ID(s) to process. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, processes all bricks
+defined by <code class="docutils literal notranslate"><span class="pre">conf.N_BRICKS</span></code>.</p></li>
+<li><p><strong>group_ids</strong> – Specific group ID(s) to model. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, models all
+groups in each brick.</p></li>
+<li><p><strong>bands</strong> – Band identifiers used jointly for model determination.
+Defaults to <code class="docutils literal notranslate"><span class="pre">conf.MODEL_BANDS</span></code>.</p></li>
+<li><p><strong>imgtype</strong> – Image type key for the detection catalog lookup.
+Defaults to <code class="docutils literal notranslate"><span class="pre">'science'</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>The processed brick when <code class="docutils literal notranslate"><span class="pre">brick_ids</span></code> is scalar; <code class="docutils literal notranslate"><span class="pre">None</span></code></dt><dd><p>when processing multiple bricks.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="brick.html#farmer.brick.Brick" title="farmer.brick.Brick">Brick</a></p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#AssertionError" title="(in Python v3.14)"><strong>AssertionError</strong></a> – If the brick does not contain detection data.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="farmer.photometer">
+<span class="sig-prename descclassname"><span class="pre">farmer.</span></span><span class="sig-name descname"><span class="pre">photometer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">brick_ids</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_ids</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">imgtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'science'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer.html#photometer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.photometer" title="Link to this definition"></a></dt>
+<dd><p>Measure forced photometry in all configured bands for one or more bricks.</p>
+<p>Loads (or builds) each brick, updates it with any missing bands, runs
+detection if needed, and then either runs the full pipeline
+(model determination + photometry) if no models exist, or runs
+photometry-only if models are already present. Writes the HDF5 brick,
+source catalog, and model/residual images.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>brick_ids</strong> – Brick ID(s) to process. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, processes all bricks.</p></li>
+<li><p><strong>group_ids</strong> – Specific group ID(s). If <code class="docutils literal notranslate"><span class="pre">None</span></code>, processes all groups.</p></li>
+<li><p><strong>bands</strong> – Bands to measure photometry in. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, uses all
+configured bands from <code class="docutils literal notranslate"><span class="pre">conf.BANDS</span></code>.</p></li>
+<li><p><strong>imgtype</strong> – Image type key for catalog lookup. Defaults to <code class="docutils literal notranslate"><span class="pre">'science'</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>The processed brick when <code class="docutils literal notranslate"><span class="pre">brick_ids</span></code> is scalar; <code class="docutils literal notranslate"><span class="pre">None</span></code></dt><dd><p>when processing multiple bricks.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="brick.html#farmer.brick.Brick" title="farmer.brick.Brick">Brick</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="farmer.quick_group">
+<span class="sig-prename descclassname"><span class="pre">farmer.</span></span><span class="sig-name descname"><span class="pre">quick_group</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">brick_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">524</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">brick</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer.html#quick_group"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.quick_group" title="Link to this definition"></a></dt>
+<dd><p>Convenience function to quickly process a single group.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="farmer.rebuild_mosaic">
+<span class="sig-prename descclassname"><span class="pre">farmer.</span></span><span class="sig-name descname"><span class="pre">rebuild_mosaic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">brick_ids</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">imgtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'science'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer.html#rebuild_mosaic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.rebuild_mosaic" title="Link to this definition"></a></dt>
+<dd><p>Reconstruct a full-field mosaic from processed bricks.</p>
+<p>Not yet implemented.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.14)"><strong>RuntimeError</strong></a> – Always — this function is a placeholder.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="API Reference" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="mosaic.html" class="btn btn-neutral float-right" title="farmer.mosaic — Mosaic" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2018-2026, John Weaver.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

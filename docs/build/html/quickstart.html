@@ -1,0 +1,288 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quick Start &mdash; The Farmer 2.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=20623aea"></script>
+      <script src="_static/doctools.js?v=9a2dae69"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="_static/copybutton.js?v=f281be69"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Usage Guide" href="usage.html" />
+    <link rel="prev" title="Installation" href="installation.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            The Farmer
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Quick Start</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#before-you-begin">Before you begin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#step-1-configure-your-survey">Step 1 — Configure your survey</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#step-2-validate-configuration">Step 2 — Validate configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#step-3-build-bricks">Step 3 — Build bricks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#step-4-detect-sources">Step 4 — Detect sources</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#step-5-determine-morphological-models">Step 5 — Determine morphological models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#step-6-multi-band-photometry">Step 6 — Multi-band photometry</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#step-7-inspect-results">Step 7 — Inspect results</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#full-production-example">Full Production Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#next-steps">Next Steps</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipeline.html">Pipeline Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/farmer.html"><code class="docutils literal notranslate"><span class="pre">farmer</span></code> — Top-Level API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/mosaic.html"><code class="docutils literal notranslate"><span class="pre">farmer.mosaic</span></code> — Mosaic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/brick.html"><code class="docutils literal notranslate"><span class="pre">farmer.brick</span></code> — Brick</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/group.html"><code class="docutils literal notranslate"><span class="pre">farmer.group</span></code> — Group</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/baseimage.html"><code class="docutils literal notranslate"><span class="pre">farmer.image</span></code> — BaseImage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/utils.html"><code class="docutils literal notranslate"><span class="pre">farmer.utils</span></code> — Utilities</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Help &amp; Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">Frequently Asked Questions</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">The Farmer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Quick Start</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/quickstart.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="quick-start">
+<h1>Quick Start<a class="headerlink" href="#quick-start" title="Link to this heading"></a></h1>
+<p>This page walks through a minimal end-to-end run: building bricks, detecting sources, fitting morphological models, and extracting multi-band photometry. It assumes you have completed <a class="reference internal" href="installation.html"><span class="doc">Installation</span></a> and have FITS images on disk.</p>
+<section id="before-you-begin">
+<h2>Before you begin<a class="headerlink" href="#before-you-begin" title="Link to this heading"></a></h2>
+<p>Have the following ready before starting:</p>
+<ul class="simple">
+<li><p>A <strong>high-resolution detection image</strong> in FITS format. This is the image used for source detection and morphology fitting — ideally a chi-mean stack or a deep optical image. It does not need to be one of the photometric bands.</p></li>
+<li><p><strong>Science and weight images</strong> for every photometric band you want to measure.</p></li>
+<li><p><strong>PSF models</strong> for each photometric band (PSFEx <code class="docutils literal notranslate"><span class="pre">.fits</span></code> format). See <a class="reference internal" href="configuration.html"><span class="doc">Configuration Reference</span></a> for details; <code class="docutils literal notranslate"><span class="pre">bin/prep_psf.py</span></code> can help prepare raw PSF stamps.</p></li>
+<li><p>Enough disk space: each brick HDF5 file is typically 50–500 MB depending on image size and the number of bands.</p></li>
+</ul>
+<p>The Farmer does <strong>not</strong> reproject images — all bands must already be on the same pixel grid as the detection image, or you must accept that the multi-resolution mapping will introduce small positional uncertainties.</p>
+</section>
+<section id="step-1-configure-your-survey">
+<h2>Step 1 — Configure your survey<a class="headerlink" href="#step-1-configure-your-survey" title="Link to this heading"></a></h2>
+<p>Copy <code class="docutils literal notranslate"><span class="pre">config/config.py</span></code> into the root of your working directory (or keep it under <code class="docutils literal notranslate"><span class="pre">config/</span></code>; The Farmer searches both locations). Edit it to point to your images:</p>
+<div class="literal-block-wrapper docutils container" id="id1">
+<div class="code-block-caption"><span class="caption-text">config/config.py (excerpt)</span><a class="headerlink" href="#id1" title="Link to this code"></a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">PATH_DATA</span> <span class="o">=</span> <span class="s1">&#39;/path/to/your/data/&#39;</span>
+<span class="n">PATH_BRICKS</span>   <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">PATH_DATA</span><span class="p">,</span> <span class="s1">&#39;interim/bricks&#39;</span><span class="p">)</span>
+<span class="n">PATH_CATALOGS</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">PATH_DATA</span><span class="p">,</span> <span class="s1">&#39;output/catalogs&#39;</span><span class="p">)</span>
+<span class="c1"># ... other paths</span>
+
+<span class="n">DETECTION</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;science&#39;</span><span class="p">:</span> <span class="s1">&#39;/path/to/data/external/detection_image.fits&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;subtract_background&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s1">&#39;backtype&#39;</span><span class="p">:</span> <span class="s1">&#39;flat&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;backregion&#39;</span><span class="p">:</span> <span class="s1">&#39;mosaic&#39;</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="n">BANDS</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="n">BANDS</span><span class="p">[</span><span class="s1">&#39;hsc_i&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;science&#39;</span><span class="p">:</span>  <span class="s1">&#39;/path/to/data/external/hsc_i.fits&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;weight&#39;</span><span class="p">:</span>   <span class="s1">&#39;/path/to/data/external/hsc_i_weight.fits&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;psfmodel&#39;</span><span class="p">:</span> <span class="s1">&#39;/path/to/data/interim/psfmodels/hsc_i.fits&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;subtract_background&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s1">&#39;backtype&#39;</span><span class="p">:</span> <span class="s1">&#39;flat&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;backregion&#39;</span><span class="p">:</span> <span class="s1">&#39;mosaic&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;zeropoint&#39;</span><span class="p">:</span> <span class="mf">31.4</span><span class="p">,</span>
+<span class="p">}</span>
+<span class="c1"># Add more bands as needed</span>
+
+<span class="n">N_BRICKS</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>       <span class="c1"># 2 columns × 4 rows = 8 bricks</span>
+<span class="n">MODEL_BANDS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;hsc_i&#39;</span><span class="p">]</span> <span class="c1"># bands used for morphology fitting</span>
+</pre></div>
+</div>
+</div>
+</section>
+<section id="step-2-validate-configuration">
+<h2>Step 2 — Validate configuration<a class="headerlink" href="#step-2-validate-configuration" title="Link to this heading"></a></h2>
+<p>Start Python from your working directory (where <code class="docutils literal notranslate"><span class="pre">config/</span></code> is visible) and validate all configured bands:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">farmer</span>
+
+<span class="n">farmer</span><span class="o">.</span><span class="n">validate</span><span class="p">()</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">validate()</span></code> checks that every science image exists, the WCS is readable, and each PSF model can be found. Errors here point to misconfigured paths or missing files.</p>
+</section>
+<section id="step-3-build-bricks">
+<h2>Step 3 — Build bricks<a class="headerlink" href="#step-3-build-bricks" title="Link to this heading"></a></h2>
+<p>Build bricks from all configured bands. This cuts postage stamps from every mosaic and saves them to HDF5:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Build all bricks (slow for large surveys — add bands one at a time</span>
+<span class="c1"># for production runs)</span>
+<span class="n">farmer</span><span class="o">.</span><span class="n">build_bricks</span><span class="p">()</span>
+
+<span class="c1"># Or build a single brick for testing</span>
+<span class="n">brick</span> <span class="o">=</span> <span class="n">farmer</span><span class="o">.</span><span class="n">build_bricks</span><span class="p">(</span><span class="n">brick_ids</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Each brick is saved as <code class="docutils literal notranslate"><span class="pre">data/interim/bricks/B{brick_id}.h5</span></code>.</p>
+</section>
+<section id="step-4-detect-sources">
+<h2>Step 4 — Detect sources<a class="headerlink" href="#step-4-detect-sources" title="Link to this heading"></a></h2>
+<p>Run source detection on the detection band. Sources outside the brick boundary are discarded; nearby sources are grouped for simultaneous fitting:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">farmer</span><span class="o">.</span><span class="n">detect_sources</span><span class="p">(</span><span class="n">brick_ids</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">write</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="c1"># Memory-efficient batch mode for production</span>
+<span class="n">farmer</span><span class="o">.</span><span class="n">detect_sources_lite</span><span class="p">()</span>   <span class="c1"># all bricks, minimal footprint</span>
+</pre></div>
+</div>
+</section>
+<section id="step-5-determine-morphological-models">
+<h2>Step 5 — Determine morphological models<a class="headerlink" href="#step-5-determine-morphological-models" title="Link to this heading"></a></h2>
+<p>The Farmer iterates through a decision tree of profile types (point source → SimpleGalaxy → Exp → deV → Composite) to find the best-fit model for each source in the detection band(s):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">farmer</span><span class="o">.</span><span class="n">generate_models</span><span class="p">(</span><span class="n">brick_ids</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Results are stored in <code class="docutils literal notranslate"><span class="pre">brick.model_catalog</span></code> and written to <code class="docutils literal notranslate"><span class="pre">B1.h5</span></code>.</p>
+</section>
+<section id="step-6-multi-band-photometry">
+<h2>Step 6 — Multi-band photometry<a class="headerlink" href="#step-6-multi-band-photometry" title="Link to this heading"></a></h2>
+<p>With morphologies fixed, measure fluxes in every configured band:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">farmer</span><span class="o">.</span><span class="n">photometer</span><span class="p">(</span><span class="n">brick_ids</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This writes the final catalog to <code class="docutils literal notranslate"><span class="pre">data/output/catalogs/</span></code>.</p>
+</section>
+<section id="step-7-inspect-results">
+<h2>Step 7 — Inspect results<a class="headerlink" href="#step-7-inspect-results" title="Link to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">brick</span> <span class="o">=</span> <span class="n">farmer</span><span class="o">.</span><span class="n">load_brick</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="c1"># Print brick summary</span>
+<span class="n">brick</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+
+<span class="c1"># Access the model catalog (OrderedDict keyed by source ID)</span>
+<span class="n">cat</span> <span class="o">=</span> <span class="n">brick</span><span class="o">.</span><span class="n">model_catalog</span>
+
+<span class="c1"># Inspect a single group interactively</span>
+<span class="n">group</span> <span class="o">=</span> <span class="n">farmer</span><span class="o">.</span><span class="n">quick_group</span><span class="p">(</span><span class="n">brick_id</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">group_id</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+<span class="n">group</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="full-production-example">
+<h2>Full Production Example<a class="headerlink" href="#full-production-example" title="Link to this heading"></a></h2>
+<p>For a complete survey run processing all bricks in parallel:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">farmer</span>
+
+<span class="n">farmer</span><span class="o">.</span><span class="n">validate</span><span class="p">()</span>
+
+<span class="c1"># 1. Build bricks (detection band first, then photometric bands)</span>
+<span class="n">good_bricks</span> <span class="o">=</span> <span class="n">farmer</span><span class="o">.</span><span class="n">build_bricks</span><span class="p">()</span>
+
+<span class="c1"># 2. Detect sources in all bricks (memory-efficient)</span>
+<span class="n">farmer</span><span class="o">.</span><span class="n">detect_sources_lite</span><span class="p">(</span><span class="n">brick_ids</span><span class="o">=</span><span class="n">good_bricks</span><span class="p">)</span>
+
+<span class="c1"># 3. Determine models in all bricks</span>
+<span class="n">farmer</span><span class="o">.</span><span class="n">generate_models</span><span class="p">(</span><span class="n">brick_ids</span><span class="o">=</span><span class="n">good_bricks</span><span class="p">)</span>
+
+<span class="c1"># 4. Measure photometry in all bands</span>
+<span class="n">farmer</span><span class="o">.</span><span class="n">photometer</span><span class="p">(</span><span class="n">brick_ids</span><span class="o">=</span><span class="n">good_bricks</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>See <code class="docutils literal notranslate"><span class="pre">bin/example_script.py</span></code> in the repository for a worked example with specific file paths.</p>
+</section>
+<section id="next-steps">
+<h2>Next Steps<a class="headerlink" href="#next-steps" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><strong>Configuration reference</strong>: See <a class="reference internal" href="configuration.html"><span class="doc">Configuration Reference</span></a> for all tunable parameters.</p></li>
+<li><p><strong>Pipeline deep-dive</strong>: See <a class="reference internal" href="pipeline.html"><span class="doc">Pipeline Architecture</span></a> for how the decision tree and optimization loop work.</p></li>
+<li><p><strong>API reference</strong>: See <a class="reference internal" href="api/index.html"><span class="doc">API Reference</span></a> for complete class and function documentation.</p></li>
+<li><p><strong>PSF preparation</strong>: The helper script <code class="docutils literal notranslate"><span class="pre">bin/prep_psf.py</span></code> clips, normalizes, and optionally resamples a raw PSF image to the format The Farmer expects.</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="installation.html" class="btn btn-neutral float-left" title="Installation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="usage.html" class="btn btn-neutral float-right" title="Usage Guide" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2018-2026, John Weaver.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

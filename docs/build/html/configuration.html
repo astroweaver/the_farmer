@@ -1,0 +1,663 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Configuration Reference &mdash; The Farmer 2.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=20623aea"></script>
+      <script src="_static/doctools.js?v=9a2dae69"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="_static/copybutton.js?v=f281be69"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Pipeline Architecture" href="pipeline.html" />
+    <link rel="prev" title="Usage Guide" href="usage.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            The Farmer
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Guide</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Configuration Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#general-controls">General Controls</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#directory-paths">Directory Paths</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#detection-band">Detection Band</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#photometric-bands">Photometric Bands</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#psf-models">PSF Models</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#source-detection-parameters">Source Detection Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#brick-parameters">Brick Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#source-grouping">Source Grouping</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#background-subtraction-photometry">Background Subtraction (Photometry)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#modeling-and-the-decision-tree">Modeling and the Decision Tree</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#optimizer-settings">Optimizer Settings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#priors">Priors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#ancillary-map-controls">Ancillary Map Controls</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pipeline.html">Pipeline Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/farmer.html"><code class="docutils literal notranslate"><span class="pre">farmer</span></code> — Top-Level API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/mosaic.html"><code class="docutils literal notranslate"><span class="pre">farmer.mosaic</span></code> — Mosaic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/brick.html"><code class="docutils literal notranslate"><span class="pre">farmer.brick</span></code> — Brick</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/group.html"><code class="docutils literal notranslate"><span class="pre">farmer.group</span></code> — Group</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/baseimage.html"><code class="docutils literal notranslate"><span class="pre">farmer.image</span></code> — BaseImage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/utils.html"><code class="docutils literal notranslate"><span class="pre">farmer.utils</span></code> — Utilities</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Help &amp; Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">Frequently Asked Questions</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">The Farmer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Configuration Reference</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/configuration.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="configuration-reference">
+<h1>Configuration Reference<a class="headerlink" href="#configuration-reference" title="Link to this heading"></a></h1>
+<p>All configuration lives in <code class="docutils literal notranslate"><span class="pre">config/config.py</span></code>. The Farmer searches for this file first in the current working directory under <code class="docutils literal notranslate"><span class="pre">config/</span></code>, then one level up. No environment variables or command-line flags are used — the config file is the single source of truth.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">config.py</span></code> is a plain Python module, so you can compute paths programmatically,
+import constants from elsewhere, or use <code class="docutils literal notranslate"><span class="pre">os.environ</span></code> for secrets.</p>
+</div>
+<section id="general-controls">
+<h2>General Controls<a class="headerlink" href="#general-controls" title="Link to this heading"></a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 15.0%" />
+<col style="width: 55.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">CONSOLE_LOGGING_LEVEL</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">'DEBUG'</span></code></p></td>
+<td><p>Verbosity of console output. One of <code class="docutils literal notranslate"><span class="pre">'DEBUG'</span></code>, <code class="docutils literal notranslate"><span class="pre">'INFO'</span></code>, <code class="docutils literal notranslate"><span class="pre">'WARNING'</span></code>, <code class="docutils literal notranslate"><span class="pre">'ERROR'</span></code>, <code class="docutils literal notranslate"><span class="pre">'CRITICAL'</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LOGFILE_LOGGING_LEVEL</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p></td>
+<td><p>Verbosity of the log file. Same options as above, or <code class="docutils literal notranslate"><span class="pre">None</span></code> to disable file logging.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PLOT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>Diagnostic plotting level. <code class="docutils literal notranslate"><span class="pre">0</span></code> = no plots; <code class="docutils literal notranslate"><span class="pre">1</span></code> = brick-level; <code class="docutils literal notranslate"><span class="pre">2</span></code> = group-level; <code class="docutils literal notranslate"><span class="pre">3</span></code> = verbose group-level; <code class="docutils literal notranslate"><span class="pre">4</span></code> = maximum.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">NCPUS</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>Number of CPU cores for parallel group processing. <code class="docutils literal notranslate"><span class="pre">0</span></code> = serial (recommended for debugging).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">OVERWRITE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">True</span></code></p></td>
+<td><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, existing output files are silently overwritten.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">OUTPUT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">True</span></code></p></td>
+<td><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, write output files to disk.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">AUTOLOAD</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">True</span></code></p></td>
+<td><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, automatically load existing bricks from disk where possible.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="directory-paths">
+<h2>Directory Paths<a class="headerlink" href="#directory-paths" title="Link to this heading"></a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PATH_DATA</span></code></p></td>
+<td><p>Root data directory. All other paths are derived from this.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">PATH_BRICKS</span></code></p></td>
+<td><p>HDF5 brick files (<code class="docutils literal notranslate"><span class="pre">B{id}.h5</span></code>). Default: <code class="docutils literal notranslate"><span class="pre">PATH_DATA/interim/bricks/</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PATH_PSFMODELS</span></code></p></td>
+<td><p>PSF model FITS files. Default: <code class="docutils literal notranslate"><span class="pre">PATH_DATA/interim/psfmodels/</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">PATH_FIGURES</span></code></p></td>
+<td><p>Diagnostic plots. Default: <code class="docutils literal notranslate"><span class="pre">PATH_DATA/output/figures/</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PATH_CATALOGS</span></code></p></td>
+<td><p>Output source catalogs. Default: <code class="docutils literal notranslate"><span class="pre">PATH_DATA/output/catalogs/</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">PATH_ANCILLARY</span></code></p></td>
+<td><p>DS9 region files and other ancillary outputs. Default: <code class="docutils literal notranslate"><span class="pre">PATH_DATA/output/ancillary/</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PATH_LOGS</span></code></p></td>
+<td><p>Log files. Default: <code class="docutils literal notranslate"><span class="pre">PATH_DATA/interim/logs/</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="detection-band">
+<h2>Detection Band<a class="headerlink" href="#detection-band" title="Link to this heading"></a></h2>
+<p>The detection image is configured separately from photometric bands:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">DETECTION</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;science&#39;</span><span class="p">:</span> <span class="s1">&#39;/path/to/detection_image.fits&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;weight&#39;</span><span class="p">:</span>  <span class="s1">&#39;/path/to/detection_weight.fits&#39;</span><span class="p">,</span>  <span class="c1"># optional</span>
+    <span class="s1">&#39;mask&#39;</span><span class="p">:</span>    <span class="s1">&#39;/path/to/detection_mask.fits&#39;</span><span class="p">,</span>     <span class="c1"># optional</span>
+    <span class="s1">&#39;subtract_background&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s1">&#39;backtype&#39;</span><span class="p">:</span> <span class="s1">&#39;flat&#39;</span><span class="p">,</span>       <span class="c1"># &#39;flat&#39; or &#39;variable&#39;</span>
+    <span class="s1">&#39;backregion&#39;</span><span class="p">:</span> <span class="s1">&#39;mosaic&#39;</span><span class="p">,</span>   <span class="c1"># &#39;mosaic&#39; or &#39;brick&#39;</span>
+    <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;Detection&#39;</span><span class="p">,</span>      <span class="c1"># display label</span>
+<span class="p">}</span>
+
+<span class="n">USE_DETECTION_WEIGHT</span> <span class="o">=</span> <span class="kc">False</span>   <span class="c1"># use weight image for detection threshold</span>
+<span class="n">USE_DETECTION_MASK</span>   <span class="o">=</span> <span class="kc">False</span>   <span class="c1"># apply mask before detection</span>
+<span class="n">APPLY_DETECTION_MASK</span> <span class="o">=</span> <span class="kc">False</span>   <span class="c1"># remove masked sources after detection</span>
+</pre></div>
+</div>
+</section>
+<section id="photometric-bands">
+<h2>Photometric Bands<a class="headerlink" href="#photometric-bands" title="Link to this heading"></a></h2>
+<p>Each photometric band is a dictionary entry in <code class="docutils literal notranslate"><span class="pre">BANDS</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">BANDS</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="n">BANDS</span><span class="p">[</span><span class="s1">&#39;hsc_i&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;science&#39;</span><span class="p">:</span>  <span class="s1">&#39;/path/to/hsc_i.fits&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;weight&#39;</span><span class="p">:</span>   <span class="s1">&#39;/path/to/hsc_i_weight.fits&#39;</span><span class="p">,</span>   <span class="c1"># optional but recommended</span>
+    <span class="s1">&#39;mask&#39;</span><span class="p">:</span>     <span class="s1">&#39;/path/to/hsc_i_mask.fits&#39;</span><span class="p">,</span>      <span class="c1"># optional</span>
+    <span class="s1">&#39;psfmodel&#39;</span><span class="p">:</span> <span class="s1">&#39;/path/to/psfmodels/hsc_i.fits&#39;</span><span class="p">,</span> <span class="c1"># required for photometry</span>
+    <span class="s1">&#39;subtract_background&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s1">&#39;backtype&#39;</span><span class="p">:</span> <span class="s1">&#39;flat&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;backregion&#39;</span><span class="p">:</span> <span class="s1">&#39;mosaic&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;zeropoint&#39;</span><span class="p">:</span> <span class="mf">31.4</span><span class="p">,</span>   <span class="c1"># AB magnitude zeropoint</span>
+    <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="sa">r</span><span class="s1">&#39;HSC $i$&#39;</span><span class="p">,</span>  <span class="c1"># LaTeX-compatible display label</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Band dictionary keys:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 10.0%" />
+<col style="width: 60.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Key</p></th>
+<th class="head"><p>Required</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">science</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>Path to science image FITS file.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">weight</span></code></p></td>
+<td><p>No</p></td>
+<td><p>Path to inverse-variance weight image. If absent, a uniform-weight dummy is used.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">mask</span></code></p></td>
+<td><p>No</p></td>
+<td><p>Path to mask image (non-zero = masked). If absent, no pixels are masked.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">psfmodel</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>Path to a single PSF FITS file <strong>or</strong> path to a two-column ASCII/FITS table of <code class="docutils literal notranslate"><span class="pre">RA</span></code>, <code class="docutils literal notranslate"><span class="pre">DEC</span></code>, <code class="docutils literal notranslate"><span class="pre">PSF_PATH</span></code> for position-dependent PSFs.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">zeropoint</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>AB magnitude zeropoint. Magnitudes are computed as <code class="docutils literal notranslate"><span class="pre">mag</span> <span class="pre">=</span> <span class="pre">zeropoint</span> <span class="pre">−</span> <span class="pre">2.5</span> <span class="pre">×</span> <span class="pre">log10(flux)</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">subtract_background</span></code></p></td>
+<td><p>No</p></td>
+<td><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, subtract background before fitting. Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">backtype</span></code></p></td>
+<td><p>No</p></td>
+<td><p>Background model type: <code class="docutils literal notranslate"><span class="pre">'flat'</span></code> (scalar) or <code class="docutils literal notranslate"><span class="pre">'variable'</span></code> (2-D map). Default: <code class="docutils literal notranslate"><span class="pre">'flat'</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">backregion</span></code></p></td>
+<td><p>No</p></td>
+<td><p>Region over which to estimate the background: <code class="docutils literal notranslate"><span class="pre">'mosaic'</span></code> (entire image, estimated once) or <code class="docutils literal notranslate"><span class="pre">'brick'</span></code> (re-estimated per brick). Default: <code class="docutils literal notranslate"><span class="pre">'brick'</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">name</span></code></p></td>
+<td><p>No</p></td>
+<td><p>Human-readable label used in plot titles.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">extension</span></code></p></td>
+<td><p>No</p></td>
+<td><p>FITS extension number (integer). Default: <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+<section id="psf-models">
+<h3>PSF Models<a class="headerlink" href="#psf-models" title="Link to this heading"></a></h3>
+<p>Two PSF formats are supported:</p>
+<ol class="arabic">
+<li><p><strong>Constant PSF</strong> — a single FITS image (PSFEx <code class="docutils literal notranslate"><span class="pre">.fits</span></code> format or plain stamp). All sources in the band share this PSF.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="s1">&#39;psfmodel&#39;</span><span class="p">:</span> <span class="s1">&#39;/path/to/psfmodels/hsc_i.fits&#39;</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>Variable PSF</strong> — an ASCII or FITS table with columns <code class="docutils literal notranslate"><span class="pre">ra</span></code> (degrees), <code class="docutils literal notranslate"><span class="pre">dec</span></code> (degrees), and <code class="docutils literal notranslate"><span class="pre">psf_path</span></code> (path to a per-position FITS file). The Farmer selects the nearest PSF for each source.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="s1">&#39;psfmodel&#39;</span><span class="p">:</span> <span class="s1">&#39;/path/to/psfmodels/hsc_i_psflist.fits&#39;</span>
+</pre></div>
+</div>
+</li>
+</ol>
+<p>Use <code class="docutils literal notranslate"><span class="pre">bin/prep_psf.py</span></code> to clip, normalize, and optionally resample a raw PSF stamp before using it with The Farmer.</p>
+</section>
+</section>
+<section id="source-detection-parameters">
+<h2>Source Detection Parameters<a class="headerlink" href="#source-detection-parameters" title="Link to this heading"></a></h2>
+<p>These control the SEP source extraction step:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 15.0%" />
+<col style="width: 55.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">BACK_BW</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">32</span></code></p></td>
+<td><p>Background mesh box width (pixels).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">BACK_BH</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">32</span></code></p></td>
+<td><p>Background mesh box height (pixels).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">BACK_FW</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">2</span></code></p></td>
+<td><p>Background smoothing filter width (mesh cells).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">BACK_FH</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">2</span></code></p></td>
+<td><p>Background smoothing filter height (mesh cells).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">THRESH</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1.5</span></code></p></td>
+<td><p>Detection threshold. If <code class="docutils literal notranslate"><span class="pre">USE_DETECTION_WEIGHT=True</span></code>, this is in sigma units (relative). Otherwise, absolute image units.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">MINAREA</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">5</span></code></p></td>
+<td><p>Minimum number of contiguous pixels above threshold for a valid detection.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">FILTER_KERNEL</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">'gauss_2.0_5x5.conv'</span></code></p></td>
+<td><p>Convolution kernel filename (from <code class="docutils literal notranslate"><span class="pre">config/conv_filters/</span></code>). See available kernels below.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">FILTER_TYPE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">'matched'</span></code></p></td>
+<td><p>Kernel type passed to SEP (<code class="docutils literal notranslate"><span class="pre">'matched'</span></code> or <code class="docutils literal notranslate"><span class="pre">'conv'</span></code>).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">DEBLEND_NTHRESH</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">256</span></code></p></td>
+<td><p>Number of deblending thresholds (<code class="docutils literal notranslate"><span class="pre">2**8</span></code>).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">DEBLEND_CONT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1e-10</span></code></p></td>
+<td><p>Minimum contrast ratio for deblending.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">CLEAN</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
+<td><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, apply SEP cleaning step.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">CLEAN_PARAM</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1.0</span></code></p></td>
+<td><p>Cleaning parameter passed to SEP.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PIXSTACK_SIZE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1000000</span></code></p></td>
+<td><p>SEP pixel stack size. Increase if detection fails on crowded fields.</p></td>
+</tr>
+</tbody>
+</table>
+<p>Available convolution kernels (<code class="docutils literal notranslate"><span class="pre">config/conv_filters/</span></code>):</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">block_3x3.conv</span></code> — flat 3×3 top-hat</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">default.conv</span></code>, <code class="docutils literal notranslate"><span class="pre">default_3.0_7x7.conv</span></code> — SExtractor default Gaussian</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">gauss_1.5_3x3.conv</span></code>, <code class="docutils literal notranslate"><span class="pre">gauss_2.0_5x5.conv</span></code>, <code class="docutils literal notranslate"><span class="pre">gauss_3.0_5x5.conv</span></code>, <code class="docutils literal notranslate"><span class="pre">gauss_3.0_7x7.conv</span></code>, <code class="docutils literal notranslate"><span class="pre">gauss_4.0_7x7.conv</span></code>, <code class="docutils literal notranslate"><span class="pre">gauss_5.0_9x9.conv</span></code> — Gaussian kernels</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mexhat_*.conv</span></code> — Mexican-hat (DoG) kernels at various scales</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tophat_*.conv</span></code> — circular top-hat kernels</p></li>
+</ul>
+</section>
+<section id="brick-parameters">
+<h2>Brick Parameters<a class="headerlink" href="#brick-parameters" title="Link to this heading"></a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 20.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">N_BRICKS</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">(2,</span> <span class="pre">4)</span></code></p></td>
+<td><p>Number of bricks along (x, y) — total is the product. Brick IDs run 1 through <code class="docutils literal notranslate"><span class="pre">N_BRICKS[0]</span> <span class="pre">×</span> <span class="pre">N_BRICKS[1]</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">BRICK_BUFFER</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.1</span> <span class="pre">*</span> <span class="pre">u.arcmin</span></code></p></td>
+<td><p>Overlap region added around each brick to avoid edge effects. Sources detected in the buffer are discarded; photometry is measured through it.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="source-grouping">
+<h2>Source Grouping<a class="headerlink" href="#source-grouping" title="Link to this heading"></a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 20.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">DILATION_RADIUS</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.2</span> <span class="pre">*</span> <span class="pre">u.arcsec</span></code></p></td>
+<td><p>Morphological dilation radius. Segments dilated by this amount are unioned to form groups.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">GROUP_BUFFER</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">2</span> <span class="pre">*</span> <span class="pre">u.arcsec</span></code></p></td>
+<td><p>Padding added around each group’s bounding box when cutting out data for fitting.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GROUP_SIZE_LIMIT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">5</span></code></p></td>
+<td><p>Maximum number of sources per group. Groups with more members are skipped.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">FORCE_SIMPLE_MAPPING</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
+<td><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, use a simplified (potentially less accurate) pixel-mapping method for multi-resolution segmentation.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="background-subtraction-photometry">
+<h2>Background Subtraction (Photometry)<a class="headerlink" href="#background-subtraction-photometry" title="Link to this heading"></a></h2>
+<p>Background subtraction for photometric band fitting uses a separate mesh:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 15.0%" />
+<col style="width: 55.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">SUBTRACT_BW</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">64</span></code></p></td>
+<td><p>Background mesh box width for photometry (pixels).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SUBTRACT_BH</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">64</span></code></p></td>
+<td><p>Background mesh box height for photometry (pixels).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">SUBTRACT_FW</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">3</span></code></p></td>
+<td><p>Background smoothing filter width (mesh cells).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SUBTRACT_FH</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">3</span></code></p></td>
+<td><p>Background smoothing filter height (mesh cells).</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="modeling-and-the-decision-tree">
+<h2>Modeling and the Decision Tree<a class="headerlink" href="#modeling-and-the-decision-tree" title="Link to this heading"></a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 20.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">MODEL_BANDS</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">['hsc_i',</span> <span class="pre">'hsc_z',</span> <span class="pre">'uvista_ks']</span></code></p></td>
+<td><p>Bands used jointly to determine morphological models.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SUFFICIENT_THRESH</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>Chi-squared improvement threshold for accepting a more complex model.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">SIMPLEGALAXY_PENALTY</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.1</span></code></p></td>
+<td><p>Extra chi-squared cost added when considering a SimpleGalaxy over a PointSource (discourages trivial point-source rejection).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">EXP_DEV_SIMILAR_THRESH</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.1</span></code></p></td>
+<td><p>If the chi-squared difference between Exp and deV models is smaller than this, prefer the simpler model.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">RENORM_PSF</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>PSF renormalization factor. Set to <code class="docutils literal notranslate"><span class="pre">1</span></code> to leave PSF as-is.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="optimizer-settings">
+<h2>Optimizer Settings<a class="headerlink" href="#optimizer-settings" title="Link to this heading"></a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 20.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">MAX_STEPS</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">50</span></code></p></td>
+<td><p>Maximum iterations per optimization call.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">DAMPING</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.1</span></code></p></td>
+<td><p>Levenberg–Marquardt damping factor. Larger values slow convergence but improve stability.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">DLNP_CRIT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1e-3</span></code></p></td>
+<td><p>Convergence criterion: stop when the change in log-likelihood per step falls below this.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">GROUP_TIMEOUT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p></td>
+<td><p>Maximum wall-clock seconds allowed per group. <code class="docutils literal notranslate"><span class="pre">None</span></code> disables the timeout.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">IGNORE_FAILURES</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">True</span></code></p></td>
+<td><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, continue processing remaining groups after a failure. If <code class="docutils literal notranslate"><span class="pre">False</span></code>, raise an exception.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">USE_CERES</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
+<td><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, use the Ceres Solver (requires the <code class="docutils literal notranslate"><span class="pre">ceres</span></code> Python binding). Falls back to The Tractor’s built-in <code class="docutils literal notranslate"><span class="pre">ConstrainedOptimizer</span></code> otherwise.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">TIMEOUT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">60</span></code></p></td>
+<td><p>Internal per-step timeout in seconds.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="priors">
+<h2>Priors<a class="headerlink" href="#priors" title="Link to this heading"></a></h2>
+<p>Priors control how model parameters are constrained during optimization. Two sets are defined: <code class="docutils literal notranslate"><span class="pre">MODEL_PRIORS</span></code> (used during model determination) and <code class="docutils literal notranslate"><span class="pre">PHOT_PRIORS</span></code> (used during photometry-only fitting).</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">MODEL_PRIORS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;pos&#39;</span><span class="p">:</span>     <span class="mf">0.1</span> <span class="o">*</span> <span class="n">u</span><span class="o">.</span><span class="n">arcsec</span><span class="p">,</span>   <span class="c1"># Gaussian prior on position offset</span>
+    <span class="s1">&#39;reff&#39;</span><span class="p">:</span>    <span class="s1">&#39;none&#39;</span><span class="p">,</span>            <span class="c1"># No prior on effective radius</span>
+    <span class="s1">&#39;shape&#39;</span><span class="p">:</span>   <span class="s1">&#39;none&#39;</span><span class="p">,</span>            <span class="c1"># No prior on ellipticity/PA</span>
+    <span class="s1">&#39;fracDev&#39;</span><span class="p">:</span> <span class="s1">&#39;none&#39;</span><span class="p">,</span>            <span class="c1"># No prior on bulge fraction</span>
+<span class="p">}</span>
+
+<span class="n">PHOT_PRIORS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;pos&#39;</span><span class="p">:</span>     <span class="mf">0.001</span> <span class="o">*</span> <span class="n">u</span><span class="o">.</span><span class="n">arcsec</span><span class="p">,</span>  <span class="c1"># Tight position prior during photometry</span>
+    <span class="s1">&#39;reff&#39;</span><span class="p">:</span>    <span class="s1">&#39;freeze&#39;</span><span class="p">,</span>           <span class="c1"># Hold effective radius fixed</span>
+    <span class="s1">&#39;shape&#39;</span><span class="p">:</span>   <span class="s1">&#39;freeze&#39;</span><span class="p">,</span>           <span class="c1"># Hold ellipticity/PA fixed</span>
+    <span class="s1">&#39;fracDev&#39;</span><span class="p">:</span> <span class="s1">&#39;freeze&#39;</span><span class="p">,</span>           <span class="c1"># Hold bulge fraction fixed</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Prior values:</p>
+<ul class="simple">
+<li><p><strong>``’none’``</strong> — no prior; parameter is free.</p></li>
+<li><p><strong>``’freeze’``</strong> — parameter is held fixed at its current value.</p></li>
+<li><p><strong>``astropy.Quantity`` (angle)</strong> — Gaussian prior with the given standard deviation (angular units, e.g. <code class="docutils literal notranslate"><span class="pre">0.1</span> <span class="pre">*</span> <span class="pre">u.arcsec</span></code>). Only valid for the <code class="docutils literal notranslate"><span class="pre">'pos'</span></code> key.</p></li>
+</ul>
+</section>
+<section id="ancillary-map-controls">
+<h2>Ancillary Map Controls<a class="headerlink" href="#ancillary-map-controls" title="Link to this heading"></a></h2>
+<p>These parameters control which sources appear in the residual model images:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 20.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">RESIDUAL_BA_MIN</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.01</span></code></p></td>
+<td><p>Minimum axis ratio for rendering a source in the residual map.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">RESIDUAL_REFF_MAX</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">5</span> <span class="pre">*</span> <span class="pre">u.arcsec</span></code></p></td>
+<td><p>Maximum effective radius for rendering a source in the residual map.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">RESIDUAL_SHOW_NEGATIVE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
+<td><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, include sources with negative fitted fluxes in residual maps.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="usage.html" class="btn btn-neutral float-left" title="Usage Guide" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="pipeline.html" class="btn btn-neutral float-right" title="Pipeline Architecture" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2018-2026, John Weaver.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

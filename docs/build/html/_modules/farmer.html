@@ -1,0 +1,812 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>farmer &mdash; The Farmer 2.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=20623aea"></script>
+      <script src="../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=f281be69"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            The Farmer
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quick Start</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../configuration.html">Configuration Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pipeline.html">Pipeline Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/farmer.html"><code class="docutils literal notranslate"><span class="pre">farmer</span></code> — Top-Level API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/mosaic.html"><code class="docutils literal notranslate"><span class="pre">farmer.mosaic</span></code> — Mosaic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/brick.html"><code class="docutils literal notranslate"><span class="pre">farmer.brick</span></code> — Brick</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/group.html"><code class="docutils literal notranslate"><span class="pre">farmer.group</span></code> — Group</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/baseimage.html"><code class="docutils literal notranslate"><span class="pre">farmer.image</span></code> — BaseImage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/utils.html"><code class="docutils literal notranslate"><span class="pre">farmer.utils</span></code> — Utilities</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Help &amp; Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">The Farmer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Module code</a></li>
+      <li class="breadcrumb-item active">farmer</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for farmer</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.version</span><span class="w"> </span><span class="kn">import</span> <span class="n">__version__</span>
+
+<span class="c1"># General imports</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+
+<span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">(),</span> <span class="s1">&#39;config&#39;</span><span class="p">)):</span> <span class="c1"># You&#39;re 1 up from config?</span>
+    <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">(),</span> <span class="s1">&#39;config&#39;</span><span class="p">))</span>
+<span class="k">else</span><span class="p">:</span> <span class="c1"># You&#39;re working from a directory parallel with config?</span>
+    <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">(),</span> <span class="s1">&#39;../config&#39;</span><span class="p">)))</span>
+
+<span class="c1"># Miscellaneous science imports</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">astropy.units</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">u</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib</span>
+<span class="n">matplotlib</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="s1">&#39;Agg&#39;</span><span class="p">)</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
+
+<span class="c1"># Local imports</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">config</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">conf</span>
+<span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Cannot find configuration file! Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+<span class="k">if</span> <span class="s1">&#39;name&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">conf</span><span class="o">.</span><span class="n">DETECTION</span><span class="p">:</span>
+    <span class="n">conf</span><span class="o">.</span><span class="n">DETECTION</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;Detection&#39;</span>
+<span class="k">for</span> <span class="n">band</span> <span class="ow">in</span> <span class="n">conf</span><span class="o">.</span><span class="n">BANDS</span><span class="p">:</span>
+    <span class="k">if</span> <span class="s1">&#39;name&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">conf</span><span class="o">.</span><span class="n">BANDS</span><span class="p">[</span><span class="n">band</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">conf</span><span class="o">.</span><span class="n">BANDS</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;name&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">band</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">,</span> <span class="s1">&#39; &#39;</span><span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.mosaic</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mosaic</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.brick</span><span class="w"> </span><span class="kn">import</span> <span class="n">Brick</span>
+
+<span class="c1"># Make sure no interactive plotting is going on.</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ioff</span><span class="p">()</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span><span class="s2">&quot;ignore&quot;</span><span class="p">)</span><span class="c1"># General imports</span>
+
+<span class="nb">print</span><span class="p">(</span>
+<span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">====================================================================</span>
+<span class="s2">T H E</span>
+<span class="s2"> ________    _       _______     ____    ____  ________  _______        </span>
+<span class="s2">|_   __  |  / \     |_   __ \   |_   \  /   _||_   __  ||_   __ \    </span>
+<span class="s2">  | |_ \_| / _ \      | |__) |    |   \/   |    | |_ \_|  | |__) |   </span>
+<span class="s2">  |  _|   / ___ \     |  __ /     | |\  /| |    |  _| _   |  __ /    </span>
+<span class="s2"> _| |_  _/ /   \ \_  _| |  \ \_  _| |_\/_| |_  _| |__/ | _| |  \ \_ </span>
+<span class="s2">|_____||____| |____||____| |___||_____||_____||________||____| |___|</span>
+<span class="s2">                                                                    </span>
+<span class="s2">--------------------------------------------------------------------</span>
+<span class="s2"> M O D E L   P H O T O M E T R Y   W I T H   T H E   T R A C T O R   </span>
+<span class="s2">--------------------------------------------------------------------</span>
+<span class="s2">    Version </span><span class="si">{</span><span class="n">__version__</span><span class="si">}</span><span class="s2">                               </span>
+<span class="s2">    (C) 2018-2026 -- J. Weaver (DAWN, MIT)          </span>
+<span class="s2">====================================================================</span>
+
+<span class="s2">CONSOLE_LOGGING_LEVEL ..... </span><span class="si">{</span><span class="n">conf</span><span class="o">.</span><span class="n">CONSOLE_LOGGING_LEVEL</span><span class="si">}</span><span class="s2">			</span>
+<span class="s2">LOGFILE_LOGGING_LEVEL ..... </span><span class="si">{</span><span class="n">conf</span><span class="o">.</span><span class="n">LOGFILE_LOGGING_LEVEL</span><span class="si">}</span><span class="s2">												</span>
+<span class="s2">PLOT ...................... </span><span class="si">{</span><span class="n">conf</span><span class="o">.</span><span class="n">PLOT</span><span class="si">}</span><span class="s2">																		</span>
+<span class="s2">NCPUS ..................... </span><span class="si">{</span><span class="n">conf</span><span class="o">.</span><span class="n">NCPUS</span><span class="si">}</span><span class="s2">																			</span>
+<span class="s2">OVERWRITE ................. </span><span class="si">{</span><span class="n">conf</span><span class="o">.</span><span class="n">OVERWRITE</span><span class="si">}</span><span class="s2"> </span>
+<span class="s2">&quot;&quot;&quot;</span>	
+<span class="p">)</span>
+
+<span class="c1"># Load logger</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">start_logger</span>
+<span class="n">logger</span> <span class="o">=</span> <span class="n">start_logger</span><span class="p">()</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;You should start by running farmer.validate()!&#39;</span><span class="p">)</span>
+
+<span class="c1"># General imports</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
+
+
+<div class="viewcode-block" id="validate">
+<a class="viewcode-back" href="../api/farmer.html#farmer.validate">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">validate</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Validate that all configured mosaics exist and are properly set up.</span>
+
+<span class="sd">    Instantiates a ``Mosaic`` (without loading data) for the detection image</span>
+<span class="sd">    and for every band in ``conf.BANDS`` to verify that science paths exist,</span>
+<span class="sd">    WCS headers are parseable, and PSF models are readable.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        RuntimeError: If any mosaic cannot be instantiated (missing file,</span>
+<span class="sd">            bad WCS, unreadable PSF, etc.).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Validate bands...&#39;</span><span class="p">)</span>
+    <span class="n">Mosaic</span><span class="p">(</span><span class="s1">&#39;detection&#39;</span><span class="p">,</span> <span class="n">load</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">band</span> <span class="ow">in</span> <span class="n">conf</span><span class="o">.</span><span class="n">BANDS</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">Mosaic</span><span class="p">(</span><span class="n">band</span><span class="p">,</span> <span class="n">load</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;All bands validated successfully.&#39;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="get_mosaic">
+<a class="viewcode-back" href="../api/farmer.html#farmer.get_mosaic">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_mosaic</span><span class="p">(</span><span class="n">band</span><span class="p">,</span> <span class="n">load</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a ``Mosaic`` object for the specified band.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        band: Band name (e.g. ``&#39;detection&#39;``, ``&#39;g&#39;``, ``&#39;r&#39;``).</span>
+<span class="sd">        load: If True, load all configured image arrays into memory.</span>
+<span class="sd">            If False, only validate paths and read the WCS.</span>
+<span class="sd">            Defaults to True.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Mosaic: Initialised mosaic for the requested band.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">Mosaic</span><span class="p">(</span><span class="n">band</span><span class="p">,</span> <span class="n">load</span><span class="o">=</span><span class="n">load</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="build_bricks">
+<a class="viewcode-back" href="../api/farmer.html#farmer.build_bricks">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">build_bricks</span><span class="p">(</span><span class="n">brick_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">include_detection</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">bands</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">write</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build or update HDF5 brick files from full-field mosaics.</span>
+
+<span class="sd">    For each brick ID, loads the required mosaics one at a time and cuts out</span>
+<span class="sd">    the brick sub-image.  When processing a single brick the populated</span>
+<span class="sd">    ``Brick`` object is returned directly.  When processing multiple bricks</span>
+<span class="sd">    the files are written incrementally and a list of successfully built brick</span>
+<span class="sd">    IDs is returned.  Bricks with no detection-band flux are skipped and</span>
+<span class="sd">    excluded from the return value.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        brick_ids: Integer or array of brick IDs to build.  ``None`` builds</span>
+<span class="sd">            all bricks defined by ``conf.N_BRICKS``. Defaults to None.</span>
+<span class="sd">        include_detection: If True, prepend ``&#39;detection&#39;`` to the band list</span>
+<span class="sd">            even when ``bands`` does not include it. Defaults to True.</span>
+<span class="sd">        bands: Band name(s) to include.  ``None`` uses all bands in</span>
+<span class="sd">            ``conf.BANDS``.  Pass a single string or list of strings.</span>
+<span class="sd">            Defaults to None.</span>
+<span class="sd">        write: If True, write each brick to an HDF5 file after building.</span>
+<span class="sd">            Defaults to True.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Brick or list: The populated ``Brick`` (single-brick mode) or a list</span>
+<span class="sd">            of successfully built brick IDs (multi-brick mode). Bricks with no</span>
+<span class="sd">            detection-band flux are excluded from the returned list.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        RuntimeError: If a requested band is not in the configuration.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">bands</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span> <span class="c1"># some kind of manual job</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">bands</span><span class="p">):</span>
+            <span class="n">bands</span> <span class="o">=</span> <span class="p">[</span><span class="n">bands</span><span class="p">,]</span>
+    <span class="k">elif</span> <span class="n">bands</span> <span class="o">==</span> <span class="s1">&#39;detection&#39;</span><span class="p">:</span>
+        <span class="n">bands</span> <span class="o">=</span> <span class="p">[</span><span class="n">bands</span><span class="p">,]</span>
+        <span class="n">include_detection</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">bands</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">conf</span><span class="o">.</span><span class="n">BANDS</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+
+    <span class="c1"># Check first</span>
+    <span class="k">for</span> <span class="n">band</span> <span class="ow">in</span> <span class="n">bands</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">band</span> <span class="o">==</span> <span class="s1">&#39;detection&#39;</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="n">band</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">conf</span><span class="o">.</span><span class="n">BANDS</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Cannot find </span><span class="si">{</span><span class="n">band</span><span class="si">}</span><span class="s1"> -- check your configuration file!&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">include_detection</span><span class="p">:</span>
+        <span class="n">bands</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;detection&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="n">bands</span>
+
+    <span class="c1"># Generate brick_ids</span>
+    <span class="k">if</span> <span class="n">brick_ids</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">n_bricks</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">N_BRICKS</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">conf</span><span class="o">.</span><span class="n">N_BRICKS</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">brick_ids</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n_bricks</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">brick_ids</span><span class="p">):</span>
+        <span class="n">n_bricks</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">n_bricks</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">brick_ids</span><span class="p">)</span>
+
+    <span class="c1"># Build bricks</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">brick_ids</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">n_bricks</span> <span class="o">==</span> <span class="mi">1</span><span class="p">):</span> <span class="c1"># single brick built in memory and saved</span>
+        <span class="k">for</span> <span class="n">band</span> <span class="ow">in</span> <span class="n">bands</span><span class="p">:</span>
+            <span class="n">mosaic</span> <span class="o">=</span> <span class="n">get_mosaic</span><span class="p">(</span><span class="n">band</span><span class="p">,</span> <span class="n">load</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">band</span> <span class="o">==</span> <span class="s1">&#39;detection&#39;</span><span class="p">:</span>
+                <span class="n">brick</span> <span class="o">=</span> <span class="n">mosaic</span><span class="o">.</span><span class="n">spawn_brick</span><span class="p">(</span><span class="n">brick_ids</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">mosaic</span><span class="o">.</span><span class="n">add_to_brick</span><span class="p">(</span><span class="n">brick</span><span class="p">)</span>
+            <span class="k">del</span> <span class="n">mosaic</span>
+        <span class="k">if</span> <span class="n">write</span><span class="p">:</span> 
+            <span class="n">brick</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">allow_update</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s1">&#39;hdf5&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">conf</span><span class="o">.</span><span class="n">PLOT</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">brick</span><span class="o">.</span><span class="n">plot_image</span><span class="p">(</span><span class="n">show_catalog</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">show_groups</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">brick</span>
+    <span class="k">else</span><span class="p">:</span> <span class="c1"># If brick_ids is none, then we&#39;re in production. Load in mosaics, make bricks, update files.</span>
+        <span class="n">skiplist</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">band</span> <span class="ow">in</span> <span class="n">bands</span><span class="p">:</span>
+            <span class="n">mosaic</span> <span class="o">=</span> <span class="n">get_mosaic</span><span class="p">(</span><span class="n">band</span><span class="p">,</span> <span class="n">load</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">arr</span> <span class="o">=</span> <span class="n">brick_ids</span>
+            <span class="k">if</span> <span class="n">conf</span><span class="o">.</span><span class="n">CONSOLE_LOGGING_LEVEL</span> <span class="o">!=</span> <span class="s1">&#39;DEBUG&#39;</span><span class="p">:</span>
+                <span class="n">arr</span> <span class="o">=</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">brick_ids</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Spawning or updating bricks for band </span><span class="si">{</span><span class="n">band</span><span class="si">}</span><span class="s1">...&#39;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">brick_id</span> <span class="ow">in</span> <span class="n">arr</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">brick_id</span> <span class="ow">in</span> <span class="n">skiplist</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Brick </span><span class="si">{</span><span class="n">brick_id</span><span class="si">}</span><span class="s1"> has been skipped due to no detection information! Skipping...&#39;</span><span class="p">)</span>
+                    <span class="k">continue</span>
+                <span class="k">if</span> <span class="n">band</span> <span class="o">==</span> <span class="s1">&#39;detection&#39;</span><span class="p">:</span>
+                    <span class="n">brick</span> <span class="o">=</span> <span class="n">mosaic</span><span class="o">.</span><span class="n">spawn_brick</span><span class="p">(</span><span class="n">brick_id</span><span class="p">,</span> <span class="n">silent</span><span class="o">=</span><span class="p">(</span><span class="n">conf</span><span class="o">.</span><span class="n">CONSOLE_LOGGING_LEVEL</span> <span class="o">!=</span> <span class="s1">&#39;DEBUG&#39;</span><span class="p">))</span>
+                    <span class="k">if</span> <span class="s1">&#39;detection&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">brick</span><span class="o">.</span><span class="n">data</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Brick </span><span class="si">{</span><span class="n">brick_id</span><span class="si">}</span><span class="s1"> has no detection information! Skipping...&#39;</span><span class="p">)</span>
+                        <span class="n">skiplist</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">brick_id</span><span class="p">)</span>
+                        <span class="k">continue</span>
+                    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">nansum</span><span class="p">(</span><span class="n">brick</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;detection&#39;</span><span class="p">][</span><span class="s1">&#39;science&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">data</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Brick </span><span class="si">{</span><span class="n">brick_id</span><span class="si">}</span><span class="s1"> has no detection information! Skipping...&#39;</span><span class="p">)</span>
+                        <span class="n">skiplist</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">brick_id</span><span class="p">)</span>
+                        <span class="k">continue</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># Lazy load: check if band already exists before loading full brick</span>
+                    <span class="k">if</span> <span class="n">brick_has_band</span><span class="p">(</span><span class="n">brick_id</span><span class="p">,</span> <span class="n">band</span><span class="p">,</span> <span class="n">silent</span><span class="o">=</span><span class="p">(</span><span class="n">conf</span><span class="o">.</span><span class="n">CONSOLE_LOGGING_LEVEL</span> <span class="o">!=</span> <span class="s1">&#39;DEBUG&#39;</span><span class="p">)):</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Brick </span><span class="si">{</span><span class="n">brick_id</span><span class="si">}</span><span class="s1"> already has band </span><span class="si">{</span><span class="n">band</span><span class="si">}</span><span class="s1">, skipping...&#39;</span><span class="p">)</span>
+                        <span class="k">continue</span>
+                    
+                    <span class="n">brick</span> <span class="o">=</span> <span class="n">load_brick</span><span class="p">(</span><span class="n">brick_id</span><span class="p">,</span> <span class="n">silent</span><span class="o">=</span><span class="p">(</span><span class="n">conf</span><span class="o">.</span><span class="n">CONSOLE_LOGGING_LEVEL</span> <span class="o">!=</span> <span class="s1">&#39;DEBUG&#39;</span><span class="p">))</span>
+                    <span class="n">mosaic</span><span class="o">.</span><span class="n">add_to_brick</span><span class="p">(</span><span class="n">brick</span><span class="p">)</span>
+                <span class="n">brick</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">allow_update</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s1">&#39;hdf5&#39;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">conf</span><span class="o">.</span><span class="n">PLOT</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+                    <span class="n">brick</span><span class="o">.</span><span class="n">plot_image</span><span class="p">(</span><span class="n">show_catalog</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">show_groups</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="k">del</span> <span class="n">brick</span>
+            <span class="k">del</span> <span class="n">mosaic</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">bid</span> <span class="k">for</span> <span class="n">bid</span> <span class="ow">in</span> <span class="n">brick_ids</span> <span class="k">if</span> <span class="n">bid</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">skiplist</span><span class="p">]</span> <span class="c1"># return the useful brick numbers</span></div>
+
+
+<div class="viewcode-block" id="brick_has_band">
+<a class="viewcode-back" href="../api/farmer.html#farmer.brick_has_band">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">brick_has_band</span><span class="p">(</span><span class="n">brick_id</span><span class="p">,</span> <span class="n">band</span><span class="p">,</span> <span class="n">tag</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">silent</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Check whether a brick HDF5 file already contains a specific band.</span>
+
+<span class="sd">    Opens the brick file and reads only the top-level metadata to inspect</span>
+<span class="sd">    the ``&#39;bands&#39;`` attribute.  Much faster than loading the full brick.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        brick_id: Integer brick identifier.</span>
+<span class="sd">        band: Band name to look for.</span>
+<span class="sd">        tag: Optional tag string appended to the filename as ``_{tag}``.</span>
+<span class="sd">            Defaults to None.</span>
+<span class="sd">        silent: If True, suppress log output. Defaults to True.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        bool: True if the band is present; False if not or if the brick</span>
+<span class="sd">            file does not exist.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">h5py</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">recursively_load_dict_contents_from_group</span>
+    
+    <span class="n">stag</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;_</span><span class="si">{</span><span class="n">tag</span><span class="si">}</span><span class="s1">&#39;</span> <span class="k">if</span> <span class="n">tag</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+    <span class="n">filename</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;B</span><span class="si">{</span><span class="n">brick_id</span><span class="si">}{</span><span class="n">stag</span><span class="si">}</span><span class="s1">.h5&#39;</span>
+    <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">conf</span><span class="o">.</span><span class="n">PATH_BRICKS</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+    
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">hf</span><span class="p">:</span>
+            <span class="n">attr</span> <span class="o">=</span> <span class="n">recursively_load_dict_contents_from_group</span><span class="p">(</span><span class="n">hf</span><span class="p">)</span>
+            <span class="k">if</span> <span class="s1">&#39;bands&#39;</span> <span class="ow">in</span> <span class="n">attr</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">band</span> <span class="ow">in</span> <span class="n">attr</span><span class="p">[</span><span class="s1">&#39;bands&#39;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">IOError</span><span class="p">,</span> <span class="ne">FileNotFoundError</span><span class="p">,</span> <span class="ne">Exception</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+
+<div class="viewcode-block" id="load_brick">
+<a class="viewcode-back" href="../api/farmer.html#farmer.load_brick">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_brick</span><span class="p">(</span><span class="n">brick_id</span><span class="p">,</span> <span class="n">silent</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">tag</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load an existing brick from its HDF5 file on disk.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        brick_id: Integer brick identifier.</span>
+<span class="sd">        silent: If True, suppress informational log messages.</span>
+<span class="sd">            Defaults to False.</span>
+<span class="sd">        tag: Optional tag string appended to the filename as ``_{tag}``.</span>
+<span class="sd">            Defaults to None.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Brick: Fully loaded brick object.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        IOError: If the brick file cannot be found or opened.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">Brick</span><span class="p">(</span><span class="n">brick_id</span><span class="p">,</span> <span class="n">load</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">silent</span><span class="o">=</span><span class="n">silent</span><span class="p">,</span> <span class="n">tag</span><span class="o">=</span><span class="n">tag</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="update_bricks">
+<a class="viewcode-back" href="../api/farmer.html#farmer.update_bricks">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">update_bricks</span><span class="p">(</span><span class="n">brick_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bands</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Update existing bricks with missing bands.</span>
+<span class="sd">    </span>
+<span class="sd">    Uses lazy loading to check if a brick already has a band before loading</span>
+<span class="sd">    the full brick into memory. Only loads and modifies bricks that need updates.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        brick_ids: Brick ID(s) to update. If None, update all bricks.</span>
+<span class="sd">        bands: Bands to add/update. If None, use all configured bands.</span>
+<span class="sd">        overwrite: If True, re-add all bands even if they exist.</span>
+<span class="sd">        </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        For single brick: returns the brick object</span>
+<span class="sd">        For multiple: returns list of updated brick IDs</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">bands</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span> <span class="c1"># some kind of manual job</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">bands</span><span class="p">):</span>
+            <span class="n">bands</span> <span class="o">=</span> <span class="p">[</span><span class="n">bands</span><span class="p">,]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">bands</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">conf</span><span class="o">.</span><span class="n">BANDS</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        
+    <span class="c1"># get bricks with &#39;brick_ids&#39; for &#39;bands&#39;</span>
+    <span class="k">if</span> <span class="n">brick_ids</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">n_bricks</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">N_BRICKS</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">conf</span><span class="o">.</span><span class="n">N_BRICKS</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">brick_ids</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n_bricks</span><span class="p">)</span>
+
+    <span class="c1"># Update bricks where needed</span>
+    
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">brick_ids</span><span class="p">):</span> <span class="c1"># single brick built in memory and saved</span>
+        <span class="n">brick</span> <span class="o">=</span> <span class="n">load_brick</span><span class="p">(</span><span class="n">brick_ids</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">band</span> <span class="ow">in</span> <span class="n">bands</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">overwrite</span> <span class="ow">or</span> <span class="n">band</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">brick</span><span class="o">.</span><span class="n">bands</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">band</span><span class="si">}</span><span class="s1"> not found in brick #</span><span class="si">{</span><span class="n">brick_ids</span><span class="si">}</span><span class="s1">! Updating...&#39;</span><span class="p">)</span>
+                <span class="n">mosaic</span> <span class="o">=</span> <span class="n">get_mosaic</span><span class="p">(</span><span class="n">band</span><span class="p">,</span> <span class="n">load</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="n">mosaic</span><span class="o">.</span><span class="n">add_to_brick</span><span class="p">(</span><span class="n">brick</span><span class="p">)</span>
+                <span class="k">del</span> <span class="n">mosaic</span>
+                <span class="n">brick</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">allow_update</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s1">&#39;hdf5&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">conf</span><span class="o">.</span><span class="n">PLOT</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">brick</span><span class="o">.</span><span class="n">plot_image</span><span class="p">(</span><span class="n">show_catalog</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">show_groups</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">brick</span>
+
+    <span class="k">else</span><span class="p">:</span> <span class="c1"># Multiple bricks - use lazy loading to check before full load</span>
+        <span class="n">updated_bricks</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">band</span> <span class="ow">in</span> <span class="n">bands</span><span class="p">:</span>
+            <span class="n">mosaic</span> <span class="o">=</span> <span class="n">get_mosaic</span><span class="p">(</span><span class="n">band</span><span class="p">,</span> <span class="n">load</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">arr</span> <span class="o">=</span> <span class="n">brick_ids</span>
+            <span class="k">if</span> <span class="n">conf</span><span class="o">.</span><span class="n">CONSOLE_LOGGING_LEVEL</span> <span class="o">!=</span> <span class="s1">&#39;DEBUG&#39;</span><span class="p">:</span>
+                <span class="n">arr</span> <span class="o">=</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">brick_ids</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;Updating bricks with </span><span class="si">{</span><span class="n">band</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Updating bricks for band </span><span class="si">{</span><span class="n">band</span><span class="si">}</span><span class="s1">...&#39;</span><span class="p">)</span>
+            
+            <span class="k">for</span> <span class="n">brick_id</span> <span class="ow">in</span> <span class="n">arr</span><span class="p">:</span>
+                <span class="c1"># Lazy load: check if band already exists before loading full brick</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">overwrite</span> <span class="ow">and</span> <span class="n">brick_has_band</span><span class="p">(</span><span class="n">brick_id</span><span class="p">,</span> <span class="n">band</span><span class="p">,</span> <span class="n">silent</span><span class="o">=</span><span class="p">(</span><span class="n">conf</span><span class="o">.</span><span class="n">CONSOLE_LOGGING_LEVEL</span> <span class="o">!=</span> <span class="s1">&#39;DEBUG&#39;</span><span class="p">)):</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Brick </span><span class="si">{</span><span class="n">brick_id</span><span class="si">}</span><span class="s1"> already has band </span><span class="si">{</span><span class="n">band</span><span class="si">}</span><span class="s1">, skipping...&#39;</span><span class="p">)</span>
+                    <span class="k">continue</span>
+                
+                <span class="c1"># Only load brick if it needs updating</span>
+                <span class="n">brick</span> <span class="o">=</span> <span class="n">load_brick</span><span class="p">(</span><span class="n">brick_id</span><span class="p">,</span> <span class="n">silent</span><span class="o">=</span><span class="p">(</span><span class="n">conf</span><span class="o">.</span><span class="n">CONSOLE_LOGGING_LEVEL</span> <span class="o">!=</span> <span class="s1">&#39;DEBUG&#39;</span><span class="p">))</span>
+                <span class="n">mosaic</span><span class="o">.</span><span class="n">add_to_brick</span><span class="p">(</span><span class="n">brick</span><span class="p">)</span>
+                <span class="n">brick</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">allow_update</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s1">&#39;hdf5&#39;</span><span class="p">)</span>
+                <span class="n">updated_bricks</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">brick_id</span><span class="p">,</span> <span class="n">band</span><span class="p">))</span>
+                
+                <span class="k">if</span> <span class="n">conf</span><span class="o">.</span><span class="n">PLOT</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+                    <span class="n">brick</span><span class="o">.</span><span class="n">plot_image</span><span class="p">(</span><span class="n">show_catalog</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">show_groups</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="k">del</span> <span class="n">brick</span>
+            <span class="k">del</span> <span class="n">mosaic</span>
+        
+        <span class="k">return</span> <span class="n">updated_bricks</span></div>
+
+
+<div class="viewcode-block" id="detect_sources_lite">
+<a class="viewcode-back" href="../api/farmer.html#farmer.detect_sources_lite">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">detect_sources_lite</span><span class="p">(</span><span class="n">brick_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">band</span><span class="o">=</span><span class="s1">&#39;detection&#39;</span><span class="p">,</span> <span class="n">imgtype</span><span class="o">=</span><span class="s1">&#39;science&#39;</span><span class="p">,</span> 
+                       <span class="n">write_catalog</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">cleanup</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Hit-and-run source detection with minimal memory footprint.</span>
+<span class="sd">    </span>
+<span class="sd">    Extract source catalogs from bricks without keeping large image arrays</span>
+<span class="sd">    or model tracking data in memory. Ideal for batch processing many bricks</span>
+<span class="sd">    when you only need the catalogs.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        brick_ids: Brick ID(s) to process. If None, process all bricks.</span>
+<span class="sd">        band: Detection band (default: &#39;detection&#39;)</span>
+<span class="sd">        imgtype: Image type to process (default: &#39;science&#39;)</span>
+<span class="sd">        write_catalog: If True, write catalog to disk immediately</span>
+<span class="sd">        cleanup: If True, aggressively clean up temporary data after detection</span>
+<span class="sd">        </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        For single brick: returns the brick object</span>
+<span class="sd">        For multiple: returns list of successful brick IDs</span>
+<span class="sd">        </span>
+<span class="sd">    Example:</span>
+<span class="sd">        # Process all bricks, write catalogs only</span>
+<span class="sd">        detect_sources_lite(write_catalog=True)</span>
+<span class="sd">        </span>
+<span class="sd">        # Process specific bricks</span>
+<span class="sd">        detect_sources_lite(brick_ids=[1, 2, 3])</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">log_memory_usage</span>
+    
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Running detect_sources_lite (cleanup=</span><span class="si">{</span><span class="n">cleanup</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="n">brick_ids</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">n_bricks</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">N_BRICKS</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">conf</span><span class="o">.</span><span class="n">N_BRICKS</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">brick_ids</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n_bricks</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">brick_ids</span><span class="p">):</span>
+        <span class="n">brick_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">brick_ids</span><span class="p">,]</span>
+    
+    <span class="n">successful_bricks</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">last_brick</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="k">for</span> <span class="n">brick_id</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">brick_ids</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s1">&#39;Detecting sources (lite mode)&#39;</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># Load brick</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">brick</span> <span class="o">=</span> <span class="n">load_brick</span><span class="p">(</span><span class="n">brick_id</span><span class="p">,</span> <span class="n">silent</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">IOError</span><span class="p">,</span> <span class="ne">FileNotFoundError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Building brick #</span><span class="si">{</span><span class="n">brick_id</span><span class="si">}</span><span class="s1"> from mosaics...&#39;</span><span class="p">)</span>
+                <span class="n">brick</span> <span class="o">=</span> <span class="n">build_bricks</span><span class="p">(</span><span class="n">brick_id</span><span class="p">,</span> <span class="n">bands</span><span class="o">=</span><span class="s1">&#39;detection&#39;</span><span class="p">)</span>
+            
+            <span class="c1"># Log initial memory</span>
+            <span class="n">log_memory_usage</span><span class="p">(</span><span class="n">logger</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;Brick </span><span class="si">{</span><span class="n">brick_id</span><span class="si">}</span><span class="s1"> start&#39;</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            
+            <span class="c1"># Detection</span>
+            <span class="n">brick</span><span class="o">.</span><span class="n">detect_sources</span><span class="p">(</span><span class="n">band</span><span class="o">=</span><span class="n">band</span><span class="p">,</span> <span class="n">imgtype</span><span class="o">=</span><span class="n">imgtype</span><span class="p">)</span>
+            <span class="n">brick</span><span class="o">.</span><span class="n">transfer_maps</span><span class="p">()</span>
+            
+            <span class="c1"># Write catalog immediately</span>
+            <span class="k">if</span> <span class="n">write_catalog</span><span class="p">:</span>
+                <span class="n">brick</span><span class="o">.</span><span class="n">write_catalog</span><span class="p">(</span><span class="n">allow_update</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Wrote catalog for brick </span><span class="si">{</span><span class="n">brick_id</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            
+            <span class="c1"># Aggressive cleanup</span>
+            <span class="k">if</span> <span class="n">cleanup</span><span class="p">:</span>
+                <span class="n">brick</span><span class="o">.</span><span class="n">cleanup_after_detection</span><span class="p">(</span><span class="n">keep_segmap</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">keep_groupmap</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="n">brick</span><span class="o">.</span><span class="n">cleanup_headers</span><span class="p">(</span><span class="n">keep_wcs_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                
+                <span class="c1"># Delete image data if not needed for anything else</span>
+                <span class="k">for</span> <span class="n">band_name</span> <span class="ow">in</span> <span class="n">brick</span><span class="o">.</span><span class="n">data</span><span class="p">:</span>
+                    <span class="n">brick</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">band_name</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+                
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Memory cleanup for brick </span><span class="si">{</span><span class="n">brick_id</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            
+            <span class="n">log_memory_usage</span><span class="p">(</span><span class="n">logger</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;Brick </span><span class="si">{</span><span class="n">brick_id</span><span class="si">}</span><span class="s1"> end&#39;</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">successful_bricks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">brick_id</span><span class="p">)</span>
+            <span class="n">last_brick</span> <span class="o">=</span> <span class="n">brick</span>
+            
+            <span class="k">del</span> <span class="n">brick</span>
+            
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Error processing brick </span><span class="si">{</span><span class="n">brick_id</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">successful_bricks</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">brick_ids</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">last_brick</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">successful_bricks</span></div>
+
+
+<div class="viewcode-block" id="detect_sources">
+<a class="viewcode-back" href="../api/farmer.html#farmer.detect_sources">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">detect_sources</span><span class="p">(</span><span class="n">brick_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">band</span><span class="o">=</span><span class="s1">&#39;detection&#39;</span><span class="p">,</span> <span class="n">imgtype</span><span class="o">=</span><span class="s1">&#39;science&#39;</span><span class="p">,</span> <span class="n">brick</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> 
+                   <span class="n">write</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">lite_mode</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">cleanup</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Detect sources in one or more bricks.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        brick_ids: Brick ID(s) to process</span>
+<span class="sd">        band: Detection band (default: &#39;detection&#39;)</span>
+<span class="sd">        imgtype: Image type (default: &#39;science&#39;)</span>
+<span class="sd">        brick: Single brick object to process directly</span>
+<span class="sd">        write: If True, write brick to disk after detection</span>
+<span class="sd">        lite_mode: If True, use minimal memory mode (experimental)</span>
+<span class="sd">        cleanup: If True, clean up temporary data after detection</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">lite_mode</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Using lite_mode for detect_sources&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">detect_sources_lite</span><span class="p">(</span><span class="n">brick_ids</span><span class="o">=</span><span class="n">brick_ids</span><span class="p">,</span> <span class="n">band</span><span class="o">=</span><span class="n">band</span><span class="p">,</span> <span class="n">imgtype</span><span class="o">=</span><span class="n">imgtype</span><span class="p">,</span>
+                                   <span class="n">write_catalog</span><span class="o">=</span><span class="n">write</span><span class="p">,</span> <span class="n">cleanup</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">brick_ids</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">brick</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># run the brick given directly</span>
+        <span class="c1"># This can also be run by brick.detect_sources, but we also write it out if asked for!</span>
+        <span class="n">brick</span><span class="o">.</span><span class="n">detect_sources</span><span class="p">(</span><span class="n">band</span><span class="o">=</span><span class="n">band</span><span class="p">,</span> <span class="n">imgtype</span><span class="o">=</span><span class="n">imgtype</span><span class="p">)</span>
+        <span class="n">brick</span><span class="o">.</span><span class="n">transfer_maps</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">write</span><span class="p">:</span>
+            <span class="n">brick</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">allow_update</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">cleanup</span><span class="p">:</span>
+            <span class="n">brick</span><span class="o">.</span><span class="n">cleanup_after_detection</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">brick</span>
+
+    <span class="k">if</span> <span class="n">brick_ids</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">brick</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">brick_ids</span><span class="p">):</span>
+            <span class="n">brick</span> <span class="o">=</span> <span class="n">load_brick</span><span class="p">(</span><span class="n">brick_ids</span><span class="p">)</span>
+            <span class="n">brick</span><span class="o">.</span><span class="n">detect_sources</span><span class="p">(</span><span class="n">band</span><span class="o">=</span><span class="n">band</span><span class="p">,</span> <span class="n">imgtype</span><span class="o">=</span><span class="n">imgtype</span><span class="p">)</span>
+            <span class="n">brick</span><span class="o">.</span><span class="n">transfer_maps</span><span class="p">()</span>
+
+            <span class="k">if</span> <span class="n">write</span><span class="p">:</span>
+                <span class="n">brick</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">allow_update</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">cleanup</span><span class="p">:</span>
+                <span class="n">brick</span><span class="o">.</span><span class="n">cleanup_after_detection</span><span class="p">()</span>
+
+            <span class="k">return</span> <span class="n">brick</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># have multiple</span>
+            <span class="k">pass</span>
+
+    <span class="k">elif</span> <span class="n">brick_ids</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">brick</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Generate brick_ids</span>
+        <span class="n">n_bricks</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">N_BRICKS</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">conf</span><span class="o">.</span><span class="n">N_BRICKS</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">brick_ids</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n_bricks</span><span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s1">&#39;Arguments are overspecified! Either provide brick_id(s) or a brick directly, not both.&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Loop over bricks</span>
+    <span class="k">for</span> <span class="n">brick_id</span> <span class="ow">in</span> <span class="n">brick_ids</span><span class="p">:</span>
+        
+        <span class="c1"># does the brick exist? load it.</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">brick</span> <span class="o">=</span> <span class="n">load_brick</span><span class="p">(</span><span class="n">brick_id</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">IOError</span><span class="p">,</span> <span class="ne">FileNotFoundError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Could not load brick </span><span class="si">{</span><span class="n">brick_id</span><span class="si">}</span><span class="s1"> (</span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s1">). Building a new brick from mosaics...&#39;</span><span class="p">)</span>
+            <span class="n">brick</span> <span class="o">=</span> <span class="n">build_bricks</span><span class="p">(</span><span class="n">brick_id</span><span class="p">,</span> <span class="n">bands</span><span class="o">=</span><span class="s1">&#39;detection&#39;</span><span class="p">)</span>
+
+        <span class="c1"># detection</span>
+        <span class="n">brick</span><span class="o">.</span><span class="n">detect_sources</span><span class="p">(</span><span class="n">band</span><span class="o">=</span><span class="n">band</span><span class="p">,</span> <span class="n">imgtype</span><span class="o">=</span><span class="n">imgtype</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">write</span><span class="p">:</span>
+            <span class="n">brick</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">allow_update</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">cleanup</span><span class="p">:</span>
+            <span class="n">brick</span><span class="o">.</span><span class="n">cleanup_after_detection</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="generate_models">
+<a class="viewcode-back" href="../api/farmer.html#farmer.generate_models">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">generate_models</span><span class="p">(</span><span class="n">brick_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">group_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bands</span><span class="o">=</span><span class="n">conf</span><span class="o">.</span><span class="n">MODEL_BANDS</span><span class="p">,</span> <span class="n">imgtype</span><span class="o">=</span><span class="s1">&#39;science&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Determine the best-fit morphological model for every source in one or more bricks.</span>
+
+<span class="sd">    Loads (or builds) each brick, runs source detection if not already done,</span>
+<span class="sd">    processes all groups through the model-selection decision tree, writes the</span>
+<span class="sd">    updated brick HDF5, writes the source catalog, and reconstructs</span>
+<span class="sd">    model/residual images.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        brick_ids: Brick ID(s) to process. If ``None``, processes all bricks</span>
+<span class="sd">            defined by ``conf.N_BRICKS``.</span>
+<span class="sd">        group_ids: Specific group ID(s) to model. If ``None``, models all</span>
+<span class="sd">            groups in each brick.</span>
+<span class="sd">        bands: Band identifiers used jointly for model determination.</span>
+<span class="sd">            Defaults to ``conf.MODEL_BANDS``.</span>
+<span class="sd">        imgtype: Image type key for the detection catalog lookup.</span>
+<span class="sd">            Defaults to ``&#39;science&#39;``.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Brick: The processed brick when ``brick_ids`` is scalar; ``None``</span>
+<span class="sd">            when processing multiple bricks.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        AssertionError: If the brick does not contain detection data.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># get bricks with &#39;brick_ids&#39; for &#39;bands&#39;</span>
+    <span class="k">if</span> <span class="n">brick_ids</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">n_bricks</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">N_BRICKS</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">conf</span><span class="o">.</span><span class="n">N_BRICKS</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">brick_ids</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n_bricks</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">brick_ids</span><span class="p">):</span>
+        <span class="n">brick_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">brick_ids</span><span class="p">,]</span>
+
+    <span class="c1"># Loop over bricks (or just one!)</span>
+    <span class="k">for</span> <span class="n">brick_id</span> <span class="ow">in</span> <span class="n">brick_ids</span><span class="p">:</span>
+        <span class="c1"># Attempt to load existing brick; if it doesn&#39;t exist, build it from scratch</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">brick</span> <span class="o">=</span> <span class="n">load_brick</span><span class="p">(</span><span class="n">brick_id</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">IOError</span><span class="p">,</span> <span class="ne">FileNotFoundError</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Brick #</span><span class="si">{</span><span class="n">brick_id</span><span class="si">}</span><span class="s1"> not found, building from mosaics...&#39;</span><span class="p">)</span>
+            <span class="n">brick</span> <span class="o">=</span> <span class="n">build_bricks</span><span class="p">(</span><span class="n">brick_id</span><span class="p">,</span>  <span class="n">bands</span><span class="o">=</span><span class="n">bands</span><span class="p">)</span>
+
+        <span class="c1"># check that detection exists</span>
+        <span class="k">assert</span> <span class="s1">&#39;detection&#39;</span> <span class="ow">in</span> <span class="n">brick</span><span class="o">.</span><span class="n">bands</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;No detection information contained in brick #</span><span class="si">{</span><span class="n">brick</span><span class="o">.</span><span class="n">brick_id</span><span class="si">}</span><span class="s1">!&#39;</span>
+
+        <span class="c1">#TODO make sure background is dealt with</span>
+
+        <span class="c1"># detect sources</span>
+        <span class="k">if</span> <span class="n">imgtype</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">brick</span><span class="o">.</span><span class="n">catalogs</span><span class="p">[</span><span class="s1">&#39;detection&#39;</span><span class="p">]:</span>
+            <span class="n">brick</span><span class="o">.</span><span class="n">detect_sources</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">brick_ids</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">brick</span><span class="o">.</span><span class="n">write_hdf5</span><span class="p">(</span><span class="n">allow_update</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># process the groups</span>
+        <span class="n">brick</span><span class="o">.</span><span class="n">process_groups</span><span class="p">(</span><span class="n">group_ids</span><span class="o">=</span><span class="n">group_ids</span><span class="p">,</span> <span class="n">imgtype</span><span class="o">=</span><span class="n">imgtype</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;model&#39;</span><span class="p">)</span>
+
+        <span class="c1"># write brick</span>
+        <span class="n">brick</span><span class="o">.</span><span class="n">write_hdf5</span><span class="p">(</span><span class="n">allow_update</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">brick</span><span class="o">.</span><span class="n">write_catalog</span><span class="p">(</span><span class="n">allow_update</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># ancillary stuff (e.g., residual brick)</span>
+        <span class="n">brick</span><span class="o">.</span><span class="n">build_all_images</span><span class="p">()</span>
+        <span class="n">brick</span><span class="o">.</span><span class="n">write_fits</span><span class="p">(</span><span class="n">allow_update</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">brick_ids</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">brick</span></div>
+
+
+<div class="viewcode-block" id="photometer">
+<a class="viewcode-back" href="../api/farmer.html#farmer.photometer">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">photometer</span><span class="p">(</span><span class="n">brick_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">group_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bands</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">imgtype</span><span class="o">=</span><span class="s1">&#39;science&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Measure forced photometry in all configured bands for one or more bricks.</span>
+
+<span class="sd">    Loads (or builds) each brick, updates it with any missing bands, runs</span>
+<span class="sd">    detection if needed, and then either runs the full pipeline</span>
+<span class="sd">    (model determination + photometry) if no models exist, or runs</span>
+<span class="sd">    photometry-only if models are already present. Writes the HDF5 brick,</span>
+<span class="sd">    source catalog, and model/residual images.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        brick_ids: Brick ID(s) to process. If ``None``, processes all bricks.</span>
+<span class="sd">        group_ids: Specific group ID(s). If ``None``, processes all groups.</span>
+<span class="sd">        bands: Bands to measure photometry in. If ``None``, uses all</span>
+<span class="sd">            configured bands from ``conf.BANDS``.</span>
+<span class="sd">        imgtype: Image type key for catalog lookup. Defaults to ``&#39;science&#39;``.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Brick: The processed brick when ``brick_ids`` is scalar; ``None``</span>
+<span class="sd">            when processing multiple bricks.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># get bricks with &#39;brick_ids&#39; for &#39;bands&#39;</span>
+    <span class="k">if</span> <span class="n">brick_ids</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">n_bricks</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">N_BRICKS</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">conf</span><span class="o">.</span><span class="n">N_BRICKS</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">brick_ids</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n_bricks</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">brick_ids</span><span class="p">):</span>
+        <span class="n">brick_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">brick_ids</span><span class="p">,]</span>
+
+    <span class="c1"># Loop over bricks (or just one!)</span>
+    <span class="k">for</span> <span class="n">brick_id</span> <span class="ow">in</span> <span class="n">brick_ids</span><span class="p">:</span>
+        <span class="c1"># does the brick exist? load it.</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">brick</span> <span class="o">=</span> <span class="n">load_brick</span><span class="p">(</span><span class="n">brick_id</span><span class="p">)</span>
+            <span class="n">update_bricks</span><span class="p">(</span><span class="n">brick_id</span><span class="p">,</span> <span class="n">bands</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">IOError</span><span class="p">,</span> <span class="ne">FileNotFoundError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Could not load brick </span><span class="si">{</span><span class="n">brick_id</span><span class="si">}</span><span class="s1"> (</span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s1">). Building from scratch.&#39;</span><span class="p">)</span>
+            <span class="n">brick</span> <span class="o">=</span> <span class="n">build_bricks</span><span class="p">(</span><span class="n">brick_id</span><span class="p">)</span>
+
+        <span class="c1"># detect sources</span>
+        <span class="k">if</span> <span class="n">imgtype</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">brick</span><span class="o">.</span><span class="n">catalogs</span><span class="p">[</span><span class="s1">&#39;detection&#39;</span><span class="p">]:</span>
+            <span class="n">brick</span><span class="o">.</span><span class="n">detect_sources</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">brick_ids</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">brick</span><span class="o">.</span><span class="n">write_hdf5</span><span class="p">(</span><span class="n">allow_update</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># if models aren&#39;t prepared, then determine them and run phot</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">brick</span><span class="o">.</span><span class="n">model_catalog</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>        <span class="c1"># TODO make this ironclad!     </span>
+            <span class="n">brick</span><span class="o">.</span><span class="n">process_groups</span><span class="p">(</span><span class="n">group_ids</span><span class="o">=</span><span class="n">group_ids</span><span class="p">,</span> <span class="n">imgtype</span><span class="o">=</span><span class="n">imgtype</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;all&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span> <span class="c1"># just run phot</span>
+            <span class="n">brick</span><span class="o">.</span><span class="n">process_groups</span><span class="p">(</span><span class="n">group_ids</span><span class="o">=</span><span class="n">group_ids</span><span class="p">,</span> <span class="n">imgtype</span><span class="o">=</span><span class="n">imgtype</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;photometry&#39;</span><span class="p">)</span>
+
+        <span class="c1"># write brick</span>
+        <span class="n">brick</span><span class="o">.</span><span class="n">write_hdf5</span><span class="p">(</span><span class="n">allow_update</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">brick</span><span class="o">.</span><span class="n">write_catalog</span><span class="p">(</span><span class="n">allow_update</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># ancillary stuff (e.g., residual brick)</span>
+        <span class="n">brick</span><span class="o">.</span><span class="n">build_all_images</span><span class="p">()</span>
+        <span class="n">brick</span><span class="o">.</span><span class="n">write_fits</span><span class="p">(</span><span class="n">allow_update</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">brick_ids</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">brick</span></div>
+
+
+<div class="viewcode-block" id="quick_group">
+<a class="viewcode-back" href="../api/farmer.html#farmer.quick_group">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">quick_group</span><span class="p">(</span><span class="n">brick_id</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">group_id</span><span class="o">=</span><span class="mi">524</span><span class="p">,</span> <span class="n">brick</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convenience function to quickly process a single group.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">((</span><span class="n">brick</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">brick</span><span class="p">,</span> <span class="n">Brick</span><span class="p">)):</span>
+        <span class="c1"># Load existing brick or build if not found</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">brick</span> <span class="o">=</span> <span class="n">load_brick</span><span class="p">(</span><span class="n">brick_id</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">IOError</span><span class="p">,</span> <span class="ne">FileNotFoundError</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Brick #</span><span class="si">{</span><span class="n">brick_id</span><span class="si">}</span><span class="s1"> not found, building...&#39;</span><span class="p">)</span>
+            <span class="n">brick</span> <span class="o">=</span> <span class="n">build_bricks</span><span class="p">(</span><span class="n">brick_id</span><span class="p">)</span>
+    <span class="n">brick</span><span class="o">.</span><span class="n">detect_sources</span><span class="p">()</span>
+    <span class="n">group</span> <span class="o">=</span> <span class="n">brick</span><span class="o">.</span><span class="n">spawn_group</span><span class="p">(</span><span class="n">group_id</span><span class="p">)</span>
+    <span class="n">group</span><span class="o">.</span><span class="n">determine_models</span><span class="p">()</span>
+    <span class="n">group</span><span class="o">.</span><span class="n">force_models</span><span class="p">()</span>
+    <span class="n">group</span><span class="o">.</span><span class="n">write_catalog</span><span class="p">(</span><span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">group</span></div>
+
+
+<div class="viewcode-block" id="rebuild_mosaic">
+<a class="viewcode-back" href="../api/farmer.html#farmer.rebuild_mosaic">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">rebuild_mosaic</span><span class="p">(</span><span class="n">brick_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bands</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">imgtype</span><span class="o">=</span><span class="s1">&#39;science&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reconstruct a full-field mosaic from processed bricks.</span>
+
+<span class="sd">    Not yet implemented.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        RuntimeError: Always — this function is a placeholder.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s1">&#39;Not implelented yet!&#39;</span><span class="p">)</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2018-2026, John Weaver.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

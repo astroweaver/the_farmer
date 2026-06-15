@@ -72,6 +72,17 @@ PSF_SIGMA_FACTOR = 2.5  # Factor for resolution calculation
 
 
 def start_logger():
+    """Configure and return the top-level ``farmer`` logger.
+
+    Reads logging levels from ``conf.LOGFILE_LOGGING_LEVEL`` and
+    ``conf.CONSOLE_LOGGING_LEVEL``.  If a log directory exists and file
+    logging is enabled, a ``FileHandler`` is attached alongside the
+    ``StreamHandler``; otherwise messages stream to the console only.
+    An existing logfile is removed when ``conf.OVERWRITE`` is True.
+
+    Returns:
+        logging.Logger: The configured ``farmer`` root logger instance.
+    """
     print('Starting up logging system...')
 
     # Start the logging
@@ -113,6 +124,20 @@ def start_logger():
     return logger
 
 def read_wcs(wcs, scl=1):
+    """Convert an astropy WCS to a Tractor-compatible ``ConstantFitsWcs``.
+
+    Copies the CRPIX, CRVAL, and CD/PC matrix from ``wcs`` into an
+    ``astrometry.util.util.Tan`` object, optionally scaling the pixel
+    coordinates by ``scl``, then wraps it as a ``ConstantFitsWcs``.
+
+    Args:
+        wcs: Astropy ``WCS`` object to convert.
+        scl: Pixel-scale factor applied to CRPIX and the CD matrix.
+            Values > 1 up-sample; < 1 down-samples. Defaults to 1.
+
+    Returns:
+        ConstantFitsWcs: Tractor WCS wrapping the converted ``Tan`` object.
+    """
     t = Tan()
     t.set_crpix(wcs.wcs.crpix[0] * scl, wcs.wcs.crpix[1] * scl)
     t.set_crval(wcs.wcs.crval[0], wcs.wcs.crval[1])
@@ -400,6 +425,18 @@ def dilate_and_group(catalog, segmap, radius=0, fill_holes=False):
     return group_ids, group_pops, groupmap
 
 def get_fwhm(img):
+    """Estimate the full-width at half-maximum of a 2-D image array.
+
+    Finds the span of pixels whose value exceeds half the image maximum
+    along both axes and returns the mean extent.  Returns at most
+    ``DEFAULT_FWHM_MIN`` (1 pixel) to prevent unrealistically small values.
+
+    Args:
+        img: 2-D array-like representing a PSF or source profile.
+
+    Returns:
+        float: Estimated FWHM in pixels, capped at ``DEFAULT_FWHM_MIN``.
+    """
     # Simple FWHM estimation: find pixels above half-maximum
     dx, dy = np.nonzero(img > np.nanmax(img)/2.)
     try:
@@ -410,10 +447,46 @@ def get_fwhm(img):
     return np.nanmin([DEFAULT_FWHM_MIN, fwhm])  # Cap to prevent unrealistic values
 
 def get_resolution(img, sig=3.):
+    """Compute the effective resolution area of a PSF image in pixels squared.
+
+    Uses :func:`get_fwhm` to estimate the PSF width and converts it to an
+    area using a Gaussian approximation scaled by ``sig``.
+
+    Args:
+        img: 2-D array-like representing a PSF profile.
+        sig: Significance level used to set the aperture width in units
+            of the Gaussian sigma. Defaults to 3.
+
+    Returns:
+        float: Effective resolution area in pixels squared.
+    """
     fwhm = get_fwhm(img)
     return np.pi * (sig / (2 * PSF_SIGMA_FACTOR) * fwhm)**2
 
 def validate_psfmodel(band, return_psftype=False):
+    """Validate and classify the PSF model configured for a band.
+
+    Attempts to read the PSF model path from ``conf.BANDS[band]['psfmodel']``.
+    If the path is a catalog with ``ra``/``dec`` columns, the PSF is treated as
+    spatially variable; otherwise it is treated as constant.  In either case
+    the first PSF file is loaded to confirm it is readable.
+
+    Args:
+        band: Band name whose PSF to validate (key in ``conf.BANDS``).
+        return_psftype: If True, also return the PSF type string.
+            Defaults to False.
+
+    Returns:
+        tuple: ``(psfcoords, psflist)`` where ``psfcoords`` is either a
+            ``SkyCoord`` array (variable) or the string ``'none'`` (constant),
+            and ``psflist`` is the corresponding array of file paths.
+        tuple: ``((psfcoords, psflist), psftype)`` if ``return_psftype``
+            is True, where ``psftype`` is ``'variable'`` or ``'constant'``.
+
+    Raises:
+        RuntimeError: If the PSF path does not exist or the file cannot be
+            loaded in any known format.
+    """
     logger = logging.getLogger('farmer.validate_psfmodel')
     psfmodel_path = conf.BANDS[band]['psfmodel']
 
@@ -483,8 +556,20 @@ def validate_psfmodel(band, return_psftype=False):
 
 
 def header_from_dict(params):
+    """Build a FITS header from a configuration dictionary.
+
+    Iterates over all public entries in ``params`` (those not starting with
+    ``__``) and stores scalar strings, floats, and integers as single header
+    cards, while lists and tuples are stored as indexed sub-cards.
+
+    Args:
+        params: Dictionary of configuration key-value pairs.
+
+    Returns:
+        astropy.io.fits.Header: FITS header populated with the dictionary
+            entries as ``CONF{i}`` cards.
+    """
     logger = logging.getLogger('farmer.header_from_dict')
-    """ Take in dictionary and churn out a header. Never forget configs again. """
     hdr = fits.Header()
     total_public_entries = np.sum([ not k.startswith('__') for k in params.keys()])
     logger.debug(f'header_from_dict :: Dictionary has {total_public_entries} entires')
@@ -509,7 +594,23 @@ def header_from_dict(params):
 
 
 def create_circular_mask(h, w, center=None, radius=None):
+    """Create a binary circular mask of a given size.
 
+    Pixels whose distance from ``center`` is less than or equal to ``radius``
+    are set to 1; all others are 0.
+
+    Args:
+        h: Height of the output mask in pixels.
+        w: Width of the output mask in pixels.
+        center: ``[x, y]`` pixel coordinates of the circle center.
+            Defaults to the image midpoint when None.
+        radius: Radius of the circle in pixels.  Defaults to the largest
+            radius that fits entirely within the image when None.
+
+    Returns:
+        numpy.ndarray: Integer array of shape ``(h, w)`` with 1 inside the
+            circle and 0 outside.
+    """
     if center is None: # use the middle of the image
         center = [int(w/2), int(h/2)]
     if radius is None: # use the smallest distance between the center and image walls
@@ -571,42 +672,101 @@ def _select_optimal_dtype(coordinates):
     
 
 class SimpleGalaxy(ExpGalaxy):
-    '''This defines the 'SIMP' galaxy profile -- an exponential profile
-    with a fixed shape of a 0.45 arcsec effective radius and spherical
-    shape.  It is used to detect marginally-resolved galaxies.
-    '''
+    """Exponential galaxy with fixed 0.45 arcsec spherical shape.
+
+    Defines the ``SIMP`` galaxy profile used to detect marginally-resolved
+    sources.  The effective radius and ellipticity are frozen so only
+    position and flux are free parameters during fitting.
+    """
+
     shape = EllipseE(0.45, 0., 0.)
 
     def __init__(self, *args):
+        """Initialize SimpleGalaxy with position and brightness arguments.
+
+        Args:
+            *args: Positional arguments forwarded to ``ExpGalaxy.__init__``,
+                typically ``(pos, brightness)``.
+        """
         super(SimpleGalaxy, self).__init__(*args)
 
     def __str__(self):
+        """Return a human-readable string representation.
+
+        Returns:
+            str: Description including name, position, and brightness.
+        """
         return (self.name + ' at ' + str(self.pos)
                 + ' with ' + str(self.brightness))
 
     def __repr__(self):
+        """Return an unambiguous string representation.
+
+        Returns:
+            str: Repr string including class name, position, and brightness.
+        """
         return (self.name + '(pos=' + repr(self.pos) +
                 ', brightness=' + repr(self.brightness) + ')')
 
     @staticmethod
     def getNamedParams():
+        """Return the mapping of parameter names to indices.
+
+        Returns:
+            dict: ``{'pos': 0, 'brightness': 1}``
+        """
         return dict(pos=0, brightness=1)
 
     def getName(self):
+        """Return the model name string.
+
+        Returns:
+            str: ``'SimpleGalaxy'``
+        """
         return 'SimpleGalaxy'
 
     ### HACK -- for Galaxy.getParamDerivatives()
     def isParamFrozen(self, pname):
+        """Check whether a named parameter is frozen.
+
+        Always returns True for ``'shape'`` so that the effective radius
+        and ellipticity are not optimised.  All other parameters delegate
+        to the parent ``ExpGalaxy``.
+
+        Args:
+            pname: Parameter name to query.
+
+        Returns:
+            bool: True if the parameter is frozen, False otherwise.
+        """
         if pname == 'shape':
             return True
-        return super(SimpleGalaxy, self).isParamFrozen(pname) 
+        return super(SimpleGalaxy, self).isParamFrozen(pname)
 
 
 def map_discontinuous(input, out_wcs, out_shape, force_simple=False):
-    # print(input[0].shape)
-    # print(input[1])
-    # print(out_wcs)
-    # print(out_shape)
+    """Map a labeled integer array from one WCS grid to another.
+
+    Reprojects a discontinuous map (e.g., segmentation map) by tracking
+    which output pixels each labeled region covers.  When the input and
+    output grids share the same shape and pixel scale, a fast direct index
+    copy is used.  Otherwise the mapping is computed via
+    :func:`map_ids_to_coarse_pixels` (single-core) or
+    :func:`parallel_process` (multi-core, controlled by ``conf.NCPUS``).
+
+    Args:
+        input: Tuple ``(array, in_wcs)`` where ``array`` is the 2-D
+            integer label map and ``in_wcs`` is its astropy ``WCS``.
+        out_wcs: Astropy ``WCS`` for the output (coarse) grid.
+        out_shape: ``(ny, nx)`` pixel dimensions of the output grid.
+        force_simple: If True, bypass reprojection and apply a direct
+            pixel-coordinate copy even when grids differ.  Small regions
+            may be lost. Defaults to False.
+
+    Returns:
+        dict: Mapping ``{label_id: (y_array, x_array)}`` giving the
+            output-grid pixel coordinates occupied by each label.
+    """
     # for some resolution regimes, you cannot make a new, complete segmap with the new pixel scale!
     array, in_wcs = input
     logger = logging.getLogger('farmer.map_discontinuous')
@@ -824,8 +984,23 @@ def map_ids_to_coarse_pixels(fine_pixel_data, coarse_wcs, fine_wcs, offset=0):
     return id_to_coarse_pixel_map
 
 def parallel_process(fine_pixel_data, coarse_wcs, fine_wcs, n_processes=1):
-    """
-    Parallelize the processing of fine grid chunks.
+    """Map object IDs from a fine grid to a coarse grid using multiple processes.
+
+    Splits ``fine_pixel_data`` into ``n_processes`` row-chunks and processes
+    each chunk with :func:`map_ids_to_coarse_pixels` in a
+    ``multiprocessing.Pool``.  Results are merged by concatenating the
+    coordinate arrays for each object ID across all chunks.
+
+    Args:
+        fine_pixel_data: 2-D array with integer object IDs on the fine grid.
+        coarse_wcs: Astropy ``WCS`` for the coarse (output) grid.
+        fine_wcs: Astropy ``WCS`` for the fine (input) grid.
+        n_processes: Number of parallel worker processes.  Values < 1 are
+            treated as 1. Defaults to 1.
+
+    Returns:
+        collections.OrderedDict: Mapping ``{obj_id: (y_coords, x_coords)}``
+            sorted by object ID, where arrays give coarse-grid pixel positions.
     """
     if n_processes < 1:
         n_processes = 1
@@ -1007,8 +1182,33 @@ def recursively_save_dict_contents_to_group(h5file, dic, path='/'):
         else:
             logger.debug(f'Cannot save {key} of type {type(item)}')
 
-def recursively_load_dict_contents_from_group(h5file, path='/', ans=None): 
+def recursively_load_dict_contents_from_group(h5file, path='/', ans=None):
+    """Recursively load an HDF5 group into a nested Python dictionary.
 
+    Traverses all datasets and sub-groups under ``path``, converting each
+    to an appropriate Python/NumPy/Astropy object.  Handles the following
+    special cases automatically:
+
+    - ``bands`` datasets are decoded to a Python list of strings.
+    - ``size`` / ``buffsize`` / ``pixel_scales`` datasets are restored with
+      ``astropy.units.deg`` attached.
+    - Catalog datasets are restored as ``astropy.table.Table`` objects.
+    - ``Cutout2D``-backed image groups (``science``, ``segmap``, etc.) are
+      reconstructed from their stored WCS and pixel position.
+    - Tractor source model groups are reconstructed as the appropriate
+      model objects (``PointSource``, ``ExpGalaxy``, etc.).
+    - Group attributes containing WCS strings, FITS headers, ``SkyCoord``
+      strings, and Quantity unit pairs are restored to their native types.
+
+    Args:
+        h5file: Open ``h5py.File`` object to read from.
+        path: HDF5 path of the group to load. Defaults to ``'/'``.
+        ans: Accumulator dictionary; populated recursively. Pass ``None``
+            to start a fresh dictionary. Defaults to None.
+
+    Returns:
+        dict: Nested dictionary mirroring the HDF5 group hierarchy.
+    """
     logger = logging.getLogger('farmer.hdf5')
 
     # return h5file[path]
@@ -1303,6 +1503,30 @@ def get_params(model):
     return source
 
 def set_priors(model, priors):
+    """Apply positional and morphological priors to a Tractor model.
+
+    Reads the ``priors`` dictionary and freezes or adds Gaussian priors to the
+    model's ``pos``, ``fracDev``, ``shape``, ``shapeDev``, ``shapeExp``, and
+    ``reff`` parameters as specified.
+
+    Args:
+        model: Tractor model object (e.g. ``PointSource``, ``ExpGalaxy``).
+        priors: Dictionary with any subset of keys:
+
+            - ``'pos'``: ``'fix'``/``'freeze'`` to freeze position, a
+              ``Quantity`` angle to add a Gaussian prior, or ``'none'`` to
+              leave free.
+            - ``'fracDev'``: ``'fix'``/``'freeze'`` to freeze the bulge
+              fraction, or omit to leave free.
+            - ``'shape'``: ``'fix'``/``'freeze'`` to freeze ellipticity
+              parameters (keeping reff free), or omit to leave free.
+            - ``'reff'``: ``'fix'``/``'freeze'`` to freeze effective radius,
+              a ``Quantity`` angle for a Gaussian prior, or ``'none'`` to
+              leave free.
+
+    Returns:
+        Tractor model with priors/freezes applied.
+    """
     logger = logging.getLogger('farmer.priors')
 
     if priors is None:
@@ -1363,6 +1587,25 @@ def set_priors(model, priors):
     return model
 
 def get_detection_kernel(filter_kernel):
+    """Load or generate a convolution kernel for source detection.
+
+    Accepts either a filename string pointing to a kernel stored under
+    ``config/conv_filters/``, or a scalar FWHM (in pixels) from which
+    a Gaussian kernel is constructed.
+
+    Args:
+        filter_kernel: Either a string kernel filename (looked up in the
+            ``config/conv_filters/`` directory relative to this module) or
+            a scalar FWHM in pixels used to build a ``Gaussian2DKernel``.
+
+    Returns:
+        numpy.ndarray: 2-D convolution kernel array.
+
+    Raises:
+        FileExistsError: If ``filter_kernel`` is a string and the file is
+            not found.
+        RuntimeError: If ``filter_kernel`` is not a recognised type.
+    """
     kernel_kwargs = {}
     # if string, grab from config
     if isinstance(filter_kernel, str):
@@ -1386,6 +1629,26 @@ def get_detection_kernel(filter_kernel):
         raise RuntimeError(f'Requested kernel {filter_kernel} not understood!')
 
 def build_regions(catalog, pixel_scale, outpath='objects.reg', scale_factor=2.0):
+    """Write a DS9 region file from a source catalog.
+
+    Creates one elliptical sky region per source based on the catalog's
+    semi-major axis ``a``, semi-minor axis ``b``, and position angle
+    ``theta`` columns, scaled by ``scale_factor`` and converted from
+    pixels to sky using ``pixel_scale``.
+
+    Args:
+        catalog: Astropy ``Table`` with columns ``ra``, ``dec``, ``a``,
+            ``b``, ``theta`` (angle in radians), and ``id``.
+        pixel_scale: Angular size of one pixel (``astropy.units.Quantity``
+            with angular units, e.g. ``u.arcsec``).
+        outpath: Output path for the ``.reg`` file.
+            Defaults to ``'objects.reg'``.
+        scale_factor: Multiplicative factor applied to the ellipse axes
+            before writing. Defaults to 2.0.
+
+    Returns:
+        None
+    """
     from regions import EllipseSkyRegion, Regions
     detcoords = SkyCoord(catalog['ra'], catalog['dec'])
     regs = []
@@ -1410,7 +1673,37 @@ def _clear_h5():
                 pass  # File already closed or invalid
 
 
-def prepare_psf(filename, outfilename=None, pixel_scale=None, mask_radius=None, clip_radius=None, norm=None, norm_radius=None, target_pixel_scale=None, ext=0):
+def prepare_psf(filename, outfilename=None, pixel_scale=None, mask_radius=None,
+                clip_radius=None, norm=None, norm_radius=None,
+                target_pixel_scale=None, ext=0):
+    """Pre-process a PSF FITS image for use with The Farmer.
+
+    Performs optional resampling, background subtraction, spatial clipping,
+    and flux normalisation on a PSF model stored as a FITS file, then writes
+    the result to disk.
+
+    Args:
+        filename: Path to the input PSF FITS file.
+        outfilename: Path for the output file.  Overwrites ``filename`` in
+            place when None. Defaults to None.
+        pixel_scale: Angular pixel scale of the PSF image as an astropy
+            ``Quantity``.  Read from the FITS header when None.
+        mask_radius: Radius of the source aperture used to estimate and
+            subtract a background plateau (astropy ``Quantity``).  No
+            background subtraction when None.
+        clip_radius: Radius at which to spatially clip the PSF
+            (astropy ``Quantity``).  No clipping when None.
+        norm: Target integrated flux within ``norm_radius``.  No
+            renormalisation when None.
+        norm_radius: Aperture radius used for flux normalisation (astropy
+            ``Quantity``).  Required when ``norm`` is not None.
+        target_pixel_scale: Resample the PSF to this pixel scale (astropy
+            ``Quantity``) using bilinear zoom.  No resampling when None.
+        ext: FITS extension index to read/write. Defaults to 0.
+
+    Returns:
+        numpy.ndarray: The processed PSF model array.
+    """
     # NOTE: THESE INPUTS NEED ASTROPY UNITS!
 
     hdul = fits.open(filename)
@@ -1463,10 +1756,32 @@ def prepare_psf(filename, outfilename=None, pixel_scale=None, mask_radius=None, 
     return psfmodel
 
 def spawn_and_run_group(brick, group_id, imgtype='science', bands=None, mode='all'):
-    """Spawn a group from brick and process it, returning only essential results.
-    
-    This function is designed for parallel processing to avoid holding all groups in memory.
-    It spawns the group, processes it, extracts results, and deletes the group object.
+    """Spawn a group from a brick, process it, and return only essential results.
+
+    Designed for parallel workers: spawns the group, runs the requested
+    modelling mode, records the elapsed time in ``model_tracker``, extracts
+    the catalog and tracker, then deletes the group to free memory.
+
+    Args:
+        brick: ``Brick`` object containing the group.
+        group_id: Integer identifier of the group to process.
+        imgtype: Image type passed to ``brick.spawn_group``.
+            Defaults to ``'science'``.
+        bands: List of band names to include.  ``None`` uses all bands
+            available on the brick. Defaults to None.
+        mode: Processing mode — one of:
+
+            - ``'all'``: run model selection then forced photometry.
+            - ``'model'``: run model selection only.
+            - ``'photometry'``: run forced photometry only.
+            - ``'pass'``: do nothing (used for testing).
+
+            Defaults to ``'all'``.
+
+    Returns:
+        tuple: ``(group_id, model_catalog, model_tracker)`` where
+            ``model_catalog`` and ``model_tracker`` are shallow copies
+            safe to pass across process boundaries.
     """
     import time
     tstart = time.time()
@@ -1503,7 +1818,20 @@ def spawn_and_run_group(brick, group_id, imgtype='science', bands=None, mode='al
 
 
 def _run_group_inline(group, mode='all'):
-    """Run group processing inline in the current process."""
+    """Run group modelling in the calling process and return results.
+
+    Executes the requested processing mode on an already-spawned ``Group``
+    object, records wall-clock elapsed time in ``model_tracker``, logs
+    completion, and returns the group's output before deleting it.
+
+    Args:
+        group: An instantiated ``Group`` object (not rejected).
+        mode: Processing mode — one of ``'all'``, ``'model'``,
+            ``'photometry'``, or ``'pass'``. Defaults to ``'all'``.
+
+    Returns:
+        tuple: ``(group_id, model_catalog, model_tracker)`` shallow copies.
+    """
     import time
 
     tstart = time.time()
@@ -1546,7 +1874,18 @@ def _run_group_inline(group, mode='all'):
 
 
 def _run_group_timeout_worker(group, mode, result_queue):
-    """Child worker for hard timeout enforcement."""
+    """Child-process target that runs a group and puts the result on a queue.
+
+    Intended to be launched via ``multiprocessing.Process`` by
+    :func:`run_group` so that a hard wall-clock timeout can be enforced by
+    the parent.  Sends ``('ok', result)`` on success or
+    ``('err', (repr(exc), traceback_str))`` on failure.
+
+    Args:
+        group: ``Group`` object to process.
+        mode: Processing mode string forwarded to :func:`_run_group_inline`.
+        result_queue: ``multiprocessing.Queue`` used to return the outcome.
+    """
     import traceback
 
     try:
@@ -1557,7 +1896,29 @@ def _run_group_timeout_worker(group, mode, result_queue):
 
 
 def run_group(group, mode='all'):
-    """Process an already-spawned group object with an optional hard timeout."""
+    """Process an already-spawned group object with an optional hard timeout.
+
+    When ``conf.GROUP_TIMEOUT`` is None, runs the group inline in the
+    calling process via :func:`_run_group_inline`.  Otherwise spawns a
+    child process via :func:`_run_group_timeout_worker` and waits up to
+    ``conf.GROUP_TIMEOUT`` seconds; if the child does not respond in time
+    it is terminated and the group is marked as rejected.
+
+    On any unhandled exception, if ``conf.IGNORE_FAILURES`` is True the group
+    is rejected and processing continues; otherwise the exception is re-raised.
+
+    Args:
+        group: An instantiated ``Group`` object to process.
+        mode: Processing mode — one of ``'all'``, ``'model'``,
+            ``'photometry'``, or ``'pass'``. Defaults to ``'all'``.
+
+    Returns:
+        tuple: ``(group_id, model_catalog, model_tracker)`` shallow copies.
+
+    Raises:
+        RuntimeError: If the worker process fails or times out and
+            ``conf.IGNORE_FAILURES`` is False.
+    """
     import time
     import queue as queue_mod
     import traceback
@@ -1568,6 +1929,7 @@ def run_group(group, mode='all'):
     timeout = conf.GROUP_TIMEOUT
 
     def _reject_and_return(reason, elapsed=None):
+        """Mark the group as rejected, log the reason, and return a null result tuple."""
         if elapsed is None:
             elapsed = time.time() - tstart
         try:

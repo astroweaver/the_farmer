@@ -1,0 +1,188 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Reference &mdash; The Farmer 2.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=20623aea"></script>
+      <script src="../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=f281be69"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="farmer — Top-Level API" href="farmer.html" />
+    <link rel="prev" title="Pipeline Architecture" href="../pipeline.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            The Farmer
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quick Start</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../configuration.html">Configuration Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pipeline.html">Pipeline Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#class-hierarchy">Class Hierarchy</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="farmer.html"><code class="docutils literal notranslate"><span class="pre">farmer</span></code> — Top-Level API</a></li>
+<li class="toctree-l3"><a class="reference internal" href="mosaic.html"><code class="docutils literal notranslate"><span class="pre">farmer.mosaic</span></code> — Mosaic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="brick.html"><code class="docutils literal notranslate"><span class="pre">farmer.brick</span></code> — Brick</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group.html"><code class="docutils literal notranslate"><span class="pre">farmer.group</span></code> — Group</a></li>
+<li class="toctree-l3"><a class="reference internal" href="baseimage.html"><code class="docutils literal notranslate"><span class="pre">farmer.image</span></code> — BaseImage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="utils.html"><code class="docutils literal notranslate"><span class="pre">farmer.utils</span></code> — Utilities</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="farmer.html"><code class="docutils literal notranslate"><span class="pre">farmer</span></code> — Top-Level API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mosaic.html"><code class="docutils literal notranslate"><span class="pre">farmer.mosaic</span></code> — Mosaic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="brick.html"><code class="docutils literal notranslate"><span class="pre">farmer.brick</span></code> — Brick</a></li>
+<li class="toctree-l1"><a class="reference internal" href="group.html"><code class="docutils literal notranslate"><span class="pre">farmer.group</span></code> — Group</a></li>
+<li class="toctree-l1"><a class="reference internal" href="baseimage.html"><code class="docutils literal notranslate"><span class="pre">farmer.image</span></code> — BaseImage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html"><code class="docutils literal notranslate"><span class="pre">farmer.utils</span></code> — Utilities</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Help &amp; Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">The Farmer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">API Reference</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="api-reference">
+<h1>API Reference<a class="headerlink" href="#api-reference" title="Link to this heading"></a></h1>
+<p>The Farmer exposes a small high-level API through the <code class="docutils literal notranslate"><span class="pre">farmer</span></code> package (see <a class="reference internal" href="farmer.html"><span class="doc">farmer — Top-Level API</span></a>), plus five internal modules that contain the core logic.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 25.0%" />
+<col style="width: 75.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Module</p></th>
+<th class="head"><p>Contents</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="farmer.html#module-farmer" title="farmer"><code class="xref py py-mod docutils literal notranslate"><span class="pre">farmer</span></code></a> (<a class="reference internal" href="farmer.html"><span class="doc">farmer — Top-Level API</span></a>)</p></td>
+<td><p>Top-level functions: <code class="docutils literal notranslate"><span class="pre">validate</span></code>, <code class="docutils literal notranslate"><span class="pre">build_bricks</span></code>, <code class="docutils literal notranslate"><span class="pre">detect_sources</span></code>, <code class="docutils literal notranslate"><span class="pre">generate_models</span></code>, <code class="docutils literal notranslate"><span class="pre">photometer</span></code>, <code class="docutils literal notranslate"><span class="pre">quick_group</span></code>, <code class="docutils literal notranslate"><span class="pre">load_brick</span></code>, <code class="docutils literal notranslate"><span class="pre">update_bricks</span></code>, <code class="docutils literal notranslate"><span class="pre">get_mosaic</span></code>, <code class="docutils literal notranslate"><span class="pre">brick_has_band</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="mosaic.html#module-farmer.mosaic" title="farmer.mosaic"><code class="xref py py-mod docutils literal notranslate"><span class="pre">farmer.mosaic</span></code></a> (<a class="reference internal" href="mosaic.html"><span class="doc">farmer.mosaic — Mosaic</span></a>)</p></td>
+<td><p><a class="reference internal" href="mosaic.html#farmer.mosaic.Mosaic" title="farmer.mosaic.Mosaic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mosaic</span></code></a> — full-field image wrapper. Validates paths, loads pixel data, spawns bricks.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="brick.html#module-farmer.brick" title="farmer.brick"><code class="xref py py-mod docutils literal notranslate"><span class="pre">farmer.brick</span></code></a> (<a class="reference internal" href="brick.html"><span class="doc">farmer.brick — Brick</span></a>)</p></td>
+<td><p><a class="reference internal" href="brick.html#farmer.brick.Brick" title="farmer.brick.Brick"><code class="xref py py-class docutils literal notranslate"><span class="pre">Brick</span></code></a> — single tile of the survey mosaic. Runs detection, groups sources, processes groups, absorbs results.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="group.html#module-farmer.group" title="farmer.group"><code class="xref py py-mod docutils literal notranslate"><span class="pre">farmer.group</span></code></a> (<a class="reference internal" href="group.html"><span class="doc">farmer.group — Group</span></a>)</p></td>
+<td><p><a class="reference internal" href="group.html#farmer.group.Group" title="farmer.group.Group"><code class="xref py py-class docutils literal notranslate"><span class="pre">Group</span></code></a> — a set of one to five nearby sources fitted simultaneously.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="baseimage.html#module-farmer.image" title="farmer.image"><code class="xref py py-mod docutils literal notranslate"><span class="pre">farmer.image</span></code></a> (<a class="reference internal" href="baseimage.html"><span class="doc">farmer.image — BaseImage</span></a>)</p></td>
+<td><p><a class="reference internal" href="baseimage.html#farmer.image.BaseImage" title="farmer.image.BaseImage"><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseImage</span></code></a> — abstract base class shared by Mosaic, Brick, and Group. Contains all detection, optimization, and I/O logic.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="utils.html#module-farmer.utils" title="farmer.utils"><code class="xref py py-mod docutils literal notranslate"><span class="pre">farmer.utils</span></code></a> (<a class="reference internal" href="utils.html"><span class="doc">farmer.utils — Utilities</span></a>)</p></td>
+<td><p>Utility functions: WCS conversion, source grouping, HDF5 I/O, PSF validation, parameter extraction, region file writing.</p></td>
+</tr>
+</tbody>
+</table>
+<section id="class-hierarchy">
+<h2>Class Hierarchy<a class="headerlink" href="#class-hierarchy" title="Link to this heading"></a></h2>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>BaseImage (farmer.image)
+├── Mosaic  (farmer.mosaic)
+├── Brick   (farmer.brick)
+└── Group   (farmer.group)
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">Mosaic</span></code>, <code class="docutils literal notranslate"><span class="pre">Brick</span></code>, and <code class="docutils literal notranslate"><span class="pre">Group</span></code> all inherit from <code class="docutils literal notranslate"><span class="pre">BaseImage</span></code> and override only the methods that differ in their context. The vast majority of detection, optimization, and I/O logic lives in <code class="docutils literal notranslate"><span class="pre">BaseImage</span></code>.</p>
+<div class="toctree-wrapper compound">
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../pipeline.html" class="btn btn-neutral float-left" title="Pipeline Architecture" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="farmer.html" class="btn btn-neutral float-right" title="farmer — Top-Level API" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2018-2026, John Weaver.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

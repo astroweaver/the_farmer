@@ -18,8 +18,28 @@ default_properties['backregion'] = 'brick'
 default_properties['zeropoint'] = -99
 
 class Mosaic(BaseImage):
-    def __init__(self, band, load=False) -> None:
+    """A full-field survey image for a single photometric or detection band."""
 
+    def __init__(self, band, load=False) -> None:
+        """Initialise a Mosaic for the specified band.
+
+        Validates the band against ``conf.BANDS`` (or ``conf.DETECTION`` for
+        the detection image), verifies that the science FITS file exists and
+        has a readable WCS, and optionally loads the full image data into
+        memory.
+
+        Args:
+            band: Band name (key in ``conf.BANDS``) or ``'detection'``.
+                Band names must not contain a ``'.'`` character.
+            load: If True, read all configured image arrays (science, weight,
+                mask) and PSF model into memory.  If False, only validate
+                paths and load the WCS. Defaults to False.
+
+        Raises:
+            ValueError: If ``band`` contains a ``'.'`` character.
+            RuntimeError: If the science FITS header does not contain a
+                valid WCS.
+        """
         if '.' in band:
             raise ValueError(f'Band name {band} cannot contain a "."! Rename without one please.')
 
@@ -137,36 +157,37 @@ class Mosaic(BaseImage):
                             self.estimate_background(band=band, imgtype='science')
 
     def get_bands(self):
-        """Get list of bands in this mosaic.
-        
+        """Return the band(s) associated with this mosaic.
+
         Returns:
-            numpy array containing single band name
+            numpy.ndarray: Single-element array containing ``self.band``.
         """
         return np.array([self.band])
 
     def get_figprefix(self, imgtype, band=None):
-        """Generate filename prefix for output figures.
-        
+        """Generate a filename prefix for output figures of this mosaic.
+
         Args:
-            imgtype: Type of image
-            band: Band name (unused for mosaics, uses self.band)
-            
+            imgtype: Image type string (e.g. ``'science'``, ``'model'``).
+            band: Ignored for mosaics; ``self.band`` is always used.
+
         Returns:
-            str: Filename prefix
+            str: Prefix in the format ``'{band}_{imgtype}'``.
         """
         return f'{self.band}_{imgtype}'
 
     def add_to_brick(self, brick):
-        """Add this mosaic's data to a brick.
-        
-        Cuts out the brick region from the mosaic and adds all
-        relevant data (science, weight, mask, PSF) to the brick.
-        
+        """Cut out this mosaic's data at the brick's footprint and attach it.
+
+        Delegates to :meth:`~farmer.brick.Brick.add_band`, which extracts
+        ``Cutout2D`` sub-images centred on the brick position (including
+        buffer) for every image type present in this mosaic.
+
         Args:
-            brick: Brick object to add data to
-            
+            brick: ``Brick`` object to receive the cut-out data.
+
         Returns:
-            Brick: The modified brick object
+            Brick: The same brick object, now containing this mosaic's band.
         """
         # Cut up science, weight, and mask, if available
         brick.add_band(self)
@@ -175,19 +196,26 @@ class Mosaic(BaseImage):
         return brick
 
     def spawn_brick(self, brick_id=None, position=None, size=None, silent=False):
-        """Create a new brick from this mosaic.
-        
-        Creates a Brick object and adds this mosaic's data to it using cutouts
-        at the specified position and size.
-        
+        """Create a new blank brick and populate it from this mosaic.
+
+        Instantiates a fresh ``Brick`` (without loading from disk) and
+        calls :meth:`add_to_brick` to cut out the relevant sub-image.  The
+        brick position is derived either from ``brick_id`` (looked up on the
+        detection WCS grid) or from explicit ``position``/``size`` arguments.
+
         Args:
-            brick_id: Brick identifier (if None, use position/size)
-            position: Sky coordinates for brick center (if brick_id is None)
-            size: Angular size of brick (if brick_id is None)
-            silent: If True, suppress logging output
-            
+            brick_id: Integer brick identifier (1-indexed).  If provided,
+                ``position`` and ``size`` must be None.
+            position: ``astropy.coordinates.SkyCoord`` of the brick centre.
+                Used only when ``brick_id`` is None.
+            size: ``(dec_height, ra_width)`` tuple of angular
+                ``astropy.units.Quantity`` values.  Used only when
+                ``brick_id`` is None.
+            silent: If True, suppress informational log messages.
+                Defaults to False.
+
         Returns:
-            Brick: New brick object with mosaic data added
+            Brick: Newly created brick populated with this mosaic's band.
         """
         # Instantiate brick
         if brick_id is None:
@@ -202,16 +230,21 @@ class Mosaic(BaseImage):
         return brick
 
     def extract(self, background=None):
-        """Extract sources from the mosaic.
-        
-        Runs source detection, creates segmentation map, and adds sky coordinates
-        to the catalog.
-        
+        """Detect sources across the full mosaic and build a catalog.
+
+        Calls the base-class ``_extract`` method on the full mosaic array,
+        stores the resulting catalog in ``self.catalogs['science']`` and the
+        segmentation map in ``self.data['segmap']``, then appends sequential
+        ``id``, ``ra``, and ``dec`` columns.
+
         Args:
-            background: Pre-computed background to subtract (optional)
-            
-        Note:
-            Results stored in self.catalogs['science'] and self.data['segmap']
+            background: Pre-computed background array to subtract before
+                detection.  When None no subtraction is performed.
+                Defaults to None.
+
+        Returns:
+            None. Populates ``self.catalogs['science']``,
+            ``self.data['segmap']``, and ``self.n_sources['science']``.
         """
         catalog, segmap = self._extract(band=None, background=background)
 
@@ -230,7 +263,20 @@ class Mosaic(BaseImage):
 
 
     def identify_groups(self, radius=conf.DILATION_RADIUS, overwrite=False):
-        """Takes the catalog and segmap 
+        """Group nearby sources by morphologically dilating the segmentation map.
+
+        Converts ``radius`` from arcsec to pixels using the mosaic WCS,
+        calls :func:`~farmer.utils.dilate_and_group`, and stores
+        ``group_id`` and ``group_pop`` columns in
+        ``self.catalogs['science']`` and the group map in
+        ``self.data['groupmap']``.
+
+        Args:
+            radius: Dilation radius as an ``astropy.units.Quantity`` angle.
+                Defaults to ``conf.DILATION_RADIUS``.
+            overwrite: If True, replace existing ``group_id``/``group_pop``
+                columns; if False, add them as new columns.
+                Defaults to False.
         """
 
         catalog = self.catalogs['science']

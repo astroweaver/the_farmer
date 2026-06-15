@@ -1,0 +1,363 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Frequently Asked Questions &mdash; The Farmer 2.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=20623aea"></script>
+      <script src="_static/doctools.js?v=9a2dae69"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="_static/copybutton.js?v=f281be69"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="farmer.utils — Utilities" href="api/utils.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            The Farmer
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipeline.html">Pipeline Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/farmer.html"><code class="docutils literal notranslate"><span class="pre">farmer</span></code> — Top-Level API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/mosaic.html"><code class="docutils literal notranslate"><span class="pre">farmer.mosaic</span></code> — Mosaic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/brick.html"><code class="docutils literal notranslate"><span class="pre">farmer.brick</span></code> — Brick</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/group.html"><code class="docutils literal notranslate"><span class="pre">farmer.group</span></code> — Group</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/baseimage.html"><code class="docutils literal notranslate"><span class="pre">farmer.image</span></code> — BaseImage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/utils.html"><code class="docutils literal notranslate"><span class="pre">farmer.utils</span></code> — Utilities</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Help &amp; Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Frequently Asked Questions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#setup-configuration">Setup &amp; Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#detection-grouping">Detection &amp; Grouping</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#modeling-photometry">Modeling &amp; Photometry</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#performance">Performance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#output-catalogs">Output &amp; Catalogs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#citing-the-farmer">Citing The Farmer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#output-interpretation">Output &amp; Interpretation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#getting-help">Getting Help</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">The Farmer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Frequently Asked Questions</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/faq.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="frequently-asked-questions">
+<h1>Frequently Asked Questions<a class="headerlink" href="#frequently-asked-questions" title="Link to this heading"></a></h1>
+<section id="setup-configuration">
+<span id="faq-config"></span><h2>Setup &amp; Configuration<a class="headerlink" href="#setup-configuration" title="Link to this heading"></a></h2>
+<p><strong>Q: I get</strong> <code class="docutils literal notranslate"><span class="pre">RuntimeError:</span> <span class="pre">Cannot</span> <span class="pre">find</span> <span class="pre">configuration</span> <span class="pre">file!</span></code> <strong>when I import farmer.</strong></p>
+<p>The Farmer searches for <code class="docutils literal notranslate"><span class="pre">config/config.py</span></code> relative to your current working directory. Make sure you are running Python from the directory that <em>contains</em> <code class="docutils literal notranslate"><span class="pre">config/</span></code> (not from inside it). You can verify with:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">())</span>        <span class="c1"># should end in your project root, not in config/</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="s1">&#39;config/config.py&#39;</span><span class="p">))</span>   <span class="c1"># should print True</span>
+</pre></div>
+</div>
+<p>If you want to run from a different directory, add <code class="docutils literal notranslate"><span class="pre">sys.path.insert(0,</span> <span class="pre">'/path/to/your/config')</span></code> before importing farmer.</p>
+<hr class="docutils" />
+<p><strong>Q: How do I add a new band without rebuilding everything from scratch?</strong></p>
+<p>Use <a class="reference internal" href="api/farmer.html#farmer.update_bricks" title="farmer.update_bricks"><code class="xref py py-func docutils literal notranslate"><span class="pre">farmer.update_bricks()</span></code></a>. It reads only the HDF5 metadata to check whether a brick already has the band, loading full pixel data only for bricks that need updating:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">farmer</span><span class="o">.</span><span class="n">update_bricks</span><span class="p">(</span><span class="n">bands</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;irac_ch1&#39;</span><span class="p">])</span>
+</pre></div>
+</div>
+<p>After updating, re-run <a class="reference internal" href="api/farmer.html#farmer.photometer" title="farmer.photometer"><code class="xref py py-func docutils literal notranslate"><span class="pre">farmer.photometer()</span></code></a> to measure fluxes in the new band. You do not need to re-run detection or model determination.</p>
+<hr class="docutils" />
+<p><strong>Q: Can band names contain dots, slashes, or spaces?</strong></p>
+<p>No. Band names must not contain a <code class="docutils literal notranslate"><span class="pre">'.'</span></code> character (this would break HDF5 key paths). Underscores are fine: <code class="docutils literal notranslate"><span class="pre">'hsc_i'</span></code>, <code class="docutils literal notranslate"><span class="pre">'uvista_ks'</span></code>. Spaces are fine in the <code class="docutils literal notranslate"><span class="pre">'name'</span></code> display label but not in the dict key.</p>
+<hr class="docutils" />
+<p><strong>Q: The code cannot find my PSF file. What format is required?</strong></p>
+<p>The Farmer uses PSFEx-format FITS files via <code class="docutils literal notranslate"><span class="pre">tractor.psfex.PixelizedPsfEx</span></code>. If you have a plain PSF stamp image (not a PSFEx output), you can still use it via <code class="docutils literal notranslate"><span class="pre">tractor.psfex.PixelizedPSF</span></code>, but you may need to set the appropriate header keywords.</p>
+<p>Use <code class="docutils literal notranslate"><span class="pre">bin/prep_psf.py</span></code> to:</p>
+<ul class="simple">
+<li><p>Subtract any residual background from the PSF stamp</p></li>
+<li><p>Clip the outer low-signal wings to a target radius</p></li>
+<li><p>Normalize the PSF to unit sum</p></li>
+<li><p>Optionally resample to a target pixel scale</p></li>
+</ul>
+<p>Run it with <code class="docutils literal notranslate"><span class="pre">--help</span></code> for all options.</p>
+<hr class="docutils" />
+<p><strong>Q: My detection image has a different pixel scale from my photometric bands. Is that supported?</strong></p>
+<p>Yes. The Farmer re-maps the detection segmentation map to each photometric band’s pixel grid using WCS-based coordinate transformations. The mapping is handled by <a class="reference internal" href="api/utils.html#farmer.utils.map_ids_to_coarse_pixels" title="farmer.utils.map_ids_to_coarse_pixels"><code class="xref py py-func docutils literal notranslate"><span class="pre">map_ids_to_coarse_pixels()</span></code></a>. You may need to set <code class="docutils literal notranslate"><span class="pre">FORCE_SIMPLE_MAPPING</span> <span class="pre">=</span> <span class="pre">True</span></code> if the resolution difference is extreme and the WCS transformation is slow.</p>
+<hr class="docutils" />
+<p><strong>Q: I have a FITS file with the science image in extension 1 (not 0). How do I tell The Farmer?</strong></p>
+<p>Add <code class="docutils literal notranslate"><span class="pre">'extension':</span> <span class="pre">1</span></code> to the band dictionary in <code class="docutils literal notranslate"><span class="pre">config.py</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">BANDS</span><span class="p">[</span><span class="s1">&#39;my_band&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;science&#39;</span><span class="p">:</span> <span class="s1">&#39;/path/to/file.fits&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;extension&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="o">...</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="detection-grouping">
+<h2>Detection &amp; Grouping<a class="headerlink" href="#detection-grouping" title="Link to this heading"></a></h2>
+<p><strong>Q: The Farmer detects far too many (or too few) sources. What should I adjust?</strong></p>
+<p>Detection sensitivity is primarily controlled by <code class="docutils literal notranslate"><span class="pre">THRESH</span></code>. Lower values detect fainter sources but increase spurious detections. If using a weight image (<code class="docutils literal notranslate"><span class="pre">USE_DETECTION_WEIGHT</span> <span class="pre">=</span> <span class="pre">True</span></code>), the threshold is in units of local sigma; otherwise it is an absolute image value.</p>
+<p>Other parameters to tune:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">MINAREA</span></code>: increase to suppress noise detections (requires more contiguous pixels).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">FILTER_KERNEL</span></code>: a broader Gaussian (e.g., <code class="docutils literal notranslate"><span class="pre">gauss_3.0_7x7.conv</span></code>) reduces noise sensitivity.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DEBLEND_NTHRESH</span></code> / <code class="docutils literal notranslate"><span class="pre">DEBLEND_CONT</span></code>: increase <code class="docutils literal notranslate"><span class="pre">DEBLEND_CONT</span></code> to merge aggressively blended sources.</p></li>
+</ul>
+<hr class="docutils" />
+<p><strong>Q: I have very crowded regions where groups end up with more than 5 sources. Can I increase the limit?</strong></p>
+<p>Yes, via <code class="docutils literal notranslate"><span class="pre">GROUP_SIZE_LIMIT</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">GROUP_SIZE_LIMIT</span> <span class="o">=</span> <span class="mi">10</span>   <span class="c1"># allow up to 10 sources per group</span>
+</pre></div>
+</div>
+<p>Be aware that fitting time scales super-linearly with group size, and the optimizer becomes less stable for large groups. The default of 5 is a practical compromise. Groups exceeding the limit are flagged and skipped.</p>
+<hr class="docutils" />
+<p><strong>Q: Some of my sources are missing from the output catalog. Why?</strong></p>
+<p>Common reasons:</p>
+<ol class="arabic simple">
+<li><p><strong>Detected in the buffer zone</strong> — sources whose centroids fall in the <code class="docutils literal notranslate"><span class="pre">BRICK_BUFFER</span></code> region are removed.</p></li>
+<li><p><strong>Group size exceeded</strong> — groups with more than <code class="docutils literal notranslate"><span class="pre">GROUP_SIZE_LIMIT</span></code> sources are skipped entirely.</p></li>
+<li><p><strong>Optimizer timeout</strong> — if <code class="docutils literal notranslate"><span class="pre">GROUP_TIMEOUT</span></code> is set and a group takes too long, it is skipped.</p></li>
+<li><p><strong>Rejected group</strong> — a group is marked rejected if its bounding box falls outside the brick boundary after dilation (an edge-case of extreme dilation).</p></li>
+<li><p><strong>Negative flux</strong> — sources with fitted fluxes below zero are retained in the catalog but may be excluded from some output products depending on <code class="docutils literal notranslate"><span class="pre">RESIDUAL_SHOW_NEGATIVE</span></code>.</p></li>
+</ol>
+<p>Check the log file for <code class="docutils literal notranslate"><span class="pre">WARNING</span></code> messages about skipped groups.</p>
+<hr class="docutils" />
+<p><strong>Q: What is the</strong> <code class="docutils literal notranslate"><span class="pre">group_id</span></code> <strong>column and why does it start at non-consecutive numbers?</strong></p>
+<p>The <code class="docutils literal notranslate"><span class="pre">group_id</span></code> is assigned by the connected-component labeling step after dilation. It is a positive integer but not necessarily contiguous (labels are assigned from the component labeling algorithm, which skips indices for small regions filtered out during cleanup). The <code class="docutils literal notranslate"><span class="pre">group_pop</span></code> column gives the number of sources in each group.</p>
+</section>
+<hr class="docutils" />
+<section id="modeling-photometry">
+<h2>Modeling &amp; Photometry<a class="headerlink" href="#modeling-photometry" title="Link to this heading"></a></h2>
+<p><strong>Q: The optimizer produces negative fluxes. Is that a problem?</strong></p>
+<p>Negative fluxes arise when the profile model overcorrects for the background or when a source’s flux is genuinely consistent with zero (non-detection). The Farmer does not clamp fluxes to positive values — negative values carry statistical information (they indicate the source is not detected at that location). Treat them as upper limits in your science analysis.</p>
+<hr class="docutils" />
+<p><strong>Q: How do I know which model type was assigned to a source?</strong></p>
+<p>Check the <code class="docutils literal notranslate"><span class="pre">name</span></code> field in <code class="docutils literal notranslate"><span class="pre">brick.model_catalog[source_id]</span></code>. Values are:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">'PointSource'</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'SimpleGalaxy'</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'ExpGalaxy'</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'DevGalaxy'</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'FixedCompositeGalaxy'</span></code></p></li>
+</ul>
+<p>In the output FITS catalog, morphological columns (<code class="docutils literal notranslate"><span class="pre">logre</span></code>, <code class="docutils literal notranslate"><span class="pre">reff</span></code>, <code class="docutils literal notranslate"><span class="pre">ellip</span></code>, etc.) are <code class="docutils literal notranslate"><span class="pre">-99</span></code> for point sources.</p>
+<hr class="docutils" />
+<p><strong>Q: Can I force all sources to be treated as point sources?</strong></p>
+<p>Yes. In your config, set the decision tree to stop after stage 0 by effectively making the transition cost very high:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">SIMPLEGALAXY_PENALTY</span> <span class="o">=</span> <span class="mf">1e10</span>
+<span class="n">SUFFICIENT_THRESH</span>    <span class="o">=</span> <span class="mf">1e10</span>
+</pre></div>
+</div>
+<p>Alternatively, call <code class="docutils literal notranslate"><span class="pre">brick.process_groups(mode='photometry')</span></code> on a brick where all sources are already initialized as PointSource models.</p>
+<hr class="docutils" />
+<p><strong>Q: Can I use Ceres Solver instead of the default optimizer?</strong></p>
+<p>Yes, if you have the Ceres Python bindings installed:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">USE_CERES</span> <span class="o">=</span> <span class="kc">True</span>
+</pre></div>
+</div>
+<p>The Ceres Solver is generally faster on large groups but requires the optional <code class="docutils literal notranslate"><span class="pre">ceres</span></code> package. If it is not available or encounters a fatal error, The Farmer logs the failure and falls back to the constrained optimizer. Check the log for <code class="docutils literal notranslate"><span class="pre">CERES</span></code> messages.</p>
+<hr class="docutils" />
+<p><strong>Q: A group is taking forever. Can I set a timeout?</strong></p>
+<p>Yes:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">GROUP_TIMEOUT</span> <span class="o">=</span> <span class="mi">120</span>   <span class="c1"># 2 minutes per group</span>
+</pre></div>
+</div>
+<p>Groups that exceed the timeout are skipped and logged at <code class="docutils literal notranslate"><span class="pre">WARNING</span></code> level. Set <code class="docutils literal notranslate"><span class="pre">IGNORE_FAILURES</span> <span class="pre">=</span> <span class="pre">True</span></code> (the default) to continue processing remaining groups.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Timeout protection uses <code class="docutils literal notranslate"><span class="pre">signal.alarm</span></code>, which is <strong>Unix-only</strong> (Linux and macOS).
+On Windows, <code class="docutils literal notranslate"><span class="pre">GROUP_TIMEOUT</span></code> is parsed but ignored — timeouts will not fire.</p>
+</div>
+<hr class="docutils" />
+<p><strong>Q: I want to fit in only one band. How?</strong></p>
+<p>Set <code class="docutils literal notranslate"><span class="pre">MODEL_BANDS</span></code> to a list with just that band:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">MODEL_BANDS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;hsc_i&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>All sources will be modeled using only the HSC i-band image. Fluxes in other bands are measured with frozen morphologies during the photometry stage.</p>
+<hr class="docutils" />
+<p><strong>Q: How are position uncertainties computed?</strong></p>
+<p>The Farmer extracts parameter covariances from the diagonal of the inverse Hessian of the log-likelihood at the optimum. These are formal 1σ uncertainties assuming Gaussian noise and a well-determined minimum — they do not account for PSF model errors, background estimation errors, or other systematic effects.</p>
+</section>
+<hr class="docutils" />
+<section id="performance">
+<h2>Performance<a class="headerlink" href="#performance" title="Link to this heading"></a></h2>
+<p><strong>Q: The run is much slower than expected. What are the bottlenecks?</strong></p>
+<p>The main performance levers are:</p>
+<ol class="arabic simple">
+<li><p><strong>Parallelism</strong> — set <code class="docutils literal notranslate"><span class="pre">NCPUS</span> <span class="pre">&gt;</span> <span class="pre">0</span></code> to use multiple cores. Typical speedup is near-linear up to ~8 cores; communication overhead limits gains beyond that.</p></li>
+<li><p><strong>Group size</strong> — fitting a group of 5 sources in 3 bands is much slower than a lone point source. Reduce <code class="docutils literal notranslate"><span class="pre">GROUP_SIZE_LIMIT</span></code> or <code class="docutils literal notranslate"><span class="pre">DILATION_RADIUS</span></code> to create smaller groups.</p></li>
+<li><p><strong>Number of model bands</strong> — each additional band in <code class="docutils literal notranslate"><span class="pre">MODEL_BANDS</span></code> increases the per-step cost roughly linearly.</p></li>
+<li><p><strong>Optimizer iterations</strong> — reduce <code class="docutils literal notranslate"><span class="pre">MAX_STEPS</span></code> or increase <code class="docutils literal notranslate"><span class="pre">DLNP_CRIT</span></code> for faster (but potentially less well-converged) results.</p></li>
+<li><p><strong>IRAC / low-resolution bands</strong> — the WCS reprojection step for coarse-pixel bands can be slow. <code class="docutils literal notranslate"><span class="pre">FORCE_SIMPLE_MAPPING</span> <span class="pre">=</span> <span class="pre">True</span></code> accelerates it.</p></li>
+</ol>
+<hr class="docutils" />
+<p><strong>Q: How much memory does The Farmer use?</strong></p>
+<p>Memory usage scales with:</p>
+<ul class="simple">
+<li><p>Image size (width × height × bytes per pixel × number of bands)</p></li>
+<li><p>Number of bricks held in memory simultaneously (normally 1)</p></li>
+<li><p>Number of parallel workers × group cutout size</p></li>
+</ul>
+<p>A single brick with 4 bands at 0.15″/pixel and a 10′ × 10′ footprint uses roughly 500 MB. Use <code class="docutils literal notranslate"><span class="pre">detect_sources_lite(cleanup=True)</span></code> or call <code class="docutils literal notranslate"><span class="pre">brick.cleanup_after_detection()</span></code> / <code class="docutils literal notranslate"><span class="pre">brick.cleanup_after_modeling()</span></code> to free memory between stages.</p>
+</section>
+<hr class="docutils" />
+<section id="output-catalogs">
+<h2>Output &amp; Catalogs<a class="headerlink" href="#output-catalogs" title="Link to this heading"></a></h2>
+<p><strong>Q: What magnitude system does The Farmer use?</strong></p>
+<p>AB magnitudes, computed as:</p>
+<div class="math notranslate nohighlight">
+\[m_{\rm AB} = {\rm zeropoint} - 2.5 \log_{10}(f)\]</div>
+<p>where <code class="docutils literal notranslate"><span class="pre">f</span></code> is the fitted flux in the native image units. The zeropoint is set per band via the <code class="docutils literal notranslate"><span class="pre">'zeropoint'</span></code> key in the band configuration.</p>
+<hr class="docutils" />
+<p><strong>Q: How do I combine catalogs from multiple bricks?</strong></p>
+<p>Stack the FITS tables with <code class="docutils literal notranslate"><span class="pre">astropy.table.vstack</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">astropy.table</span><span class="w"> </span><span class="kn">import</span> <span class="n">vstack</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">astropy.io.fits</span><span class="w"> </span><span class="kn">import</span> <span class="nb">open</span> <span class="k">as</span> <span class="n">fits_open</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">glob</span>
+
+<span class="n">catalogs</span> <span class="o">=</span> <span class="p">[</span><span class="n">Table</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s1">&#39;data/output/catalogs/B*.fits&#39;</span><span class="p">))]</span>
+<span class="n">full_catalog</span> <span class="o">=</span> <span class="n">vstack</span><span class="p">(</span><span class="n">catalogs</span><span class="p">)</span>
+<span class="n">full_catalog</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;full_catalog.fits&#39;</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Source IDs are unique within a brick but may repeat across bricks. Add a composite key <code class="docutils literal notranslate"><span class="pre">brick_id</span> <span class="pre">*</span> <span class="pre">1000000</span> <span class="pre">+</span> <span class="pre">id</span></code> for a globally unique identifier.</p>
+<hr class="docutils" />
+<p><strong>Q: I want to use the FITS catalogs in DS9. Is there a region file?</strong></p>
+<p>Yes. After detection, The Farmer writes a DS9 region file to <code class="docutils literal notranslate"><span class="pre">PATH_ANCILLARY/B{brick_id}_detection_science_objects.reg</span></code>. Load it in DS9 with <code class="docutils literal notranslate"><span class="pre">Region</span> <span class="pre">→</span> <span class="pre">Load</span> <span class="pre">Region</span></code>.</p>
+</section>
+<hr class="docutils" />
+<section id="citing-the-farmer">
+<h2>Citing The Farmer<a class="headerlink" href="#citing-the-farmer" title="Link to this heading"></a></h2>
+<p><strong>Q: What should I cite when using The Farmer?</strong></p>
+<p>Please cite <a class="reference external" href="https://ui.adsabs.harvard.edu/abs/2023arXiv231007757W/abstract">Weaver et al. 2023</a> (the algorithm paper) and <a class="reference external" href="https://ui.adsabs.harvard.edu/abs/2016ascl.soft04008L/abstract">Lang et al. 2016</a> (The Tractor).</p>
+<p>If your work uses COSMOS2020 photometry, also cite <a class="reference external" href="https://ui.adsabs.harvard.edu/abs/2022ApJS..258...11W/abstract">Weaver et al. 2022</a>.</p>
+<hr class="docutils" />
+<p><strong>Q: The GitHub repository has a “TheFarmer_v1” branch. Which version should I use?</strong></p>
+<p>Use the <code class="docutils literal notranslate"><span class="pre">master</span></code> branch (this version, v2.x). Version 1 corresponds to the code described in the Weaver et al. 2023 paper and is kept for reproducibility only. Version 2 includes significant performance improvements, better memory management, parallel processing, and expanded model support.</p>
+</section>
+<hr class="docutils" />
+<section id="output-interpretation">
+<h2>Output &amp; Interpretation<a class="headerlink" href="#output-interpretation" title="Link to this heading"></a></h2>
+<p><strong>Q: My reduced chi-squared values are much greater than 1. What does that mean?</strong></p>
+<p>Large reduced chi-squared (<code class="docutils literal notranslate"><span class="pre">rchisq</span></code> ≫ 1) can indicate:</p>
+<ul class="simple">
+<li><p>The fitted profile is a poor match to the source morphology (e.g., a strongly irregular galaxy forced into an exponential profile).</p></li>
+<li><p>The PSF model is inaccurate — even a small PSF error dominates for bright compact sources.</p></li>
+<li><p>Neighboring sources were inadequately deblended, leaving residual flux in the segment.</p></li>
+<li><p>The weight map underestimates the true noise (e.g., correlated noise from drizzling).</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">rchisq</span></code> ≲ 2 is generally acceptable. Sources with <code class="docutils literal notranslate"><span class="pre">rchisq</span></code> &gt; 10 should be treated with caution.</p>
+<hr class="docutils" />
+<p><strong>Q: What does</strong> <code class="docutils literal notranslate"><span class="pre">flag</span> <span class="pre">=</span> <span class="pre">1</span></code> <strong>mean in the output catalog?</strong></p>
+<p>The flag column records fitting issues. A non-zero value indicates the group was skipped, the optimizer did not converge, or the source was assigned a fallback model. Check <code class="docutils literal notranslate"><span class="pre">model_tracker</span></code> for the per-stage chi-squared history to diagnose convergence problems.</p>
+<hr class="docutils" />
+<p><strong>Q: Fluxes in one band look systematically wrong. How do I diagnose this?</strong></p>
+<ol class="arabic simple">
+<li><p>Check <code class="docutils literal notranslate"><span class="pre">PLOT</span> <span class="pre">&gt;</span> <span class="pre">1</span></code> to generate group-level residual images and visually inspect the fit.</p></li>
+<li><p>Verify the zeropoint: fluxes are in native image units; check the <code class="docutils literal notranslate"><span class="pre">'zeropoint'</span></code> key.</p></li>
+<li><p>Verify the PSF model matches the actual image PSF — a mismatch biases fluxes for compact sources.</p></li>
+<li><p>Check that background subtraction is appropriate: <code class="docutils literal notranslate"><span class="pre">backtype</span> <span class="pre">=</span> <span class="pre">'flat'</span></code> with <code class="docutils literal notranslate"><span class="pre">backregion</span> <span class="pre">=</span> <span class="pre">'mosaic'</span></code> works for most ground-based images, but extended emission can require a per-brick background.</p></li>
+</ol>
+</section>
+<hr class="docutils" />
+<section id="getting-help">
+<h2>Getting Help<a class="headerlink" href="#getting-help" title="Link to this heading"></a></h2>
+<p><strong>Q: Where should I report bugs?</strong></p>
+<p>Open an issue at <a class="reference external" href="https://github.com/astroweaver/farmer/issues">https://github.com/astroweaver/farmer/issues</a>. Please include the full traceback, your Python and package versions, and a minimal reproducer if possible.</p>
+<p><strong>Q: I want to use The Farmer for my survey. Who should I contact?</strong></p>
+<p>Email <a class="reference external" href="mailto:john&#46;weaver&#46;astro&#37;&#52;&#48;gmail&#46;com">john<span>&#46;</span>weaver<span>&#46;</span>astro<span>&#64;</span>gmail<span>&#46;</span>com</a>. We are happy to help you adapt the configuration to your specific data and suggest PSF preparation strategies.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="api/utils.html" class="btn btn-neutral float-left" title="farmer.utils — Utilities" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2018-2026, John Weaver.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

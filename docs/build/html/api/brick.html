@@ -1,0 +1,450 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>farmer.brick — Brick &mdash; The Farmer 2.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=20623aea"></script>
+      <script src="../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=f281be69"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="farmer.group — Group" href="group.html" />
+    <link rel="prev" title="farmer.mosaic — Mosaic" href="mosaic.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            The Farmer
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quick Start</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../configuration.html">Configuration Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pipeline.html">Pipeline Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="farmer.html"><code class="docutils literal notranslate"><span class="pre">farmer</span></code> — Top-Level API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mosaic.html"><code class="docutils literal notranslate"><span class="pre">farmer.mosaic</span></code> — Mosaic</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">farmer.brick</span></code> — Brick</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#farmer.brick.Brick"><code class="docutils literal notranslate"><span class="pre">Brick</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.brick.Brick.__init__"><code class="docutils literal notranslate"><span class="pre">Brick.__init__()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.brick.Brick._condition_band_data"><code class="docutils literal notranslate"><span class="pre">Brick._condition_band_data()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.brick.Brick._condition_all_bands"><code class="docutils literal notranslate"><span class="pre">Brick._condition_all_bands()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.brick.Brick.get_figprefix"><code class="docutils literal notranslate"><span class="pre">Brick.get_figprefix()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.brick.Brick.get_bands"><code class="docutils literal notranslate"><span class="pre">Brick.get_bands()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.brick.Brick.summary"><code class="docutils literal notranslate"><span class="pre">Brick.summary()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.brick.Brick.add_band"><code class="docutils literal notranslate"><span class="pre">Brick.add_band()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.brick.Brick.extract"><code class="docutils literal notranslate"><span class="pre">Brick.extract()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.brick.Brick.identify_groups"><code class="docutils literal notranslate"><span class="pre">Brick.identify_groups()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.brick.Brick.spawn_group"><code class="docutils literal notranslate"><span class="pre">Brick.spawn_group()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.brick.Brick.detect_sources"><code class="docutils literal notranslate"><span class="pre">Brick.detect_sources()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.brick.Brick.process_groups"><code class="docutils literal notranslate"><span class="pre">Brick.process_groups()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.brick.Brick.absorb"><code class="docutils literal notranslate"><span class="pre">Brick.absorb()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="group.html"><code class="docutils literal notranslate"><span class="pre">farmer.group</span></code> — Group</a></li>
+<li class="toctree-l1"><a class="reference internal" href="baseimage.html"><code class="docutils literal notranslate"><span class="pre">farmer.image</span></code> — BaseImage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html"><code class="docutils literal notranslate"><span class="pre">farmer.utils</span></code> — Utilities</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Help &amp; Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">The Farmer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">API Reference</a></li>
+      <li class="breadcrumb-item active"><code class="docutils literal notranslate"><span class="pre">farmer.brick</span></code> — Brick</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/brick.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-farmer.brick">
+<span id="farmer-brick-brick"></span><h1><code class="docutils literal notranslate"><span class="pre">farmer.brick</span></code> — Brick<a class="headerlink" href="#module-farmer.brick" title="Link to this heading"></a></h1>
+<p>A <a class="reference internal" href="#farmer.brick.Brick" title="farmer.brick.Brick"><code class="xref py py-class docutils literal notranslate"><span class="pre">Brick</span></code></a> is a rectangular cutout of the survey mosaic at a fixed sky
+position. It aggregates data from multiple bands, runs source detection,
+manages source groups, and absorbs fitting results. Each brick is persisted to
+an HDF5 file under <code class="docutils literal notranslate"><span class="pre">PATH_BRICKS</span></code>.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="farmer.brick.Brick">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">farmer.brick.</span></span><span class="sig-name descname"><span class="pre">Brick</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">brick_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">position</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">load</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">silent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/brick.html#Brick"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.brick.Brick" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="baseimage.html#farmer.image.BaseImage" title="farmer.image.BaseImage"><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseImage</span></code></a></p>
+<p>A spatial tile of the survey mosaic used for parallel source detection and photometry.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.brick.Brick.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">brick_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">position</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">load</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">silent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/farmer/brick.html#Brick.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.brick.Brick.__init__" title="Link to this definition"></a></dt>
+<dd><p>Initialise a Brick, either by loading from disk or creating fresh.</p>
+<p>A brick is a spatial sub-region of the full mosaic used for parallel
+processing.  When <code class="docutils literal notranslate"><span class="pre">load</span></code> is True the object is populated from an
+existing HDF5 file named <code class="docutils literal notranslate"><span class="pre">B{brick_id}[_{tag}].h5</span></code> in
+<code class="docutils literal notranslate"><span class="pre">conf.PATH_BRICKS</span></code>; otherwise a blank brick is built from the given
+position/size or looked up from the detection WCS via <code class="docutils literal notranslate"><span class="pre">brick_id</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>brick_id</strong> – Integer brick identifier (1-indexed on the
+<code class="docutils literal notranslate"><span class="pre">conf.N_BRICKS</span></code> grid).  Mutually exclusive with providing
+both <code class="docutils literal notranslate"><span class="pre">position</span></code> and <code class="docutils literal notranslate"><span class="pre">size</span></code>.</p></li>
+<li><p><strong>position</strong> – <code class="docutils literal notranslate"><span class="pre">astropy.coordinates.SkyCoord</span></code> of the brick centre.
+Used only when <code class="docutils literal notranslate"><span class="pre">brick_id</span></code> is None.</p></li>
+<li><p><strong>size</strong> – <code class="docutils literal notranslate"><span class="pre">(dec_height,</span> <span class="pre">ra_width)</span></code> tuple of
+<code class="docutils literal notranslate"><span class="pre">astropy.units.Quantity</span></code> angles giving the brick size.
+Used only when <code class="docutils literal notranslate"><span class="pre">brick_id</span></code> is None.</p></li>
+<li><p><strong>load</strong> – If True, load an existing HDF5 brick file from disk.
+Defaults to True.</p></li>
+<li><p><strong>silent</strong> – If True, suppress informational log messages.
+Defaults to False.</p></li>
+<li><p><strong>tag</strong> – Optional string appended to the filename as <code class="docutils literal notranslate"><span class="pre">_{tag}</span></code>.
+Defaults to None.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.14)"><strong>RuntimeError</strong></a> – If both <code class="docutils literal notranslate"><span class="pre">brick_id</span></code> and <code class="docutils literal notranslate"><span class="pre">position</span></code>/<code class="docutils literal notranslate"><span class="pre">size</span></code>
+    are supplied simultaneously.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.brick.Brick._condition_band_data">
+<span class="sig-name descname"><span class="pre">_condition_band_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">band</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/brick.html#Brick._condition_band_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.brick.Brick._condition_band_data" title="Link to this definition"></a></dt>
+<dd><p>Sanitise a single band’s image arrays at ingest or load time.</p>
+<p>Enforces three invariants required by the rest of the pipeline:</p>
+<ol class="arabic simple">
+<li><p>The science array contains no NaN or Inf values (replaced with 0).</p></li>
+<li><p>The mask array is strictly boolean (non-zero → True).</p></li>
+<li><p>Weight values are non-negative and finite; pixels that are bad in
+science or masked are zeroed in the weight array.</p></li>
+</ol>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>band</strong> – Band name (key in <code class="docutils literal notranslate"><span class="pre">self.data</span></code>) to condition in place.
+Returns immediately if the band or its science array is
+absent.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.brick.Brick._condition_all_bands">
+<span class="sig-name descname"><span class="pre">_condition_all_bands</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/brick.html#Brick._condition_all_bands"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.brick.Brick._condition_all_bands" title="Link to this definition"></a></dt>
+<dd><p>Sanitise every band currently registered on this brick.</p>
+<p>Calls <a class="reference internal" href="#farmer.brick.Brick._condition_band_data" title="farmer.brick.Brick._condition_band_data"><code class="xref py py-meth docutils literal notranslate"><span class="pre">_condition_band_data()</span></code></a> for each entry in <code class="docutils literal notranslate"><span class="pre">self.bands</span></code>.
+Used after loading a brick from HDF5 to ensure data integrity.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.brick.Brick.get_figprefix">
+<span class="sig-name descname"><span class="pre">get_figprefix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">imgtype</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">band</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/brick.html#Brick.get_figprefix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.brick.Brick.get_figprefix" title="Link to this definition"></a></dt>
+<dd><p>Generate filename prefix for output figures.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>imgtype</strong> – Type of image (e.g., ‘science’, ‘model’, ‘residual’)</p></li>
+<li><p><strong>band</strong> – Band name</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Filename prefix in format ‘B{brick_id}_{band}_{imgtype}’</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.brick.Brick.get_bands">
+<span class="sig-name descname"><span class="pre">get_bands</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/brick.html#Brick.get_bands"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.brick.Brick.get_bands" title="Link to this definition"></a></dt>
+<dd><p>Get list of bands available in this brick.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy array of band names</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.brick.Brick.summary">
+<span class="sig-name descname"><span class="pre">summary</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/brick.html#Brick.summary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.brick.Brick.summary" title="Link to this definition"></a></dt>
+<dd><p>Print a human-readable summary of this brick to stdout.</p>
+<p>Reports the brick’s sky position, angular size (with and without
+buffer), the list of loaded bands, and per-band image statistics
+(sum, mean, median, std) and properties.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.brick.Brick.add_band">
+<span class="sig-name descname"><span class="pre">add_band</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mosaic</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overwrite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/brick.html#Brick.add_band"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.brick.Brick.add_band" title="Link to this definition"></a></dt>
+<dd><p>Cut out and attach a band from a full-field mosaic to this brick.</p>
+<p>Takes a <code class="docutils literal notranslate"><span class="pre">Mosaic</span></code> object, extracts a <code class="docutils literal notranslate"><span class="pre">Cutout2D</span></code> for each image
+type (science, weight, mask, background, rms) centred on this brick
+including its buffer, and registers the PSF model list.  Dummy
+zero-valued arrays are created for any image type not present in the
+mosaic.  After ingestion, <a class="reference internal" href="#farmer.brick.Brick._condition_band_data" title="farmer.brick.Brick._condition_band_data"><code class="xref py py-meth docutils literal notranslate"><span class="pre">_condition_band_data()</span></code></a> is called to
+sanitise the arrays.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mosaic</strong> – <code class="docutils literal notranslate"><span class="pre">Mosaic</span></code> object with pre-loaded image data for a
+single band.</p></li>
+<li><p><strong>overwrite</strong> – If True, re-add the band even if it already exists
+on the brick.  Defaults to False.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>None. Returns early with a warning if the mosaic has no overlap
+with the brick footprint or if the band already exists and
+<code class="docutils literal notranslate"><span class="pre">overwrite</span></code> is False.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.brick.Brick.extract">
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'detection'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">imgtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'science'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">background</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/brick.html#Brick.extract"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.brick.Brick.extract" title="Link to this definition"></a></dt>
+<dd><p>Run source extraction on a band and store the resulting catalog.</p>
+<p>Calls the base-class <code class="docutils literal notranslate"><span class="pre">_extract</span></code> method to detect sources, then
+masks sources that fall within the brick buffer zone (those
+detections that would be double-counted by adjacent bricks), adds
+<code class="docutils literal notranslate"><span class="pre">id</span></code>, <code class="docutils literal notranslate"><span class="pre">brick_id</span></code>, <code class="docutils literal notranslate"><span class="pre">ra</span></code>, and <code class="docutils literal notranslate"><span class="pre">dec</span></code> columns to the catalog,
+saves the segmentation map, and writes a DS9 regions file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>band</strong> – Band name to detect sources in. Defaults to
+<code class="docutils literal notranslate"><span class="pre">'detection'</span></code>.</p></li>
+<li><p><strong>imgtype</strong> – Image type to run extraction on. Defaults to
+<code class="docutils literal notranslate"><span class="pre">'science'</span></code>.</p></li>
+<li><p><strong>background</strong> – Pre-computed background array to subtract before
+detection.  When None and the band’s <code class="docutils literal notranslate"><span class="pre">subtract_background</span></code>
+property is True, the background is fetched automatically.
+Defaults to None.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>None. Populates <code class="docutils literal notranslate"><span class="pre">self.catalogs[band][imgtype]</span></code>,
+<code class="docutils literal notranslate"><span class="pre">self.data[band]['segmap']</span></code>, and <code class="docutils literal notranslate"><span class="pre">self.n_sources[band][imgtype]</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.brick.Brick.identify_groups">
+<span class="sig-name descname"><span class="pre">identify_groups</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'detection'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">imgtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'science'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">radius</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">conf.DILATION_RADIUS</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overwrite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/brick.html#Brick.identify_groups"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.brick.Brick.identify_groups" title="Link to this definition"></a></dt>
+<dd><p>Group nearby sources by morphologically dilating the segmentation map.</p>
+<p>Converts <code class="docutils literal notranslate"><span class="pre">radius</span></code> from arcsec to pixels using the detection WCS,
+calls <a class="reference internal" href="utils.html#farmer.utils.dilate_and_group" title="farmer.utils.dilate_and_group"><code class="xref py py-func docutils literal notranslate"><span class="pre">dilate_and_group()</span></code></a>, and stores the resulting
+<code class="docutils literal notranslate"><span class="pre">group_id</span></code> and <code class="docutils literal notranslate"><span class="pre">group_pop</span></code> columns in the catalog as well as the
+2-D group map as a <code class="docutils literal notranslate"><span class="pre">Cutout2D</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>band</strong> – Band whose catalog and segmap to process.
+Defaults to <code class="docutils literal notranslate"><span class="pre">'detection'</span></code>.</p></li>
+<li><p><strong>imgtype</strong> – Image type key in the catalog dictionary.
+Defaults to <code class="docutils literal notranslate"><span class="pre">'science'</span></code>.</p></li>
+<li><p><strong>radius</strong> – Dilation radius as an <code class="docutils literal notranslate"><span class="pre">astropy.units.Quantity</span></code> angle.
+Defaults to <code class="docutils literal notranslate"><span class="pre">conf.DILATION_RADIUS</span></code>.</p></li>
+<li><p><strong>overwrite</strong> – If True, replace existing <code class="docutils literal notranslate"><span class="pre">group_id</span></code>/<code class="docutils literal notranslate"><span class="pre">group_pop</span></code>
+columns; if False, add them as new columns.
+Defaults to False.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.brick.Brick.spawn_group">
+<span class="sig-name descname"><span class="pre">spawn_group</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">imgtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'science'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">silent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/brick.html#Brick.spawn_group"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.brick.Brick.spawn_group" title="Link to this definition"></a></dt>
+<dd><p>Instantiate a <code class="docutils literal notranslate"><span class="pre">Group</span></code> from this brick for a single source group.</p>
+<p>Creates a <code class="docutils literal notranslate"><span class="pre">Group</span></code> object centred on the group’s bounding box,
+cuts out all requested bands, validates that segment pixel
+coordinates are in bounds, enforces the <code class="docutils literal notranslate"><span class="pre">conf.GROUP_SIZE_LIMIT</span></code>,
+transfers model catalog entries and tracking history from the brick,
+and returns the ready-to-process group.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>group_id</strong> – Integer identifier of the group to spawn.</p></li>
+<li><p><strong>imgtype</strong> – Image type used to look up catalog group membership.
+Defaults to <code class="docutils literal notranslate"><span class="pre">'science'</span></code>.</p></li>
+<li><p><strong>bands</strong> – List of band names to include in the group.  <code class="docutils literal notranslate"><span class="pre">None</span></code>
+includes all bands available on the brick.
+Defaults to None.</p></li>
+<li><p><strong>silent</strong> – If True, suppress informational log messages.
+Defaults to False.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Populated group object.  <code class="docutils literal notranslate"><span class="pre">group.rejected</span></code> is True if</dt><dd><p>the group has no pixels, exceeds the size limit, or has
+out-of-bounds segment pixels.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="group.html#farmer.group.Group" title="farmer.group.Group">Group</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.brick.Brick.detect_sources">
+<span class="sig-name descname"><span class="pre">detect_sources</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'detection'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">imgtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'science'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/brick.html#Brick.detect_sources"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.brick.Brick.detect_sources" title="Link to this definition"></a></dt>
+<dd><p>Run the full source detection pipeline on this brick.</p>
+<p>Calls <a class="reference internal" href="#farmer.brick.Brick.extract" title="farmer.brick.Brick.extract"><code class="xref py py-meth docutils literal notranslate"><span class="pre">extract()</span></code></a> to detect sources and build the segmentation
+map, <a class="reference internal" href="#farmer.brick.Brick.identify_groups" title="farmer.brick.Brick.identify_groups"><code class="xref py py-meth docutils literal notranslate"><span class="pre">identify_groups()</span></code></a> to assign group memberships, and
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">transfer_maps()</span></code> to propagate the maps to photometric bands.
+Optionally plots the science image when <code class="docutils literal notranslate"><span class="pre">conf.PLOT</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>band</strong> – Band to run detection on. Defaults to <code class="docutils literal notranslate"><span class="pre">'detection'</span></code>.</p></li>
+<li><p><strong>imgtype</strong> – Image type to process. Defaults to <code class="docutils literal notranslate"><span class="pre">'science'</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The detection catalog for this brick.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.astropy.org/en/stable/api/astropy.table.Table.html#astropy.table.Table" title="(in Astropy v7.2)">astropy.table.Table</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.brick.Brick.process_groups">
+<span class="sig-name descname"><span class="pre">process_groups</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group_ids</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">imgtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'science'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'all'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/brick.html#Brick.process_groups"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.brick.Brick.process_groups" title="Link to this definition"></a></dt>
+<dd><p>Model and/or measure photometry for all (or specified) groups.</p>
+<p>Spawns each group in turn and passes it to <a class="reference internal" href="utils.html#farmer.utils.run_group" title="farmer.utils.run_group"><code class="xref py py-func docutils literal notranslate"><span class="pre">run_group()</span></code></a>.
+When <code class="docutils literal notranslate"><span class="pre">conf.NCPUS</span> <span class="pre">&gt;</span> <span class="pre">1</span></code> and more than one group is requested, groups
+are processed in parallel via <code class="docutils literal notranslate"><span class="pre">pathos.pools.ProcessPool</span></code> with a
+lazy generator to keep peak memory usage low.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>group_ids</strong> – Integer group ID(s) to process.  <code class="docutils literal notranslate"><span class="pre">None</span></code> processes
+all groups in the detection catalog. Defaults to None.</p></li>
+<li><p><strong>imgtype</strong> – Image type used to look up catalog group membership.
+Defaults to <code class="docutils literal notranslate"><span class="pre">'science'</span></code>.</p></li>
+<li><p><strong>bands</strong> – Band names to include in each group.  <code class="docutils literal notranslate"><span class="pre">None</span></code> uses all
+bands on the brick.  Overridden to <code class="docutils literal notranslate"><span class="pre">['detection']</span></code> when
+<code class="docutils literal notranslate"><span class="pre">mode='pass'</span></code>. Defaults to None.</p></li>
+<li><p><strong>mode</strong> – Processing mode forwarded to <a class="reference internal" href="utils.html#farmer.utils.run_group" title="farmer.utils.run_group"><code class="xref py py-func docutils literal notranslate"><span class="pre">run_group()</span></code></a>
+— one of <code class="docutils literal notranslate"><span class="pre">'all'</span></code>, <code class="docutils literal notranslate"><span class="pre">'model'</span></code>, <code class="docutils literal notranslate"><span class="pre">'photometry'</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">'pass'</span></code>. Defaults to <code class="docutils literal notranslate"><span class="pre">'all'</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.brick.Brick.absorb">
+<span class="sig-name descname"><span class="pre">absorb</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/brick.html#Brick.absorb"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.brick.Brick.absorb" title="Link to this definition"></a></dt>
+<dd><p>Merge a processed group’s results back into this brick.</p>
+<p>Accepts the <code class="docutils literal notranslate"><span class="pre">(group_id,</span> <span class="pre">model_catalog,</span> <span class="pre">model_tracker)</span></code> tuple
+returned by <a class="reference internal" href="utils.html#farmer.utils.run_group" title="farmer.utils.run_group"><code class="xref py py-func docutils literal notranslate"><span class="pre">run_group()</span></code></a> and copies each source’s
+model and tracking entry into the brick-level dictionaries.
+Group-level tracker entries (keyed <code class="docutils literal notranslate"><span class="pre">'group'</span></code>) are stored separately
+in <code class="docutils literal notranslate"><span class="pre">self.model_tracker_groups</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>group</strong> – Tuple <code class="docutils literal notranslate"><span class="pre">(group_id,</span> <span class="pre">model_catalog,</span> <span class="pre">model_tracker)</span></code> as
+returned by <a class="reference internal" href="utils.html#farmer.utils.run_group" title="farmer.utils.run_group"><code class="xref py py-func docutils literal notranslate"><span class="pre">run_group()</span></code></a>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="mosaic.html" class="btn btn-neutral float-left" title="farmer.mosaic — Mosaic" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="group.html" class="btn btn-neutral float-right" title="farmer.group — Group" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2018-2026, John Weaver.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

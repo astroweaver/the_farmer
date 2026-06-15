@@ -1,0 +1,867 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>farmer.brick &mdash; The Farmer 2.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=20623aea"></script>
+      <script src="../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            The Farmer
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quick Start</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../configuration.html">Configuration Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../pipeline.html">Pipeline Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/farmer.html"><code class="docutils literal notranslate"><span class="pre">farmer</span></code> — Top-Level API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/mosaic.html"><code class="docutils literal notranslate"><span class="pre">farmer.mosaic</span></code> — Mosaic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/brick.html"><code class="docutils literal notranslate"><span class="pre">farmer.brick</span></code> — Brick</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/group.html"><code class="docutils literal notranslate"><span class="pre">farmer.group</span></code> — Group</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/baseimage.html"><code class="docutils literal notranslate"><span class="pre">farmer.image</span></code> — BaseImage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/utils.html"><code class="docutils literal notranslate"><span class="pre">farmer.utils</span></code> — Utilities</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Help &amp; Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../faq.html">Frequently Asked Questions</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">The Farmer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../farmer.html">farmer</a></li>
+      <li class="breadcrumb-item active">farmer.brick</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for farmer.brick</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">config</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">conf</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.image</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseImage</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_brick_position</span><span class="p">,</span> <span class="n">dilate_and_group</span><span class="p">,</span> <span class="n">clean_catalog</span><span class="p">,</span> <span class="n">build_regions</span><span class="p">,</span> <span class="n">run_group</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.group</span><span class="w"> </span><span class="kn">import</span> <span class="n">Group</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span><span class="o">,</span><span class="w"> </span><span class="nn">time</span><span class="o">,</span><span class="w"> </span><span class="nn">gc</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">partial</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">astropy.nddata</span><span class="w"> </span><span class="kn">import</span> <span class="n">Cutout2D</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">astropy.units</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">u</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathos.pools</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProcessPool</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">copy</span><span class="w"> </span><span class="kn">import</span> <span class="n">copy</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">astropy.wcs.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">proj_plane_pixel_scales</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tqdm</span>
+                
+
+
+<div class="viewcode-block" id="Brick">
+<a class="viewcode-back" href="../../api/brick.html#farmer.brick.Brick">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Brick</span><span class="p">(</span><span class="n">BaseImage</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A spatial tile of the survey mosaic used for parallel source detection and photometry.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Brick.__init__">
+<a class="viewcode-back" href="../../api/brick.html#farmer.brick.Brick.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">brick_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">position</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">load</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">silent</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">tag</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise a Brick, either by loading from disk or creating fresh.</span>
+
+<span class="sd">        A brick is a spatial sub-region of the full mosaic used for parallel</span>
+<span class="sd">        processing.  When ``load`` is True the object is populated from an</span>
+<span class="sd">        existing HDF5 file named ``B{brick_id}[_{tag}].h5`` in</span>
+<span class="sd">        ``conf.PATH_BRICKS``; otherwise a blank brick is built from the given</span>
+<span class="sd">        position/size or looked up from the detection WCS via ``brick_id``.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            brick_id: Integer brick identifier (1-indexed on the</span>
+<span class="sd">                ``conf.N_BRICKS`` grid).  Mutually exclusive with providing</span>
+<span class="sd">                both ``position`` and ``size``.</span>
+<span class="sd">            position: ``astropy.coordinates.SkyCoord`` of the brick centre.</span>
+<span class="sd">                Used only when ``brick_id`` is None.</span>
+<span class="sd">            size: ``(dec_height, ra_width)`` tuple of</span>
+<span class="sd">                ``astropy.units.Quantity`` angles giving the brick size.</span>
+<span class="sd">                Used only when ``brick_id`` is None.</span>
+<span class="sd">            load: If True, load an existing HDF5 brick file from disk.</span>
+<span class="sd">                Defaults to True.</span>
+<span class="sd">            silent: If True, suppress informational log messages.</span>
+<span class="sd">                Defaults to False.</span>
+<span class="sd">            tag: Optional string appended to the filename as ``_{tag}``.</span>
+<span class="sd">                Defaults to None.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            RuntimeError: If both ``brick_id`` and ``position``/``size``</span>
+<span class="sd">                are supplied simultaneously.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">brick_id</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">brick_id</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">brick_id</span> <span class="o">=</span> <span class="n">brick_id</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">stag</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+        <span class="k">if</span> <span class="n">tag</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">stag</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;_</span><span class="si">{</span><span class="n">tag</span><span class="si">}</span><span class="s1">&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">filename</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;B</span><span class="si">{</span><span class="n">brick_id</span><span class="si">}{</span><span class="n">stag</span><span class="si">}</span><span class="s1">.h5&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;farmer.brick_</span><span class="si">{</span><span class="n">brick_id</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="c1"># if silent:</span>
+        <span class="c1">#     self.logger.setLevel(logging.ERROR)</span>
+
+        <span class="k">if</span> <span class="n">load</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Trying to load brick from </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="si">}</span><span class="s1">...&#39;</span><span class="p">)</span>
+            <span class="n">attributes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">read_hdf5</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">attributes</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">attributes</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;  ... </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">_condition_all_bands</span><span class="p">()</span>
+
+            <span class="c1"># TODO cross-check with config</span>
+        
+        <span class="k">else</span><span class="p">:</span>
+
+            <span class="c1"># Housekeeping</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">brick_id</span> <span class="o">=</span> <span class="n">brick_id</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bands</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">wcs</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pixel_scales</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="p">{}</span> 
+            <span class="bp">self</span><span class="o">.</span><span class="n">headers</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">properties</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">catalogs</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="s1">&#39;brick&#39;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">n_sources</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">group_ids</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="c1"># self.group_pops = {}</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model_catalog</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model_tracker</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model_tracker_groups</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">catalog_band</span><span class="o">=</span><span class="s1">&#39;detection&#39;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">catalog_imgtype</span><span class="o">=</span><span class="s1">&#39;science&#39;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">phot_priors</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">PHOT_PRIORS</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model_priors</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">MODEL_PRIORS</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">conf</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">key</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+            
+            <span class="c1"># Position</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">brick_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">and</span> <span class="p">((</span><span class="n">position</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)):</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s1">&#39;Cannot create brick from BOTH brick_id AND position/size!&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">brick_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">position</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffsize</span> <span class="o">=</span> <span class="n">load_brick_position</span><span class="p">(</span><span class="n">brick_id</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">position</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="n">position</span><span class="p">,</span> <span class="n">size</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">buffsize</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="mi">2</span><span class="o">*</span><span class="n">conf</span><span class="o">.</span><span class="n">BRICK_BUFFER</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="mi">2</span><span class="o">*</span><span class="n">conf</span><span class="o">.</span><span class="n">BRICK_BUFFER</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Spawned brick #</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">brick_id</span><span class="si">}</span><span class="s1"> at (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">position</span><span class="o">.</span><span class="n">ra</span><span class="si">:</span><span class="s1">2.1f</span><span class="si">}</span><span class="s1">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">position</span><span class="o">.</span><span class="n">dec</span><span class="si">:</span><span class="s1">2.1f</span><span class="si">}</span><span class="s1">) with size </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">arcmin</span><span class="p">)</span><span class="si">:</span><span class="s1">2.3f</span><span class="si">}</span><span class="s1"> X </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">arcmin</span><span class="p">)</span><span class="si">:</span><span class="s1">2.3f</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="Brick._condition_band_data">
+<a class="viewcode-back" href="../../api/brick.html#farmer.brick.Brick._condition_band_data">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_condition_band_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">band</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Sanitise a single band&#39;s image arrays at ingest or load time.</span>
+
+<span class="sd">        Enforces three invariants required by the rest of the pipeline:</span>
+
+<span class="sd">        1. The science array contains no NaN or Inf values (replaced with 0).</span>
+<span class="sd">        2. The mask array is strictly boolean (non-zero → True).</span>
+<span class="sd">        3. Weight values are non-negative and finite; pixels that are bad in</span>
+<span class="sd">           science or masked are zeroed in the weight array.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            band: Band name (key in ``self.data``) to condition in place.</span>
+<span class="sd">                Returns immediately if the band or its science array is</span>
+<span class="sd">                absent.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">band</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="s1">&#39;science&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">band</span><span class="p">]:</span>
+            <span class="k">return</span>
+
+        <span class="n">science</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;science&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">data</span>
+        <span class="n">bad_science</span> <span class="o">=</span> <span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">science</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">bad_science</span><span class="p">):</span>
+            <span class="n">science</span><span class="p">[</span><span class="n">bad_science</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="n">mask_bool</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">science</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+        <span class="n">bad_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">science</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s1">&#39;mask&#39;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">band</span><span class="p">]:</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;mask&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">data</span>
+            <span class="c1"># Check dtype without converting to array</span>
+            <span class="k">if</span> <span class="n">mask</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="nb">bool</span><span class="p">:</span>
+                <span class="n">mask_bool</span> <span class="o">=</span> <span class="n">mask</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">bad_mask</span> <span class="o">=</span> <span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span>
+                <span class="n">mask_bool</span> <span class="o">=</span> <span class="p">(</span><span class="n">mask</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">bad_mask</span><span class="p">):</span>
+                    <span class="n">mask_bool</span><span class="p">[</span><span class="n">bad_mask</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;mask&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">mask_bool</span>
+
+        <span class="k">if</span> <span class="s1">&#39;weight&#39;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">band</span><span class="p">]:</span>
+            <span class="n">weight</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;weight&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">data</span>
+            <span class="n">bad_weight</span> <span class="o">=</span> <span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">weight</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">weight</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">bad_weight</span><span class="p">):</span>
+                <span class="n">weight</span><span class="p">[</span><span class="n">bad_weight</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">weight</span><span class="p">[</span><span class="n">bad_science</span> <span class="o">|</span> <span class="n">mask_bool</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">if</span> <span class="s1">&#39;mask&#39;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">band</span><span class="p">]:</span>
+                <span class="n">mask_bool</span> <span class="o">=</span> <span class="n">mask_bool</span> <span class="o">|</span> <span class="p">(</span><span class="n">weight</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;mask&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">mask_bool</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s1">&#39;Conditioned band </span><span class="si">{</span><span class="n">band</span><span class="si">}</span><span class="s1">: bad_sci=</span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">bad_science</span><span class="p">)</span><span class="si">}</span><span class="s1">, &#39;</span>
+            <span class="sa">f</span><span class="s1">&#39;bad_mask=</span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">bad_mask</span><span class="p">)</span><span class="si">}</span><span class="s1">, masked=</span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">mask_bool</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span>
+        <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="Brick._condition_all_bands">
+<a class="viewcode-back" href="../../api/brick.html#farmer.brick.Brick._condition_all_bands">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_condition_all_bands</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Sanitise every band currently registered on this brick.</span>
+
+<span class="sd">        Calls :meth:`_condition_band_data` for each entry in ``self.bands``.</span>
+<span class="sd">        Used after loading a brick from HDF5 to ensure data integrity.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">band</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">bands</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_condition_band_data</span><span class="p">(</span><span class="n">band</span><span class="p">)</span></div>
+
+
+
+
+<div class="viewcode-block" id="Brick.get_figprefix">
+<a class="viewcode-back" href="../../api/brick.html#farmer.brick.Brick.get_figprefix">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_figprefix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">imgtype</span><span class="p">,</span> <span class="n">band</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate filename prefix for output figures.</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            imgtype: Type of image (e.g., &#39;science&#39;, &#39;model&#39;, &#39;residual&#39;)</span>
+<span class="sd">            band: Band name</span>
+<span class="sd">            </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            str: Filename prefix in format &#39;B{brick_id}_{band}_{imgtype}&#39;</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s1">&#39;B</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">brick_id</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">band</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">imgtype</span><span class="si">}</span><span class="s1">&#39;</span></div>
+
+
+<div class="viewcode-block" id="Brick.get_bands">
+<a class="viewcode-back" href="../../api/brick.html#farmer.brick.Brick.get_bands">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_bands</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get list of bands available in this brick.</span>
+<span class="sd">        </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            numpy array of band names</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bands</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Brick.summary">
+<a class="viewcode-back" href="../../api/brick.html#farmer.brick.Brick.summary">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">summary</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Print a human-readable summary of this brick to stdout.</span>
+
+<span class="sd">        Reports the brick&#39;s sky position, angular size (with and without</span>
+<span class="sd">        buffer), the list of loaded bands, and per-band image statistics</span>
+<span class="sd">        (sum, mean, median, std) and properties.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Summary of brick </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">brick_id</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Located at (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">position</span><span class="o">.</span><span class="n">ra</span><span class="si">:</span><span class="s1">2.2f</span><span class="si">}</span><span class="s1">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">position</span><span class="o">.</span><span class="n">dec</span><span class="si">:</span><span class="s1">2.2f</span><span class="si">}</span><span class="s1">) with size </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s1">2.2f</span><span class="si">}</span><span class="s1"> x </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s1">2.2f</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;   (w/ buffer: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">buffsize</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s1">2.2f</span><span class="si">}</span><span class="s1"> x </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">buffsize</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s1">2.2f</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Has </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bands</span><span class="p">)</span><span class="si">}</span><span class="s1"> bands: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">bands</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">band</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">bands</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39; --- Data </span><span class="si">{</span><span class="n">band</span><span class="si">}</span><span class="s1"> ---&#39;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">imgtype</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">band</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">imgtype</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;psf&#39;</span><span class="p">):</span> 
+                    <span class="k">continue</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="n">imgtype</span><span class="p">],</span> <span class="nb">dict</span><span class="p">):</span> 
+                    <span class="k">continue</span>
+                <span class="n">img</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="n">imgtype</span><span class="p">]</span><span class="o">.</span><span class="n">data</span>
+                <span class="n">tsum</span><span class="p">,</span> <span class="n">mean</span><span class="p">,</span> <span class="n">med</span><span class="p">,</span> <span class="n">std</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nansum</span><span class="p">(</span><span class="n">img</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">img</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmedian</span><span class="p">(</span><span class="n">img</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nanstd</span><span class="p">(</span><span class="n">img</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;  </span><span class="si">{</span><span class="n">imgtype</span><span class="si">}</span><span class="s1"> ... </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="n">img</span><span class="p">)</span><span class="si">}</span><span class="s1"> ( </span><span class="si">{</span><span class="n">tsum</span><span class="si">:</span><span class="s1">2.2f</span><span class="si">}</span><span class="s1"> / </span><span class="si">{</span><span class="n">mean</span><span class="si">:</span><span class="s1">2.2f</span><span class="si">}</span><span class="s1"> / </span><span class="si">{</span><span class="n">med</span><span class="si">:</span><span class="s1">2.2f</span><span class="si">}</span><span class="s1"> / </span><span class="si">{</span><span class="n">std</span><span class="si">:</span><span class="s1">2.2f</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+            <span class="c1"># print(f&#39;--- Properties {band} ---&#39;)</span>
+            <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="n">band</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;  </span><span class="si">{</span><span class="n">attr</span><span class="si">}</span><span class="s1"> ... </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="n">attr</span><span class="p">]</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Brick.add_band">
+<a class="viewcode-back" href="../../api/brick.html#farmer.brick.Brick.add_band">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_band</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mosaic</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Cut out and attach a band from a full-field mosaic to this brick.</span>
+
+<span class="sd">        Takes a ``Mosaic`` object, extracts a ``Cutout2D`` for each image</span>
+<span class="sd">        type (science, weight, mask, background, rms) centred on this brick</span>
+<span class="sd">        including its buffer, and registers the PSF model list.  Dummy</span>
+<span class="sd">        zero-valued arrays are created for any image type not present in the</span>
+<span class="sd">        mosaic.  After ingestion, :meth:`_condition_band_data` is called to</span>
+<span class="sd">        sanitise the arrays.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            mosaic: ``Mosaic`` object with pre-loaded image data for a</span>
+<span class="sd">                single band.</span>
+<span class="sd">            overwrite: If True, re-add the band even if it already exists</span>
+<span class="sd">                on the brick.  Defaults to False.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            None. Returns early with a warning if the mosaic has no overlap</span>
+<span class="sd">            with the brick footprint or if the band already exists and</span>
+<span class="sd">            ``overwrite`` is False.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">overwrite</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">bands</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="si">}</span><span class="s1"> already exists in brick #</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">brick_id</span><span class="si">}</span><span class="s1">!&#39;</span><span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Loop over provided data</span>
+        <span class="k">for</span> <span class="n">imgtype</span> <span class="ow">in</span> <span class="n">mosaic</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">imgtype</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;science&#39;</span><span class="p">,</span> <span class="s1">&#39;weight&#39;</span><span class="p">,</span> <span class="s1">&#39;mask&#39;</span><span class="p">,</span> <span class="s1">&#39;background&#39;</span><span class="p">,</span> <span class="s1">&#39;rms&#39;</span><span class="p">,</span> <span class="s1">&#39;model&#39;</span><span class="p">,</span> <span class="s1">&#39;residual&#39;</span><span class="p">,</span> <span class="s1">&#39;chi&#39;</span><span class="p">):</span>
+                <span class="n">fill_value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+                <span class="k">if</span> <span class="n">imgtype</span> <span class="o">==</span> <span class="s1">&#39;mask&#39;</span><span class="p">:</span>
+                    <span class="n">fill_value</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">cutout</span> <span class="o">=</span> <span class="n">Cutout2D</span><span class="p">(</span><span class="n">mosaic</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">imgtype</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">position</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffsize</span><span class="p">,</span> <span class="n">wcs</span><span class="o">=</span><span class="n">mosaic</span><span class="o">.</span><span class="n">wcs</span><span class="p">,</span>
+                                    <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;partial&#39;</span><span class="p">,</span> <span class="n">fill_value</span> <span class="o">=</span> <span class="n">fill_value</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">imgtype</span> <span class="o">==</span> <span class="s1">&#39;science&#39;</span><span class="p">:</span>
+                        <span class="c1"># Add band information</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">headers</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">n_sources</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">catalogs</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">group_ids</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+                        <span class="c1"># self.group_pops[mosaic.band] = {}</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">bands</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">)</span>
+                <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">IndexError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="si">}</span><span class="s1"> mosaic has no overlap with detection footprint (</span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s1">)! Skipping band.&#39;</span><span class="p">)</span>
+                    <span class="k">return</span>
+
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;... data </span><span class="se">\&quot;</span><span class="si">{</span><span class="n">imgtype</span><span class="si">}</span><span class="se">\&quot;</span><span class="s1"> subimage cut from </span><span class="si">{</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="si">}</span><span class="s1"> at </span><span class="si">{</span><span class="n">cutout</span><span class="o">.</span><span class="n">input_position_original</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">][</span><span class="n">imgtype</span><span class="p">]</span> <span class="o">=</span> <span class="n">cutout</span>
+                <span class="k">if</span> <span class="n">imgtype</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;science&#39;</span><span class="p">,</span> <span class="s1">&#39;weight&#39;</span><span class="p">,</span> <span class="s1">&#39;mask&#39;</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">headers</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">][</span><span class="n">imgtype</span><span class="p">]</span> <span class="o">=</span> <span class="n">mosaic</span><span class="o">.</span><span class="n">headers</span><span class="p">[</span><span class="n">imgtype</span><span class="p">]</span> <span class="c1">#TODO update WCS!</span>
+                <span class="k">if</span> <span class="n">imgtype</span> <span class="o">==</span> <span class="s1">&#39;science&#39;</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">wcs</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">]</span> <span class="o">=</span> <span class="n">cutout</span><span class="o">.</span><span class="n">wcs</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">pixel_scales</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">]</span> <span class="o">=</span> <span class="n">proj_plane_pixel_scales</span><span class="p">(</span><span class="n">cutout</span><span class="o">.</span><span class="n">wcs</span><span class="p">)</span> <span class="o">*</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span>
+            <span class="k">elif</span> <span class="n">imgtype</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;segmap&#39;</span><span class="p">,</span> <span class="s1">&#39;groupmap&#39;</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">transfer_maps</span><span class="p">()</span>
+            <span class="k">elif</span> <span class="n">imgtype</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;psfcoords&#39;</span><span class="p">,</span> <span class="s1">&#39;psflist&#39;</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">imgtype</span> <span class="o">==</span> <span class="s1">&#39;psflist&#39;</span><span class="p">:</span> <span class="k">continue</span> <span class="c1"># do these together!</span>
+                <span class="k">if</span> <span class="n">mosaic</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;psfcoords&#39;</span><span class="p">]</span> <span class="o">!=</span> <span class="s1">&#39;none&#39;</span><span class="p">:</span>
+                    <span class="c1"># within_brick = np.array([coord.contained_by(self.wcs[mosaic.band]) for coord in mosaic.data[&#39;psfcoords&#39;]])</span>
+                    <span class="n">within_brick</span> <span class="o">=</span> <span class="n">mosaic</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;psfcoords&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">contained_by</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">wcs</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">])</span>
+                    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">within_brick</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="c1"># separation = np.array([coord.separation(self.position).to(u.arcsec).value for coord in mosaic.data[&#39;psfcoords&#39;]])</span>
+                        <span class="n">separation</span> <span class="o">=</span> <span class="n">mosaic</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;psfcoords&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">separation</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">position</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">arcsec</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+                        <span class="n">nearest</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">separation</span><span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;No PSF coords within brick for </span><span class="si">{</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="si">}</span><span class="s1">! Adopting nearest at </span><span class="si">{</span><span class="n">mosaic</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;psfcoords&quot;</span><span class="p">][</span><span class="n">nearest</span><span class="p">]</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;psfcoords&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">mosaic</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;psfcoords&#39;</span><span class="p">][</span><span class="n">nearest</span><span class="p">]</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;psflist&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;psflist&#39;</span><span class="p">][</span><span class="n">nearest</span><span class="p">]]</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;psfcoords&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">mosaic</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;psfcoords&#39;</span><span class="p">][</span><span class="n">within_brick</span><span class="p">]</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;psflist&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">mosaic</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;psflist&#39;</span><span class="p">][</span><span class="n">within_brick</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;psfcoords&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">mosaic</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;psfcoords&#39;</span><span class="p">]</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;psflist&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">mosaic</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;psflist&#39;</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">imgtype</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;psfcoords&#39;</span><span class="p">,</span> <span class="s1">&#39;psflist&#39;</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;... data </span><span class="se">\&quot;</span><span class="si">{</span><span class="n">imgtype</span><span class="si">}</span><span class="se">\&quot;</span><span class="s1"> adopted from mosaic&#39;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">][</span><span class="n">imgtype</span><span class="p">]</span> <span class="o">=</span> <span class="n">mosaic</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">imgtype</span><span class="p">]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;... data </span><span class="se">\&quot;</span><span class="si">{</span><span class="n">imgtype</span><span class="si">}</span><span class="se">\&quot;</span><span class="s1"> adopted from mosaic&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Loop over properties</span>
+        <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="n">mosaic</span><span class="o">.</span><span class="n">properties</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">][</span><span class="n">attr</span><span class="p">]</span> <span class="o">=</span> <span class="n">mosaic</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="n">attr</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;... property </span><span class="se">\&quot;</span><span class="si">{</span><span class="n">attr</span><span class="si">}</span><span class="se">\&quot;</span><span class="s1"> adopted from mosaic&#39;</span><span class="p">)</span>
+
+        <span class="c1"># make a big filler</span>
+        <span class="c1"># filler = np.zeros_like(mosaic.data[&#39;science&#39;]) # big, but OK...</span>
+        <span class="n">subheader</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">headers</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;science&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">subheader</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">cutout</span><span class="o">.</span><span class="n">wcs</span><span class="o">.</span><span class="n">to_header</span><span class="p">())</span>
+
+        <span class="c1"># if weights or masks dont exist, make them as dummy arrays</span>
+        <span class="k">if</span> <span class="s1">&#39;weight&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">]:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;... data </span><span class="se">\&quot;</span><span class="s1">weight</span><span class="se">\&quot;</span><span class="s1"> subimage generated as ones at </span><span class="si">{</span><span class="n">cutout</span><span class="o">.</span><span class="n">input_position_original</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="n">cutout</span> <span class="o">=</span> <span class="n">Cutout2D</span><span class="p">(</span><span class="n">mosaic</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;science&#39;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">position</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffsize</span><span class="p">,</span> <span class="n">wcs</span><span class="o">=</span><span class="n">mosaic</span><span class="o">.</span><span class="n">wcs</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;partial&#39;</span><span class="p">,</span> <span class="n">fill_value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">cutout</span><span class="o">.</span><span class="n">data</span> <span class="o">*=</span> <span class="mf">0.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;weight&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cutout</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">headers</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;weight&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">subheader</span>
+
+        <span class="k">if</span> <span class="s1">&#39;mask&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">]:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;... data </span><span class="se">\&quot;</span><span class="s1">mask</span><span class="se">\&quot;</span><span class="s1"> subimage generated as ones at </span><span class="si">{</span><span class="n">cutout</span><span class="o">.</span><span class="n">input_position_original</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="n">cutout</span> <span class="o">=</span> <span class="n">Cutout2D</span><span class="p">(</span><span class="n">mosaic</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;science&#39;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">position</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffsize</span><span class="p">,</span> <span class="n">wcs</span><span class="o">=</span><span class="n">mosaic</span><span class="o">.</span><span class="n">wcs</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;partial&#39;</span><span class="p">,</span> <span class="n">fill_value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">cutout</span><span class="o">.</span><span class="n">data</span> <span class="o">*=</span> <span class="mf">0.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;mask&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cutout</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">headers</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;mask&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">subheader</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_condition_band_data</span><span class="p">(</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">estimate_properties</span><span class="p">(</span><span class="n">band</span><span class="o">=</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">,</span> <span class="n">imgtype</span><span class="o">=</span><span class="s1">&#39;science&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="s1">&#39;background&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">]:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;... data </span><span class="se">\&quot;</span><span class="s1">background</span><span class="se">\&quot;</span><span class="s1"> subimage generated as ones at </span><span class="si">{</span><span class="n">cutout</span><span class="o">.</span><span class="n">input_position_original</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="n">cutout</span> <span class="o">=</span> <span class="n">Cutout2D</span><span class="p">(</span><span class="n">mosaic</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;science&#39;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">position</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffsize</span><span class="p">,</span> <span class="n">wcs</span><span class="o">=</span><span class="n">mosaic</span><span class="o">.</span><span class="n">wcs</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;partial&#39;</span><span class="p">,</span> <span class="n">fill_value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">cutout</span><span class="o">.</span><span class="n">data</span> <span class="o">*=</span> <span class="mf">0.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;background&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cutout</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">headers</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;background&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">subheader</span>
+
+        <span class="k">if</span> <span class="s1">&#39;rms&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">]:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;... data </span><span class="se">\&quot;</span><span class="s1">rms</span><span class="se">\&quot;</span><span class="s1"> subimage generated as ones at </span><span class="si">{</span><span class="n">cutout</span><span class="o">.</span><span class="n">input_position_original</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="n">cutout</span> <span class="o">=</span> <span class="n">Cutout2D</span><span class="p">(</span><span class="n">mosaic</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;science&#39;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">position</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffsize</span><span class="p">,</span> <span class="n">wcs</span><span class="o">=</span><span class="n">mosaic</span><span class="o">.</span><span class="n">wcs</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;partial&#39;</span><span class="p">,</span> <span class="n">fill_value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">cutout</span><span class="o">.</span><span class="n">data</span> <span class="o">*=</span> <span class="mf">0.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;rms&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cutout</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">headers</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;rms&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">subheader</span>
+
+        <span class="c1"># get background info if backregion is &#39;brick&#39; -- WILL overwrite inhereted info if it exists...</span>
+        <span class="k">if</span> <span class="s1">&#39;backregion&#39;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;backregion&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;brick&#39;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">estimate_background</span><span class="p">(</span><span class="n">band</span><span class="o">=</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="p">,</span> <span class="n">imgtype</span><span class="o">=</span><span class="s1">&#39;science&#39;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Added </span><span class="si">{</span><span class="n">mosaic</span><span class="o">.</span><span class="n">band</span><span class="si">}</span><span class="s1"> to brick #</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">brick_id</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span></div>
+
+        
+        
+        <span class="c1"># TODO -- should be able to INHERET catalogs from the parent mosaic, if they exist!</span>
+
+<div class="viewcode-block" id="Brick.extract">
+<a class="viewcode-back" href="../../api/brick.html#farmer.brick.Brick.extract">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">extract</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">band</span><span class="o">=</span><span class="s1">&#39;detection&#39;</span><span class="p">,</span> <span class="n">imgtype</span><span class="o">=</span><span class="s1">&#39;science&#39;</span><span class="p">,</span> <span class="n">background</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run source extraction on a band and store the resulting catalog.</span>
+
+<span class="sd">        Calls the base-class ``_extract`` method to detect sources, then</span>
+<span class="sd">        masks sources that fall within the brick buffer zone (those</span>
+<span class="sd">        detections that would be double-counted by adjacent bricks), adds</span>
+<span class="sd">        ``id``, ``brick_id``, ``ra``, and ``dec`` columns to the catalog,</span>
+<span class="sd">        saves the segmentation map, and writes a DS9 regions file.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            band: Band name to detect sources in. Defaults to</span>
+<span class="sd">                ``&#39;detection&#39;``.</span>
+<span class="sd">            imgtype: Image type to run extraction on. Defaults to</span>
+<span class="sd">                ``&#39;science&#39;``.</span>
+<span class="sd">            background: Pre-computed background array to subtract before</span>
+<span class="sd">                detection.  When None and the band&#39;s ``subtract_background``</span>
+<span class="sd">                property is True, the background is fetched automatically.</span>
+<span class="sd">                Defaults to None.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            None. Populates ``self.catalogs[band][imgtype]``,</span>
+<span class="sd">            ``self.data[band][&#39;segmap&#39;]``, and ``self.n_sources[band][imgtype]``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;subtract_background&#39;</span><span class="p">]:</span>
+            <span class="n">background</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_background</span><span class="p">(</span><span class="n">band</span><span class="p">)</span>
+        <span class="n">catalog</span><span class="p">,</span> <span class="n">segmap</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract</span><span class="p">(</span><span class="n">band</span><span class="p">,</span> <span class="n">imgtype</span><span class="o">=</span><span class="s1">&#39;science&#39;</span><span class="p">,</span> <span class="n">background</span><span class="o">=</span><span class="n">background</span><span class="p">)</span>
+
+        <span class="c1"># clean out buffer -- these are bricks!</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Removing sources detected in brick buffer...&#39;</span><span class="p">)</span>
+        <span class="n">cutout</span> <span class="o">=</span> <span class="n">Cutout2D</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="n">imgtype</span><span class="p">]</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">position</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">wcs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="n">imgtype</span><span class="p">]</span><span class="o">.</span><span class="n">wcs</span><span class="p">)</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">Cutout2D</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">cutout</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">position</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffsize</span><span class="p">,</span> <span class="n">wcs</span><span class="o">=</span><span class="n">cutout</span><span class="o">.</span><span class="n">wcs</span><span class="p">,</span> <span class="n">fill_value</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;partial&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span>
+        <span class="n">segmap</span> <span class="o">=</span> <span class="n">Cutout2D</span><span class="p">(</span><span class="n">segmap</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">position</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffsize</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">wcs</span><span class="p">[</span><span class="n">band</span><span class="p">],</span> <span class="n">fill_value</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;partial&#39;</span><span class="p">)</span>
+        <span class="c1"># do I actually need to do this?</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">mask</span><span class="p">):</span>
+            <span class="n">catalog</span><span class="p">,</span> <span class="n">segmap</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">clean_catalog</span><span class="p">(</span><span class="n">catalog</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="n">segmap</span><span class="o">=</span><span class="n">segmap</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+            <span class="n">mask</span><span class="p">[</span><span class="n">mask</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">segmap</span><span class="o">.</span><span class="n">data</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="c1"># save stuff</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">catalogs</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="n">imgtype</span><span class="p">]</span> <span class="o">=</span> <span class="n">catalog</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;segmap&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">segmap</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">headers</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;segmap&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">headers</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;science&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;weight&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span> <span class="c1">#removes buffer but keeps segment pixels</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;mask&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span> <span class="c1"># adds buffer to existing mask</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_sources</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="n">imgtype</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">catalog</span><span class="p">)</span>
+
+        <span class="c1"># add ids</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">catalogs</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="n">imgtype</span><span class="p">]</span><span class="o">.</span><span class="n">add_column</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">brick_id</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_sources</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="n">imgtype</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;brick_id&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">catalogs</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="n">imgtype</span><span class="p">]</span><span class="o">.</span><span class="n">add_column</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_sources</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="n">imgtype</span><span class="p">]),</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;id&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="c1"># add world positions</span>
+        <span class="n">skycoords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="n">imgtype</span><span class="p">]</span><span class="o">.</span><span class="n">wcs</span><span class="o">.</span><span class="n">all_pix2world</span><span class="p">(</span><span class="n">catalog</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="n">catalog</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">],</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">catalogs</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="n">imgtype</span><span class="p">]</span><span class="o">.</span><span class="n">add_column</span><span class="p">(</span><span class="n">skycoords</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;ra&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">catalogs</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="n">imgtype</span><span class="p">]</span><span class="o">.</span><span class="n">add_column</span><span class="p">(</span><span class="n">skycoords</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;dec&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+        <span class="c1"># generate regions file</span>
+        <span class="n">build_regions</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">catalogs</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="n">imgtype</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">pixel_scales</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="c1"># you better have square pixels!</span>
+                      <span class="n">outpath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">conf</span><span class="o">.</span><span class="n">PATH_ANCILLARY</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;B</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">brick_id</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">band</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">imgtype</span><span class="si">}</span><span class="s1">_objects.reg&#39;</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="Brick.identify_groups">
+<a class="viewcode-back" href="../../api/brick.html#farmer.brick.Brick.identify_groups">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">identify_groups</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">band</span><span class="o">=</span><span class="s1">&#39;detection&#39;</span><span class="p">,</span> <span class="n">imgtype</span><span class="o">=</span><span class="s1">&#39;science&#39;</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="n">conf</span><span class="o">.</span><span class="n">DILATION_RADIUS</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Group nearby sources by morphologically dilating the segmentation map.</span>
+
+<span class="sd">        Converts ``radius`` from arcsec to pixels using the detection WCS,</span>
+<span class="sd">        calls :func:`~farmer.utils.dilate_and_group`, and stores the resulting</span>
+<span class="sd">        ``group_id`` and ``group_pop`` columns in the catalog as well as the</span>
+<span class="sd">        2-D group map as a ``Cutout2D``.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            band: Band whose catalog and segmap to process.</span>
+<span class="sd">                Defaults to ``&#39;detection&#39;``.</span>
+<span class="sd">            imgtype: Image type key in the catalog dictionary.</span>
+<span class="sd">                Defaults to ``&#39;science&#39;``.</span>
+<span class="sd">            radius: Dilation radius as an ``astropy.units.Quantity`` angle.</span>
+<span class="sd">                Defaults to ``conf.DILATION_RADIUS``.</span>
+<span class="sd">            overwrite: If True, replace existing ``group_id``/``group_pop``</span>
+<span class="sd">                columns; if False, add them as new columns.</span>
+<span class="sd">                Defaults to False.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">catalog</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">catalogs</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="n">imgtype</span><span class="p">]</span>
+        <span class="n">segmap</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;segmap&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">data</span>
+        <span class="n">radius</span> <span class="o">=</span> <span class="n">radius</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">arcsec</span><span class="p">)</span>
+        <span class="n">radius_px</span> <span class="o">=</span> <span class="n">radius</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">wcs</span><span class="p">[</span><span class="s1">&#39;detection&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">pixel_scale_matrix</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">arcsec</span><span class="p">)</span> <span class="c1"># this won&#39;t be so great for non-aligned images...</span>
+        <span class="n">radius_rpx</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">radius_px</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Dilation radius of </span><span class="si">{</span><span class="n">radius</span><span class="si">}</span><span class="s1"> or </span><span class="si">{</span><span class="n">radius_px</span><span class="si">:</span><span class="s1">2.2f</span><span class="si">}</span><span class="s1"> px rounded to </span><span class="si">{</span><span class="n">radius_rpx</span><span class="si">}</span><span class="s1"> px&#39;</span><span class="p">)</span>
+
+        <span class="n">group_ids</span><span class="p">,</span> <span class="n">group_pops</span><span class="p">,</span> <span class="n">groupmap</span> <span class="o">=</span> <span class="n">dilate_and_group</span><span class="p">(</span><span class="n">catalog</span><span class="p">,</span> <span class="n">segmap</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="n">radius_rpx</span><span class="p">,</span> <span class="n">fill_holes</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">overwrite</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">catalogs</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="n">imgtype</span><span class="p">][</span><span class="s1">&#39;group_id&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">group_ids</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">catalogs</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="n">imgtype</span><span class="p">][</span><span class="s1">&#39;group_pop&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">group_pops</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">catalogs</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="n">imgtype</span><span class="p">]</span><span class="o">.</span><span class="n">add_column</span><span class="p">(</span><span class="n">group_ids</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;group_id&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">catalogs</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="n">imgtype</span><span class="p">]</span><span class="o">.</span><span class="n">add_column</span><span class="p">(</span><span class="n">group_pops</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;group_pop&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;groupmap&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">Cutout2D</span><span class="p">(</span><span class="n">groupmap</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">position</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffsize</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">wcs</span><span class="p">[</span><span class="n">band</span><span class="p">],</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;partial&#39;</span><span class="p">,</span> <span class="n">fill_value</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">group_ids</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="n">imgtype</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">group_ids</span><span class="p">)</span>
+        <span class="c1"># self.group_pops[band][imgtype] = dict(zip(group_ids, group_pops))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">headers</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;groupmap&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">headers</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;science&#39;</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="Brick.spawn_group">
+<a class="viewcode-back" href="../../api/brick.html#farmer.brick.Brick.spawn_group">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">spawn_group</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">group_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">imgtype</span><span class="o">=</span><span class="s1">&#39;science&#39;</span><span class="p">,</span> <span class="n">bands</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">silent</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Instantiate a ``Group`` from this brick for a single source group.</span>
+
+<span class="sd">        Creates a ``Group`` object centred on the group&#39;s bounding box,</span>
+<span class="sd">        cuts out all requested bands, validates that segment pixel</span>
+<span class="sd">        coordinates are in bounds, enforces the ``conf.GROUP_SIZE_LIMIT``,</span>
+<span class="sd">        transfers model catalog entries and tracking history from the brick,</span>
+<span class="sd">        and returns the ready-to-process group.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            group_id: Integer identifier of the group to spawn.</span>
+<span class="sd">            imgtype: Image type used to look up catalog group membership.</span>
+<span class="sd">                Defaults to ``&#39;science&#39;``.</span>
+<span class="sd">            bands: List of band names to include in the group.  ``None``</span>
+<span class="sd">                includes all bands available on the brick.</span>
+<span class="sd">                Defaults to None.</span>
+<span class="sd">            silent: If True, suppress informational log messages.</span>
+<span class="sd">                Defaults to False.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Group: Populated group object.  ``group.rejected`` is True if</span>
+<span class="sd">                the group has no pixels, exceeds the size limit, or has</span>
+<span class="sd">                out-of-bounds segment pixels.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Instantiate group</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">silent</span><span class="p">:</span>
+            <span class="n">n_sources</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">catalogs</span><span class="p">[</span><span class="s1">&#39;detection&#39;</span><span class="p">][</span><span class="n">imgtype</span><span class="p">][</span><span class="s1">&#39;group_id&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">group_id</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Spawning Group #</span><span class="si">{</span><span class="n">group_id</span><span class="si">}</span><span class="s1"> with </span><span class="si">{</span><span class="n">n_sources</span><span class="si">}</span><span class="s1"> sources...&#39;</span><span class="p">)</span>
+        <span class="n">group</span> <span class="o">=</span> <span class="n">Group</span><span class="p">(</span><span class="n">group_id</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">imgtype</span><span class="o">=</span><span class="n">imgtype</span><span class="p">,</span> <span class="n">silent</span><span class="o">=</span><span class="n">silent</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">group</span><span class="o">.</span><span class="n">rejected</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Group #</span><span class="si">{</span><span class="n">group_id</span><span class="si">}</span><span class="s1"> cannot be created!&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">group</span>
+
+        <span class="c1"># Cut up science, weight, and mask, if available</span>
+        <span class="n">group</span><span class="o">.</span><span class="n">add_bands</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bands</span><span class="o">=</span><span class="n">bands</span><span class="p">)</span>
+
+        <span class="n">nsrcs</span> <span class="o">=</span> <span class="n">group</span><span class="o">.</span><span class="n">n_sources</span><span class="p">[</span><span class="n">group</span><span class="o">.</span><span class="n">catalog_band</span><span class="p">][</span><span class="n">imgtype</span><span class="p">]</span>
+        <span class="n">source_ids</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">group</span><span class="o">.</span><span class="n">get_catalog</span><span class="p">()[</span><span class="s1">&#39;id&#39;</span><span class="p">])</span>
+        <span class="n">group</span><span class="o">.</span><span class="n">source_ids</span> <span class="o">=</span> <span class="n">source_ids</span>
+        
+        <span class="c1"># Validate segmap - skip group if coordinates are out of bounds</span>
+        <span class="k">for</span> <span class="n">band_name</span> <span class="ow">in</span> <span class="n">group</span><span class="o">.</span><span class="n">bands</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">band_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">group</span><span class="o">.</span><span class="n">data</span> <span class="ow">or</span> <span class="s1">&#39;segmap&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">group</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">band_name</span><span class="p">]:</span>
+                <span class="k">continue</span>
+            <span class="n">segmap_dict</span> <span class="o">=</span> <span class="n">group</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">band_name</span><span class="p">][</span><span class="s1">&#39;segmap&#39;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">segmap_dict</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="s1">&#39;science&#39;</span> <span class="ow">in</span> <span class="n">group</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">band_name</span><span class="p">]:</span>
+                <span class="c1"># Get image shape to check bounds</span>
+                <span class="n">img_shape</span> <span class="o">=</span> <span class="n">group</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">band_name</span><span class="p">][</span><span class="s1">&#39;science&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span>
+                
+                <span class="c1"># Check each source&#39;s coordinates are within bounds</span>
+                <span class="k">for</span> <span class="n">source_id</span><span class="p">,</span> <span class="p">(</span><span class="n">seg_y</span><span class="p">,</span> <span class="n">seg_x</span><span class="p">)</span> <span class="ow">in</span> <span class="n">segmap_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="n">out_of_bounds</span> <span class="o">=</span> <span class="p">(</span><span class="n">seg_y</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">seg_y</span> <span class="o">&gt;=</span> <span class="n">img_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">|</span> <span class="p">(</span><span class="n">seg_x</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">seg_x</span> <span class="o">&gt;=</span> <span class="n">img_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+                    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">out_of_bounds</span><span class="p">):</span>
+                        <span class="k">if</span> <span class="ow">not</span> <span class="n">silent</span><span class="p">:</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                                <span class="sa">f</span><span class="s1">&#39;Group #</span><span class="si">{</span><span class="n">group_id</span><span class="si">}</span><span class="s1"> has source </span><span class="si">{</span><span class="n">source_id</span><span class="si">}</span><span class="s1"> with </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">out_of_bounds</span><span class="p">)</span><span class="si">}</span><span class="s1">/</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">seg_y</span><span class="p">)</span><span class="si">}</span><span class="s1"> &#39;</span>
+                                <span class="sa">f</span><span class="s1">&#39;pixels out of bounds in </span><span class="si">{</span><span class="n">band_name</span><span class="si">}</span><span class="s1"> (</span><span class="si">{</span><span class="n">img_shape</span><span class="si">}</span><span class="s1">). Edge case from dilation. Skipping group.&#39;</span>
+                            <span class="p">)</span>
+                        <span class="n">group</span><span class="o">.</span><span class="n">rejected</span> <span class="o">=</span> <span class="kc">True</span>
+                        <span class="k">return</span> <span class="n">group</span>
+        
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">silent</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Group #</span><span class="si">{</span><span class="n">group_id</span><span class="si">}</span><span class="s1"> has </span><span class="si">{</span><span class="n">nsrcs</span><span class="si">}</span><span class="s1"> sources: </span><span class="si">{</span><span class="n">source_ids</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">nsrcs</span> <span class="o">&gt;</span> <span class="n">conf</span><span class="o">.</span><span class="n">GROUP_SIZE_LIMIT</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">silent</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Group #</span><span class="si">{</span><span class="n">group_id</span><span class="si">}</span><span class="s1"> has </span><span class="si">{</span><span class="n">nsrcs</span><span class="si">}</span><span class="s1"> sources, but the limit is set to </span><span class="si">{</span><span class="n">conf</span><span class="o">.</span><span class="n">GROUP_SIZE_LIMIT</span><span class="si">}</span><span class="s1">! Skipping...&#39;</span><span class="p">)</span>
+            <span class="n">group</span><span class="o">.</span><span class="n">rejected</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">return</span> <span class="n">group</span>
+        
+        <span class="n">group</span><span class="o">.</span><span class="n">model_priors</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_priors</span>
+        <span class="n">group</span><span class="o">.</span><span class="n">phot_priors</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">phot_priors</span>
+        
+        <span class="c1"># Loop over model catalog</span>
+        <span class="n">group</span><span class="o">.</span><span class="n">model_catalog</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">source_id</span><span class="p">,</span> <span class="n">model</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_catalog</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">source_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">source_ids</span><span class="p">:</span> <span class="k">continue</span>
+            <span class="n">group</span><span class="o">.</span><span class="n">model_catalog</span><span class="p">[</span><span class="n">source_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">model</span>
+            
+            <span class="n">group</span><span class="o">.</span><span class="n">model_tracker</span><span class="p">[</span><span class="n">source_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">stage</span><span class="p">,</span> <span class="n">stats</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_tracker</span><span class="p">[</span><span class="n">source_id</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">group</span><span class="o">.</span><span class="n">model_tracker</span><span class="p">[</span><span class="n">source_id</span><span class="p">][</span><span class="n">stage</span><span class="p">]</span> <span class="o">=</span> <span class="n">stats</span>
+
+        <span class="n">group</span><span class="o">.</span><span class="n">model_tracker</span><span class="p">[</span><span class="s1">&#39;group&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="n">group_id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_tracker_groups</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">stage</span><span class="p">,</span> <span class="n">stats</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_tracker_groups</span><span class="p">[</span><span class="n">group_id</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">group</span><span class="o">.</span><span class="n">model_tracker</span><span class="p">[</span><span class="s1">&#39;group&#39;</span><span class="p">][</span><span class="n">stage</span><span class="p">]</span> <span class="o">=</span> <span class="n">stats</span>
+
+        <span class="c1"># # transfer maps</span>
+        <span class="c1"># group.transfer_maps(group_id=group_id)</span>
+
+        <span class="c1"># Return it</span>
+        <span class="k">return</span> <span class="n">group</span></div>
+
+
+<div class="viewcode-block" id="Brick.detect_sources">
+<a class="viewcode-back" href="../../api/brick.html#farmer.brick.Brick.detect_sources">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">detect_sources</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">band</span><span class="o">=</span><span class="s1">&#39;detection&#39;</span><span class="p">,</span> <span class="n">imgtype</span><span class="o">=</span><span class="s1">&#39;science&#39;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run the full source detection pipeline on this brick.</span>
+
+<span class="sd">        Calls :meth:`extract` to detect sources and build the segmentation</span>
+<span class="sd">        map, :meth:`identify_groups` to assign group memberships, and</span>
+<span class="sd">        :meth:`transfer_maps` to propagate the maps to photometric bands.</span>
+<span class="sd">        Optionally plots the science image when ``conf.PLOT &gt; 1``.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            band: Band to run detection on. Defaults to ``&#39;detection&#39;``.</span>
+<span class="sd">            imgtype: Image type to process. Defaults to ``&#39;science&#39;``.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            astropy.table.Table: The detection catalog for this brick.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># detection</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">extract</span><span class="p">(</span><span class="n">band</span><span class="o">=</span><span class="n">band</span><span class="p">,</span> <span class="n">imgtype</span><span class="o">=</span><span class="n">imgtype</span><span class="p">)</span>
+
+        <span class="c1"># # grouping</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">identify_groups</span><span class="p">(</span><span class="n">band</span><span class="o">=</span><span class="n">band</span><span class="p">,</span> <span class="n">imgtype</span><span class="o">=</span><span class="n">imgtype</span><span class="p">)</span>
+
+        <span class="c1"># transfer maps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transfer_maps</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">conf</span><span class="o">.</span><span class="n">PLOT</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">plot_image</span><span class="p">(</span><span class="n">imgtype</span><span class="o">=</span><span class="s1">&#39;science&#39;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">catalogs</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="n">imgtype</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="Brick.process_groups">
+<a class="viewcode-back" href="../../api/brick.html#farmer.brick.Brick.process_groups">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">process_groups</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">group_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">imgtype</span><span class="o">=</span><span class="s1">&#39;science&#39;</span><span class="p">,</span> <span class="n">bands</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;all&#39;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Model and/or measure photometry for all (or specified) groups.</span>
+
+<span class="sd">        Spawns each group in turn and passes it to :func:`~farmer.utils.run_group`.</span>
+<span class="sd">        When ``conf.NCPUS &gt; 1`` and more than one group is requested, groups</span>
+<span class="sd">        are processed in parallel via ``pathos.pools.ProcessPool`` with a</span>
+<span class="sd">        lazy generator to keep peak memory usage low.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            group_ids: Integer group ID(s) to process.  ``None`` processes</span>
+<span class="sd">                all groups in the detection catalog. Defaults to None.</span>
+<span class="sd">            imgtype: Image type used to look up catalog group membership.</span>
+<span class="sd">                Defaults to ``&#39;science&#39;``.</span>
+<span class="sd">            bands: Band names to include in each group.  ``None`` uses all</span>
+<span class="sd">                bands on the brick.  Overridden to ``[&#39;detection&#39;]`` when</span>
+<span class="sd">                ``mode=&#39;pass&#39;``. Defaults to None.</span>
+<span class="sd">            mode: Processing mode forwarded to :func:`~farmer.utils.run_group`</span>
+<span class="sd">                — one of ``&#39;all&#39;``, ``&#39;model&#39;``, ``&#39;photometry&#39;``, or</span>
+<span class="sd">                ``&#39;pass&#39;``. Defaults to ``&#39;all&#39;``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Processing groups for brick </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">brick_id</span><span class="si">}</span><span class="s1">...&#39;</span><span class="p">)</span>
+
+        <span class="n">tstart</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">group_ids</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">group_ids</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_ids</span><span class="p">[</span><span class="s1">&#39;detection&#39;</span><span class="p">][</span><span class="n">imgtype</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">group_ids</span><span class="p">):</span>
+            <span class="n">group_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">group_ids</span><span class="p">,]</span>
+
+        <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s1">&#39;pass&#39;</span><span class="p">:</span>
+            <span class="n">bands</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;detection&#39;</span><span class="p">,]</span>
+
+        <span class="c1"># Serial processing: use generator to spawn groups one at a time</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">conf</span><span class="o">.</span><span class="n">NCPUS</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">group_ids</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">group_id</span> <span class="ow">in</span> <span class="n">group_ids</span><span class="p">:</span>
+                <span class="n">group</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spawn_group</span><span class="p">(</span><span class="n">group_id</span><span class="p">,</span> <span class="n">bands</span><span class="o">=</span><span class="n">bands</span><span class="p">,</span> <span class="n">silent</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="n">group</span> <span class="o">=</span> <span class="n">run_group</span><span class="p">(</span><span class="n">group</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">absorb</span><span class="p">(</span><span class="n">group</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Parallel processing: use generator with imap to spawn groups in small chunks</span>
+            <span class="c1"># This avoids both: (1) materializing all groups at once, and (2) copying brick to workers</span>
+            <span class="n">groups_gen</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spawn_group</span><span class="p">(</span><span class="n">group_id</span><span class="p">,</span> <span class="n">bands</span><span class="o">=</span><span class="n">bands</span><span class="p">,</span> <span class="n">silent</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">for</span> <span class="n">group_id</span> <span class="ow">in</span> <span class="n">group_ids</span><span class="p">)</span>
+            <span class="k">with</span> <span class="n">ProcessPool</span><span class="p">(</span><span class="n">ncpus</span><span class="o">=</span><span class="n">conf</span><span class="o">.</span><span class="n">NCPUS</span><span class="p">)</span> <span class="k">as</span> <span class="n">pool</span><span class="p">:</span>
+                <span class="n">pool</span><span class="o">.</span><span class="n">restart</span><span class="p">()</span>
+
+                <span class="c1"># Stream results directly - imap yields as workers complete</span>
+                <span class="c1"># Use position=0 and dynamic_ncols to keep progress bar visible despite logging</span>
+                <span class="n">pbar</span> <span class="o">=</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">tqdm</span><span class="p">(</span>
+                    <span class="n">pool</span><span class="o">.</span><span class="n">imap</span><span class="p">(</span><span class="n">partial</span><span class="p">(</span><span class="n">run_group</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">),</span> <span class="n">groups_gen</span><span class="p">,</span> <span class="n">chunksize</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+                    <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">group_ids</span><span class="p">),</span>
+                    <span class="n">desc</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;Processing </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">group_ids</span><span class="p">)</span><span class="si">}</span><span class="s1"> groups&#39;</span><span class="p">,</span>
+                    <span class="n">position</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                    <span class="n">leave</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="n">dynamic_ncols</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="n">smoothing</span><span class="o">=</span><span class="mf">0.1</span>
+                <span class="p">)</span>
+                <span class="n">pbar</span><span class="o">.</span><span class="n">refresh</span><span class="p">()</span>
+                <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">pbar</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">absorb</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+                <span class="n">pbar</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;All results absorbed.&#39;</span><span class="p">)</span>
+            <span class="c1"># with ProcessPool(ncpus=conf.NCPUS) as pool:</span>
+            <span class="c1">#     pool.restart()</span>
+            <span class="c1">#     import tqdm</span>
+            <span class="c1">#     # imap consumes generator lazily in chunks - only spawns ~ncpus groups at a time</span>
+            <span class="c1">#     # Collect results to avoid OrderedDict mutation during iteration</span>
+            <span class="c1">#     results = list(tqdm.tqdm(pool.imap(partial(run_group, mode=mode), groups_gen, chunksize=1), total=len(group_ids)))</span>
+            
+            <span class="c1"># # Absorb results after pool is closed to avoid concurrent modification</span>
+            <span class="c1"># self.logger.info(&#39;Absorbing results from parallel processing...&#39;)</span>
+            <span class="c1"># ttstart = time.time()</span>
+            <span class="c1"># for result in results:</span>
+            <span class="c1">#     self.absorb(result)</span>
+            <span class="c1"># self.logger.info(f&#39;All results absorbed. ({time.time() - ttstart:2.2f}s)&#39;)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Brick </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">brick_id</span><span class="si">}</span><span class="s1"> has processed </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">group_ids</span><span class="p">)</span><span class="si">}</span><span class="s1"> groups (</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">tstart</span><span class="si">:</span><span class="s1">2.2f</span><span class="si">}</span><span class="s1">s)&#39;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="Brick.absorb">
+<a class="viewcode-back" href="../../api/brick.html#farmer.brick.Brick.absorb">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">absorb</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">group</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Merge a processed group&#39;s results back into this brick.</span>
+
+<span class="sd">        Accepts the ``(group_id, model_catalog, model_tracker)`` tuple</span>
+<span class="sd">        returned by :func:`~farmer.utils.run_group` and copies each source&#39;s</span>
+<span class="sd">        model and tracking entry into the brick-level dictionaries.</span>
+<span class="sd">        Group-level tracker entries (keyed ``&#39;group&#39;``) are stored separately</span>
+<span class="sd">        in ``self.model_tracker_groups``.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            group: Tuple ``(group_id, model_catalog, model_tracker)`` as</span>
+<span class="sd">                returned by :func:`~farmer.utils.run_group`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">group_id</span><span class="p">,</span> <span class="n">model_catalog</span><span class="p">,</span> <span class="n">model_tracker</span> <span class="o">=</span> <span class="n">group</span>
+
+        <span class="c1"># check ownership</span>
+        <span class="c1"># assert self.brick_id == brick_id, &#39;Group does not belong to this brick!&#39;</span>
+
+        <span class="c1"># # rebuild maps NOTE don&#39;t do this with cutouts. Realize it for the brick itself.</span>
+        <span class="c1"># for band in self.data:</span>
+        <span class="c1">#     if band == &#39;detection&#39;: # doesn&#39;t need new seg/group, and has no models</span>
+        <span class="c1">#         continue</span>
+        <span class="c1">#     for imgtype in group.data[band]:</span>
+        <span class="c1">#         if imgtype in (&#39;model&#39;, &#39;residual&#39;, &#39;chi&#39;):</span>
+        <span class="c1">#             (ymin, ymax), (xmin, xmax) = group.data[band][imgtype].bbox_original</span>
+        <span class="c1">#             (yminc, ymaxc), (xminc, xmaxc) = group.data[band][imgtype].bbox_cutout</span>
+        <span class="c1">#             if imgtype not in self.data[band].keys():</span>
+        <span class="c1">#                 self.data[band][imgtype] = copy(self.data[band][&#39;science&#39;])</span>
+        <span class="c1">#             self.data[band][imgtype].data[ymin:ymax, xmin:xmax] \</span>
+        <span class="c1">#                     += group.data[band][imgtype].data[yminc:ymaxc, xminc:xmaxc]</span>
+
+        <span class="c1"># model catalog</span>
+        <span class="k">for</span> <span class="n">source</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">model_catalog</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model_catalog</span><span class="p">[</span><span class="n">source</span><span class="p">]</span> <span class="o">=</span> <span class="n">model_catalog</span><span class="p">[</span><span class="n">source</span><span class="p">]</span>
+
+        <span class="c1"># model tracker</span>
+        <span class="k">for</span> <span class="n">source</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">model_tracker</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+            <span class="k">if</span> <span class="n">source</span> <span class="o">==</span> <span class="s1">&#39;group&#39;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">model_tracker_groups</span><span class="p">[</span><span class="n">group_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">model_tracker</span><span class="p">[</span><span class="n">source</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">model_tracker</span><span class="p">[</span><span class="n">source</span><span class="p">]</span> <span class="o">=</span> <span class="n">model_tracker</span><span class="p">[</span><span class="n">source</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Group </span><span class="si">{</span><span class="n">group_id</span><span class="si">}</span><span class="s1"> has been absorbed&#39;</span><span class="p">)</span>
+        <span class="k">del</span> <span class="n">group</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2018-2026, John Weaver.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,824 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>farmer.utils — Utilities &mdash; The Farmer 2.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=20623aea"></script>
+      <script src="../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=f281be69"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Frequently Asked Questions" href="../faq.html" />
+    <link rel="prev" title="farmer.image — BaseImage" href="baseimage.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            The Farmer
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quick Start</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../configuration.html">Configuration Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pipeline.html">Pipeline Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="farmer.html"><code class="docutils literal notranslate"><span class="pre">farmer</span></code> — Top-Level API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mosaic.html"><code class="docutils literal notranslate"><span class="pre">farmer.mosaic</span></code> — Mosaic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="brick.html"><code class="docutils literal notranslate"><span class="pre">farmer.brick</span></code> — Brick</a></li>
+<li class="toctree-l1"><a class="reference internal" href="group.html"><code class="docutils literal notranslate"><span class="pre">farmer.group</span></code> — Group</a></li>
+<li class="toctree-l1"><a class="reference internal" href="baseimage.html"><code class="docutils literal notranslate"><span class="pre">farmer.image</span></code> — BaseImage</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">farmer.utils</span></code> — Utilities</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#custom-tractor-models">Custom Tractor Models</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.utils.SimpleGalaxy"><code class="docutils literal notranslate"><span class="pre">SimpleGalaxy</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#farmer.utils.SimpleGalaxy.shape"><code class="docutils literal notranslate"><span class="pre">SimpleGalaxy.shape</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#farmer.utils.SimpleGalaxy.__init__"><code class="docutils literal notranslate"><span class="pre">SimpleGalaxy.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#farmer.utils.SimpleGalaxy.getNamedParams"><code class="docutils literal notranslate"><span class="pre">SimpleGalaxy.getNamedParams()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#farmer.utils.SimpleGalaxy.getName"><code class="docutils literal notranslate"><span class="pre">SimpleGalaxy.getName()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#farmer.utils.SimpleGalaxy.isParamFrozen"><code class="docutils literal notranslate"><span class="pre">SimpleGalaxy.isParamFrozen()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#functions">Functions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.utils.start_logger"><code class="docutils literal notranslate"><span class="pre">start_logger()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.utils.read_wcs"><code class="docutils literal notranslate"><span class="pre">read_wcs()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.utils.load_brick_position"><code class="docutils literal notranslate"><span class="pre">load_brick_position()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.utils.clean_catalog"><code class="docutils literal notranslate"><span class="pre">clean_catalog()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.utils.dilate_and_group"><code class="docutils literal notranslate"><span class="pre">dilate_and_group()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.utils.get_detection_kernel"><code class="docutils literal notranslate"><span class="pre">get_detection_kernel()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.utils.get_fwhm"><code class="docutils literal notranslate"><span class="pre">get_fwhm()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.utils.get_resolution"><code class="docutils literal notranslate"><span class="pre">get_resolution()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.utils.validate_psfmodel"><code class="docutils literal notranslate"><span class="pre">validate_psfmodel()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.utils.prepare_psf"><code class="docutils literal notranslate"><span class="pre">prepare_psf()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.utils.get_params"><code class="docutils literal notranslate"><span class="pre">get_params()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.utils.set_priors"><code class="docutils literal notranslate"><span class="pre">set_priors()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.utils.map_ids_to_coarse_pixels"><code class="docutils literal notranslate"><span class="pre">map_ids_to_coarse_pixels()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.utils.map_discontinuous"><code class="docutils literal notranslate"><span class="pre">map_discontinuous()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.utils.parallel_process"><code class="docutils literal notranslate"><span class="pre">parallel_process()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.utils.recursively_save_dict_contents_to_group"><code class="docutils literal notranslate"><span class="pre">recursively_save_dict_contents_to_group()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.utils.recursively_load_dict_contents_from_group"><code class="docutils literal notranslate"><span class="pre">recursively_load_dict_contents_from_group()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.utils.run_group"><code class="docutils literal notranslate"><span class="pre">run_group()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.utils.build_regions"><code class="docutils literal notranslate"><span class="pre">build_regions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.utils.cumulative"><code class="docutils literal notranslate"><span class="pre">cumulative()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Help &amp; Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">The Farmer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">API Reference</a></li>
+      <li class="breadcrumb-item active"><code class="docutils literal notranslate"><span class="pre">farmer.utils</span></code> — Utilities</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/utils.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-farmer.utils">
+<span id="farmer-utils-utilities"></span><h1><code class="docutils literal notranslate"><span class="pre">farmer.utils</span></code> — Utilities<a class="headerlink" href="#module-farmer.utils" title="Link to this heading"></a></h1>
+<p>Core utility functions for The Farmer. Covers WCS conversion, source
+grouping, HDF5 serialization, PSF validation, model parameter extraction,
+multi-resolution pixel mapping, DS9 region file generation, and logging
+initialisation.</p>
+<section id="custom-tractor-models">
+<h2>Custom Tractor Models<a class="headerlink" href="#custom-tractor-models" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="farmer.utils.SimpleGalaxy">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">farmer.utils.</span></span><span class="sig-name descname"><span class="pre">SimpleGalaxy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/utils.html#SimpleGalaxy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.utils.SimpleGalaxy" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">ExpGalaxy</span></code></p>
+<p>Exponential galaxy with fixed 0.45 arcsec spherical shape.</p>
+<p>Defines the <code class="docutils literal notranslate"><span class="pre">SIMP</span></code> galaxy profile used to detect marginally-resolved
+sources.  The effective radius and ellipticity are frozen so only
+position and flux are free parameters during fitting.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="farmer.utils.SimpleGalaxy.shape">
+<span class="sig-name descname"><span class="pre">shape</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.45</span></em><a class="headerlink" href="#farmer.utils.SimpleGalaxy.shape" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.utils.SimpleGalaxy.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/utils.html#SimpleGalaxy.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.utils.SimpleGalaxy.__init__" title="Link to this definition"></a></dt>
+<dd><p>Initialize SimpleGalaxy with position and brightness arguments.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>*args</strong> – Positional arguments forwarded to <code class="docutils literal notranslate"><span class="pre">ExpGalaxy.__init__</span></code>,
+typically <code class="docutils literal notranslate"><span class="pre">(pos,</span> <span class="pre">brightness)</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.utils.SimpleGalaxy.getNamedParams">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">getNamedParams</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/utils.html#SimpleGalaxy.getNamedParams"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.utils.SimpleGalaxy.getNamedParams" title="Link to this definition"></a></dt>
+<dd><p>Return the mapping of parameter names to indices.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">{'pos':</span> <span class="pre">0,</span> <span class="pre">'brightness':</span> <span class="pre">1}</span></code></p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.utils.SimpleGalaxy.getName">
+<span class="sig-name descname"><span class="pre">getName</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/utils.html#SimpleGalaxy.getName"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.utils.SimpleGalaxy.getName" title="Link to this definition"></a></dt>
+<dd><p>Return the model name string.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">'SimpleGalaxy'</span></code></p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.utils.SimpleGalaxy.isParamFrozen">
+<span class="sig-name descname"><span class="pre">isParamFrozen</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pname</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/utils.html#SimpleGalaxy.isParamFrozen"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.utils.SimpleGalaxy.isParamFrozen" title="Link to this definition"></a></dt>
+<dd><p>Check whether a named parameter is frozen.</p>
+<p>Always returns True for <code class="docutils literal notranslate"><span class="pre">'shape'</span></code> so that the effective radius
+and ellipticity are not optimised.  All other parameters delegate
+to the parent <code class="docutils literal notranslate"><span class="pre">ExpGalaxy</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>pname</strong> – Parameter name to query.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>True if the parameter is frozen, False otherwise.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="functions">
+<h2>Functions<a class="headerlink" href="#functions" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="farmer.utils.start_logger">
+<span class="sig-prename descclassname"><span class="pre">farmer.utils.</span></span><span class="sig-name descname"><span class="pre">start_logger</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/utils.html#start_logger"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.utils.start_logger" title="Link to this definition"></a></dt>
+<dd><p>Configure and return the top-level <code class="docutils literal notranslate"><span class="pre">farmer</span></code> logger.</p>
+<p>Reads logging levels from <code class="docutils literal notranslate"><span class="pre">conf.LOGFILE_LOGGING_LEVEL</span></code> and
+<code class="docutils literal notranslate"><span class="pre">conf.CONSOLE_LOGGING_LEVEL</span></code>.  If a log directory exists and file
+logging is enabled, a <code class="docutils literal notranslate"><span class="pre">FileHandler</span></code> is attached alongside the
+<code class="docutils literal notranslate"><span class="pre">StreamHandler</span></code>; otherwise messages stream to the console only.
+An existing logfile is removed when <code class="docutils literal notranslate"><span class="pre">conf.OVERWRITE</span></code> is True.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The configured <code class="docutils literal notranslate"><span class="pre">farmer</span></code> root logger instance.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/logging.html#logging.Logger" title="(in Python v3.14)">logging.Logger</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="farmer.utils.read_wcs">
+<span class="sig-prename descclassname"><span class="pre">farmer.utils.</span></span><span class="sig-name descname"><span class="pre">read_wcs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">wcs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/utils.html#read_wcs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.utils.read_wcs" title="Link to this definition"></a></dt>
+<dd><p>Convert an astropy WCS to a Tractor-compatible <code class="docutils literal notranslate"><span class="pre">ConstantFitsWcs</span></code>.</p>
+<p>Copies the CRPIX, CRVAL, and CD/PC matrix from <code class="docutils literal notranslate"><span class="pre">wcs</span></code> into an
+<code class="docutils literal notranslate"><span class="pre">astrometry.util.util.Tan</span></code> object, optionally scaling the pixel
+coordinates by <code class="docutils literal notranslate"><span class="pre">scl</span></code>, then wraps it as a <code class="docutils literal notranslate"><span class="pre">ConstantFitsWcs</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>wcs</strong> – Astropy <code class="docutils literal notranslate"><span class="pre">WCS</span></code> object to convert.</p></li>
+<li><p><strong>scl</strong> – Pixel-scale factor applied to CRPIX and the CD matrix.
+Values &gt; 1 up-sample; &lt; 1 down-samples. Defaults to 1.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Tractor WCS wrapping the converted <code class="docutils literal notranslate"><span class="pre">Tan</span></code> object.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ConstantFitsWcs</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="farmer.utils.load_brick_position">
+<span class="sig-prename descclassname"><span class="pre">farmer.utils.</span></span><span class="sig-name descname"><span class="pre">load_brick_position</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">brick_id</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/utils.html#load_brick_position"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.utils.load_brick_position" title="Link to this definition"></a></dt>
+<dd><p>Calculate brick position and size from brick ID.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>brick_id</strong> – Integer brick identifier (1-indexed)</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>(center, size, buffsize) where:</dt><dd><ul class="simple">
+<li><p>center: SkyCoord of brick center</p></li>
+<li><p>size: Tuple of (dec_height, ra_width) in degrees</p></li>
+<li><p>buffsize: Tuple of buffered (dec_height, ra_width) in degrees</p></li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)">tuple</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="farmer.utils.clean_catalog">
+<span class="sig-prename descclassname"><span class="pre">farmer.utils.</span></span><span class="sig-name descname"><span class="pre">clean_catalog</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">catalog</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">segmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/utils.html#clean_catalog"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.utils.clean_catalog" title="Link to this definition"></a></dt>
+<dd><p>Remove masked sources from catalog and renumber segmentation map.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>catalog</strong> – Source catalog (astropy Table)</p></li>
+<li><p><strong>mask</strong> – Boolean mask indicating pixels to exclude</p></li>
+<li><p><strong>segmap</strong> – Segmentation map (optional). If provided, will be updated in-place.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(cleaned_catalog, segmap) if segmap provided, else just cleaned_catalog</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)">tuple</a></p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Segmentation map is modified in-place for efficiency with large images.</p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="farmer.utils.dilate_and_group">
+<span class="sig-prename descclassname"><span class="pre">farmer.utils.</span></span><span class="sig-name descname"><span class="pre">dilate_and_group</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">catalog</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">segmap</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">radius</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fill_holes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/utils.html#dilate_and_group"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.utils.dilate_and_group" title="Link to this definition"></a></dt>
+<dd><p>Dilate segmentation map and group nearby sources together.</p>
+<p>Uses morphological dilation to merge nearby sources into groups, then applies
+optimized union-find algorithm to handle sources split across multiple groups.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>catalog</strong> – Source catalog with x, y positions</p></li>
+<li><p><strong>segmap</strong> – Segmentation map with source IDs</p></li>
+<li><p><strong>radius</strong> – Dilation radius in pixels (default: 0, no dilation)</p></li>
+<li><p><strong>fill_holes</strong> – If True, fill holes in dilated regions (default: False)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>(group_ids, group_populations, groupmap)</dt><dd><ul class="simple">
+<li><p>group_ids: Array of group IDs for each source</p></li>
+<li><p>group_populations: Array of population counts for each source’s group</p></li>
+<li><p>groupmap: 2D array with group IDs for each pixel</p></li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)">tuple</a></p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Radius is assumed to be in pixels, not physical units.</p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="farmer.utils.get_detection_kernel">
+<span class="sig-prename descclassname"><span class="pre">farmer.utils.</span></span><span class="sig-name descname"><span class="pre">get_detection_kernel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filter_kernel</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/utils.html#get_detection_kernel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.utils.get_detection_kernel" title="Link to this definition"></a></dt>
+<dd><p>Load or generate a convolution kernel for source detection.</p>
+<p>Accepts either a filename string pointing to a kernel stored under
+<code class="docutils literal notranslate"><span class="pre">config/conv_filters/</span></code>, or a scalar FWHM (in pixels) from which
+a Gaussian kernel is constructed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>filter_kernel</strong> – Either a string kernel filename (looked up in the
+<code class="docutils literal notranslate"><span class="pre">config/conv_filters/</span></code> directory relative to this module) or
+a scalar FWHM in pixels used to build a <code class="docutils literal notranslate"><span class="pre">Gaussian2DKernel</span></code>.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>2-D convolution kernel array.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)">numpy.ndarray</a></p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#FileExistsError" title="(in Python v3.14)"><strong>FileExistsError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">filter_kernel</span></code> is a string and the file is
+    not found.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.14)"><strong>RuntimeError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">filter_kernel</span></code> is not a recognised type.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="farmer.utils.get_fwhm">
+<span class="sig-prename descclassname"><span class="pre">farmer.utils.</span></span><span class="sig-name descname"><span class="pre">get_fwhm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">img</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/utils.html#get_fwhm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.utils.get_fwhm" title="Link to this definition"></a></dt>
+<dd><p>Estimate the full-width at half-maximum of a 2-D image array.</p>
+<p>Finds the span of pixels whose value exceeds half the image maximum
+along both axes and returns the mean extent.  Returns at most
+<code class="docutils literal notranslate"><span class="pre">DEFAULT_FWHM_MIN</span></code> (1 pixel) to prevent unrealistically small values.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>img</strong> – 2-D array-like representing a PSF or source profile.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Estimated FWHM in pixels, capped at <code class="docutils literal notranslate"><span class="pre">DEFAULT_FWHM_MIN</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)">float</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="farmer.utils.get_resolution">
+<span class="sig-prename descclassname"><span class="pre">farmer.utils.</span></span><span class="sig-name descname"><span class="pre">get_resolution</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">img</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sig</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3.</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/utils.html#get_resolution"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.utils.get_resolution" title="Link to this definition"></a></dt>
+<dd><p>Compute the effective resolution area of a PSF image in pixels squared.</p>
+<p>Uses <a class="reference internal" href="#farmer.utils.get_fwhm" title="farmer.utils.get_fwhm"><code class="xref py py-func docutils literal notranslate"><span class="pre">get_fwhm()</span></code></a> to estimate the PSF width and converts it to an
+area using a Gaussian approximation scaled by <code class="docutils literal notranslate"><span class="pre">sig</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>img</strong> – 2-D array-like representing a PSF profile.</p></li>
+<li><p><strong>sig</strong> – Significance level used to set the aperture width in units
+of the Gaussian sigma. Defaults to 3.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Effective resolution area in pixels squared.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)">float</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="farmer.utils.validate_psfmodel">
+<span class="sig-prename descclassname"><span class="pre">farmer.utils.</span></span><span class="sig-name descname"><span class="pre">validate_psfmodel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">band</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_psftype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/utils.html#validate_psfmodel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.utils.validate_psfmodel" title="Link to this definition"></a></dt>
+<dd><p>Validate and classify the PSF model configured for a band.</p>
+<p>Attempts to read the PSF model path from <code class="docutils literal notranslate"><span class="pre">conf.BANDS[band]['psfmodel']</span></code>.
+If the path is a catalog with <code class="docutils literal notranslate"><span class="pre">ra</span></code>/<code class="docutils literal notranslate"><span class="pre">dec</span></code> columns, the PSF is treated as
+spatially variable; otherwise it is treated as constant.  In either case
+the first PSF file is loaded to confirm it is readable.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>band</strong> – Band name whose PSF to validate (key in <code class="docutils literal notranslate"><span class="pre">conf.BANDS</span></code>).</p></li>
+<li><p><strong>return_psftype</strong> – If True, also return the PSF type string.
+Defaults to False.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">(psfcoords,</span> <span class="pre">psflist)</span></code> where <code class="docutils literal notranslate"><span class="pre">psfcoords</span></code> is either a</dt><dd><p><code class="docutils literal notranslate"><span class="pre">SkyCoord</span></code> array (variable) or the string <code class="docutils literal notranslate"><span class="pre">'none'</span></code> (constant),
+and <code class="docutils literal notranslate"><span class="pre">psflist</span></code> is the corresponding array of file paths.</p>
+</dd>
+<dt>tuple: <code class="docutils literal notranslate"><span class="pre">((psfcoords,</span> <span class="pre">psflist),</span> <span class="pre">psftype)</span></code> if <code class="docutils literal notranslate"><span class="pre">return_psftype</span></code></dt><dd><p>is True, where <code class="docutils literal notranslate"><span class="pre">psftype</span></code> is <code class="docutils literal notranslate"><span class="pre">'variable'</span></code> or <code class="docutils literal notranslate"><span class="pre">'constant'</span></code>.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)">tuple</a></p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.14)"><strong>RuntimeError</strong></a> – If the PSF path does not exist or the file cannot be
+    loaded in any known format.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="farmer.utils.prepare_psf">
+<span class="sig-prename descclassname"><span class="pre">farmer.utils.</span></span><span class="sig-name descname"><span class="pre">prepare_psf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outfilename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pixel_scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask_radius</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clip_radius</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norm_radius</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_pixel_scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ext</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/utils.html#prepare_psf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.utils.prepare_psf" title="Link to this definition"></a></dt>
+<dd><p>Pre-process a PSF FITS image for use with The Farmer.</p>
+<p>Performs optional resampling, background subtraction, spatial clipping,
+and flux normalisation on a PSF model stored as a FITS file, then writes
+the result to disk.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filename</strong> – Path to the input PSF FITS file.</p></li>
+<li><p><strong>outfilename</strong> – Path for the output file.  Overwrites <code class="docutils literal notranslate"><span class="pre">filename</span></code> in
+place when None. Defaults to None.</p></li>
+<li><p><strong>pixel_scale</strong> – Angular pixel scale of the PSF image as an astropy
+<code class="docutils literal notranslate"><span class="pre">Quantity</span></code>.  Read from the FITS header when None.</p></li>
+<li><p><strong>mask_radius</strong> – Radius of the source aperture used to estimate and
+subtract a background plateau (astropy <code class="docutils literal notranslate"><span class="pre">Quantity</span></code>).  No
+background subtraction when None.</p></li>
+<li><p><strong>clip_radius</strong> – Radius at which to spatially clip the PSF
+(astropy <code class="docutils literal notranslate"><span class="pre">Quantity</span></code>).  No clipping when None.</p></li>
+<li><p><strong>norm</strong> – Target integrated flux within <code class="docutils literal notranslate"><span class="pre">norm_radius</span></code>.  No
+renormalisation when None.</p></li>
+<li><p><strong>norm_radius</strong> – Aperture radius used for flux normalisation (astropy
+<code class="docutils literal notranslate"><span class="pre">Quantity</span></code>).  Required when <code class="docutils literal notranslate"><span class="pre">norm</span></code> is not None.</p></li>
+<li><p><strong>target_pixel_scale</strong> – Resample the PSF to this pixel scale (astropy
+<code class="docutils literal notranslate"><span class="pre">Quantity</span></code>) using bilinear zoom.  No resampling when None.</p></li>
+<li><p><strong>ext</strong> – FITS extension index to read/write. Defaults to 0.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The processed PSF model array.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)">numpy.ndarray</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="farmer.utils.get_params">
+<span class="sig-prename descclassname"><span class="pre">farmer.utils.</span></span><span class="sig-name descname"><span class="pre">get_params</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/utils.html#get_params"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.utils.get_params" title="Link to this definition"></a></dt>
+<dd><p>Extract source parameters from a Tractor model.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>model</strong> – Tractor model object (PointSource, ExpGalaxy, DevGalaxy, etc.)</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dictionary of source parameters and errors</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>OrderedDict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="farmer.utils.set_priors">
+<span class="sig-prename descclassname"><span class="pre">farmer.utils.</span></span><span class="sig-name descname"><span class="pre">set_priors</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">priors</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/utils.html#set_priors"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.utils.set_priors" title="Link to this definition"></a></dt>
+<dd><p>Apply positional and morphological priors to a Tractor model.</p>
+<p>Reads the <code class="docutils literal notranslate"><span class="pre">priors</span></code> dictionary and freezes or adds Gaussian priors to the
+model’s <code class="docutils literal notranslate"><span class="pre">pos</span></code>, <code class="docutils literal notranslate"><span class="pre">fracDev</span></code>, <code class="docutils literal notranslate"><span class="pre">shape</span></code>, <code class="docutils literal notranslate"><span class="pre">shapeDev</span></code>, <code class="docutils literal notranslate"><span class="pre">shapeExp</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">reff</span></code> parameters as specified.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model</strong> – Tractor model object (e.g. <code class="docutils literal notranslate"><span class="pre">PointSource</span></code>, <code class="docutils literal notranslate"><span class="pre">ExpGalaxy</span></code>).</p></li>
+<li><p><strong>priors</strong> – <p>Dictionary with any subset of keys:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">'pos'</span></code>: <code class="docutils literal notranslate"><span class="pre">'fix'</span></code>/<code class="docutils literal notranslate"><span class="pre">'freeze'</span></code> to freeze position, a
+<code class="docutils literal notranslate"><span class="pre">Quantity</span></code> angle to add a Gaussian prior, or <code class="docutils literal notranslate"><span class="pre">'none'</span></code> to
+leave free.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'fracDev'</span></code>: <code class="docutils literal notranslate"><span class="pre">'fix'</span></code>/<code class="docutils literal notranslate"><span class="pre">'freeze'</span></code> to freeze the bulge
+fraction, or omit to leave free.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'shape'</span></code>: <code class="docutils literal notranslate"><span class="pre">'fix'</span></code>/<code class="docutils literal notranslate"><span class="pre">'freeze'</span></code> to freeze ellipticity
+parameters (keeping reff free), or omit to leave free.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'reff'</span></code>: <code class="docutils literal notranslate"><span class="pre">'fix'</span></code>/<code class="docutils literal notranslate"><span class="pre">'freeze'</span></code> to freeze effective radius,
+a <code class="docutils literal notranslate"><span class="pre">Quantity</span></code> angle for a Gaussian prior, or <code class="docutils literal notranslate"><span class="pre">'none'</span></code> to
+leave free.</p></li>
+</ul>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Tractor model with priors/freezes applied.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="farmer.utils.map_ids_to_coarse_pixels">
+<span class="sig-prename descclassname"><span class="pre">farmer.utils.</span></span><span class="sig-name descname"><span class="pre">map_ids_to_coarse_pixels</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fine_pixel_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coarse_wcs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fine_wcs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">offset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/utils.html#map_ids_to_coarse_pixels"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.utils.map_ids_to_coarse_pixels" title="Link to this definition"></a></dt>
+<dd><p>Map object IDs from fine grid to coarse grid pixels.</p>
+<p>Vectorized implementation for performance - transforms all pixels in batches
+rather than looping over individual pixels.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fine_pixel_data</strong> – 2D array with object IDs</p></li>
+<li><p><strong>coarse_wcs</strong> – WCS for coarse (output) grid</p></li>
+<li><p><strong>fine_wcs</strong> – WCS for fine (input) grid</p></li>
+<li><p><strong>offset</strong> – Y-offset for parallel processing chunks (default: 0)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Mapping of object_id -&gt; (y_coords, x_coords) as numpy arrays</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a></p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Uses sets to eliminate duplicate coordinates, then converts to
+memory-efficient numpy arrays with optimal dtype.</p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="farmer.utils.map_discontinuous">
+<span class="sig-prename descclassname"><span class="pre">farmer.utils.</span></span><span class="sig-name descname"><span class="pre">map_discontinuous</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_wcs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_shape</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">force_simple</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/utils.html#map_discontinuous"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.utils.map_discontinuous" title="Link to this definition"></a></dt>
+<dd><p>Map a labeled integer array from one WCS grid to another.</p>
+<p>Reprojects a discontinuous map (e.g., segmentation map) by tracking
+which output pixels each labeled region covers.  When the input and
+output grids share the same shape and pixel scale, a fast direct index
+copy is used.  Otherwise the mapping is computed via
+<a class="reference internal" href="#farmer.utils.map_ids_to_coarse_pixels" title="farmer.utils.map_ids_to_coarse_pixels"><code class="xref py py-func docutils literal notranslate"><span class="pre">map_ids_to_coarse_pixels()</span></code></a> (single-core) or
+<a class="reference internal" href="#farmer.utils.parallel_process" title="farmer.utils.parallel_process"><code class="xref py py-func docutils literal notranslate"><span class="pre">parallel_process()</span></code></a> (multi-core, controlled by <code class="docutils literal notranslate"><span class="pre">conf.NCPUS</span></code>).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input</strong> – Tuple <code class="docutils literal notranslate"><span class="pre">(array,</span> <span class="pre">in_wcs)</span></code> where <code class="docutils literal notranslate"><span class="pre">array</span></code> is the 2-D
+integer label map and <code class="docutils literal notranslate"><span class="pre">in_wcs</span></code> is its astropy <code class="docutils literal notranslate"><span class="pre">WCS</span></code>.</p></li>
+<li><p><strong>out_wcs</strong> – Astropy <code class="docutils literal notranslate"><span class="pre">WCS</span></code> for the output (coarse) grid.</p></li>
+<li><p><strong>out_shape</strong> – <code class="docutils literal notranslate"><span class="pre">(ny,</span> <span class="pre">nx)</span></code> pixel dimensions of the output grid.</p></li>
+<li><p><strong>force_simple</strong> – If True, bypass reprojection and apply a direct
+pixel-coordinate copy even when grids differ.  Small regions
+may be lost. Defaults to False.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Mapping <code class="docutils literal notranslate"><span class="pre">{label_id:</span> <span class="pre">(y_array,</span> <span class="pre">x_array)}</span></code> giving the</dt><dd><p>output-grid pixel coordinates occupied by each label.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="farmer.utils.parallel_process">
+<span class="sig-prename descclassname"><span class="pre">farmer.utils.</span></span><span class="sig-name descname"><span class="pre">parallel_process</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fine_pixel_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coarse_wcs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fine_wcs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_processes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/utils.html#parallel_process"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.utils.parallel_process" title="Link to this definition"></a></dt>
+<dd><p>Map object IDs from a fine grid to a coarse grid using multiple processes.</p>
+<p>Splits <code class="docutils literal notranslate"><span class="pre">fine_pixel_data</span></code> into <code class="docutils literal notranslate"><span class="pre">n_processes</span></code> row-chunks and processes
+each chunk with <a class="reference internal" href="#farmer.utils.map_ids_to_coarse_pixels" title="farmer.utils.map_ids_to_coarse_pixels"><code class="xref py py-func docutils literal notranslate"><span class="pre">map_ids_to_coarse_pixels()</span></code></a> in a
+<code class="docutils literal notranslate"><span class="pre">multiprocessing.Pool</span></code>.  Results are merged by concatenating the
+coordinate arrays for each object ID across all chunks.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fine_pixel_data</strong> – 2-D array with integer object IDs on the fine grid.</p></li>
+<li><p><strong>coarse_wcs</strong> – Astropy <code class="docutils literal notranslate"><span class="pre">WCS</span></code> for the coarse (output) grid.</p></li>
+<li><p><strong>fine_wcs</strong> – Astropy <code class="docutils literal notranslate"><span class="pre">WCS</span></code> for the fine (input) grid.</p></li>
+<li><p><strong>n_processes</strong> – Number of parallel worker processes.  Values &lt; 1 are
+treated as 1. Defaults to 1.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Mapping <code class="docutils literal notranslate"><span class="pre">{obj_id:</span> <span class="pre">(y_coords,</span> <span class="pre">x_coords)}</span></code></dt><dd><p>sorted by object ID, where arrays give coarse-grid pixel positions.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/collections.html#collections.OrderedDict" title="(in Python v3.14)">collections.OrderedDict</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="farmer.utils.recursively_save_dict_contents_to_group">
+<span class="sig-prename descclassname"><span class="pre">farmer.utils.</span></span><span class="sig-name descname"><span class="pre">recursively_save_dict_contents_to_group</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">h5file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dic</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'/'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/utils.html#recursively_save_dict_contents_to_group"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.utils.recursively_save_dict_contents_to_group" title="Link to this definition"></a></dt>
+<dd><p>Recursively save dictionary to HDF5 group.</p>
+<p>Optimized version with type checking ordered by frequency of occurrence
+and pre-compiled type tuples for faster isinstance() checks.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>h5file</strong> – Open h5py file handle</p></li>
+<li><p><strong>dic</strong> – Dictionary to save</p></li>
+<li><p><strong>path</strong> – HDF5 group path (default: ‘/’)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If arguments are invalid types</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="farmer.utils.recursively_load_dict_contents_from_group">
+<span class="sig-prename descclassname"><span class="pre">farmer.utils.</span></span><span class="sig-name descname"><span class="pre">recursively_load_dict_contents_from_group</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">h5file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'/'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ans</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/utils.html#recursively_load_dict_contents_from_group"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.utils.recursively_load_dict_contents_from_group" title="Link to this definition"></a></dt>
+<dd><p>Recursively load an HDF5 group into a nested Python dictionary.</p>
+<p>Traverses all datasets and sub-groups under <code class="docutils literal notranslate"><span class="pre">path</span></code>, converting each
+to an appropriate Python/NumPy/Astropy object.  Handles the following
+special cases automatically:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">bands</span></code> datasets are decoded to a Python list of strings.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">size</span></code> / <code class="docutils literal notranslate"><span class="pre">buffsize</span></code> / <code class="docutils literal notranslate"><span class="pre">pixel_scales</span></code> datasets are restored with
+<code class="docutils literal notranslate"><span class="pre">astropy.units.deg</span></code> attached.</p></li>
+<li><p>Catalog datasets are restored as <code class="docutils literal notranslate"><span class="pre">astropy.table.Table</span></code> objects.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Cutout2D</span></code>-backed image groups (<code class="docutils literal notranslate"><span class="pre">science</span></code>, <code class="docutils literal notranslate"><span class="pre">segmap</span></code>, etc.) are
+reconstructed from their stored WCS and pixel position.</p></li>
+<li><p>Tractor source model groups are reconstructed as the appropriate
+model objects (<code class="docutils literal notranslate"><span class="pre">PointSource</span></code>, <code class="docutils literal notranslate"><span class="pre">ExpGalaxy</span></code>, etc.).</p></li>
+<li><p>Group attributes containing WCS strings, FITS headers, <code class="docutils literal notranslate"><span class="pre">SkyCoord</span></code>
+strings, and Quantity unit pairs are restored to their native types.</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>h5file</strong> – Open <code class="docutils literal notranslate"><span class="pre">h5py.File</span></code> object to read from.</p></li>
+<li><p><strong>path</strong> – HDF5 path of the group to load. Defaults to <code class="docutils literal notranslate"><span class="pre">'/'</span></code>.</p></li>
+<li><p><strong>ans</strong> – Accumulator dictionary; populated recursively. Pass <code class="docutils literal notranslate"><span class="pre">None</span></code>
+to start a fresh dictionary. Defaults to None.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Nested dictionary mirroring the HDF5 group hierarchy.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="farmer.utils.run_group">
+<span class="sig-prename descclassname"><span class="pre">farmer.utils.</span></span><span class="sig-name descname"><span class="pre">run_group</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'all'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/utils.html#run_group"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.utils.run_group" title="Link to this definition"></a></dt>
+<dd><p>Process an already-spawned group object with an optional hard timeout.</p>
+<p>When <code class="docutils literal notranslate"><span class="pre">conf.GROUP_TIMEOUT</span></code> is None, runs the group inline in the
+calling process via <code class="xref py py-func docutils literal notranslate"><span class="pre">_run_group_inline()</span></code>.  Otherwise spawns a
+child process via <code class="xref py py-func docutils literal notranslate"><span class="pre">_run_group_timeout_worker()</span></code> and waits up to
+<code class="docutils literal notranslate"><span class="pre">conf.GROUP_TIMEOUT</span></code> seconds; if the child does not respond in time
+it is terminated and the group is marked as rejected.</p>
+<p>On any unhandled exception, if <code class="docutils literal notranslate"><span class="pre">conf.IGNORE_FAILURES</span></code> is True the group
+is rejected and processing continues; otherwise the exception is re-raised.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>group</strong> – An instantiated <code class="docutils literal notranslate"><span class="pre">Group</span></code> object to process.</p></li>
+<li><p><strong>mode</strong> – Processing mode — one of <code class="docutils literal notranslate"><span class="pre">'all'</span></code>, <code class="docutils literal notranslate"><span class="pre">'model'</span></code>,
+<code class="docutils literal notranslate"><span class="pre">'photometry'</span></code>, or <code class="docutils literal notranslate"><span class="pre">'pass'</span></code>. Defaults to <code class="docutils literal notranslate"><span class="pre">'all'</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">(group_id,</span> <span class="pre">model_catalog,</span> <span class="pre">model_tracker)</span></code> shallow copies.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)">tuple</a></p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.14)"><strong>RuntimeError</strong></a> – If the worker process fails or times out and
+    <code class="docutils literal notranslate"><span class="pre">conf.IGNORE_FAILURES</span></code> is False.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="farmer.utils.build_regions">
+<span class="sig-prename descclassname"><span class="pre">farmer.utils.</span></span><span class="sig-name descname"><span class="pre">build_regions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">catalog</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pixel_scale</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outpath</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'objects.reg'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale_factor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/utils.html#build_regions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.utils.build_regions" title="Link to this definition"></a></dt>
+<dd><p>Write a DS9 region file from a source catalog.</p>
+<p>Creates one elliptical sky region per source based on the catalog’s
+semi-major axis <code class="docutils literal notranslate"><span class="pre">a</span></code>, semi-minor axis <code class="docutils literal notranslate"><span class="pre">b</span></code>, and position angle
+<code class="docutils literal notranslate"><span class="pre">theta</span></code> columns, scaled by <code class="docutils literal notranslate"><span class="pre">scale_factor</span></code> and converted from
+pixels to sky using <code class="docutils literal notranslate"><span class="pre">pixel_scale</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>catalog</strong> – Astropy <code class="docutils literal notranslate"><span class="pre">Table</span></code> with columns <code class="docutils literal notranslate"><span class="pre">ra</span></code>, <code class="docutils literal notranslate"><span class="pre">dec</span></code>, <code class="docutils literal notranslate"><span class="pre">a</span></code>,
+<code class="docutils literal notranslate"><span class="pre">b</span></code>, <code class="docutils literal notranslate"><span class="pre">theta</span></code> (angle in radians), and <code class="docutils literal notranslate"><span class="pre">id</span></code>.</p></li>
+<li><p><strong>pixel_scale</strong> – Angular size of one pixel (<code class="docutils literal notranslate"><span class="pre">astropy.units.Quantity</span></code>
+with angular units, e.g. <code class="docutils literal notranslate"><span class="pre">u.arcsec</span></code>).</p></li>
+<li><p><strong>outpath</strong> – Output path for the <code class="docutils literal notranslate"><span class="pre">.reg</span></code> file.
+Defaults to <code class="docutils literal notranslate"><span class="pre">'objects.reg'</span></code>.</p></li>
+<li><p><strong>scale_factor</strong> – Multiplicative factor applied to the ellipse axes
+before writing. Defaults to 2.0.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="farmer.utils.cumulative">
+<span class="sig-prename descclassname"><span class="pre">farmer.utils.</span></span><span class="sig-name descname"><span class="pre">cumulative</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/utils.html#cumulative"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.utils.cumulative" title="Link to this definition"></a></dt>
+<dd><p>Compute cumulative distribution function from data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> – Array of numeric values (may contain NaN)</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>(sorted_values, cumulative_probabilities)</dt><dd><ul class="simple">
+<li><p>sorted_values: x sorted in ascending order (NaN removed)</p></li>
+<li><p>cumulative_probabilities: Normalized cumulative distribution [0, 1]</p></li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)">tuple</a></p>
+</dd>
+</dl>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="mi">4</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">vals</span><span class="p">,</span> <span class="n">cdf</span> <span class="o">=</span> <span class="n">cumulative</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">vals</span>
+<span class="go">array([1, 2, 3, 4])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">cdf</span>
+<span class="go">array([0.  , 0.25, 0.5 , 0.75, 1.  ])</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="baseimage.html" class="btn btn-neutral float-left" title="farmer.image — BaseImage" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../faq.html" class="btn btn-neutral float-right" title="Frequently Asked Questions" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2018-2026, John Weaver.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

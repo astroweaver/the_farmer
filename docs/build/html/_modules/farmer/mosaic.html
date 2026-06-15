@@ -1,0 +1,447 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>farmer.mosaic &mdash; The Farmer 2.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=20623aea"></script>
+      <script src="../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            The Farmer
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quick Start</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../configuration.html">Configuration Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../pipeline.html">Pipeline Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/farmer.html"><code class="docutils literal notranslate"><span class="pre">farmer</span></code> — Top-Level API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/mosaic.html"><code class="docutils literal notranslate"><span class="pre">farmer.mosaic</span></code> — Mosaic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/brick.html"><code class="docutils literal notranslate"><span class="pre">farmer.brick</span></code> — Brick</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/group.html"><code class="docutils literal notranslate"><span class="pre">farmer.group</span></code> — Group</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/baseimage.html"><code class="docutils literal notranslate"><span class="pre">farmer.image</span></code> — BaseImage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/utils.html"><code class="docutils literal notranslate"><span class="pre">farmer.utils</span></code> — Utilities</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Help &amp; Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../faq.html">Frequently Asked Questions</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">The Farmer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../farmer.html">farmer</a></li>
+      <li class="breadcrumb-item active">farmer.mosaic</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for farmer.mosaic</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">config</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">conf</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">validate_psfmodel</span><span class="p">,</span> <span class="n">dilate_and_group</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.brick</span><span class="w"> </span><span class="kn">import</span> <span class="n">Brick</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.image</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseImage</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">astropy.wcs</span><span class="w"> </span><span class="kn">import</span> <span class="n">WCS</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">astropy.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">fits</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">astropy.nddata</span><span class="w"> </span><span class="kn">import</span> <span class="n">Cutout2D</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">astropy.units</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">u</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">astropy.wcs.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">proj_plane_pixel_scales</span>
+
+<span class="n">default_properties</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="n">default_properties</span><span class="p">[</span><span class="s1">&#39;subtract_background&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="n">default_properties</span><span class="p">[</span><span class="s1">&#39;backtype&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;flat&#39;</span>
+<span class="n">default_properties</span><span class="p">[</span><span class="s1">&#39;backregion&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;brick&#39;</span>
+<span class="n">default_properties</span><span class="p">[</span><span class="s1">&#39;zeropoint&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mi">99</span>
+
+<div class="viewcode-block" id="Mosaic">
+<a class="viewcode-back" href="../../api/mosaic.html#farmer.mosaic.Mosaic">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Mosaic</span><span class="p">(</span><span class="n">BaseImage</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A full-field survey image for a single photometric or detection band.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Mosaic.__init__">
+<a class="viewcode-back" href="../../api/mosaic.html#farmer.mosaic.Mosaic.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">band</span><span class="p">,</span> <span class="n">load</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise a Mosaic for the specified band.</span>
+
+<span class="sd">        Validates the band against ``conf.BANDS`` (or ``conf.DETECTION`` for</span>
+<span class="sd">        the detection image), verifies that the science FITS file exists and</span>
+<span class="sd">        has a readable WCS, and optionally loads the full image data into</span>
+<span class="sd">        memory.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            band: Band name (key in ``conf.BANDS``) or ``&#39;detection&#39;``.</span>
+<span class="sd">                Band names must not contain a ``&#39;.&#39;`` character.</span>
+<span class="sd">            load: If True, read all configured image arrays (science, weight,</span>
+<span class="sd">                mask) and PSF model into memory.  If False, only validate</span>
+<span class="sd">                paths and load the WCS. Defaults to False.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError: If ``band`` contains a ``&#39;.&#39;`` character.</span>
+<span class="sd">            RuntimeError: If the science FITS header does not contain a</span>
+<span class="sd">                valid WCS.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="s1">&#39;.&#39;</span> <span class="ow">in</span> <span class="n">band</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Band name </span><span class="si">{</span><span class="n">band</span><span class="si">}</span><span class="s1"> cannot contain a &quot;.&quot;! Rename without one please.&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Housekeeping</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">band</span> <span class="o">=</span> <span class="n">band</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_loaded</span> <span class="o">=</span> <span class="n">load</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="s1">&#39;mosaic&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">brick_ids</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">conf</span><span class="o">.</span><span class="n">N_BRICKS</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">conf</span><span class="o">.</span><span class="n">N_BRICKS</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="c1"># Load the logger</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;farmer.mosaic_</span><span class="si">{</span><span class="n">band</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">filename</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;M</span><span class="si">{</span><span class="n">band</span><span class="si">}</span><span class="s1">.h5&#39;</span>
+
+        <span class="c1"># Check data status</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">band</span> <span class="o">!=</span> <span class="s1">&#39;detection&#39;</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">band</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">conf</span><span class="o">.</span><span class="n">BANDS</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">band</span><span class="si">}</span><span class="s1"> is not a configured band!&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">band</span> <span class="o">==</span> <span class="s1">&#39;detection&#39;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">properties</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">DETECTION</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">properties</span> <span class="o">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">BANDS</span><span class="p">[</span><span class="n">band</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="nb">bool</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="n">key</span><span class="p">])</span> <span class="c1"># turn Trues/Falses into 1/0</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">default_properties</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">default_properties</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+            <span class="k">if</span> <span class="s1">&#39;name&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">band</span>
+            <span class="n">good</span> <span class="o">=</span> <span class="s1">&#39;✓&#39;</span>
+            <span class="n">bad</span> <span class="o">=</span> <span class="s1">&#39;X&#39;</span>
+            <span class="c1"># verify the band</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">paths</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="c1"># Verify required data products</span>
+            <span class="n">good</span> <span class="o">=</span> <span class="s1">&#39;✓&#39;</span>
+            <span class="n">bad</span> <span class="o">=</span> <span class="s1">&#39;X&#39;</span>
+            <span class="n">data_status</span> <span class="o">=</span> <span class="n">bad</span>
+            <span class="n">data_provided</span> <span class="o">=</span> <span class="p">[]</span>
+            
+            <span class="c1"># Check for required image types efficiently</span>
+            <span class="n">required_types</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;science&#39;</span><span class="p">,</span> <span class="s1">&#39;weight&#39;</span><span class="p">,</span> <span class="s1">&#39;mask&#39;</span><span class="p">,</span> <span class="s1">&#39;psfmodel&#39;</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">imgtype</span> <span class="ow">in</span> <span class="n">required_types</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">imgtype</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="n">imgtype</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;psf&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">band</span> <span class="o">==</span> <span class="s1">&#39;detection&#39;</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">imgtype</span><span class="si">}</span><span class="s1"> is not configured for </span><span class="si">{</span><span class="n">band</span><span class="si">}</span><span class="s1">!&#39;</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">imgtype</span> <span class="o">==</span> <span class="s1">&#39;science&#39;</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">imgtype</span><span class="si">}</span><span class="s1"> must be configured!&#39;</span><span class="p">)</span>
+                        <span class="k">return</span> <span class="kc">None</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">paths</span><span class="p">[</span><span class="n">imgtype</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="n">imgtype</span><span class="p">]</span>
+                    <span class="n">data_provided</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">imgtype</span><span class="p">)</span>
+                <span class="n">data_status</span> <span class="o">=</span> <span class="n">good</span>
+
+            <span class="c1"># verify the psf model</span>
+            <span class="n">psf_status</span> <span class="o">=</span> <span class="n">bad</span>
+            <span class="k">if</span> <span class="n">band</span> <span class="o">==</span> <span class="s1">&#39;detection&#39;</span><span class="p">:</span>
+                <span class="n">psf_status</span> <span class="o">=</span> <span class="s1">&#39;no&#39;</span>
+                <span class="n">psftype</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">__</span><span class="p">,</span> <span class="n">psftype</span> <span class="o">=</span> <span class="n">validate_psfmodel</span><span class="p">(</span><span class="n">band</span><span class="p">,</span> <span class="n">return_psftype</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="n">psftype</span> <span class="o">=</span> <span class="s1">&#39; &#39;</span><span class="o">+</span><span class="n">psftype</span>
+                <span class="n">psf_status</span> <span class="o">=</span> <span class="n">good</span>
+
+            <span class="c1"># verify the WCS</span>
+            <span class="n">wcs_status</span> <span class="o">=</span> <span class="n">bad</span>
+            <span class="n">ext</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">if</span> <span class="s1">&#39;extension&#39;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="p">:</span>
+                <span class="n">ext</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="s1">&#39;extension&#39;</span><span class="p">]</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">wcs</span> <span class="o">=</span> <span class="n">WCS</span><span class="p">(</span><span class="n">fits</span><span class="o">.</span><span class="n">getheader</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="s1">&#39;science&#39;</span><span class="p">],</span> <span class="n">ext</span><span class="o">=</span><span class="n">ext</span><span class="p">))</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">pixel_scale</span> <span class="o">=</span> <span class="n">proj_plane_pixel_scales</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">wcs</span><span class="p">)</span> <span class="o">*</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span>
+                <span class="n">wcs_status</span> <span class="o">=</span> <span class="n">good</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;The World Coordinate System for </span><span class="si">{</span><span class="n">band</span><span class="si">}</span><span class="s1"> cannot be understood! Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+            <span class="n">arr_shape</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wcs</span><span class="o">.</span><span class="n">array_shape</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">position</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wcs</span><span class="o">.</span><span class="n">pixel_to_world</span><span class="p">(</span><span class="n">arr_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="mf">2.</span><span class="p">,</span> <span class="n">arr_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">/</span><span class="mf">2.</span><span class="p">)</span>
+            <span class="c1"># upper = self.wcs.pixel_to_world(arr_shape[0], arr_shape[1])</span>
+            <span class="c1"># lower = self.wcs.pixel_to_world(0, 0)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="n">arr_shape</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">pixel_scale</span>
+            
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Mosaic </span><span class="si">{</span><span class="n">band</span><span class="si">}</span><span class="s1"> is centered at </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">position</span><span class="o">.</span><span class="n">ra</span><span class="si">:</span><span class="s1">2.1f</span><span class="si">}</span><span class="s1">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">position</span><span class="o">.</span><span class="n">dec</span><span class="si">:</span><span class="s1">2.1f</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Mosaic </span><span class="si">{</span><span class="n">band</span><span class="si">}</span><span class="s1"> has size at </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s1">2.1f</span><span class="si">}</span><span class="s1">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s1">2.1f</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">band</span><span class="si">:</span><span class="s1">10</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="n">data_status</span><span class="si">}</span><span class="s1"> Data </span><span class="si">{</span><span class="nb">tuple</span><span class="p">(</span><span class="n">data_provided</span><span class="p">)</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">psf_status</span><span class="si">}{</span><span class="n">psftype</span><span class="si">}</span><span class="s1"> PSF </span><span class="si">{</span><span class="n">wcs_status</span><span class="si">}</span><span class="s1"> WCS (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">position</span><span class="o">.</span><span class="n">ra</span><span class="si">:</span><span class="s1">2.1f</span><span class="si">}</span><span class="s1">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">position</span><span class="o">.</span><span class="n">dec</span><span class="si">:</span><span class="s1">2.1f</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Now load in the data (memory use!) -- and only what is necessary!</span>
+        <span class="k">if</span> <span class="n">load</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">headers</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">catalogs</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">n_sources</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Loading </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">paths</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s1"> for </span><span class="si">{</span><span class="n">band</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">paths</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">attr</span> <span class="o">==</span> <span class="s1">&#39;psfmodel&#39;</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;psfcoords&#39;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;psflist&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">validate_psfmodel</span><span class="p">(</span><span class="n">band</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">ext</span> <span class="o">=</span> <span class="mi">0</span>
+                    <span class="k">if</span> <span class="s1">&#39;extension&#39;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="p">:</span>
+                        <span class="n">ext</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="s1">&#39;extension&#39;</span><span class="p">]</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">attr</span><span class="p">]</span> <span class="o">=</span> <span class="n">fits</span><span class="o">.</span><span class="n">getdata</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">paths</span><span class="p">[</span><span class="n">attr</span><span class="p">],</span> <span class="n">ext</span><span class="o">=</span><span class="n">ext</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">headers</span><span class="p">[</span><span class="n">attr</span><span class="p">]</span> <span class="o">=</span> <span class="n">fits</span><span class="o">.</span><span class="n">getheader</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">paths</span><span class="p">[</span><span class="n">attr</span><span class="p">],</span> <span class="n">ext</span><span class="o">=</span><span class="n">ext</span><span class="p">)</span>
+                <span class="c1"># if attr in (&#39;science&#39;, &#39;weight&#39;):</span>
+                <span class="c1">#     self.estimate_properties(band=band, imgtype=attr)</span>
+            <span class="k">if</span> <span class="n">band</span> <span class="ow">in</span> <span class="n">conf</span><span class="o">.</span><span class="n">BANDS</span><span class="p">:</span>
+                <span class="k">if</span> <span class="s1">&#39;backregion&#39;</span> <span class="ow">in</span> <span class="n">conf</span><span class="o">.</span><span class="n">BANDS</span><span class="p">[</span><span class="n">band</span><span class="p">]:</span>
+                    <span class="k">if</span> <span class="n">conf</span><span class="o">.</span><span class="n">BANDS</span><span class="p">[</span><span class="n">band</span><span class="p">][</span><span class="s1">&#39;backregion&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;mosaic&#39;</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">estimate_background</span><span class="p">(</span><span class="n">band</span><span class="o">=</span><span class="n">band</span><span class="p">,</span> <span class="n">imgtype</span><span class="o">=</span><span class="s1">&#39;science&#39;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">band</span> <span class="o">==</span> <span class="s1">&#39;detection&#39;</span><span class="p">:</span>
+                <span class="k">if</span> <span class="s1">&#39;backregion&#39;</span> <span class="ow">in</span> <span class="n">conf</span><span class="o">.</span><span class="n">DETECTION</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">conf</span><span class="o">.</span><span class="n">DETECTION</span><span class="p">[</span><span class="s1">&#39;backregion&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;mosaic&#39;</span><span class="p">:</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">estimate_background</span><span class="p">(</span><span class="n">band</span><span class="o">=</span><span class="n">band</span><span class="p">,</span> <span class="n">imgtype</span><span class="o">=</span><span class="s1">&#39;science&#39;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Mosaic.get_bands">
+<a class="viewcode-back" href="../../api/mosaic.html#farmer.mosaic.Mosaic.get_bands">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_bands</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the band(s) associated with this mosaic.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            numpy.ndarray: Single-element array containing ``self.band``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">band</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="Mosaic.get_figprefix">
+<a class="viewcode-back" href="../../api/mosaic.html#farmer.mosaic.Mosaic.get_figprefix">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_figprefix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">imgtype</span><span class="p">,</span> <span class="n">band</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate a filename prefix for output figures of this mosaic.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            imgtype: Image type string (e.g. ``&#39;science&#39;``, ``&#39;model&#39;``).</span>
+<span class="sd">            band: Ignored for mosaics; ``self.band`` is always used.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: Prefix in the format ``&#39;{band}_{imgtype}&#39;``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">band</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">imgtype</span><span class="si">}</span><span class="s1">&#39;</span></div>
+
+
+<div class="viewcode-block" id="Mosaic.add_to_brick">
+<a class="viewcode-back" href="../../api/mosaic.html#farmer.mosaic.Mosaic.add_to_brick">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_to_brick</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">brick</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Cut out this mosaic&#39;s data at the brick&#39;s footprint and attach it.</span>
+
+<span class="sd">        Delegates to :meth:`~farmer.brick.Brick.add_band`, which extracts</span>
+<span class="sd">        ``Cutout2D`` sub-images centred on the brick position (including</span>
+<span class="sd">        buffer) for every image type present in this mosaic.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            brick: ``Brick`` object to receive the cut-out data.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Brick: The same brick object, now containing this mosaic&#39;s band.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Cut up science, weight, and mask, if available</span>
+        <span class="n">brick</span><span class="o">.</span><span class="n">add_band</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="c1"># Return it</span>
+        <span class="k">return</span> <span class="n">brick</span></div>
+
+
+<div class="viewcode-block" id="Mosaic.spawn_brick">
+<a class="viewcode-back" href="../../api/mosaic.html#farmer.mosaic.Mosaic.spawn_brick">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">spawn_brick</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">brick_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">position</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">silent</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a new blank brick and populate it from this mosaic.</span>
+
+<span class="sd">        Instantiates a fresh ``Brick`` (without loading from disk) and</span>
+<span class="sd">        calls :meth:`add_to_brick` to cut out the relevant sub-image.  The</span>
+<span class="sd">        brick position is derived either from ``brick_id`` (looked up on the</span>
+<span class="sd">        detection WCS grid) or from explicit ``position``/``size`` arguments.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            brick_id: Integer brick identifier (1-indexed).  If provided,</span>
+<span class="sd">                ``position`` and ``size`` must be None.</span>
+<span class="sd">            position: ``astropy.coordinates.SkyCoord`` of the brick centre.</span>
+<span class="sd">                Used only when ``brick_id`` is None.</span>
+<span class="sd">            size: ``(dec_height, ra_width)`` tuple of angular</span>
+<span class="sd">                ``astropy.units.Quantity`` values.  Used only when</span>
+<span class="sd">                ``brick_id`` is None.</span>
+<span class="sd">            silent: If True, suppress informational log messages.</span>
+<span class="sd">                Defaults to False.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Brick: Newly created brick populated with this mosaic&#39;s band.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Instantiate brick</span>
+        <span class="k">if</span> <span class="n">brick_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">brick</span> <span class="o">=</span> <span class="n">Brick</span><span class="p">(</span><span class="n">position</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">load</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">silent</span><span class="o">=</span><span class="n">silent</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">brick</span> <span class="o">=</span> <span class="n">Brick</span><span class="p">(</span><span class="n">brick_id</span><span class="p">,</span> <span class="n">load</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">silent</span><span class="o">=</span><span class="n">silent</span><span class="p">)</span>
+        
+        <span class="c1"># Cut up science, weight, and mask, if available</span>
+        <span class="n">brick</span><span class="o">.</span><span class="n">add_band</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="c1"># Return it</span>
+        <span class="k">return</span> <span class="n">brick</span></div>
+
+
+<div class="viewcode-block" id="Mosaic.extract">
+<a class="viewcode-back" href="../../api/mosaic.html#farmer.mosaic.Mosaic.extract">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">extract</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">background</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Detect sources across the full mosaic and build a catalog.</span>
+
+<span class="sd">        Calls the base-class ``_extract`` method on the full mosaic array,</span>
+<span class="sd">        stores the resulting catalog in ``self.catalogs[&#39;science&#39;]`` and the</span>
+<span class="sd">        segmentation map in ``self.data[&#39;segmap&#39;]``, then appends sequential</span>
+<span class="sd">        ``id``, ``ra``, and ``dec`` columns.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            background: Pre-computed background array to subtract before</span>
+<span class="sd">                detection.  When None no subtraction is performed.</span>
+<span class="sd">                Defaults to None.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            None. Populates ``self.catalogs[&#39;science&#39;]``,</span>
+<span class="sd">            ``self.data[&#39;segmap&#39;]``, and ``self.n_sources[&#39;science&#39;]``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">catalog</span><span class="p">,</span> <span class="n">segmap</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract</span><span class="p">(</span><span class="n">band</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">background</span><span class="o">=</span><span class="n">background</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">catalogs</span><span class="p">[</span><span class="s1">&#39;science&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">catalog</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;segmap&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">segmap</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_sources</span><span class="p">[</span><span class="s1">&#39;science&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">catalog</span><span class="p">)</span>
+
+        <span class="c1"># add ids</span>
+        <span class="n">colname</span> <span class="o">=</span> <span class="s1">&#39;id&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">catalogs</span><span class="p">[</span><span class="s1">&#39;science&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">add_column</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_sources</span><span class="p">[</span><span class="s1">&#39;science&#39;</span><span class="p">]),</span> <span class="n">name</span><span class="o">=</span><span class="n">colname</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="c1"># add world positions</span>
+        <span class="n">skycoords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wcs</span><span class="o">.</span><span class="n">all_pix2world</span><span class="p">(</span><span class="n">catalog</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="n">catalog</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">],</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">catalogs</span><span class="p">[</span><span class="s1">&#39;science&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">add_column</span><span class="p">(</span><span class="n">skycoords</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;ra&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">catalogs</span><span class="p">[</span><span class="s1">&#39;science&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">add_column</span><span class="p">(</span><span class="n">skycoords</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;dec&#39;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="Mosaic.identify_groups">
+<a class="viewcode-back" href="../../api/mosaic.html#farmer.mosaic.Mosaic.identify_groups">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">identify_groups</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="n">conf</span><span class="o">.</span><span class="n">DILATION_RADIUS</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Group nearby sources by morphologically dilating the segmentation map.</span>
+
+<span class="sd">        Converts ``radius`` from arcsec to pixels using the mosaic WCS,</span>
+<span class="sd">        calls :func:`~farmer.utils.dilate_and_group`, and stores</span>
+<span class="sd">        ``group_id`` and ``group_pop`` columns in</span>
+<span class="sd">        ``self.catalogs[&#39;science&#39;]`` and the group map in</span>
+<span class="sd">        ``self.data[&#39;groupmap&#39;]``.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            radius: Dilation radius as an ``astropy.units.Quantity`` angle.</span>
+<span class="sd">                Defaults to ``conf.DILATION_RADIUS``.</span>
+<span class="sd">            overwrite: If True, replace existing ``group_id``/``group_pop``</span>
+<span class="sd">                columns; if False, add them as new columns.</span>
+<span class="sd">                Defaults to False.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">catalog</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">catalogs</span><span class="p">[</span><span class="s1">&#39;science&#39;</span><span class="p">]</span>
+        <span class="n">segmap</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;segmap&#39;</span><span class="p">]</span>
+        <span class="n">radius</span> <span class="o">=</span> <span class="n">radius</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">arcsec</span><span class="p">)</span>
+        <span class="n">radius_px</span> <span class="o">=</span> <span class="n">radius</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">wcs</span><span class="o">.</span><span class="n">pixel_scale_matrix</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">u</span><span class="o">.</span><span class="n">deg</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">arcsec</span><span class="p">)</span> <span class="c1"># this won&#39;t be so great for non-aligned images...</span>
+        <span class="n">radius_rpx</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">radius_px</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Dilation radius of </span><span class="si">{</span><span class="n">radius</span><span class="si">}</span><span class="s1"> or </span><span class="si">{</span><span class="n">radius_px</span><span class="si">:</span><span class="s1">2.2f</span><span class="si">}</span><span class="s1"> px rounded to </span><span class="si">{</span><span class="n">radius_rpx</span><span class="si">}</span><span class="s1"> px&#39;</span><span class="p">)</span>
+
+        <span class="n">group_ids</span><span class="p">,</span> <span class="n">group_pops</span><span class="p">,</span> <span class="n">groupmap</span> <span class="o">=</span> <span class="n">dilate_and_group</span><span class="p">(</span><span class="n">catalog</span><span class="p">,</span> <span class="n">segmap</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="n">radius_rpx</span><span class="p">,</span> <span class="n">fill_holes</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">overwrite</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">catalogs</span><span class="p">[</span><span class="s1">&#39;science&#39;</span><span class="p">][</span><span class="s1">&#39;group_id&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">group_ids</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">catalogs</span><span class="p">[</span><span class="s1">&#39;science&#39;</span><span class="p">][</span><span class="s1">&#39;group_pop&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">group_pops</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">catalogs</span><span class="p">[</span><span class="s1">&#39;science&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">add_column</span><span class="p">(</span><span class="n">group_ids</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;group_id&#39;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">catalogs</span><span class="p">[</span><span class="s1">&#39;science&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">add_column</span><span class="p">(</span><span class="n">group_pops</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;group_pop&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;groupmap&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">groupmap</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2018-2026, John Weaver.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

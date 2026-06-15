@@ -1,0 +1,361 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pipeline Architecture &mdash; The Farmer 2.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=20623aea"></script>
+      <script src="_static/doctools.js?v=9a2dae69"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="_static/copybutton.js?v=f281be69"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="API Reference" href="api/index.html" />
+    <link rel="prev" title="Configuration Reference" href="configuration.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            The Farmer
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Reference</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Pipeline Architecture</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#brick-grid">Brick Grid</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#source-detection">Source Detection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#source-grouping">Source Grouping</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#modeling-pipeline">Modeling Pipeline</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#initial-model-setup">Initial Model Setup</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#the-tractor-engine">The Tractor Engine</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#decision-tree">Decision Tree</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#forced-photometry">Forced Photometry</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#parameter-uncertainty">Parameter Uncertainty</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#results-storage">Results Storage</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#multi-resolution-support">Multi-Resolution Support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#hdf5-persistence">HDF5 Persistence</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#memory-management">Memory Management</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/farmer.html"><code class="docutils literal notranslate"><span class="pre">farmer</span></code> — Top-Level API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/mosaic.html"><code class="docutils literal notranslate"><span class="pre">farmer.mosaic</span></code> — Mosaic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/brick.html"><code class="docutils literal notranslate"><span class="pre">farmer.brick</span></code> — Brick</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/group.html"><code class="docutils literal notranslate"><span class="pre">farmer.group</span></code> — Group</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/baseimage.html"><code class="docutils literal notranslate"><span class="pre">farmer.image</span></code> — BaseImage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/utils.html"><code class="docutils literal notranslate"><span class="pre">farmer.utils</span></code> — Utilities</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Help &amp; Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">Frequently Asked Questions</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">The Farmer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Pipeline Architecture</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/pipeline.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="pipeline-architecture">
+<h1>Pipeline Architecture<a class="headerlink" href="#pipeline-architecture" title="Link to this heading"></a></h1>
+<p>This page describes the internal logic of The Farmer: how the mosaic is subdivided, how sources are grouped, and how the morphological decision tree works.</p>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<p>The pipeline has four major stages:</p>
+<ol class="arabic simple">
+<li><p><strong>Brick construction</strong> — the survey mosaic is tiled into a regular grid of overlapping bricks.</p></li>
+<li><p><strong>Source detection</strong> — within each brick, SEP finds sources in the detection image and assigns them to groups.</p></li>
+<li><p><strong>Model determination</strong> — each group is modeled jointly using a staged decision tree.</p></li>
+<li><p><strong>Forced photometry</strong> — morphologies are frozen and fluxes are measured in every photometric band.</p></li>
+</ol>
+</section>
+<section id="brick-grid">
+<h2>Brick Grid<a class="headerlink" href="#brick-grid" title="Link to this heading"></a></h2>
+<p>The mosaic is divided into <code class="docutils literal notranslate"><span class="pre">N_BRICKS[0]</span> <span class="pre">×</span> <span class="pre">N_BRICKS[1]</span></code> rectangular bricks. Brick IDs run from 1 to <code class="docutils literal notranslate"><span class="pre">N_BRICKS[0]</span> <span class="pre">×</span> <span class="pre">N_BRICKS[1]</span></code> in row-major order. Each brick has a small overlap region (<code class="docutils literal notranslate"><span class="pre">BRICK_BUFFER</span></code>) on all four sides:</p>
+<ul class="simple">
+<li><p><strong>Interior region</strong>: the true brick footprint used for catalog output.</p></li>
+<li><p><strong>Buffered region</strong>: a padded cutout used for fitting (sources near the edges see full profiles from their neighbors rather than truncated ones).</p></li>
+</ul>
+<p>Sources detected in the buffer are discarded from the catalog. Their flux is still accounted for during fitting via their segment pixels.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>┌─────────────────────────────┐
+│  MOSAIC                     │
+│  ┌──────┬──────┬──────┬──┐  │
+│  │ B1   │ B2   │ B3   │B4│  │
+│  ├──────┼──────┼──────┼──┤  │
+│  │ B5   │ B6   │ B7   │B8│  │
+│  └──────┴──────┴──────┴──┘  │
+└─────────────────────────────┘
+</pre></div>
+</div>
+</section>
+<section id="source-detection">
+<h2>Source Detection<a class="headerlink" href="#source-detection" title="Link to this heading"></a></h2>
+<p>Detection uses <code class="docutils literal notranslate"><span class="pre">sep</span></code> (the Python interface to Source Extractor) on the detection image. The steps are:</p>
+<ol class="arabic simple">
+<li><p><strong>Background estimation</strong> — a 2-D background model is computed on a <code class="docutils literal notranslate"><span class="pre">BACK_BW</span> <span class="pre">×</span> <span class="pre">BACK_BH</span></code> mesh and smoothed with a <code class="docutils literal notranslate"><span class="pre">BACK_FW</span> <span class="pre">×</span> <span class="pre">BACK_FH</span></code> filter.</p></li>
+<li><p><strong>Convolution</strong> — the image is convolved with the kernel specified by <code class="docutils literal notranslate"><span class="pre">FILTER_KERNEL</span></code>.</p></li>
+<li><p><strong>Thresholding</strong> — pixels exceeding <code class="docutils literal notranslate"><span class="pre">THRESH</span></code> (relative to RMS if <code class="docutils literal notranslate"><span class="pre">USE_DETECTION_WEIGHT=True</span></code>, else absolute) in contiguous areas of at least <code class="docutils literal notranslate"><span class="pre">MINAREA</span></code> pixels are marked as detections.</p></li>
+<li><p><strong>Deblending</strong> — overlapping detections are split using <code class="docutils literal notranslate"><span class="pre">DEBLEND_NTHRESH</span></code> thresholds and minimum contrast <code class="docutils literal notranslate"><span class="pre">DEBLEND_CONT</span></code>.</p></li>
+<li><p><strong>Buffer masking</strong> — sources whose centroids fall in the brick buffer zone are removed. Pixels belonging to their segments are masked.</p></li>
+<li><p><strong>World coordinates</strong> — pixel centroids are projected to RA/Dec via the WCS.</p></li>
+</ol>
+<p>The output is an <code class="docutils literal notranslate"><span class="pre">astropy.Table</span></code> (the detection catalog) and a segmentation image (the <code class="docutils literal notranslate"><span class="pre">segmap</span></code>).</p>
+</section>
+<section id="source-grouping">
+<h2>Source Grouping<a class="headerlink" href="#source-grouping" title="Link to this heading"></a></h2>
+<p>After detection, nearby sources are grouped using morphological dilation:</p>
+<ol class="arabic simple">
+<li><p>A binary mask is created from the segmentation map (any pixel belonging to any source = 1).</p></li>
+<li><p>The mask is dilated with a circular kernel of radius <code class="docutils literal notranslate"><span class="pre">DILATION_RADIUS</span></code> (converted to pixels using the detection WCS).</p></li>
+<li><p>Optionally, holes in the dilated mask are filled.</p></li>
+<li><p>Connected components of the dilated mask are labeled.</p></li>
+<li><p>Each original source segment is assigned the group ID of its overlapping connected component. If a segment overlaps more than one component (can happen for sources near group boundaries), union-find merges those components.</p></li>
+</ol>
+<p>The result is a <code class="docutils literal notranslate"><span class="pre">group_id</span></code> column in the catalog and a <code class="docutils literal notranslate"><span class="pre">groupmap</span></code> image.</p>
+</section>
+<section id="modeling-pipeline">
+<h2>Modeling Pipeline<a class="headerlink" href="#modeling-pipeline" title="Link to this heading"></a></h2>
+<p>For each group, The Farmer runs a complete optimization pipeline. The group contains all images (detection plus all model bands), and models are fitted simultaneously across all model bands.</p>
+<section id="initial-model-setup">
+<h3>Initial Model Setup<a class="headerlink" href="#initial-model-setup" title="Link to this heading"></a></h3>
+<p>Each source in the group is initialized as a <code class="xref py py-class docutils literal notranslate"><span class="pre">PointSource</span></code> at its detected position. The detection segmentation map defines which pixels “belong” to each source for chi-squared accounting.</p>
+</section>
+<section id="the-tractor-engine">
+<h3>The Tractor Engine<a class="headerlink" href="#the-tractor-engine" title="Link to this heading"></a></h3>
+<p>The Farmer uses <a class="reference external" href="https://github.com/dstndstn/tractor">The Tractor</a> as its optimization backend. The Tractor models the observed image as:</p>
+<div class="math notranslate nohighlight">
+\[I_{\rm model}(x, y) = \sum_k \left[ f_k \cdot (P * S_k)(x, y) \right] + B(x, y)\]</div>
+<p>where <span class="math notranslate nohighlight">\(f_k\)</span> is the flux of source <span class="math notranslate nohighlight">\(k\)</span>, <span class="math notranslate nohighlight">\(S_k\)</span> is its surface brightness profile, <span class="math notranslate nohighlight">\(P\)</span> is the PSF, and <span class="math notranslate nohighlight">\(B\)</span> is the background. The likelihood is:</p>
+<div class="math notranslate nohighlight">
+\[\mathcal{L} = -\frac{1}{2} \sum_{x,y} \frac{\left[ I_{\rm obs}(x,y) - I_{\rm model}(x,y) \right]^2}{\sigma^2(x,y)}\]</div>
+<p>where <span class="math notranslate nohighlight">\(\sigma^2\)</span> is the inverse weight (variance) image. The optimizer minimizes <span class="math notranslate nohighlight">\(-\ln \mathcal{L}\)</span> using damped least-squares (Levenberg–Marquardt), or optionally the Ceres Solver.</p>
+</section>
+<section id="decision-tree">
+<h3>Decision Tree<a class="headerlink" href="#decision-tree" title="Link to this heading"></a></h3>
+<p>The decision tree determines the best-fit profile type for each source. It runs in stages:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 10.0%" />
+<col style="width: 25.0%" />
+<col style="width: 65.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Stage</p></th>
+<th class="head"><p>Model Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>0</p></td>
+<td><p>PointSource</p></td>
+<td><p>Delta-function convolved with PSF. No free shape parameters.</p></td>
+</tr>
+<tr class="row-odd"><td><p>1</p></td>
+<td><p>SimpleGalaxy</p></td>
+<td><p>Fixed exponential profile, effective radius = 0.45″, circular. Tests whether the source is at all resolved.</p></td>
+</tr>
+<tr class="row-even"><td><p>2</p></td>
+<td><p>ExpGalaxy</p></td>
+<td><p>Exponential disk with free effective radius, ellipticity, and position angle.</p></td>
+</tr>
+<tr class="row-odd"><td><p>3</p></td>
+<td><p>DevGalaxy</p></td>
+<td><p>de Vaucouleurs (r^1/4) profile with free shape parameters.</p></td>
+</tr>
+<tr class="row-even"><td><p>4</p></td>
+<td><p>FixedCompositeGalaxy (Comp)</p></td>
+<td><p>Bulge + disk composite with a free bulge fraction <code class="docutils literal notranslate"><span class="pre">fracDev</span></code>. If no model at stages 0–3 gives a significantly better fit than PointSource, the source remains a PointSource.</p></td>
+</tr>
+<tr class="row-odd"><td><p>10 (final)</p></td>
+<td><p>Winning model</p></td>
+<td><p>Re-optimize the winning model with tighter position prior before photometry.</p></td>
+</tr>
+<tr class="row-even"><td><p>11 (phot)</p></td>
+<td><p>Forced photometry</p></td>
+<td><p>Morphology frozen via <code class="docutils literal notranslate"><span class="pre">PHOT_PRIORS</span></code>; only fluxes (and optionally position within a tight prior) are free.</p></td>
+</tr>
+</tbody>
+</table>
+<p>At each stage, the optimizer runs up to <code class="docutils literal notranslate"><span class="pre">MAX_STEPS</span></code> iterations. Convergence is declared when <span class="math notranslate nohighlight">\(|\Delta \ln \mathcal{L}| &lt; {\rm DLNP\_CRIT}\)</span>. The chi-squared statistic:</p>
+<div class="math notranslate nohighlight">
+\[\chi^2 = \sum_{x,y} \frac{\left[ I_{\rm obs}(x,y) - I_{\rm model}(x,y) \right]^2}{\sigma^2(x,y)}\]</div>
+<p>is computed for each source using its segmentation pixels.</p>
+<p>Decision logic at each step:</p>
+<ul class="simple">
+<li><p><strong>PointSource → SimpleGalaxy</strong>: if Δχ² &gt; <code class="docutils literal notranslate"><span class="pre">SIMPLEGALAXY_PENALTY</span></code>, try SimpleGalaxy.</p></li>
+<li><p><strong>SimpleGalaxy → ExpGalaxy</strong>: if Δχ² &gt; <code class="docutils literal notranslate"><span class="pre">SUFFICIENT_THRESH</span></code>, allow free-shape Exp.</p></li>
+<li><p><strong>ExpGalaxy vs DevGalaxy</strong>: both are tried; the better fit wins (ties go to Exp).</p></li>
+<li><p><strong>Exp/Dev → Composite</strong>: if Δχ² &gt; <code class="docutils literal notranslate"><span class="pre">SUFFICIENT_THRESH</span></code> for any source in the group, upgrade.</p></li>
+<li><p><strong>Fallback</strong>: if a more complex model fails to converge or produces unphysical parameters, revert to the simpler one.</p></li>
+</ul>
+<p>Positions are updated with a Gaussian prior (<code class="docutils literal notranslate"><span class="pre">MODEL_PRIORS['pos']</span></code>) to prevent large astrometric shifts. The prior is tightened between the modeling and photometry stages (<code class="docutils literal notranslate"><span class="pre">PHOT_PRIORS['pos']</span></code>).</p>
+</section>
+<section id="forced-photometry">
+<h3>Forced Photometry<a class="headerlink" href="#forced-photometry" title="Link to this heading"></a></h3>
+<p>After model determination, morphological parameters (<code class="docutils literal notranslate"><span class="pre">reff</span></code>, <code class="docutils literal notranslate"><span class="pre">ellip</span></code>, <code class="docutils literal notranslate"><span class="pre">theta</span></code>, <code class="docutils literal notranslate"><span class="pre">fracDev</span></code>) are frozen via the <code class="docutils literal notranslate"><span class="pre">PHOT_PRIORS</span></code> configuration. Only fluxes — and optionally positions with a tight Gaussian prior — are free. Each photometric band is then optimized in turn.</p>
+</section>
+<section id="parameter-uncertainty">
+<h3>Parameter Uncertainty<a class="headerlink" href="#parameter-uncertainty" title="Link to this heading"></a></h3>
+<p>Uncertainties on all free parameters are extracted from the diagonal of the inverse Hessian (Fisher information matrix). This gives the formal 1-sigma error on each parameter assuming Gaussian noise, which is a lower bound on the true uncertainty.</p>
+</section>
+<section id="results-storage">
+<h3>Results Storage<a class="headerlink" href="#results-storage" title="Link to this heading"></a></h3>
+<p>After processing, the group’s results are “absorbed” back into the parent brick:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">brick.model_catalog</span></code> — <code class="docutils literal notranslate"><span class="pre">OrderedDict</span></code> mapping source IDs to Tractor model objects.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">brick.model_tracker</span></code> — convergence history (chi-squared per stage) for each source.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">brick.model_tracker_groups</span></code> — group-level convergence history.</p></li>
+</ul>
+</section>
+</section>
+<section id="multi-resolution-support">
+<h2>Multi-Resolution Support<a class="headerlink" href="#multi-resolution-support" title="Link to this heading"></a></h2>
+<p>The detection and photometric bands may have different pixel scales. When transferring segmentation maps from the detection grid to a photometric-band grid, The Farmer uses <code class="docutils literal notranslate"><span class="pre">map_ids_to_coarse_pixels</span></code> (in <a class="reference internal" href="api/utils.html#module-farmer.utils" title="farmer.utils"><code class="xref py py-mod docutils literal notranslate"><span class="pre">farmer.utils</span></code></a>):</p>
+<ol class="arabic simple">
+<li><p>For each fine pixel (detection grid), the four corners are projected via WCS to coarse pixels (photometric-band grid).</p></li>
+<li><p>The object ID of the fine pixel is assigned to all coarse pixels that overlap it.</p></li>
+<li><p>The process is vectorized and runs in 10,000-pixel chunks to manage memory.</p></li>
+</ol>
+<p>For very large resolution differences (e.g., detection at 0.15″/pix, IRAC at 0.6″/pix), the <code class="docutils literal notranslate"><span class="pre">FORCE_SIMPLE_MAPPING</span></code> option can accelerate this step at some precision cost.</p>
+</section>
+<section id="hdf5-persistence">
+<h2>HDF5 Persistence<a class="headerlink" href="#hdf5-persistence" title="Link to this heading"></a></h2>
+<p>All brick state is serialized to HDF5 via <code class="docutils literal notranslate"><span class="pre">h5py</span></code>. The hierarchy is:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>B{brick_id}.h5
+├── attributes               ← brick metadata (position, size, bands, config)
+├── detection/
+│   ├── science              ← Cutout2D (data array + WCS + position)
+│   ├── weight
+│   ├── mask
+│   ├── background
+│   ├── rms
+│   ├── segmap
+│   ├── groupmap
+│   └── catalogs/
+│       └── science          ← astropy.Table
+├── {band}/
+│   ├── science
+│   ├── weight
+│   ├── mask
+│   ├── background
+│   ├── psfcoords
+│   ├── psflist
+│   └── catalogs/
+│       └── science
+└── model_catalog/
+    └── {source_id}/
+        ├── name             ← model type string
+        ├── ra, dec          ← sky coordinates
+        ├── ra_err, dec_err  ← 1σ uncertainties
+        ├── {band}_flux      ← fitted flux
+        ├── {band}_flux_err
+        ├── logre, reff      ← effective radius
+        ├── ellip, theta     ← shape
+        └── chisq, rchisq    ← goodness of fit
+</pre></div>
+</div>
+<p>The serialization handles <code class="docutils literal notranslate"><span class="pre">astropy.Table</span></code>, <code class="docutils literal notranslate"><span class="pre">astropy.nddata.Cutout2D</span></code>, numpy arrays, Python scalars, and nested dicts. Custom types (<code class="docutils literal notranslate"><span class="pre">OrderedDict</span></code>, <code class="docutils literal notranslate"><span class="pre">SkyCoord</span></code>, <code class="docutils literal notranslate"><span class="pre">Quantity</span></code>) are reconstructed on load.</p>
+</section>
+<section id="memory-management">
+<h2>Memory Management<a class="headerlink" href="#memory-management" title="Link to this heading"></a></h2>
+<p>For large surveys, memory is the primary constraint. The Farmer provides several mechanisms to limit footprint:</p>
+<ul class="simple">
+<li><p><strong>Lazy brick loading</strong> — <code class="docutils literal notranslate"><span class="pre">brick_has_band()</span></code> reads only HDF5 metadata to check whether a band exists, without loading pixel arrays.</p></li>
+<li><p><strong>Generator-based group spawning</strong> — groups are spawned one at a time and destroyed after absorption. The full list of groups is never held in memory simultaneously.</p></li>
+<li><p><strong>Cleanup methods</strong> — <code class="docutils literal notranslate"><span class="pre">cleanup_after_detection()</span></code> and <code class="docutils literal notranslate"><span class="pre">cleanup_after_modeling()</span></code> delete pixel arrays that are no longer needed between stages.</p></li>
+<li><p><strong>``detect_sources_lite()``</strong> — a hit-and-run function that detects sources, writes the catalog, then aggressively discards all image data.</p></li>
+<li><p><strong>Chunk-based WCS mapping</strong> — the multi-resolution ID mapping processes 10,000 pixels at a time.</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="configuration.html" class="btn btn-neutral float-left" title="Configuration Reference" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="api/index.html" class="btn btn-neutral float-right" title="API Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2018-2026, John Weaver.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

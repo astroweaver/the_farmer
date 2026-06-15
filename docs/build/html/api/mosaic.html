@@ -1,0 +1,313 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>farmer.mosaic — Mosaic &mdash; The Farmer 2.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=20623aea"></script>
+      <script src="../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=f281be69"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="farmer.brick — Brick" href="brick.html" />
+    <link rel="prev" title="farmer — Top-Level API" href="farmer.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            The Farmer
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quick Start</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../configuration.html">Configuration Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pipeline.html">Pipeline Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="farmer.html"><code class="docutils literal notranslate"><span class="pre">farmer</span></code> — Top-Level API</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">farmer.mosaic</span></code> — Mosaic</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#farmer.mosaic.Mosaic"><code class="docutils literal notranslate"><span class="pre">Mosaic</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.mosaic.Mosaic.__init__"><code class="docutils literal notranslate"><span class="pre">Mosaic.__init__()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.mosaic.Mosaic.get_bands"><code class="docutils literal notranslate"><span class="pre">Mosaic.get_bands()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.mosaic.Mosaic.get_figprefix"><code class="docutils literal notranslate"><span class="pre">Mosaic.get_figprefix()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.mosaic.Mosaic.add_to_brick"><code class="docutils literal notranslate"><span class="pre">Mosaic.add_to_brick()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.mosaic.Mosaic.spawn_brick"><code class="docutils literal notranslate"><span class="pre">Mosaic.spawn_brick()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.mosaic.Mosaic.extract"><code class="docutils literal notranslate"><span class="pre">Mosaic.extract()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#farmer.mosaic.Mosaic.identify_groups"><code class="docutils literal notranslate"><span class="pre">Mosaic.identify_groups()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="brick.html"><code class="docutils literal notranslate"><span class="pre">farmer.brick</span></code> — Brick</a></li>
+<li class="toctree-l1"><a class="reference internal" href="group.html"><code class="docutils literal notranslate"><span class="pre">farmer.group</span></code> — Group</a></li>
+<li class="toctree-l1"><a class="reference internal" href="baseimage.html"><code class="docutils literal notranslate"><span class="pre">farmer.image</span></code> — BaseImage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html"><code class="docutils literal notranslate"><span class="pre">farmer.utils</span></code> — Utilities</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Help &amp; Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">The Farmer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">API Reference</a></li>
+      <li class="breadcrumb-item active"><code class="docutils literal notranslate"><span class="pre">farmer.mosaic</span></code> — Mosaic</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/mosaic.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-farmer.mosaic">
+<span id="farmer-mosaic-mosaic"></span><h1><code class="docutils literal notranslate"><span class="pre">farmer.mosaic</span></code> — Mosaic<a class="headerlink" href="#module-farmer.mosaic" title="Link to this heading"></a></h1>
+<p>A <a class="reference internal" href="#farmer.mosaic.Mosaic" title="farmer.mosaic.Mosaic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mosaic</span></code></a> represents a single band’s full-field survey image. It
+handles path validation, WCS reading, pixel loading, background estimation,
+and brick creation. You typically do not instantiate it directly — the
+top-level <a class="reference internal" href="farmer.html#module-farmer" title="farmer"><code class="xref py py-mod docutils literal notranslate"><span class="pre">farmer</span></code></a> functions do this internally.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="farmer.mosaic.Mosaic">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">farmer.mosaic.</span></span><span class="sig-name descname"><span class="pre">Mosaic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">band</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">load</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/mosaic.html#Mosaic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.mosaic.Mosaic" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="baseimage.html#farmer.image.BaseImage" title="farmer.image.BaseImage"><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseImage</span></code></a></p>
+<p>A full-field survey image for a single photometric or detection band.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.mosaic.Mosaic.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">band</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">load</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/farmer/mosaic.html#Mosaic.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.mosaic.Mosaic.__init__" title="Link to this definition"></a></dt>
+<dd><p>Initialise a Mosaic for the specified band.</p>
+<p>Validates the band against <code class="docutils literal notranslate"><span class="pre">conf.BANDS</span></code> (or <code class="docutils literal notranslate"><span class="pre">conf.DETECTION</span></code> for
+the detection image), verifies that the science FITS file exists and
+has a readable WCS, and optionally loads the full image data into
+memory.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>band</strong> – Band name (key in <code class="docutils literal notranslate"><span class="pre">conf.BANDS</span></code>) or <code class="docutils literal notranslate"><span class="pre">'detection'</span></code>.
+Band names must not contain a <code class="docutils literal notranslate"><span class="pre">'.'</span></code> character.</p></li>
+<li><p><strong>load</strong> – If True, read all configured image arrays (science, weight,
+mask) and PSF model into memory.  If False, only validate
+paths and load the WCS. Defaults to False.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">band</span></code> contains a <code class="docutils literal notranslate"><span class="pre">'.'</span></code> character.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.14)"><strong>RuntimeError</strong></a> – If the science FITS header does not contain a
+    valid WCS.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.mosaic.Mosaic.get_bands">
+<span class="sig-name descname"><span class="pre">get_bands</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/mosaic.html#Mosaic.get_bands"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.mosaic.Mosaic.get_bands" title="Link to this definition"></a></dt>
+<dd><p>Return the band(s) associated with this mosaic.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Single-element array containing <code class="docutils literal notranslate"><span class="pre">self.band</span></code>.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)">numpy.ndarray</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.mosaic.Mosaic.get_figprefix">
+<span class="sig-name descname"><span class="pre">get_figprefix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">imgtype</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/mosaic.html#Mosaic.get_figprefix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.mosaic.Mosaic.get_figprefix" title="Link to this definition"></a></dt>
+<dd><p>Generate a filename prefix for output figures of this mosaic.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>imgtype</strong> – Image type string (e.g. <code class="docutils literal notranslate"><span class="pre">'science'</span></code>, <code class="docutils literal notranslate"><span class="pre">'model'</span></code>).</p></li>
+<li><p><strong>band</strong> – Ignored for mosaics; <code class="docutils literal notranslate"><span class="pre">self.band</span></code> is always used.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Prefix in the format <code class="docutils literal notranslate"><span class="pre">'{band}_{imgtype}'</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.mosaic.Mosaic.add_to_brick">
+<span class="sig-name descname"><span class="pre">add_to_brick</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">brick</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/mosaic.html#Mosaic.add_to_brick"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.mosaic.Mosaic.add_to_brick" title="Link to this definition"></a></dt>
+<dd><p>Cut out this mosaic’s data at the brick’s footprint and attach it.</p>
+<p>Delegates to <a class="reference internal" href="brick.html#farmer.brick.Brick.add_band" title="farmer.brick.Brick.add_band"><code class="xref py py-meth docutils literal notranslate"><span class="pre">add_band()</span></code></a>, which extracts
+<code class="docutils literal notranslate"><span class="pre">Cutout2D</span></code> sub-images centred on the brick position (including
+buffer) for every image type present in this mosaic.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>brick</strong> – <code class="docutils literal notranslate"><span class="pre">Brick</span></code> object to receive the cut-out data.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The same brick object, now containing this mosaic’s band.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="brick.html#farmer.brick.Brick" title="farmer.brick.Brick">Brick</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.mosaic.Mosaic.spawn_brick">
+<span class="sig-name descname"><span class="pre">spawn_brick</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">brick_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">position</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">silent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/mosaic.html#Mosaic.spawn_brick"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.mosaic.Mosaic.spawn_brick" title="Link to this definition"></a></dt>
+<dd><p>Create a new blank brick and populate it from this mosaic.</p>
+<p>Instantiates a fresh <code class="docutils literal notranslate"><span class="pre">Brick</span></code> (without loading from disk) and
+calls <a class="reference internal" href="#farmer.mosaic.Mosaic.add_to_brick" title="farmer.mosaic.Mosaic.add_to_brick"><code class="xref py py-meth docutils literal notranslate"><span class="pre">add_to_brick()</span></code></a> to cut out the relevant sub-image.  The
+brick position is derived either from <code class="docutils literal notranslate"><span class="pre">brick_id</span></code> (looked up on the
+detection WCS grid) or from explicit <code class="docutils literal notranslate"><span class="pre">position</span></code>/<code class="docutils literal notranslate"><span class="pre">size</span></code> arguments.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>brick_id</strong> – Integer brick identifier (1-indexed).  If provided,
+<code class="docutils literal notranslate"><span class="pre">position</span></code> and <code class="docutils literal notranslate"><span class="pre">size</span></code> must be None.</p></li>
+<li><p><strong>position</strong> – <code class="docutils literal notranslate"><span class="pre">astropy.coordinates.SkyCoord</span></code> of the brick centre.
+Used only when <code class="docutils literal notranslate"><span class="pre">brick_id</span></code> is None.</p></li>
+<li><p><strong>size</strong> – <code class="docutils literal notranslate"><span class="pre">(dec_height,</span> <span class="pre">ra_width)</span></code> tuple of angular
+<code class="docutils literal notranslate"><span class="pre">astropy.units.Quantity</span></code> values.  Used only when
+<code class="docutils literal notranslate"><span class="pre">brick_id</span></code> is None.</p></li>
+<li><p><strong>silent</strong> – If True, suppress informational log messages.
+Defaults to False.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Newly created brick populated with this mosaic’s band.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="brick.html#farmer.brick.Brick" title="farmer.brick.Brick">Brick</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.mosaic.Mosaic.extract">
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">background</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/mosaic.html#Mosaic.extract"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.mosaic.Mosaic.extract" title="Link to this definition"></a></dt>
+<dd><p>Detect sources across the full mosaic and build a catalog.</p>
+<p>Calls the base-class <code class="docutils literal notranslate"><span class="pre">_extract</span></code> method on the full mosaic array,
+stores the resulting catalog in <code class="docutils literal notranslate"><span class="pre">self.catalogs['science']</span></code> and the
+segmentation map in <code class="docutils literal notranslate"><span class="pre">self.data['segmap']</span></code>, then appends sequential
+<code class="docutils literal notranslate"><span class="pre">id</span></code>, <code class="docutils literal notranslate"><span class="pre">ra</span></code>, and <code class="docutils literal notranslate"><span class="pre">dec</span></code> columns.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>background</strong> – Pre-computed background array to subtract before
+detection.  When None no subtraction is performed.
+Defaults to None.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>None. Populates <code class="docutils literal notranslate"><span class="pre">self.catalogs['science']</span></code>,
+<code class="docutils literal notranslate"><span class="pre">self.data['segmap']</span></code>, and <code class="docutils literal notranslate"><span class="pre">self.n_sources['science']</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="farmer.mosaic.Mosaic.identify_groups">
+<span class="sig-name descname"><span class="pre">identify_groups</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">radius</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">conf.DILATION_RADIUS</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overwrite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/farmer/mosaic.html#Mosaic.identify_groups"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#farmer.mosaic.Mosaic.identify_groups" title="Link to this definition"></a></dt>
+<dd><p>Group nearby sources by morphologically dilating the segmentation map.</p>
+<p>Converts <code class="docutils literal notranslate"><span class="pre">radius</span></code> from arcsec to pixels using the mosaic WCS,
+calls <a class="reference internal" href="utils.html#farmer.utils.dilate_and_group" title="farmer.utils.dilate_and_group"><code class="xref py py-func docutils literal notranslate"><span class="pre">dilate_and_group()</span></code></a>, and stores
+<code class="docutils literal notranslate"><span class="pre">group_id</span></code> and <code class="docutils literal notranslate"><span class="pre">group_pop</span></code> columns in
+<code class="docutils literal notranslate"><span class="pre">self.catalogs['science']</span></code> and the group map in
+<code class="docutils literal notranslate"><span class="pre">self.data['groupmap']</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>radius</strong> – Dilation radius as an <code class="docutils literal notranslate"><span class="pre">astropy.units.Quantity</span></code> angle.
+Defaults to <code class="docutils literal notranslate"><span class="pre">conf.DILATION_RADIUS</span></code>.</p></li>
+<li><p><strong>overwrite</strong> – If True, replace existing <code class="docutils literal notranslate"><span class="pre">group_id</span></code>/<code class="docutils literal notranslate"><span class="pre">group_pop</span></code>
+columns; if False, add them as new columns.
+Defaults to False.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="farmer.html" class="btn btn-neutral float-left" title="farmer — Top-Level API" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="brick.html" class="btn btn-neutral float-right" title="farmer.brick — Brick" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2018-2026, John Weaver.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

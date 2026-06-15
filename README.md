@@ -1,11 +1,217 @@
-### Welcome to The Farmer's documentation!
+# The Farmer
 
-**The Farmer** is a suite of photometry routines geared towards deep, multi-wavelength galaxy surveys. By fitting simple parametric surface brightness profiles provided by The Tractor ([Lang et al. 2016](https://ui.adsabs.harvard.edu/abs/2016ascl.soft04008L/abstract)), The Farmer is able to measure precision photometry even in deeply crowded fields -- provided a suitable high resolution detection image. Brief documentation is provided in the form of an example script and tutorial-style ipython notebook.
+[![License](https://img.shields.io/badge/license-BSD%203--Clause-blue)](LICENSE.txt)
+[![Python](https://img.shields.io/badge/python-3.9%2B-blue)]()
+[![Paper](https://img.shields.io/badge/paper-arXiv%3A2310.07757-red)](https://arxiv.org/abs/2310.07757)
 
-The code has been used to build a number of galaxy survey catalogs including COSMOS2020 ([Weaver et al. 2022](https://ui.adsabs.harvard.edu/abs/2022ApJS..258...11W/abstract)), SHELA ([Leung et al. 2023](https://ui.adsabs.harvard.edu/abs/2023arXiv230100908L/abstract)), and H20 (Zalesky, in preparation). 
+**Model photometry for deep, multi-wavelength galaxy surveys.**
 
-For those interested in working with the code highlighted in our [recent paper](https://ui.adsabs.harvard.edu/abs/2023arXiv231007757W/abstract), please check out the branch "TheFarmer_v1" or download it from the release list on the right, but note that this earlier version of the code has since been superceded.
+The Farmer measures precise multi-band fluxes and morphologies by fitting parametric surface brightness profiles — point sources, exponential disks, de Vaucouleurs bulges, and composite models — simultaneously for groups of blended sources. The fitting engine is [The Tractor](https://github.com/dstndstn/tractor) (Lang et al. 2016). Given a high-resolution detection image, The Farmer recovers accurate photometry even in the most crowded fields.
 
-When publishing results using our software, please cite [Weaver et al. 2023](https://ui.adsabs.harvard.edu/abs/2023arXiv231007757W/abstract). A copy of the paper can be found in docs/.
+The code underpins several major survey catalogs:
 
-If you are interested in using the code for your own work, we **strongly recommend** that you get in touch with us at [john.weaver.astro@gmail.com](john.weaver.astro@gmail.com). Of course you're welcome to clone and fork at your leisure, but we'd be happy to show you the ropes first!
+- **COSMOS2020** — [Weaver et al. 2022, ApJS 258, 11](https://ui.adsabs.harvard.edu/abs/2022ApJS..258...11W/abstract)
+- **SHELA** — [Leung et al. 2023](https://ui.adsabs.harvard.edu/abs/2023arXiv230100908L/abstract)
+- **H20** — Zalesky et al. (in preparation)
+
+If you use The Farmer in published work, please cite **[Weaver et al. 2023](https://ui.adsabs.harvard.edu/abs/2023arXiv231007757W/abstract)**. A copy of the paper is in `docs/`.
+
+---
+
+## How it works
+
+The Farmer divides a survey mosaic into a grid of rectangular **bricks**. Within each brick, sources detected in the high-resolution image are grouped into small clusters (typically 1–5 neighbors) and fitted simultaneously. Fitted morphologies are then held fixed while fluxes are measured across every photometric band.
+
+```
+Survey Mosaic
+    ↓
+Brick Grid (N × M tiles)
+    ↓  per brick:
+Source Detection (SEP)  →  Segmentation map
+    ↓
+Source Grouping (morphological dilation)
+    ↓  per group:
+Model Determination (PointSource → SimpleGalaxy → Exp → deV → Composite)
+    ↓
+Forced Photometry (frozen morphology, free fluxes per band)
+    ↓
+HDF5 brick  +  FITS catalog
+```
+
+---
+
+## Requirements
+
+- Python ≥ 3.9
+- [The Tractor](https://github.com/dstndstn/tractor) and [astrometry.net](https://github.com/dstndstn/astrometry.net) (install from source — see below)
+- `astropy ≥ 5.0`, `h5py ≥ 3.9`, `sep == 1.2.1`, `pathos == 0.3.0`, `reproject == 0.11.0`, `regions == 0.7`, `tqdm == 4.65.0`, `matplotlib ≥ 3.7`
+
+---
+
+## Installation
+
+```bash
+# 1. Clone
+git clone https://github.com/astroweaver/farmer.git
+cd farmer
+
+# 2. Install Tractor and astrometry.net from source (not on PyPI)
+pip install git+https://github.com/dstndstn/astrometry.net
+pip install git+https://github.com/dstndstn/tractor.git
+
+# 3. Install The Farmer and remaining dependencies
+pip install -e .
+```
+
+> **macOS:** run `xcode-select --install` before step 2 to ensure you have a C compiler.  
+> **Linux:** ensure `gcc` and `python3-dev` (or equivalent) are installed.
+
+---
+
+## Getting started
+
+### 1. Set up your data directories
+
+```bash
+mkdir -p data/{external,interim/{bricks,psfmodels,logs},output/{figures,catalogs,ancillary}}
+```
+
+### 2. Configure
+
+Copy `config/config.py` and edit it to point to your images:
+
+```python
+PATH_DATA = '/path/to/your/data/'
+
+DETECTION = {
+    'science': '/path/to/data/external/detection_chimean.fits',
+    'subtract_background': True,
+    'backtype': 'flat',
+    'backregion': 'mosaic',
+}
+
+BANDS = {}
+BANDS['hsc_i'] = {
+    'science':  '/path/to/data/external/hsc_i.fits',
+    'weight':   '/path/to/data/external/hsc_i_weight.fits',
+    'psfmodel': '/path/to/data/interim/psfmodels/hsc_i.fits',
+    'subtract_background': True,
+    'zeropoint': 31.4,
+}
+# add more bands ...
+
+N_BRICKS    = (2, 4)         # 2 columns × 4 rows
+MODEL_BANDS = ['hsc_i']      # bands used for morphology fitting
+```
+
+Run Python from the directory that **contains** `config/` (not from inside it).
+
+### 3. Validate, build, detect, model, photometer
+
+```python
+import farmer
+
+farmer.validate()              # check paths, WCS, PSF models
+
+farmer.build_bricks()          # cut stamps from mosaics, save HDF5
+farmer.detect_sources_lite()   # detect sources (memory-efficient)
+farmer.generate_models()       # fit morphologies
+farmer.photometer()            # measure fluxes in all bands
+```
+
+### 4. Inspect results
+
+```python
+brick = farmer.load_brick(1)
+brick.summary()
+
+# Dig into a specific group interactively
+group = farmer.quick_group(brick_id=1, group_id=42)
+group.farm()   # determine models + photometry + plots
+```
+
+---
+
+## Tips
+
+**Start small.** Set `N_BRICKS = (1, 1)` and `NCPUS = 0` for your first run. A single brick in serial mode makes it easy to read log output and catch configuration errors before committing to a full survey run.
+
+**Detection image matters.** The detection image drives source positions and morphologies. Use the highest-resolution, deepest image available — a chi-mean stack of your best optical bands is ideal. The photometric bands do not need to match its pixel scale.
+
+**PSF preparation.** The Farmer expects PSFEx-format PSF models. Use `bin/prep_psf.py` to clip, normalize, and optionally resample a raw PSF stamp. A mismatched PSF is the most common cause of large reduced chi-squared values.
+
+**Adding bands later.** You can add photometric bands to existing bricks without rebuilding from scratch:
+
+```python
+farmer.update_bricks(bands=['irac_ch1'])
+farmer.photometer(bands=['irac_ch1'])
+```
+
+**Parallel processing.** Set `NCPUS = 8` (or however many cores you have) for production runs. Groups are distributed one at a time across workers, keeping memory usage flat.
+
+**Timeout protection.** Long-running or diverging groups can stall a run. Set `GROUP_TIMEOUT = 120` (seconds) to skip them automatically and continue.
+
+---
+
+## Output
+
+| File | Location | Contents |
+|---|---|---|
+| `B{id}.h5` | `PATH_BRICKS/` | Full brick state: images, catalogs, models |
+| `B{id}_catalog.fits` | `PATH_CATALOGS/` | Source catalog with fluxes, magnitudes, morphologies |
+| `B{id}_*.png` | `PATH_FIGURES/` | Diagnostic plots (set `PLOT > 0`) |
+| `B{id}_*.reg` | `PATH_ANCILLARY/` | DS9 region files |
+
+Key catalog columns: `id`, `ra`, `dec`, `brick_id`, `group_id`, `{band}_flux`, `{band}_flux_ujy`, `{band}_mag`, `logre`, `reff`, `ellip`, `pa`, `chisq`, `rchisq`, `flag`.
+
+---
+
+## Documentation
+
+Full documentation — installation, configuration reference, pipeline description, API reference, and FAQ — is in `docs/`. Build it locally with:
+
+```bash
+pip install sphinx sphinx-rtd-theme sphinx-copybutton
+cd docs && make html
+```
+
+---
+
+## Version history
+
+- **v2.x (current, `master`)** — parallel group processing, lazy brick loading, variable PSF support, improved memory management
+- **v1.x (`TheFarmer_v1`)** — code as described in Weaver et al. 2023; kept for reproducibility
+
+---
+
+## Citation
+
+```bibtex
+@ARTICLE{Weaver2023,
+  author  = {{Weaver}, John R. and others},
+  title   = "{The Farmer: A New, Forward-Modelling Photometry Pipeline}",
+  journal = {arXiv e-prints},
+  year    = 2023,
+  eid     = {arXiv:2310.07757},
+  doi     = {10.48550/arXiv.2310.07757}
+}
+```
+
+Also cite The Tractor:
+
+```bibtex
+@MISC{Lang2016,
+  author = {{Lang}, Dustin},
+  title  = "{Tractor: Probabilistic astronomical source detection and measurement}",
+  year   = 2016,
+  note   = {Astrophysics Source Code Library, record ascl:1604.008}
+}
+```
+
+---
+
+## Contact
+
+Questions, bug reports, and feature requests are welcome at [john.weaver.astro@gmail.com](mailto:john.weaver.astro@gmail.com) or via [GitHub Issues](https://github.com/astroweaver/farmer/issues).
+
+If you plan to use The Farmer for a new survey, reaching out first is strongly recommended — we are happy to walk you through the configuration for your specific data.

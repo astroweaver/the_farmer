@@ -18,9 +18,37 @@ import tqdm
 
 
 class Brick(BaseImage):
+    """A spatial tile of the survey mosaic used for parallel source detection and photometry."""
+
     def __init__(self, brick_id=None, position=None, size=None, load=True, silent=False, tag=None) -> None:
+        """Initialise a Brick, either by loading from disk or creating fresh.
 
+        A brick is a spatial sub-region of the full mosaic used for parallel
+        processing.  When ``load`` is True the object is populated from an
+        existing HDF5 file named ``B{brick_id}[_{tag}].h5`` in
+        ``conf.PATH_BRICKS``; otherwise a blank brick is built from the given
+        position/size or looked up from the detection WCS via ``brick_id``.
 
+        Args:
+            brick_id: Integer brick identifier (1-indexed on the
+                ``conf.N_BRICKS`` grid).  Mutually exclusive with providing
+                both ``position`` and ``size``.
+            position: ``astropy.coordinates.SkyCoord`` of the brick centre.
+                Used only when ``brick_id`` is None.
+            size: ``(dec_height, ra_width)`` tuple of
+                ``astropy.units.Quantity`` angles giving the brick size.
+                Used only when ``brick_id`` is None.
+            load: If True, load an existing HDF5 brick file from disk.
+                Defaults to True.
+            silent: If True, suppress informational log messages.
+                Defaults to False.
+            tag: Optional string appended to the filename as ``_{tag}``.
+                Defaults to None.
+
+        Raises:
+            RuntimeError: If both ``brick_id`` and ``position``/``size``
+                are supplied simultaneously.
+        """
         if not np.isscalar(brick_id):
             if len(brick_id) == 1:
                 brick_id = brick_id[0]
@@ -83,10 +111,19 @@ class Brick(BaseImage):
 
 
     def _condition_band_data(self, band):
-        """Condition a band once at brick ingest/read time.
+        """Sanitise a single band's image arrays at ingest or load time.
 
-        Enforces no-NaN science arrays and a consistent mask/weight convention:
-        masked or invalid pixels must have zero weight.
+        Enforces three invariants required by the rest of the pipeline:
+
+        1. The science array contains no NaN or Inf values (replaced with 0).
+        2. The mask array is strictly boolean (non-zero → True).
+        3. Weight values are non-negative and finite; pixels that are bad in
+           science or masked are zeroed in the weight array.
+
+        Args:
+            band: Band name (key in ``self.data``) to condition in place.
+                Returns immediately if the band or its science array is
+                absent.
         """
         if band not in self.data:
             return
@@ -129,6 +166,11 @@ class Brick(BaseImage):
 
 
     def _condition_all_bands(self):
+        """Sanitise every band currently registered on this brick.
+
+        Calls :meth:`_condition_band_data` for each entry in ``self.bands``.
+        Used after loading a brick from HDF5 to ensure data integrity.
+        """
         for band in self.bands:
             self._condition_band_data(band)
 
@@ -155,6 +197,12 @@ class Brick(BaseImage):
         return np.array(self.bands)
 
     def summary(self):
+        """Print a human-readable summary of this brick to stdout.
+
+        Reports the brick's sky position, angular size (with and without
+        buffer), the list of loaded bands, and per-band image statistics
+        (sum, mean, median, std) and properties.
+        """
         print(f'Summary of brick {self.brick_id}')
         print(f'Located at ({self.position.ra:2.2f}, {self.position.dec:2.2f}) with size {self.size[0]:2.2f} x {self.size[1]:2.2f}')
         print(f'   (w/ buffer: {self.buffsize[0]:2.2f} x {self.buffsize[1]:2.2f})')
@@ -174,7 +222,26 @@ class Brick(BaseImage):
                 print(f'  {attr} ... {self.properties[band][attr]}')
 
     def add_band(self, mosaic, overwrite=False):
+        """Cut out and attach a band from a full-field mosaic to this brick.
 
+        Takes a ``Mosaic`` object, extracts a ``Cutout2D`` for each image
+        type (science, weight, mask, background, rms) centred on this brick
+        including its buffer, and registers the PSF model list.  Dummy
+        zero-valued arrays are created for any image type not present in the
+        mosaic.  After ingestion, :meth:`_condition_band_data` is called to
+        sanitise the arrays.
+
+        Args:
+            mosaic: ``Mosaic`` object with pre-loaded image data for a
+                single band.
+            overwrite: If True, re-add the band even if it already exists
+                on the brick.  Defaults to False.
+
+        Returns:
+            None. Returns early with a warning if the mosaic has no overlap
+            with the brick footprint or if the band already exists and
+            ``overwrite`` is False.
+        """
         if (not overwrite) and (mosaic.band in self.bands):
             self.logger.warning(f'{mosaic.band} already exists in brick #{self.brick_id}!')
             return
@@ -288,6 +355,28 @@ class Brick(BaseImage):
         # TODO -- should be able to INHERET catalogs from the parent mosaic, if they exist!
 
     def extract(self, band='detection', imgtype='science', background=None):
+        """Run source extraction on a band and store the resulting catalog.
+
+        Calls the base-class ``_extract`` method to detect sources, then
+        masks sources that fall within the brick buffer zone (those
+        detections that would be double-counted by adjacent bricks), adds
+        ``id``, ``brick_id``, ``ra``, and ``dec`` columns to the catalog,
+        saves the segmentation map, and writes a DS9 regions file.
+
+        Args:
+            band: Band name to detect sources in. Defaults to
+                ``'detection'``.
+            imgtype: Image type to run extraction on. Defaults to
+                ``'science'``.
+            background: Pre-computed background array to subtract before
+                detection.  When None and the band's ``subtract_background``
+                property is True, the background is fetched automatically.
+                Defaults to None.
+
+        Returns:
+            None. Populates ``self.catalogs[band][imgtype]``,
+            ``self.data[band]['segmap']``, and ``self.n_sources[band][imgtype]``.
+        """
         if self.properties[band]['subtract_background']:
             background = self.get_background(band)
         catalog, segmap = self._extract(band, imgtype='science', background=background)
@@ -325,13 +414,23 @@ class Brick(BaseImage):
 
 
     def identify_groups(self, band='detection', imgtype='science', radius=conf.DILATION_RADIUS, overwrite=False):
-        """Identify groups of nearby sources using morphological dilation.
-        
+        """Group nearby sources by morphologically dilating the segmentation map.
+
+        Converts ``radius`` from arcsec to pixels using the detection WCS,
+        calls :func:`~farmer.utils.dilate_and_group`, and stores the resulting
+        ``group_id`` and ``group_pop`` columns in the catalog as well as the
+        2-D group map as a ``Cutout2D``.
+
         Args:
-            band: Band to process (default: 'detection')
-            imgtype: Image type to process (default: 'science')
-            radius: Dilation radius (default: from config)
-            overwrite: If True, overwrite existing columns; if False, add new columns
+            band: Band whose catalog and segmap to process.
+                Defaults to ``'detection'``.
+            imgtype: Image type key in the catalog dictionary.
+                Defaults to ``'science'``.
+            radius: Dilation radius as an ``astropy.units.Quantity`` angle.
+                Defaults to ``conf.DILATION_RADIUS``.
+            overwrite: If True, replace existing ``group_id``/``group_pop``
+                columns; if False, add them as new columns.
+                Defaults to False.
         """
         catalog = self.catalogs[band][imgtype]
         segmap = self.data[band]['segmap'].data
@@ -354,6 +453,29 @@ class Brick(BaseImage):
         self.headers[band]['groupmap'] = self.headers[band]['science']
 
     def spawn_group(self, group_id=None, imgtype='science', bands=None, silent=False):
+        """Instantiate a ``Group`` from this brick for a single source group.
+
+        Creates a ``Group`` object centred on the group's bounding box,
+        cuts out all requested bands, validates that segment pixel
+        coordinates are in bounds, enforces the ``conf.GROUP_SIZE_LIMIT``,
+        transfers model catalog entries and tracking history from the brick,
+        and returns the ready-to-process group.
+
+        Args:
+            group_id: Integer identifier of the group to spawn.
+            imgtype: Image type used to look up catalog group membership.
+                Defaults to ``'science'``.
+            bands: List of band names to include in the group.  ``None``
+                includes all bands available on the brick.
+                Defaults to None.
+            silent: If True, suppress informational log messages.
+                Defaults to False.
+
+        Returns:
+            Group: Populated group object.  ``group.rejected`` is True if
+                the group has no pixels, exceeds the size limit, or has
+                out-of-bounds segment pixels.
+        """
         # Instantiate group
         if not silent:
             n_sources = np.sum(self.catalogs['detection'][imgtype]['group_id'] == group_id)
@@ -424,7 +546,20 @@ class Brick(BaseImage):
         return group
 
     def detect_sources(self, band='detection', imgtype='science'):
+        """Run the full source detection pipeline on this brick.
 
+        Calls :meth:`extract` to detect sources and build the segmentation
+        map, :meth:`identify_groups` to assign group memberships, and
+        :meth:`transfer_maps` to propagate the maps to photometric bands.
+        Optionally plots the science image when ``conf.PLOT > 1``.
+
+        Args:
+            band: Band to run detection on. Defaults to ``'detection'``.
+            imgtype: Image type to process. Defaults to ``'science'``.
+
+        Returns:
+            astropy.table.Table: The detection catalog for this brick.
+        """
         # detection
         self.extract(band=band, imgtype=imgtype)
 
@@ -440,6 +575,25 @@ class Brick(BaseImage):
         return self.catalogs[band][imgtype]
 
     def process_groups(self, group_ids=None, imgtype='science', bands=None, mode='all'):
+        """Model and/or measure photometry for all (or specified) groups.
+
+        Spawns each group in turn and passes it to :func:`~farmer.utils.run_group`.
+        When ``conf.NCPUS > 1`` and more than one group is requested, groups
+        are processed in parallel via ``pathos.pools.ProcessPool`` with a
+        lazy generator to keep peak memory usage low.
+
+        Args:
+            group_ids: Integer group ID(s) to process.  ``None`` processes
+                all groups in the detection catalog. Defaults to None.
+            imgtype: Image type used to look up catalog group membership.
+                Defaults to ``'science'``.
+            bands: Band names to include in each group.  ``None`` uses all
+                bands on the brick.  Overridden to ``['detection']`` when
+                ``mode='pass'``. Defaults to None.
+            mode: Processing mode forwarded to :func:`~farmer.utils.run_group`
+                — one of ``'all'``, ``'model'``, ``'photometry'``, or
+                ``'pass'``. Defaults to ``'all'``.
+        """
         self.logger.info(f'Processing groups for brick {self.brick_id}...')
 
         tstart = time.time()
@@ -499,8 +653,19 @@ class Brick(BaseImage):
         self.logger.info(f'Brick {self.brick_id} has processed {len(group_ids)} groups ({time.time() - tstart:2.2f}s)')
 
 
-    def absorb(self, group): # eventually allow mosaic to do this too! absorb bricks + make a huge model catalog!
+    def absorb(self, group):
+        """Merge a processed group's results back into this brick.
 
+        Accepts the ``(group_id, model_catalog, model_tracker)`` tuple
+        returned by :func:`~farmer.utils.run_group` and copies each source's
+        model and tracking entry into the brick-level dictionaries.
+        Group-level tracker entries (keyed ``'group'``) are stored separately
+        in ``self.model_tracker_groups``.
+
+        Args:
+            group: Tuple ``(group_id, model_catalog, model_tracker)`` as
+                returned by :func:`~farmer.utils.run_group`.
+        """
         group_id, model_catalog, model_tracker = group
 
         # check ownership

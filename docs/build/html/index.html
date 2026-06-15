@@ -1,0 +1,290 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Farmer Documentation &mdash; The Farmer 2.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=20623aea"></script>
+      <script src="_static/doctools.js?v=9a2dae69"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="_static/copybutton.js?v=f281be69"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Installation" href="installation.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="#" class="icon icon-home">
+            The Farmer
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipeline.html">Pipeline Architecture</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/farmer.html"><code class="docutils literal notranslate"><span class="pre">farmer</span></code> — Top-Level API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/mosaic.html"><code class="docutils literal notranslate"><span class="pre">farmer.mosaic</span></code> — Mosaic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/brick.html"><code class="docutils literal notranslate"><span class="pre">farmer.brick</span></code> — Brick</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/group.html"><code class="docutils literal notranslate"><span class="pre">farmer.group</span></code> — Group</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/baseimage.html"><code class="docutils literal notranslate"><span class="pre">farmer.image</span></code> — BaseImage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/utils.html"><code class="docutils literal notranslate"><span class="pre">farmer.utils</span></code> — Utilities</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Help &amp; Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">Frequently Asked Questions</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">The Farmer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">The Farmer Documentation</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="the-farmer-documentation">
+<h1>The Farmer Documentation<a class="headerlink" href="#the-farmer-documentation" title="Link to this heading"></a></h1>
+<p><strong>The Farmer</strong> is a Python package for precision multi-wavelength photometry in deep galaxy surveys. Using parametric surface brightness profile fitting via <a class="reference external" href="https://github.com/dstndstn/tractor">The Tractor</a> engine, it measures accurate fluxes and morphologies even in heavily blended fields — provided a high-resolution detection image to define where sources are.</p>
+<p>The code has been used to build several major survey catalogs:</p>
+<ul class="simple">
+<li><p><strong>COSMOS2020</strong> (<a class="reference external" href="https://ui.adsabs.harvard.edu/abs/2022ApJS..258...11W/abstract">Weaver et al. 2022</a>)</p></li>
+<li><p><strong>SHELA</strong> (<a class="reference external" href="https://ui.adsabs.harvard.edu/abs/2023arXiv230100908L/abstract">Leung et al. 2023</a>)</p></li>
+<li><p><strong>H20</strong> (Zalesky, in preparation)</p></li>
+</ul>
+<p>When using The Farmer in published work, please cite <a class="reference external" href="https://ui.adsabs.harvard.edu/abs/2023arXiv231007757W/abstract">Weaver et al. 2023</a>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If you plan to use The Farmer for your own survey, we strongly encourage you to
+get in touch at <a class="reference external" href="mailto:john&#46;weaver&#46;astro&#37;&#52;&#48;gmail&#46;com">john<span>&#46;</span>weaver<span>&#46;</span>astro<span>&#64;</span>gmail<span>&#46;</span>com</a> before diving in. We are happy to
+walk you through the setup for your specific data.</p>
+</div>
+<hr class="docutils" />
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#installing-from-source">Installing from Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#using-pipenv">Using Pipenv</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#verifying-the-installation">Verifying the Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#data-directory-setup">Data Directory Setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#building-documentation">Building Documentation</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#before-you-begin">Before you begin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#step-1-configure-your-survey">Step 1 — Configure your survey</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#step-2-validate-configuration">Step 2 — Validate configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#step-3-build-bricks">Step 3 — Build bricks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#step-4-detect-sources">Step 4 — Detect sources</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#step-5-determine-morphological-models">Step 5 — Determine morphological models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#step-6-multi-band-photometry">Step 6 — Multi-band photometry</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#step-7-inspect-results">Step 7 — Inspect results</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#full-production-example">Full Production Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#working-with-mosaics">Working with Mosaics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#working-with-bricks">Working with Bricks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#source-detection">Source Detection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#modeling">Modeling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#photometry">Photometry</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#interactive-group-inspection">Interactive Group Inspection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#adding-bands-after-the-fact">Adding Bands After the Fact</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#parallel-processing">Parallel Processing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#output-files">Output Files</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html#general-controls">General Controls</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html#directory-paths">Directory Paths</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html#detection-band">Detection Band</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html#photometric-bands">Photometric Bands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html#source-detection-parameters">Source Detection Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html#brick-parameters">Brick Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html#source-grouping">Source Grouping</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html#background-subtraction-photometry">Background Subtraction (Photometry)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html#modeling-and-the-decision-tree">Modeling and the Decision Tree</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html#optimizer-settings">Optimizer Settings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html#priors">Priors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html#ancillary-map-controls">Ancillary Map Controls</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pipeline.html">Pipeline Architecture</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pipeline.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pipeline.html#brick-grid">Brick Grid</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pipeline.html#source-detection">Source Detection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pipeline.html#source-grouping">Source Grouping</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pipeline.html#modeling-pipeline">Modeling Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pipeline.html#multi-resolution-support">Multi-Resolution Support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pipeline.html#hdf5-persistence">HDF5 Persistence</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pipeline.html#memory-management">Memory Management</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/index.html#class-hierarchy">Class Hierarchy</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api/farmer.html"><code class="docutils literal notranslate"><span class="pre">farmer</span></code> — Top-Level API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/farmer.html#farmer.validate"><code class="docutils literal notranslate"><span class="pre">validate()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/farmer.html#farmer.get_mosaic"><code class="docutils literal notranslate"><span class="pre">get_mosaic()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/farmer.html#farmer.build_bricks"><code class="docutils literal notranslate"><span class="pre">build_bricks()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/farmer.html#farmer.brick_has_band"><code class="docutils literal notranslate"><span class="pre">brick_has_band()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/farmer.html#farmer.load_brick"><code class="docutils literal notranslate"><span class="pre">load_brick()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/farmer.html#farmer.update_bricks"><code class="docutils literal notranslate"><span class="pre">update_bricks()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/farmer.html#farmer.detect_sources_lite"><code class="docutils literal notranslate"><span class="pre">detect_sources_lite()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/farmer.html#farmer.detect_sources"><code class="docutils literal notranslate"><span class="pre">detect_sources()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/farmer.html#farmer.generate_models"><code class="docutils literal notranslate"><span class="pre">generate_models()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/farmer.html#farmer.photometer"><code class="docutils literal notranslate"><span class="pre">photometer()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/farmer.html#farmer.quick_group"><code class="docutils literal notranslate"><span class="pre">quick_group()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/farmer.html#farmer.rebuild_mosaic"><code class="docutils literal notranslate"><span class="pre">rebuild_mosaic()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api/mosaic.html"><code class="docutils literal notranslate"><span class="pre">farmer.mosaic</span></code> — Mosaic</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/mosaic.html#farmer.mosaic.Mosaic"><code class="docutils literal notranslate"><span class="pre">Mosaic</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api/brick.html"><code class="docutils literal notranslate"><span class="pre">farmer.brick</span></code> — Brick</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/brick.html#farmer.brick.Brick"><code class="docutils literal notranslate"><span class="pre">Brick</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api/group.html"><code class="docutils literal notranslate"><span class="pre">farmer.group</span></code> — Group</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/group.html#farmer.group.Group"><code class="docutils literal notranslate"><span class="pre">Group</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api/baseimage.html"><code class="docutils literal notranslate"><span class="pre">farmer.image</span></code> — BaseImage</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/baseimage.html#farmer.image.BaseImage"><code class="docutils literal notranslate"><span class="pre">BaseImage</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api/utils.html"><code class="docutils literal notranslate"><span class="pre">farmer.utils</span></code> — Utilities</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/utils.html#custom-tractor-models">Custom Tractor Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/utils.html#functions">Functions</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Help &amp; Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">Frequently Asked Questions</a></li>
+</ul>
+</div>
+<hr class="docutils" />
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<p>The Farmer divides a survey mosaic into a regular grid of rectangular <strong>bricks</strong>. Within each brick, sources detected in a high-resolution image are collected into small <strong>groups</strong> of one to five neighbors. Each group is modeled simultaneously using The Tractor, which fits parametric profiles (point sources, exponential disks, de Vaucouleurs bulges, composite models) by minimizing a Poisson likelihood. Fitted morphologies are then held fixed and the optimizer measures fluxes across every photometric band.</p>
+<p>Key capabilities:</p>
+<ul class="simple">
+<li><p><strong>Deblended photometry</strong> — simultaneous profile fitting prevents flux from leaking between blended neighbors</p></li>
+<li><p><strong>Multi-resolution support</strong> — detection image can have a different pixel scale from photometric bands</p></li>
+<li><p><strong>Variable PSFs</strong> — accepts position-dependent PSF models via a coordinate table</p></li>
+<li><p><strong>Parallel processing</strong> — groups are farmed out across CPU cores via <code class="docutils literal notranslate"><span class="pre">pathos</span></code></p></li>
+<li><p><strong>HDF5 persistence</strong> — brick state (images, catalogs, models) serialized to disk at every stage</p></li>
+<li><p><strong>Flexible model priors</strong> — Gaussian position/shape priors, frozen parameters</p></li>
+</ul>
+</section>
+<section id="indices-and-tables">
+<h2>Indices and Tables<a class="headerlink" href="#indices-and-tables" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="installation.html" class="btn btn-neutral float-right" title="Installation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2018-2026, John Weaver.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

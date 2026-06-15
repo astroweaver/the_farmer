@@ -76,13 +76,15 @@ from tqdm import tqdm
 
 
 def validate():
-    """Validate that all configured mosaics exist and are properly configured.
-    
-    Checks the detection mosaic and all configured photometric bands to ensure
-    they can be loaded and have valid WCS, PSF models, and data paths.
-    
+    """Validate that all configured mosaics exist and are properly set up.
+
+    Instantiates a ``Mosaic`` (without loading data) for the detection image
+    and for every band in ``conf.BANDS`` to verify that science paths exist,
+    WCS headers are parseable, and PSF models are readable.
+
     Raises:
-        RuntimeError: If any mosaic fails validation
+        RuntimeError: If any mosaic cannot be instantiated (missing file,
+            bad WCS, unreadable PSF, etc.).
     """
     logger.info('Validate bands...')
     Mosaic('detection', load=False)
@@ -92,18 +94,48 @@ def validate():
 
 
 def get_mosaic(band, load=True):
-    """Get a Mosaic object for the specified band.
-    
+    """Return a ``Mosaic`` object for the specified band.
+
     Args:
-        band: Band name (e.g., 'detection', 'g', 'r', 'i')
-        load: If True, load image data into memory. If False, only load metadata.
-        
+        band: Band name (e.g. ``'detection'``, ``'g'``, ``'r'``).
+        load: If True, load all configured image arrays into memory.
+            If False, only validate paths and read the WCS.
+            Defaults to True.
+
     Returns:
-        Mosaic object for the specified band
+        Mosaic: Initialised mosaic for the requested band.
     """
     return Mosaic(band, load=load)
 
 def build_bricks(brick_ids=None, include_detection=True, bands=None, write=True):
+    """Build or update HDF5 brick files from full-field mosaics.
+
+    For each brick ID, loads the required mosaics one at a time and cuts out
+    the brick sub-image.  When processing a single brick the populated
+    ``Brick`` object is returned directly.  When processing multiple bricks
+    the files are written incrementally and a list of successfully built brick
+    IDs is returned.  Bricks with no detection-band flux are skipped and
+    excluded from the return value.
+
+    Args:
+        brick_ids: Integer or array of brick IDs to build.  ``None`` builds
+            all bricks defined by ``conf.N_BRICKS``. Defaults to None.
+        include_detection: If True, prepend ``'detection'`` to the band list
+            even when ``bands`` does not include it. Defaults to True.
+        bands: Band name(s) to include.  ``None`` uses all bands in
+            ``conf.BANDS``.  Pass a single string or list of strings.
+            Defaults to None.
+        write: If True, write each brick to an HDF5 file after building.
+            Defaults to True.
+
+    Returns:
+        Brick or list: The populated ``Brick`` (single-brick mode) or a list
+            of successfully built brick IDs (multi-brick mode). Bricks with no
+            detection-band flux are excluded from the returned list.
+
+    Raises:
+        RuntimeError: If a requested band is not in the configuration.
+    """
     if bands is not None: # some kind of manual job
         if np.isscalar(bands):
             bands = [bands,]
@@ -184,19 +216,21 @@ def build_bricks(brick_ids=None, include_detection=True, bands=None, write=True)
         return [bid for bid in brick_ids if bid not in skiplist] # return the useful brick numbers
 
 def brick_has_band(brick_id, band, tag=None, silent=True):
-    """Check if a brick has a specific band without loading full image data.
-    
-    Reads only the metadata from the HDF5 file to check if the brick already
-    contains the specified band. This is much faster than loading the full brick.
-    
+    """Check whether a brick HDF5 file already contains a specific band.
+
+    Opens the brick file and reads only the top-level metadata to inspect
+    the ``'bands'`` attribute.  Much faster than loading the full brick.
+
     Args:
-        brick_id: Brick identifier (integer)
-        band: Band name to check for
-        tag: Optional tag for alternate brick versions
-        silent: If True, suppress logger output
-        
+        brick_id: Integer brick identifier.
+        band: Band name to look for.
+        tag: Optional tag string appended to the filename as ``_{tag}``.
+            Defaults to None.
+        silent: If True, suppress log output. Defaults to True.
+
     Returns:
-        bool: True if brick has the band, False if not or brick doesn't exist
+        bool: True if the band is present; False if not or if the brick
+            file does not exist.
     """
     import h5py
     from .utils import recursively_load_dict_contents_from_group
@@ -215,18 +249,20 @@ def brick_has_band(brick_id, band, tag=None, silent=True):
         return False
 
 def load_brick(brick_id, silent=False, tag=None):
-    """Load an existing brick from disk.
-    
+    """Load an existing brick from its HDF5 file on disk.
+
     Args:
-        brick_id: Brick identifier (integer)
-        silent: If True, suppress logger output
-        tag: Optional tag for alternate brick versions
-        
+        brick_id: Integer brick identifier.
+        silent: If True, suppress informational log messages.
+            Defaults to False.
+        tag: Optional tag string appended to the filename as ``_{tag}``.
+            Defaults to None.
+
     Returns:
-        Brick object loaded from disk
-        
+        Brick: Fully loaded brick object.
+
     Raises:
-        IOError: If brick file cannot be found or loaded
+        IOError: If the brick file cannot be found or opened.
     """
     return Brick(brick_id, load=True, silent=silent, tag=tag)
 
@@ -462,6 +498,30 @@ def detect_sources(brick_ids=None, band='detection', imgtype='science', brick=No
             brick.cleanup_after_detection()
 
 def generate_models(brick_ids=None, group_ids=None, bands=conf.MODEL_BANDS, imgtype='science'):
+    """Determine the best-fit morphological model for every source in one or more bricks.
+
+    Loads (or builds) each brick, runs source detection if not already done,
+    processes all groups through the model-selection decision tree, writes the
+    updated brick HDF5, writes the source catalog, and reconstructs
+    model/residual images.
+
+    Args:
+        brick_ids: Brick ID(s) to process. If ``None``, processes all bricks
+            defined by ``conf.N_BRICKS``.
+        group_ids: Specific group ID(s) to model. If ``None``, models all
+            groups in each brick.
+        bands: Band identifiers used jointly for model determination.
+            Defaults to ``conf.MODEL_BANDS``.
+        imgtype: Image type key for the detection catalog lookup.
+            Defaults to ``'science'``.
+
+    Returns:
+        Brick: The processed brick when ``brick_ids`` is scalar; ``None``
+            when processing multiple bricks.
+
+    Raises:
+        AssertionError: If the brick does not contain detection data.
+    """
     # get bricks with 'brick_ids' for 'bands'
     if brick_ids is None:
         n_bricks = conf.N_BRICKS[0] * conf.N_BRICKS[1]
@@ -504,6 +564,25 @@ def generate_models(brick_ids=None, group_ids=None, bands=conf.MODEL_BANDS, imgt
         return brick
 
 def photometer(brick_ids=None, group_ids=None, bands=None, imgtype='science'):
+    """Measure forced photometry in all configured bands for one or more bricks.
+
+    Loads (or builds) each brick, updates it with any missing bands, runs
+    detection if needed, and then either runs the full pipeline
+    (model determination + photometry) if no models exist, or runs
+    photometry-only if models are already present. Writes the HDF5 brick,
+    source catalog, and model/residual images.
+
+    Args:
+        brick_ids: Brick ID(s) to process. If ``None``, processes all bricks.
+        group_ids: Specific group ID(s). If ``None``, processes all groups.
+        bands: Bands to measure photometry in. If ``None``, uses all
+            configured bands from ``conf.BANDS``.
+        imgtype: Image type key for catalog lookup. Defaults to ``'science'``.
+
+    Returns:
+        Brick: The processed brick when ``brick_ids`` is scalar; ``None``
+            when processing multiple bricks.
+    """
     # get bricks with 'brick_ids' for 'bands'
     if brick_ids is None:
         n_bricks = conf.N_BRICKS[0] * conf.N_BRICKS[1]
@@ -562,7 +641,11 @@ def quick_group(brick_id=1, group_id=524, brick=None):
     return group
 
 def rebuild_mosaic(brick_ids=None, bands=None, imgtype='science'):
+    """Reconstruct a full-field mosaic from processed bricks.
 
-    # build a fresh mosaic...
+    Not yet implemented.
 
+    Raises:
+        RuntimeError: Always — this function is a placeholder.
+    """
     raise RuntimeError('Not implelented yet!')

@@ -53,6 +53,7 @@ class BaseImage():
     """
 
     def __init__(self):
+        """Initialize empty data containers and the module-level logger."""
         self.data = {}
         self.headers = {}
         self.segments = {}
@@ -68,6 +69,19 @@ class BaseImage():
 
 
     def add_tracker(self, init_stage=0):
+        """Initialize or advance the per-source model tracker.
+
+        Creates ``self.stage``, ``self.solved``, and nested entries in
+        ``self.model_tracker`` for each source in the current catalog.
+        On the very first call (stage == ``init_stage``) it also seeds
+        ``self.model_catalog`` with placeholder ``PointSource`` objects and
+        caches the ordered array of source IDs in ``self.source_ids``.
+
+        Args:
+            init_stage: Stage number assigned on the first call. Subsequent
+                calls increment ``self.stage`` before calling this method.
+                Defaults to ``0``.
+        """
         catalog = self.catalogs[self.catalog_band][self.catalog_imgtype]
         if not hasattr(self, 'stage'):
             self.stage = init_stage
@@ -92,6 +106,11 @@ class BaseImage():
             self.model_tracker[source_id][self.stage] = {}
 
     def reset_models(self):
+        """Clear all model state in preparation for a fresh optimization run.
+
+        Sets ``self.engine`` and ``self.stage`` to ``None`` and empties
+        ``self.model_tracker`` and ``self.model_catalog``.
+        """
         self.engine = None
         self.stage = None
         self.model_tracker = OrderedDict()
@@ -200,7 +219,22 @@ class BaseImage():
     
    
     def get_image(self, imgtype=None, band=None):
+        """Return the pixel array for the requested image type and band.
 
+        For mosaics, looks up ``self.data[imgtype]`` directly. For
+        segmentation/group maps in non-detection bands the dict-of-arrays
+        representation is returned. For all other brick/group images the
+        ``Cutout2D.data`` array is returned.
+
+        Args:
+            imgtype: Image type key, e.g. ``'science'``, ``'weight'``,
+                ``'mask'``, ``'segmap'``, ``'groupmap'``, ``'model'``,
+                ``'residual'``, ``'chi'``, ``'background'``, ``'rms'``.
+            band: Band identifier, e.g. ``'detection'``, ``'hst_f814w'``.
+
+        Returns:
+            numpy.ndarray: Pixel data for the requested image.
+        """
         if self.type == 'mosaic':
             image = self.data[imgtype]
         elif (imgtype in ('segmap', 'groupmap')) & (band != 'detection'):
@@ -213,6 +247,24 @@ class BaseImage():
         return image
 
     def get_psfmodel(self, band, coord=None):
+        """Load and return the Tractor PSF model for a given band.
+
+        Selects the spatially nearest PSF from ``psfcoords`` / ``psflist``
+        stored in ``self.data[band]``. Falls back to the single PSF when
+        only one is available. Supports both ``.psf`` (PsfEx) and ``.fits``
+        (PixelizedPSF) file formats. If ``conf.RENORM_PSF`` is set the PSF
+        image is renormalized before returning.
+
+        Args:
+            band: Band identifier. Must not be ``'detection'``.
+            coord: ``astropy.coordinates.SkyCoord`` used to pick the nearest
+                PSF when multiple positions are stored. If ``None``, falls
+                back to ``self.position``.
+
+        Returns:
+            tractor.psf.PixelizedPSF or tractor.psf.PixelizedPsfEx:
+                The PSF model ready to pass to a Tractor ``Image``.
+        """
         # If you run models on a brick/mosaic **or reconstruct** one, I'll always grab the one nearest the center
         # If you run models on a group, I'll always grab the one nearest to the center of the group
         if band == 'detection':
@@ -294,6 +346,19 @@ class BaseImage():
         return psfmodel
 
     def set_image(self, image, imgtype=None, band=None):
+        """Store a pixel array under the given image type and band.
+
+        For mosaics, assigns directly to ``self.data[imgtype]``. For
+        brick/group images, sets the ``.data`` attribute on an existing
+        ``Cutout2D``; if the key is absent a new ``Cutout2D`` is created
+        with the same shape as the science image.
+
+        Args:
+            image: numpy.ndarray of pixel values to store.
+            imgtype: Image type key, e.g. ``'background'``, ``'rms'``,
+                ``'model'``, ``'residual'``, ``'chi'``.
+            band: Band identifier. Ignored for mosaics.
+        """
         if self.type == 'mosaic':
             self.data[imgtype] = image
 
@@ -308,6 +373,17 @@ class BaseImage():
 
 
     def set_property(self, value, property, band=None):
+        """Store a scalar property for a band.
+
+        For mosaics, stores in ``self.properties[property]``. For
+        bricks/groups, stores in ``self.properties[band][property]``.
+
+        Args:
+            value: Scalar value to store.
+            property: Property key string, e.g. ``'rms'``, ``'background'``,
+                ``'mean'``, ``'median'``, ``'clipped_rms'``.
+            band: Band identifier. Ignored for mosaics.
+        """
         if self.type == 'mosaic':
             self.properties[property] = value
 
@@ -315,13 +391,36 @@ class BaseImage():
             self.properties[band][property] = value
 
     def get_property(self, property, band=None):
+        """Retrieve a scalar property for a band.
+
+        Args:
+            property: Property key string, e.g. ``'rms'``, ``'background'``,
+                ``'mean'``, ``'clipped_rms'``, ``'backtype'``.
+            band: Band identifier. Ignored for mosaics.
+
+        Returns:
+            The stored property value.
+        """
         if self.type == 'mosaic':
             return self.properties[property]
         else:
             return self.properties[band][property]
 
     def get_wcs(self, band=None, imgtype='science'):
+        """Return the WCS object for a given band and image type.
 
+        For mosaics, returns the single ``self.wcs``. For bricks/groups,
+        returns the WCS embedded in the ``Cutout2D`` stored at
+        ``self.data[band][imgtype]``.
+
+        Args:
+            band: Band identifier. Ignored for mosaics.
+            imgtype: Image type whose ``Cutout2D`` carries the desired WCS.
+                Defaults to ``'science'``.
+
+        Returns:
+            astropy.wcs.WCS: The WCS object for the requested image.
+        """
         if self.type == 'mosaic':
             return self.wcs
 
@@ -330,7 +429,26 @@ class BaseImage():
 
 
     def estimate_background(self, image=None, band=None, imgtype='science'):
-        
+        """Estimate a 2-D background model using SEP.
+
+        Computes a background map on a ``BACK_BW`` x ``BACK_BH`` mesh,
+        smoothed by a ``BACK_FW`` x ``BACK_FH`` filter. Stores the 2-D
+        background array as ``imgtype='background'``, the RMS map as
+        ``imgtype='rms'``, and the global scalars via ``set_property``.
+
+        Args:
+            image: Pixel array to estimate background from. If ``None``,
+                uses ``self.get_image(imgtype, band)``.
+            band: Band identifier. If ``None``, behaviour depends on
+                ``self.type``.
+            imgtype: Image type key used to fetch the image when ``image``
+                is ``None``. Defaults to ``'science'``.
+
+        Returns:
+            sep.Background: The SEP background object (background map and
+                global statistics accessible via ``.back()`` and
+                ``.globalrms``).
+        """
         if image is None:
             image = self.get_image(imgtype, band)
         if image.dtype.byteorder == '>':
@@ -349,6 +467,34 @@ class BaseImage():
 
 
     def _extract(self, band='detection', imgtype='science', wgttype='weight', masktype='mask', background=None):
+        """Run SEP source extraction on the specified image.
+
+        Builds the variance and mask arrays from ``wgttype`` and
+        ``masktype`` when enabled via ``conf.USE_DETECTION_WEIGHT`` and
+        ``conf.USE_DETECTION_MASK``. After extraction, optionally applies
+        the mask to cull catalog entries via ``clean_catalog``.
+
+        Args:
+            band: Band identifier to extract from. Defaults to
+                ``'detection'``.
+            imgtype: Image type key for the science pixel array. Defaults
+                to ``'science'``.
+            wgttype: Image type key for the weight map used to derive
+                per-pixel variance. Defaults to ``'weight'``.
+            masktype: Image type key for the binary mask. Defaults to
+                ``'mask'``.
+            background: Scalar or 2-D array to subtract before extraction.
+                If ``None``, no subtraction is applied.
+
+        Returns:
+            tuple[astropy.table.Table, numpy.ndarray]:
+                ``(catalog, segmap)`` — the SEP source table and the
+                integer segmentation map with one label per detected source.
+
+        Raises:
+            RuntimeError: If a required weight or mask image is missing.
+            SystemExit: If no sources are detected.
+        """
         var = None
         mask = None
         image = self.get_image(imgtype, band) # these are cutouts, remember.
@@ -402,6 +548,22 @@ class BaseImage():
         return catalog, segmap
 
     def estimate_properties(self, band=None, imgtype='science'):
+        """Compute and cache basic image statistics for a band.
+
+        Returns cached values when already computed. Otherwise performs
+        sigma-clipped statistics on non-zero pixels (full ``nanmean`` /
+        ``nanstd`` for mosaics) and stores results via ``set_property``.
+
+        Args:
+            band: Band identifier. If ``None``, behaviour depends on
+                ``self.type``.
+            imgtype: Image type key to compute statistics from. Defaults
+                to ``'science'``.
+
+        Returns:
+            tuple[float, float, float]: ``(mean, median, rms)`` of the
+                pixel distribution after sigma clipping.
+        """
         self.logger.debug(f'Estimating properties for {band}...')
         # Try to retrieve cached statistics, compute if not available
         try:
@@ -431,7 +593,25 @@ class BaseImage():
             return mean, median, rms
 
     def generate_weight(self, band=None, imgtype='science', overwrite=False):
-        """Generate inverse variance weight map from image RMS.
+        """Generate an inverse-variance weight map from the image RMS.
+
+        Uses the global clipped RMS (computed by ``estimate_properties`` if
+        not already cached) to fill a uniform weight image
+        ``1 / rms**2``. Stores the result via ``set_image(..., 'weight')``.
+
+        Args:
+            band: Band identifier.
+            imgtype: Image type used to determine the array shape and to
+                compute RMS when not cached. Defaults to ``'science'``.
+            overwrite: If ``False``, raises ``RuntimeError`` when a weight
+                image already exists. Defaults to ``False``.
+
+        Returns:
+            numpy.ndarray: The generated weight map.
+
+        Raises:
+            RuntimeError: If a weight image already exists and
+                ``overwrite=False``.
         """
         # Try to use cached RMS, compute if not available
         try:
@@ -447,7 +627,25 @@ class BaseImage():
         return weight
 
     def generate_mask(self, band=None, imgtype='weight', overwrite=False):
-        """Uses zero weight portions to make an effective mask
+        """Generate a binary mask from zero-weight pixels.
+
+        Creates a boolean mask where pixels equal to zero in the
+        ``imgtype`` image are flagged as masked. Stores the result via
+        ``set_image(..., 'mask')``.
+
+        Args:
+            band: Band identifier.
+            imgtype: Image type to derive the mask from. Defaults to
+                ``'weight'``.
+            overwrite: If ``False``, raises ``RuntimeError`` when a mask
+                already exists. Defaults to ``False``.
+
+        Returns:
+            numpy.ndarray: Boolean mask array (``True`` = masked pixel).
+
+        Raises:
+            RuntimeError: If a weight image already exists and
+                ``overwrite=False``.
         """
 
         image = self.get_image(imgtype, band)
@@ -459,12 +657,41 @@ class BaseImage():
         return mask
 
     def get_background(self, band=None):
+        """Return the background value or array for a band.
+
+        Dispatches on the ``'backtype'`` property: returns the scalar global
+        background for ``'flat'`` backgrounds, or the 2-D background image
+        for ``'variable'`` backgrounds.
+
+        Args:
+            band: Band identifier.
+
+        Returns:
+            float or numpy.ndarray or None: Scalar global background level,
+                or a 2-D array matching the image shape.
+        """
         if self.get_property('backtype', band=band) == 'flat':
             return self.get_property('background', band=band)
         elif self.get_property('backtype', band=band) == 'variable':
             return self.get_image(band=band, imgtype='background')
 
     def stage_images(self, bands=None, data_imgtype='science'):
+        """Build Tractor ``Image`` objects for each requested band.
+
+        Loads the science pixel array, inverse-variance weight map, and
+        mask, then constructs a ``tractor.Image`` with the nearest PSF model
+        and an astrometric WCS. For group types, pixels outside the group
+        boundary are masked before constructing the image. Results are stored
+        in ``self.images`` (an ``OrderedDict`` keyed by band). Bands where
+        all weight pixels are zero are silently skipped.
+
+        Args:
+            bands: List of band identifiers to stage. If ``None``, uses all
+                bands returned by ``self.get_bands()``. ``'detection'`` is
+                always removed.
+            data_imgtype: Image type key to use as the data pixel array.
+                Defaults to ``'science'``.
+        """
         if bands is None:
             bands = self.get_bands()
         elif np.isscalar(bands):
@@ -519,7 +746,24 @@ class BaseImage():
             self.logger.debug(f'  ✓ {band}')
 
     def update_models(self, bands=None, data_imgtype='science', existing_catalog=None):
+        """Transfer morphology from an existing catalog and extend fluxes to new bands.
 
+        For each source in the current detection catalog, copies the fitted
+        model from ``existing_catalog`` and either carries forward the
+        existing flux or computes a zero-point-corrected average flux for
+        bands not previously measured. Applies photometric priors via
+        ``set_priors``.
+
+        Args:
+            bands: List of band identifiers to include. If ``None``, uses
+                all bands from ``self.get_bands()``. ``'detection'`` is
+                always removed.
+            data_imgtype: Unused; reserved for future use. Defaults to
+                ``'science'``.
+            existing_catalog: ``OrderedDict`` of source-id → Tractor model
+                to copy morphology from. If ``None``, uses
+                ``self.existing_model_catalog``.
+        """
         if bands is None:
             bands = self.get_bands()
         elif np.isscalar(bands):
@@ -568,7 +812,23 @@ class BaseImage():
             self.model_catalog[source_id] = set_priors(self.model_catalog[source_id], self.phot_priors)
     
     def stage_models(self, bands=conf.MODEL_BANDS, data_imgtype='science'):
-        """ Build the Tractor Model catalog for the group """
+        """Populate ``self.model_catalog`` with initialized Tractor source models.
+
+        For each source in the detection catalog, reads the current model
+        type from ``self.model_catalog``, initializes position from sky
+        coordinates, estimates initial fluxes from segmap pixel sums,
+        computes an elliptical shape from SEP moments, and constructs the
+        appropriate Tractor model (``PointSource``, ``SimpleGalaxy``,
+        ``ExpGalaxy``, ``DevGalaxy``, ``FixedCompositeGalaxy``,
+        ``SersicGalaxy``, or ``SersicCoreGalaxy``). Shape bounds are clamped
+        to prevent Ceres failures. Priors are applied via ``set_priors``.
+
+        Args:
+            bands: List of band identifiers whose staged images are used for
+                flux initialization. Defaults to ``conf.MODEL_BANDS``.
+            data_imgtype: Unused; reserved for API symmetry. Defaults to
+                ``'science'``.
+        """
 
         if bands is None:
             bands = self.get_bands()
@@ -683,6 +943,21 @@ class BaseImage():
             self.model_catalog[source_id] = model
 
     def optimize(self):
+        """Run the Tractor optimizer until convergence or ``conf.MAX_STEPS``.
+
+        Installs the configured optimizer (Ceres or Constrained), then
+        iterates calling ``self.engine.optimize`` and checking the
+        log-likelihood improvement ``dlnp`` against ``conf.DLNP_CRIT``.
+        Detects Ceres silent failures (stuck ``dlnp``) and aborts early.
+        Stores the final variance vector in ``self.variance`` and records
+        the number of steps in ``self.model_tracker``.
+
+        Returns:
+            bool: ``True`` if the fit ran without fatal errors (including
+                non-convergence); ``False`` if the optimizer raised an
+                exception, found no active parameters, had no valid weighted
+                pixels, or detected a Ceres silent failure.
+        """
         self.engine.optimizer = optimizer()
 
         # cat = self.engine.getCatalog()
@@ -762,6 +1037,15 @@ class BaseImage():
 
 
     def store_models(self):
+        """Copy the optimized Tractor catalog back into ``self.model_catalog``.
+
+        Reads the current catalog and variance from ``self.engine``,
+        attaches the variance object to each model, and writes the model
+        plus its statistics into ``self.model_tracker``. When all sources
+        are solved (or at stage 11), also stores the final model and
+        cross-references chi-squared statistics from stage 0 into
+        ``self.model_catalog[source_id].statistics``.
+        """
         self.logger.debug(f'Storing models...')
 
         cat = self.engine.getCatalog()
@@ -799,6 +1083,21 @@ class BaseImage():
                                                     self.model_tracker[source_id][low_idx][stat]
 
     def stage_engine(self, bands=conf.MODEL_BANDS):
+        """Initialize the Tractor engine with images and models for the given bands.
+
+        Calls ``add_tracker``, ``stage_images``, and ``stage_models`` in
+        sequence, then constructs a ``Tractor`` instance stored in
+        ``self.engine`` with image parameters frozen. Returns ``False`` if
+        no images were successfully staged.
+
+        Args:
+            bands: List of band identifiers to include. Defaults to
+                ``conf.MODEL_BANDS``.
+
+        Returns:
+            bool or None: ``False`` if all bands had zero valid weight
+                pixels; ``None`` on success.
+        """
         self.add_tracker()
         self.stage_images(bands=bands)
         
@@ -813,7 +1112,25 @@ class BaseImage():
         self.engine.freezeParam('images')
 
     def force_models(self, bands=None):
+        """Measure forced photometry with morphology frozen to detection-band values.
 
+        Copies the existing ``model_catalog`` (with morphology solved in the
+        detection band), initializes stage 10 for pre-forced statistics, then
+        runs stage 11 which optimizes only the per-band fluxes (and any
+        unfrozen parameters from ``conf.PHOT_PRIORS``). Bands with zero valid
+        weight pixels are excluded from optimization and receive zero-valued
+        placeholder entries. Results are stored via ``store_models`` and the
+        catalog is updated by writing plots when ``conf.PLOT > 2``.
+
+        Args:
+            bands: List of band identifiers to measure photometry in. If
+                ``None``, uses ``self.bands``.
+
+        Returns:
+            bool or None: ``False`` if there are no existing models, all
+                images failed to stage, or ``optimize`` fails; ``None`` on
+                success.
+        """
         if bands is None: bands = self.bands
         tstart = time.time()
         self.logger.debug('Measuring photometry...')
@@ -935,7 +1252,23 @@ class BaseImage():
 
 
     def determine_models(self, bands=conf.MODEL_BANDS):
+        """Run the full model-selection loop to determine the best morphological model.
 
+        Iterates the decision tree until all sources are solved. At each
+        stage, calls ``stage_models``, runs the Tractor optimizer via
+        ``optimize``, measures chi-squared statistics, stores results, and
+        advances the decision tree. After all sources are solved, runs one
+        final optimization stage and records results. Generates diagnostic
+        plots when ``conf.PLOT > 1``.
+
+        Args:
+            bands: List of band identifiers to model. Defaults to
+                ``conf.MODEL_BANDS``.
+
+        Returns:
+            bool or None: ``False`` if image staging fails or any ``optimize``
+                call fails; ``True`` on successful completion.
+        """
         self.logger.debug('Determining best-choice models...')
 
         # clean up
@@ -1003,7 +1336,23 @@ class BaseImage():
         return True
 
     def decision_tree(self):
+        """Advance each unsolved source to the next candidate model type.
 
+        Compares reduced chi-squared values accumulated in
+        ``self.model_tracker`` after each optimization stage and updates
+        ``self.model_catalog[source_id]`` with the next model to try.
+        Sets ``self.solved[i] = True`` when a source satisfies the
+        sufficient-fit threshold ``conf.SUFFICIENT_THRESH``. The stage
+        sequence is:
+
+        * Stage 1: PointSource → SimpleGalaxy
+        * Stage 2: compare PS vs SG; escalate to ExpGalaxy or solve
+        * Stage 3: try DevGalaxy
+        * Stage 4: compare Exp vs Dev; escalate to CompositeGalaxy or solve
+        * Stage 5: compare Exp / Dev / Composite; solve by lowest chi-squared
+
+        Modifies ``self.model_catalog`` and ``self.solved`` in place.
+        """
         self.logger.debug('Running Decision Tree...')
         for i, source_id in enumerate(self.source_ids):
 
@@ -1144,6 +1493,22 @@ class BaseImage():
                         self.logger.warning(f' Source #{source_id} did not meet Chi2 requirements! ({np.argmin(chi2):2.2f} > {conf.SUFFICIENT_THRESH}:2.2f)')
 
     def measure_stats(self, bands=None, stage=None):
+        """Compute chi-squared and goodness-of-fit statistics for all sources.
+
+        Calls ``build_all_images`` to produce model, residual, and chi
+        images, then computes per-band and total chi-squared, reduced
+        chi-squared, chi percentiles, and the D'Agostino K² normality
+        statistic for each source and (when ``self.type == 'group'``) for
+        the group as a whole. Results are written into
+        ``self.model_tracker[source_id][stage]`` and
+        ``self.model_tracker[self.type][stage]``.
+
+        Args:
+            bands: List of band identifiers to measure. If ``None``, uses
+                ``self.engine.bands``.
+            stage: Tracker stage key under which to write statistics. If
+                ``None``, uses ``self.stage``.
+        """
         if bands is None:
             bands = self.engine.bands
         elif np.isscalar(bands):
@@ -1392,6 +1757,28 @@ class BaseImage():
             self.logger.debug(f'   Total: Width(chi) = {chi_pc[3]-chi_pc[1]:2.2f}')
 
     def build_all_images(self, bands=None, source_id=None, overwrite=True, reconstruct=True, set_engine=True):
+        """Build model, residual, and chi images for the given bands.
+
+        Transfers segmentation and group maps to each band if not already
+        present, re-stages the Tractor images, and sequentially calls
+        ``build_model_image``, ``build_residual_image``, and
+        ``build_chi_image``.
+
+        Args:
+            bands: List of band identifiers. If ``None``, uses all bands
+                except ``'detection'``.
+            source_id: Restrict the model image to a single source or list
+                of source IDs. ``None`` includes all sources.
+            overwrite: Whether to overwrite existing model/residual/chi
+                images. Defaults to ``True``.
+            reconstruct: If ``True``, applies quality cuts from
+                ``conf.RESIDUAL_BA_MIN``, ``conf.RESIDUAL_REFF_MAX``, and
+                ``conf.RESIDUAL_SHOW_NEGATIVE`` before rendering the model.
+                Defaults to ``True``.
+            set_engine: If ``True``, filters the model catalog to only
+                include sources with photometry in all requested bands.
+                Defaults to ``True``.
+        """
         if bands is None:
             bands = [band for band in self.bands if band != 'detection']
         elif np.isscalar(bands):
@@ -1413,6 +1800,31 @@ class BaseImage():
         self.build_chi_image(bands, overwrite=overwrite)
 
     def build_model_image(self, bands=None, source_id=None, overwrite=True, reconstruct=True, set_engine=True):
+        """Render the Tractor model image for each requested band.
+
+        For bricks with a single PSF, renders all sources in one
+        ``Tractor.getModelImage`` call. For bricks with position-dependent
+        PSFs, loops over groups and selects the nearest PSF per group.
+        Stores results via ``set_image(..., 'model', band)`` and updates
+        ``self.headers[band]['model']``.
+
+        Args:
+            bands: List of band identifiers. If ``None``, uses
+                ``self.bands``.
+            source_id: Scalar or list of source IDs to include. ``None``
+                includes all.
+            overwrite: Reserved for future use. Defaults to ``True``.
+            reconstruct: If ``True``, applies quality rejection cuts
+                (negative flux, axis ratio, size) before rendering.
+                Defaults to ``True``.
+            set_engine: If ``True``, selects sources from the catalog that
+                have photometry in all requested bands. Defaults to ``True``.
+
+        Returns:
+            dict[str, numpy.ndarray] or numpy.ndarray: A dict mapping band
+                to model array when multiple bands are processed; a single
+                array when only one band is processed.
+        """
         if bands is None:
             bands = self.bands
         elif np.isscalar(bands):
@@ -1518,6 +1930,24 @@ class BaseImage():
         return models
         
     def build_residual_image(self, bands=None, source_id=None, imgtype='science', overwrite=True):
+        """Compute the science minus model residual image for each band.
+
+        Subtracts the stored model image (or a freshly built single-source
+        model when ``source_id`` is given) from the science pixel array.
+        Stores results via ``set_image(..., 'residual', band)`` and updates
+        ``self.headers[band]['residual']``.
+
+        Args:
+            bands: List of band identifiers. If ``None``, uses
+                ``self.bands``.
+            source_id: If provided, rebuilds the model for that source only
+                before subtracting.
+            imgtype: Image type to subtract from. Defaults to ``'science'``.
+            overwrite: Reserved for future use. Defaults to ``True``.
+
+        Returns:
+            dict[str, numpy.ndarray] or numpy.ndarray: Residual array(s).
+        """
         if bands is None:
             bands = self.bands
         elif np.isscalar(bands):
@@ -1548,6 +1978,24 @@ class BaseImage():
         return residuals            
 
     def build_chi_image(self, bands=None, source_id=None, imgtype='science', overwrite=True):
+        """Compute the normalized chi image (residual / noise) for each band.
+
+        Multiplies the residual image by the square root of the weight map.
+        Stores results via ``set_image(..., 'chi', band)`` and updates
+        ``self.headers[band]['chi']``.
+
+        Args:
+            bands: List of band identifiers. If ``None``, uses
+                ``self.bands``.
+            source_id: If provided, recomputes the residual for that source
+                before computing chi.
+            imgtype: Image type used for the residual calculation. Defaults
+                to ``'science'``.
+            overwrite: Reserved for future use. Defaults to ``True``.
+
+        Returns:
+            dict[str, numpy.ndarray] or numpy.ndarray: Chi image array(s).
+        """
         if bands is None:
             bands = self.bands
         elif np.isscalar(bands):
@@ -1577,12 +2025,55 @@ class BaseImage():
         return chis
 
     def get_catalog(self, catalog_band='detection', catalog_imgtype='science'):
+        """Return the source catalog for a given band and image type.
+
+        Args:
+            catalog_band: Band identifier for the detection catalog.
+                Defaults to ``'detection'``.
+            catalog_imgtype: Image type used during detection. Defaults to
+                ``'science'``.
+
+        Returns:
+            astropy.table.Table: The source catalog.
+        """
         return self.catalogs[catalog_band][catalog_imgtype]
-    
+
     def set_catalog(self, catalog, catalog_band='detection', catalog_imgtype='science'):
+        """Store a catalog in ``self.catalogs`` under the given band and image type.
+
+        Args:
+            catalog: ``astropy.table.Table`` to store.
+            catalog_band: Band identifier. Defaults to ``'detection'``.
+            catalog_imgtype: Image type key. Defaults to ``'science'``.
+        """
         self.catalogs[catalog_band][catalog_imgtype] = catalog
 
     def plot_image(self, band=None, imgtype=None, tag='', show_catalog=True, catalog_band='detection', catalog_imgtype='science', show_groups=True):
+        """Save a multi-page PDF of image diagnostic panels.
+
+        For each band and image type, renders a full-field panel with an
+        appropriate colour scale (log for science/model/residual, linear for
+        chi, greyscale for weight/mask, colour-coded for segmap/groupmap).
+        Science and model panels include a second linear-scale panel.
+        Catalog positions and group boundary rectangles are overlaid when
+        the corresponding flags are set.
+
+        Args:
+            band: Band identifier or list of band identifiers to plot. If
+                ``None``, all available bands are plotted.
+            imgtype: Image type key or tuple of keys to plot. If ``None``,
+                plots every available image type for each band.
+            tag: String appended to the output filename. Defaults to ``''``.
+            show_catalog: If ``True``, overlay source positions from the
+                detection catalog. Defaults to ``True``.
+            catalog_band: Band of the detection catalog used for positions.
+                Defaults to ``'detection'``.
+            catalog_imgtype: Image type of the detection catalog. Defaults
+                to ``'science'``.
+            show_groups: If ``True``, draw group bounding boxes on science
+                and model panels. Automatically disabled for group-type
+                images. Defaults to ``True``.
+        """
         # for each band, plot all available images: science, weight, mask, segmap, groupmap, background, rms
         if band is None:
             bands = self.get_bands()
@@ -1819,7 +2310,16 @@ class BaseImage():
         pdf.close()
 
     def plot_psf(self, band=None):
-          
+        """Save a PSF diagnostic PDF for each band.
+
+        Produces a three-panel figure per band showing (1) a log-scaled 2-D
+        PSF image with axis labels in arcsec, (2) column cuts through the
+        PSF on a log y-axis, and (3) the cumulative radial flux curve.
+
+        Args:
+            band: Band identifier or list of band identifiers. If ``None``,
+                plots the PSF for all available bands.
+        """
         if band is None:
             bands = self.get_bands()
         else:
@@ -1858,6 +2358,36 @@ class BaseImage():
             plt.close(fig)
 
     def plot_summary(self, source_id=None, group_id=None, bands=None, stage=None, tag=None, catalog_band='detection', catalog_imgtype='science', overwrite=True):
+        """Save a 4x4 per-source (or per-group) summary PDF.
+
+        For each source / group and band, produces a 4×4 grid of panels
+        showing the science image, model, residual, chi map, weight, 2-D
+        background, pixel-assignment map, PSF profile, X/Y slice profiles
+        with model overplots, and a cumulative chi CDF. Statistical
+        annotations (chi-squared, position, shape, flux) are printed on the
+        figure.
+
+        Args:
+            source_id: Scalar or list of source IDs to summarize. If
+                ``None`` and ``group_id`` is also ``None``, all tracked
+                sources are plotted. The special string ``'group'`` plots
+                group-level statistics.
+            group_id: If provided, restricts the plot to sources belonging
+                to this group. Superseded by ``source_id``.
+            bands: List of band identifiers. If ``None``, uses all non-
+                detection bands.
+            stage: Model-tracker stage to read statistics from. If
+                ``None``, uses the maximum available stage in
+                ``self.model_tracker['group']``.
+            tag: String prepended to the output filename. Defaults to
+                ``None``.
+            catalog_band: Detection catalog band. Defaults to
+                ``'detection'``.
+            catalog_imgtype: Detection catalog image type. Defaults to
+                ``'science'``.
+            overwrite: Unused; reserved for future use. Defaults to
+                ``True``.
+        """
         # show the group or source image, model, residuals, background, psf, distributions + statistics
 
         if bands is None:
@@ -2324,6 +2854,22 @@ class BaseImage():
             pdf.close()
 
     def transfer_maps(self, bands=None, catalog_band='detection', overwrite=False):
+        """Reproject segmentation and group maps from the detection band to other bands.
+
+        For each target band, checks whether another already-mapped band
+        shares the same pixel scale (in which case the existing dict is
+        reused) or calls ``map_discontinuous`` to remap the detection-band
+        segmap and groupmap to the target WCS and shape. Results are stored
+        in ``self.data[band]['segmap']`` and ``self.data[band]['groupmap']``.
+
+        Args:
+            bands: List of band identifiers to transfer maps to. If
+                ``None``, uses ``self.bands``.
+            catalog_band: Source band whose maps are transferred. Defaults
+                to ``'detection'``.
+            overwrite: If ``True``, deletes existing segmap and groupmap
+                before retransferring. Defaults to ``False``.
+        """
         # rescale segmaps and groupmaps to other bands
         segmap = self.data[catalog_band]['segmap']
         groupmap = self.data[catalog_band]['groupmap']
@@ -2380,6 +2926,24 @@ class BaseImage():
                 self.logger.debug(f'Created maps for segmap and groupmap of {catalog_band} to {band}')
 
     def write(self, filetype=None, allow_update=False, filename=None):
+        """Write image data, headers, and catalog to disk.
+
+        Dispatches to ``write_hdf5``, ``write_fits``, and ``write_catalog``
+        based on ``filetype``. When ``filetype`` is ``None``, writes all
+        three formats if catalogs are present.
+
+        Args:
+            filetype: One of ``None`` (write all), ``'hdf5'``, ``'fits'``,
+                or ``'cat'``.
+            allow_update: If ``True``, existing files are updated rather
+                than raising an error. Defaults to ``False``.
+            filename: Output filename. If ``None``, uses
+                ``self.filename``.
+
+        Raises:
+            RuntimeError: When ``filetype='cat'`` is requested but no
+                catalogs are present.
+        """
         if (filetype is None):
             filename = self.filename
             self.write_hdf5(allow_update=allow_update, filename=filename)
@@ -2401,6 +2965,34 @@ class BaseImage():
                 raise RuntimeError('Cannot write catalogs to disk as none are present!')
 
     def write_fits(self, bands=None, imgtypes=None, allow_update=False, tag=None, filename=None, directory=conf.PATH_ANCILLARY):
+        """Write image data to a multi-extension FITS file.
+
+        Creates or updates a FITS file in ``directory``. Each image type for
+        each band becomes a separate ``ImageHDU`` named ``{band}_{imgtype}``,
+        ordered so that model/residual/chi appear directly after science.
+        WCS headers are written from ``self.headers[band]``. PSF extensions
+        and non-``Cutout2D`` objects (segmap/groupmap dicts) are skipped.
+        Catalogs stored as ``Table`` objects are appended as ``BinTableHDU``
+        extensions.
+
+        Args:
+            bands: List of band identifiers to write. If ``None``, writes
+                all bands in ``self.data``.
+            imgtypes: List of image type keys to include. If ``None``,
+                writes all types for each band.
+            allow_update: If ``True``, opens an existing file in update
+                mode. Defaults to ``False``.
+            tag: String inserted before ``.fits`` in the filename. Defaults
+                to ``None``.
+            filename: Output filename. If ``None``, uses
+                ``self.filename`` with ``.h5`` replaced by ``.fits``.
+            directory: Output directory path. Defaults to
+                ``conf.PATH_ANCILLARY``.
+
+        Raises:
+            RuntimeError: If the file already exists and
+                ``allow_update=False``.
+        """
         if filename is None:
             filename = self.filename.replace('.h5', '.fits')
         if tag is not None:
@@ -2508,6 +3100,26 @@ class BaseImage():
             
 
     def write_hdf5(self, allow_update=False, tag=None, filename=None, directory=conf.PATH_BRICKS):
+        """Serialize the entire object state to an HDF5 file.
+
+        Uses ``recursively_save_dict_contents_to_group`` to write
+        ``self.__dict__`` into the HDF5 file. Creates a new file or opens
+        an existing one in append mode when ``allow_update=True``.
+
+        Args:
+            allow_update: If ``True``, opens an existing file in ``r+``
+                mode. Defaults to ``False``.
+            tag: String inserted before ``.h5`` in the filename. Defaults
+                to ``None``.
+            filename: Output filename. If ``None``, uses
+                ``self.filename``.
+            directory: Output directory path. Defaults to
+                ``conf.PATH_BRICKS``.
+
+        Raises:
+            RuntimeError: If the file already exists and
+                ``allow_update=False``.
+        """
         if filename is None:
             filename = self.filename
         if tag is not None:
@@ -2535,6 +3147,24 @@ class BaseImage():
 
 
     def read_hdf5(self, filename=None, directory=conf.PATH_BRICKS):
+        """Load object state from an HDF5 file and return it as a dict.
+
+        Uses ``recursively_load_dict_contents_from_group`` to reconstruct
+        the nested attribute dictionary previously saved by ``write_hdf5``.
+
+        Args:
+            filename: HDF5 filename to read. If ``None``, uses
+                ``self.filename``.
+            directory: Directory containing the file. Defaults to
+                ``conf.PATH_BRICKS``.
+
+        Returns:
+            dict: Nested dictionary of all attributes stored in the HDF5
+                file.
+
+        Raises:
+            RuntimeError: If the file does not exist at the expected path.
+        """
         if filename is None:
             filename = self.filename
         
@@ -2547,7 +3177,39 @@ class BaseImage():
         return attr
 
     def write_catalog(self, catalog_imgtype=None, band_tag='phot', catalog_band=None, allow_update=False, tag=None, filename=None, directory=conf.PATH_CATALOGS, overwrite=False):
+        """Write the photometry catalog to a FITS binary table.
 
+        Iterates over ``self.model_catalog`` and calls ``get_params`` to
+        extract per-source measurements (fluxes, magnitudes, positions,
+        shapes, chi-squared statistics, group timing). New columns are added
+        to the base detection catalog on the fly; existing columns are
+        updated in place. For forced-photometry runs with unfrozen
+        parameters, renames morphology columns with a band prefix. Stores
+        the updated catalog back via ``set_catalog`` and writes to disk.
+
+        Args:
+            catalog_imgtype: Image type of the catalog to update. If
+                ``None``, uses ``self.catalog_imgtype``.
+            band_tag: Band prefix used when renaming columns during forced
+                photometry with unfrozen parameters. Defaults to
+                ``'phot'``.
+            catalog_band: Band identifier of the catalog. If ``None``,
+                uses ``self.catalog_band``.
+            allow_update: If ``True``, reads and updates an existing file.
+                Defaults to ``False``.
+            tag: String inserted before ``.cat`` in the filename. Defaults
+                to ``None``.
+            filename: Output filename. If ``None``, uses
+                ``self.filename`` with ``.h5`` replaced by ``.cat``.
+            directory: Output directory path. Defaults to
+                ``conf.PATH_CATALOGS``.
+            overwrite: If ``True``, overwrites an existing file without
+                reading it. Defaults to ``False``.
+
+        Raises:
+            RuntimeError: If the file exists and both ``allow_update`` and
+                ``overwrite`` are ``False``.
+        """
         if catalog_imgtype is None:
             catalog_imgtype = self.catalog_imgtype
         if catalog_band is None:

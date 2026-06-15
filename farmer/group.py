@@ -12,8 +12,36 @@ from collections import OrderedDict
 
 
 class Group(BaseImage):
-    def __init__(self, group_id, image=None, imgtype='science', load=False, brick_id=None, silent=False) -> None:
+    """A set of one to five nearby sources modeled simultaneously by The Tractor."""
 
+    def __init__(self, group_id, image=None, imgtype='science', load=False, brick_id=None, silent=False) -> None:
+        """Initialise a Group, either from a brick image or loaded from disk.
+
+        A group is a spatially contiguous cluster of sources identified by
+        the morphological dilation step.  When ``load`` is True and
+        ``brick_id`` is provided, the group is restored from an HDF5 file
+        named ``G{group_id}_B{brick_id}.h5``.  Otherwise the group bounding
+        box and sky position are derived from the parent ``image``'s group
+        map.
+
+        Args:
+            group_id: Integer identifier of this group.
+            image: Parent ``Brick`` (or ``Mosaic``) object used to locate
+                the group in the group map.  Only required when ``load``
+                is False.
+            imgtype: Image type key used to look up the group map.
+                Defaults to ``'science'``.
+            load: If True, load the group from an existing HDF5 file.
+                Defaults to False.
+            brick_id: Integer brick identifier, required when ``load``
+                is True to construct the filename.  Defaults to None.
+            silent: If True, suppress informational log messages.
+                Defaults to False.
+
+        Raises:
+            RuntimeError: If the group pixel dimensions cannot be determined
+                from the group map.
+        """
         # Load the logger
         self.logger = logging.getLogger(f'farmer.group_{group_id}')
         if silent:
@@ -119,6 +147,12 @@ class Group(BaseImage):
         self.plot_summary()
 
     def summary(self):
+        """Print a human-readable summary of this group to stdout.
+
+        Reports the group's sky position, angular size (with and without
+        buffer), the list of loaded bands, and per-band image statistics
+        (sum, mean, median, std) and properties.
+        """
         print(f'Summary of group {self.group_id}')
         print(f'Located at ({self.position.ra:2.2f}, {self.position.dec:2.2f}) with size {self.size[0]:2.2f} x {self.size[1]:2.2f}')
         print(f'   (w/ buffer: {self.buffsize[0]:2.2f} x {self.buffsize[1]:2.2f})')
@@ -139,6 +173,24 @@ class Group(BaseImage):
                 print(f'  {attr} ... {self.properties[band][attr]}')
 
     def add_bands(self, brick, bands=None):
+        """Cut out and attach one or more bands from a brick to this group.
+
+        For each band in ``bands``, attempts a ``Cutout2D`` overlap check; if
+        the band overlaps the group footprint all image arrays (science,
+        weight, mask, segmap, groupmap, background, rms) are cut out and
+        stored, along with properties, headers, catalogs, PSF coordinates, and
+        pixel scales inherited from the brick.  Bands with no overlap are
+        silently skipped.
+
+        The ``'detection'`` band is always inserted first so that group
+        catalogs are available for all subsequent bands.
+
+        Args:
+            brick: ``Brick`` object that is the parent of this group.
+            bands: List of band name strings to add.  ``None`` uses all
+                bands present on the brick.  A scalar string is wrapped in
+                a list automatically. Defaults to None.
+        """
         if bands is None:
             bands = brick.bands
         elif np.isscalar(bands):
