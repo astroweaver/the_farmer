@@ -76,16 +76,7 @@ Detection runs on a single dedicated image (usually a high-resolution chi-mean o
    # Equivalent top-level call (loads brick from disk first)
    farmer.detect_sources(brick_ids=1, write=True)
 
-   # Memory-efficient mode: detects, writes catalog, then discards pixel arrays
-   farmer.detect_sources_lite(brick_ids=[1, 2, 3, 4], cleanup=True)
-
 After detection, ``brick.catalogs['detection']['science']`` contains an ``astropy.Table`` with columns ``id``, ``ra``, ``dec``, ``x``, ``y``, ``group_id``, ``group_pop``, and standard SEP photometric columns (``a``, ``b``, ``theta``, ``flux``, ``peak``, ``npix``, etc.).
-
-.. tip::
-   Use :func:`farmer.detect_sources_lite` for production runs over many bricks —
-   it writes the catalog immediately and discards pixel arrays to keep memory usage low.
-   Use :func:`farmer.detect_sources` when you need the brick object in memory for
-   interactive inspection or when chaining directly into modeling.
 
 Group population and size limits
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

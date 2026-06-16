@@ -88,9 +88,6 @@ Run source detection on the detection band. Sources outside the brick boundary a
 
    farmer.detect_sources(brick_ids=1, write=True)
 
-   # Memory-efficient batch mode for production
-   farmer.detect_sources_lite()   # all bricks, minimal footprint
-
 Step 5 — Determine morphological models
 -----------------------------------------
 
@@ -144,8 +141,8 @@ For a complete survey run processing all bricks in parallel:
    # 1. Build bricks (detection band first, then photometric bands)
    good_bricks = farmer.build_bricks()
 
-   # 2. Detect sources in all bricks (memory-efficient)
-   farmer.detect_sources_lite(brick_ids=good_bricks)
+   # 2. Detect sources in all bricks
+   farmer.detect_sources(brick_ids=good_bricks)
 
    # 3. Determine models in all bricks
    farmer.generate_models(brick_ids=good_bricks)

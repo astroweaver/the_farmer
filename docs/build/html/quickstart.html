@@ -183,9 +183,6 @@
 <h2>Step 4 — Detect sources<a class="headerlink" href="#step-4-detect-sources" title="Link to this heading"></a></h2>
 <p>Run source detection on the detection band. Sources outside the brick boundary are discarded; nearby sources are grouped for simultaneous fitting:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">farmer</span><span class="o">.</span><span class="n">detect_sources</span><span class="p">(</span><span class="n">brick_ids</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">write</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
-<span class="c1"># Memory-efficient batch mode for production</span>
-<span class="n">farmer</span><span class="o">.</span><span class="n">detect_sources_lite</span><span class="p">()</span>   <span class="c1"># all bricks, minimal footprint</span>
 </pre></div>
 </div>
 </section>
@@ -231,8 +228,8 @@
 <span class="c1"># 1. Build bricks (detection band first, then photometric bands)</span>
 <span class="n">good_bricks</span> <span class="o">=</span> <span class="n">farmer</span><span class="o">.</span><span class="n">build_bricks</span><span class="p">()</span>
 
-<span class="c1"># 2. Detect sources in all bricks (memory-efficient)</span>
-<span class="n">farmer</span><span class="o">.</span><span class="n">detect_sources_lite</span><span class="p">(</span><span class="n">brick_ids</span><span class="o">=</span><span class="n">good_bricks</span><span class="p">)</span>
+<span class="c1"># 2. Detect sources in all bricks</span>
+<span class="n">farmer</span><span class="o">.</span><span class="n">detect_sources</span><span class="p">(</span><span class="n">brick_ids</span><span class="o">=</span><span class="n">good_bricks</span><span class="p">)</span>
 
 <span class="c1"># 3. Determine models in all bricks</span>
 <span class="n">farmer</span><span class="o">.</span><span class="n">generate_models</span><span class="p">(</span><span class="n">brick_ids</span><span class="o">=</span><span class="n">good_bricks</span><span class="p">)</span>

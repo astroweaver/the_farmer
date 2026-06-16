@@ -259,7 +259,7 @@ On Windows, <code class="docutils literal notranslate"><span class="pre">GROUP_T
 <li><p>Number of bricks held in memory simultaneously (normally 1)</p></li>
 <li><p>Number of parallel workers × group cutout size</p></li>
 </ul>
-<p>A single brick with 4 bands at 0.15″/pixel and a 10′ × 10′ footprint uses roughly 500 MB. Use <code class="docutils literal notranslate"><span class="pre">detect_sources_lite(cleanup=True)</span></code> or call <code class="docutils literal notranslate"><span class="pre">brick.cleanup_after_detection()</span></code> / <code class="docutils literal notranslate"><span class="pre">brick.cleanup_after_modeling()</span></code> to free memory between stages.</p>
+<p>A single brick with 4 bands at 0.15″/pixel and a 10′ × 10′ footprint uses roughly 500 MB. Call <code class="docutils literal notranslate"><span class="pre">brick.cleanup_after_detection()</span></code> and <code class="docutils literal notranslate"><span class="pre">brick.cleanup_after_modeling()</span></code> to free pixel arrays between stages.</p>
 </section>
 <hr class="docutils" />
 <section id="output-catalogs">

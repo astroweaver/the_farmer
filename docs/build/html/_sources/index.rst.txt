@@ -7,7 +7,7 @@ The code has been used to build several major survey catalogs:
 
 - **COSMOS2020** (`Weaver et al. 2022 <https://ui.adsabs.harvard.edu/abs/2022ApJS..258...11W/abstract>`_)
 - **SHELA** (`Leung et al. 2023 <https://ui.adsabs.harvard.edu/abs/2023arXiv230100908L/abstract>`_)
-- **H20** (Zalesky, in preparation)
+- **H20** (`Zalesky et al. 2025 <https://ui.adsabs.harvard.edu/abs/2024arXiv240805296Z/abstract>`_)
 
 When using The Farmer in published work, please cite `Weaver et al. 2023 <https://ui.adsabs.harvard.edu/abs/2023arXiv231007757W/abstract>`_.
 
@@ -21,6 +21,7 @@ When using The Farmer in published work, please cite `Weaver et al. 2023 <https:
 .. toctree::
    :maxdepth: 2
    :caption: Getting Started
+   :hidden:
 
    installation
    quickstart
@@ -28,6 +29,7 @@ When using The Farmer in published work, please cite `Weaver et al. 2023 <https:
 .. toctree::
    :maxdepth: 2
    :caption: User Guide
+   :hidden:
 
    usage
    configuration
@@ -36,6 +38,7 @@ When using The Farmer in published work, please cite `Weaver et al. 2023 <https:
 .. toctree::
    :maxdepth: 2
    :caption: API Reference
+   :hidden:
 
    api/index
    api/farmer
@@ -48,6 +51,7 @@ When using The Farmer in published work, please cite `Weaver et al. 2023 <https:
 .. toctree::
    :maxdepth: 1
    :caption: Help & Reference
+   :hidden:
 
    faq
 
@@ -56,7 +60,7 @@ When using The Farmer in published work, please cite `Weaver et al. 2023 <https:
 Overview
 --------
 
-The Farmer divides a survey mosaic into a regular grid of rectangular **bricks**. Within each brick, sources detected in a high-resolution image are collected into small **groups** of one to five neighbors. Each group is modeled simultaneously using The Tractor, which fits parametric profiles (point sources, exponential disks, de Vaucouleurs bulges, composite models) by minimizing a Poisson likelihood. Fitted morphologies are then held fixed and the optimizer measures fluxes across every photometric band.
+The Farmer divides a survey mosaic into a regular grid of rectangular **bricks**. Within each brick, sources detected in a high-resolution image are collected into small **groups** of one to five neighbors. Each group is modeled simultaneously using The Tractor, which fits parametric profiles (point sources, exponential disks, de Vaucouleurs bulges, composite models) by minimizing a Gaussian chi-squared likelihood over pixels weighted by the inverse-variance image. Fitted morphologies are then held fixed and the optimizer measures fluxes across every photometric band.
 
 Key capabilities:
 

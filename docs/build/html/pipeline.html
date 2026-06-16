@@ -321,7 +321,6 @@
 <li><p><strong>Lazy brick loading</strong> — <code class="docutils literal notranslate"><span class="pre">brick_has_band()</span></code> reads only HDF5 metadata to check whether a band exists, without loading pixel arrays.</p></li>
 <li><p><strong>Generator-based group spawning</strong> — groups are spawned one at a time and destroyed after absorption. The full list of groups is never held in memory simultaneously.</p></li>
 <li><p><strong>Cleanup methods</strong> — <code class="docutils literal notranslate"><span class="pre">cleanup_after_detection()</span></code> and <code class="docutils literal notranslate"><span class="pre">cleanup_after_modeling()</span></code> delete pixel arrays that are no longer needed between stages.</p></li>
-<li><p><strong>``detect_sources_lite()``</strong> — a hit-and-run function that detects sources, writes the catalog, then aggressively discards all image data.</p></li>
 <li><p><strong>Chunk-based WCS mapping</strong> — the multi-resolution ID mapping processes 10,000 pixels at a time.</p></li>
 </ul>
 </section>

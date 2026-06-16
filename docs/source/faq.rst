@@ -225,7 +225,7 @@ Memory usage scales with:
 - Number of bricks held in memory simultaneously (normally 1)
 - Number of parallel workers × group cutout size
 
-A single brick with 4 bands at 0.15″/pixel and a 10′ × 10′ footprint uses roughly 500 MB. Use ``detect_sources_lite(cleanup=True)`` or call ``brick.cleanup_after_detection()`` / ``brick.cleanup_after_modeling()`` to free memory between stages.
+A single brick with 4 bands at 0.15″/pixel and a 10′ × 10′ footprint uses roughly 500 MB. Call ``brick.cleanup_after_detection()`` and ``brick.cleanup_after_modeling()`` to free pixel arrays between stages.
 
 ----
 

@@ -219,5 +219,4 @@ For large surveys, memory is the primary constraint. The Farmer provides several
 - **Lazy brick loading** — ``brick_has_band()`` reads only HDF5 metadata to check whether a band exists, without loading pixel arrays.
 - **Generator-based group spawning** — groups are spawned one at a time and destroyed after absorption. The full list of groups is never held in memory simultaneously.
 - **Cleanup methods** — ``cleanup_after_detection()`` and ``cleanup_after_modeling()`` delete pixel arrays that are no longer needed between stages.
-- **``detect_sources_lite()``** — a hit-and-run function that detects sources, writes the catalog, then aggressively discards all image data.
 - **Chunk-based WCS mapping** — the multi-resolution ID mapping processes 10,000 pixels at a time.

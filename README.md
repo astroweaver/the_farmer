@@ -13,7 +13,7 @@ The code underpins several major survey catalogs:
 
 - **COSMOS2020** — [Weaver et al. 2022, ApJS 258, 11](https://ui.adsabs.harvard.edu/abs/2022ApJS..258...11W/abstract)
 - **SHELA** — [Leung et al. 2023](https://ui.adsabs.harvard.edu/abs/2023arXiv230100908L/abstract)
-- **H20** — Zalesky et al. (in preparation)
+- **H20** — [Zalesky et al. 2025](https://arxiv.org/abs/2408.05296)
 
 If you use The Farmer in published work, please cite **[Weaver et al. 2023](https://ui.adsabs.harvard.edu/abs/2023arXiv231007757W/abstract)**. A copy of the paper is in `docs/`.
 
