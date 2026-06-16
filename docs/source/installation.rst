@@ -78,12 +78,6 @@ Installing from Source
       On macOS, install Xcode Command Line Tools (``xcode-select --install``) first.
       On Linux, ``gcc`` and ``python3-dev`` (or equivalent) are required.
 
-   .. warning::
-      The ``pyproject.toml`` in the repository currently lists the Tractor dependency
-      pointing to the ``astrometry.net`` repository by mistake. Use the correct Tractor
-      URL above. If ``pip install -e .`` fails on the Tractor dependency, install it
-      manually with the command above before running ``pip install -e .``.
-
 4. **Install The Farmer and remaining dependencies**
 
    .. code-block:: bash

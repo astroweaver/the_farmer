@@ -15,7 +15,7 @@ The code underpins several major survey catalogs:
 - **SHELA** — [Leung et al. 2023](https://ui.adsabs.harvard.edu/abs/2023arXiv230100908L/abstract)
 - **H20** — [Zalesky et al. 2025](https://arxiv.org/abs/2408.05296)
 
-If you use The Farmer in published work, please cite **[Weaver et al. 2023](https://ui.adsabs.harvard.edu/abs/2023arXiv231007757W/abstract)**. A copy of the paper is in `docs/`.
+If you use The Farmer in published work, please cite **[Weaver et al. 2023](https://ui.adsabs.harvard.edu/abs/2023arXiv231007757W/abstract)**. A copy of the paper is at [`docs/The_Farmer_Weaver23.pdf`](docs/The_Farmer_Weaver23.pdf).
 
 ---
 
@@ -115,7 +115,7 @@ import farmer
 farmer.validate()              # check paths, WCS, PSF models
 
 farmer.build_bricks()          # cut stamps from mosaics, save HDF5
-farmer.detect_sources_lite()   # detect sources (memory-efficient)
+farmer.detect_sources()        # detect sources
 farmer.generate_models()       # fit morphologies
 farmer.photometer()            # measure fluxes in all bands
 ```
@@ -135,7 +135,15 @@ group.farm()   # determine models + photometry + plots
 
 ## Tips
 
-**Start small.** Set `N_BRICKS = (1, 1)` and `NCPUS = 0` for your first run. A single brick in serial mode makes it easy to read log output and catch configuration errors before committing to a full survey run.
+**Start small.** Set your intended `N_BRICKS` grid in `config.py` but only build the central brick first. With `N_BRICKS = (nx, ny)`, the central brick ID is `(ny//2) * nx + (nx//2) + 1` — pass it directly to `build_bricks`:
+
+```python
+nx, ny = (2, 4)  # your N_BRICKS from config.py
+central_id = (ny // 2) * nx + (nx // 2) + 1
+farmer.build_bricks(brick_ids=central_id)
+```
+
+Set `NCPUS = 0` while debugging — serial mode makes log output easy to follow and catches configuration errors before committing to a full run.
 
 **Detection image matters.** The detection image drives source positions and morphologies. Use the highest-resolution, deepest image available — a chi-mean stack of your best optical bands is ideal. The photometric bands do not need to match its pixel scale.
 

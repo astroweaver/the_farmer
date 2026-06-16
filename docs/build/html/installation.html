@@ -193,13 +193,6 @@ pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com
 On macOS, install Xcode Command Line Tools (<code class="docutils literal notranslate"><span class="pre">xcode-select</span> <span class="pre">--install</span></code>) first.
 On Linux, <code class="docutils literal notranslate"><span class="pre">gcc</span></code> and <code class="docutils literal notranslate"><span class="pre">python3-dev</span></code> (or equivalent) are required.</p>
 </div>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>The <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> in the repository currently lists the Tractor dependency
-pointing to the <code class="docutils literal notranslate"><span class="pre">astrometry.net</span></code> repository by mistake. Use the correct Tractor
-URL above. If <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">-e</span> <span class="pre">.</span></code> fails on the Tractor dependency, install it
-manually with the command above before running <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">-e</span> <span class="pre">.</span></code>.</p>
-</div>
 </li>
 <li><p><strong>Install The Farmer and remaining dependencies</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
