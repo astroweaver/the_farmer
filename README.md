@@ -2,6 +2,7 @@
 
 [![License](https://img.shields.io/badge/license-BSD%203--Clause-blue)](LICENSE.txt)
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue)]()
+[![Docs](https://readthedocs.org/projects/the-farmer/badge/?version=latest)](https://the-farmer.readthedocs.io/en/latest/)
 [![Paper](https://img.shields.io/badge/paper-arXiv%3A2310.07757-red)](https://arxiv.org/abs/2310.07757)
 
 **Model photometry for deep, multi-wavelength galaxy surveys.**
