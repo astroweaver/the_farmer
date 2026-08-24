@@ -262,7 +262,7 @@ def load_brick(brick_id, silent=False, tag=None):
         Brick: Fully loaded brick object.
 
     Raises:
-        IOError: If the brick file cannot be found or opened.
+        RuntimeError: If the brick file cannot be found.
     """
     return Brick(brick_id, load=True, silent=silent, tag=tag)
 
@@ -323,7 +323,12 @@ def update_bricks(brick_ids=None, bands=None, overwrite=False):
                     continue
                 
                 # Only load brick if it needs updating
-                brick = load_brick(brick_id, silent=(conf.CONSOLE_LOGGING_LEVEL != 'DEBUG'))
+                try:
+                    brick = load_brick(brick_id, silent=(conf.CONSOLE_LOGGING_LEVEL != 'DEBUG'))
+                except RuntimeError as e:
+                    # read_hdf5 raises RuntimeError for a brick that isn't built yet
+                    logger.warning(f'Skipping brick #{brick_id}: {e}')
+                    continue
                 mosaic.add_to_brick(brick)
                 brick.write(allow_update=True, filetype='hdf5')
                 updated_bricks.append((brick_id, band))

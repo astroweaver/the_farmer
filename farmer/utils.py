@@ -1492,8 +1492,17 @@ def get_params(model):
         source[f'{band}_flux_ujy'] = flux * flux_to_ujy * u.microjansky * mask
         source[f'{band}_flux_ujy_err'] = flux_err * flux_to_ujy * u.microjansky * mask
 
-        source[f'{band}_mag'] = (-2.5 * np.log10(flux) * u.mag + zpt * u.mag) * mask
-        source[f'{band}_mag_err'] = (2.5 * log10_e / (flux / flux_err)) * mask
+        # Guard the whole block: log10 of a non-positive flux is NaN/-inf while
+        # the mag_err expression stays finite and negative, so a non-detection
+        # would carry no mag but a negative error -- which passes any
+        # mag_err < threshold cut. mag stays a Quantity in the NaN branch
+        # because image.py reads .value off it for a diagnostic plot label.
+        if mask and np.isfinite(flux) and flux > 0:
+            source[f'{band}_mag'] = -2.5 * np.log10(flux) * u.mag + zpt * u.mag
+            source[f'{band}_mag_err'] = 2.5 * log10_e / (flux / flux_err)
+        else:
+            source[f'{band}_mag'] = np.nan * u.mag
+            source[f'{band}_mag_err'] = np.nan
 
         # statistics
         if band in model.statistics:

@@ -339,6 +339,11 @@ class BaseImage():
             psfmodel = PixelizedPSF(img)
             self.logger.debug(f'PSF model for {band} identified as PixelizedPSF.')
 
+        else:
+            # Falling through leaves psfmodel unbound: an UnboundLocalError below,
+            # or a silently stale model. Fail loudly with the offending path.
+            raise ValueError(f'Unrecognized PSF file format for {band}: {psf_path}')
+
         if conf.RENORM_PSF is not None:
             psfmodel.img *= conf.RENORM_PSF / np.nansum(psfmodel.img)
             self.logger.warning(f'PSF model has been renormalized to {conf.RENORM_PSF}. This WILL affect photometry!')
@@ -921,10 +926,17 @@ class BaseImage():
             elif isinstance(self.model_catalog[source_id], DevGalaxy):
                 model = DevGalaxy(position, flux, shape)
             elif isinstance(self.model_catalog[source_id], FixedCompositeGalaxy):
+                # shapeExp and shapeDev are separate parameters, and setParams
+                # writes both triplets in one call -- sharing a single object
+                # means the dev write clobbers the exp write, silently discarding
+                # every shapeExp update. Give each component its own instance.
+                shape_dev = EllipseESoft.fromRAbPhi(guess_radius, axis_ratio, pa)
+                shape_dev.lowers = list(shape.lowers)
+                shape_dev.uppers = list(shape.uppers)
                 model = FixedCompositeGalaxy(
                                                 position, flux,
                                                 SoftenedFracDev(0.5),
-                                                shape, shape)
+                                                shape, shape_dev)
             elif isinstance(self.model_catalog[source_id], SersicGalaxy):
                 model = SersicGalaxy(position, flux, shape, nre)
             elif isinstance(self.model_catalog[source_id], SersicCoreGalaxy):

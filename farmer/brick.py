@@ -407,6 +407,10 @@ class Brick(BaseImage):
         skycoords = self.data[band][imgtype].wcs.all_pix2world(catalog['x'], catalog['y'], 0)
         self.catalogs[band][imgtype].add_column(skycoords[0]*u.deg, name=f'ra', index=1, )
         self.catalogs[band][imgtype].add_column(skycoords[1]*u.deg, name=f'dec', index=2)
+        # ra/dec get overwritten by fitted model positions downstream; keep the
+        # detection-time values so they stay recoverable.
+        self.catalogs[band][imgtype].add_column(skycoords[0]*u.deg, name='ra_det', index=3)
+        self.catalogs[band][imgtype].add_column(skycoords[1]*u.deg, name='dec_det', index=4)
 
         # generate regions file
         build_regions(self.catalogs[band][imgtype], self.pixel_scales[band][0], # you better have square pixels!
@@ -526,17 +530,17 @@ class Brick(BaseImage):
         
         # Loop over model catalog
         group.model_catalog = {}
-        for source_id, model in self.model_catalog.items():
+        for source_id, model in list(self.model_catalog.items()):
             if source_id not in source_ids: continue
             group.model_catalog[source_id] = model
             
             group.model_tracker[source_id] = {}
-            for stage, stats in self.model_tracker[source_id].items():
+            for stage, stats in list(self.model_tracker[source_id].items()):
                 group.model_tracker[source_id][stage] = stats
 
         group.model_tracker['group'] = {}
         if group_id in self.model_tracker_groups:
-            for stage, stats in self.model_tracker_groups[group_id].items():
+            for stage, stats in list(self.model_tracker_groups[group_id].items()):
                 group.model_tracker['group'][stage] = stats
 
         # # transfer maps
