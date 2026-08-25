@@ -1436,24 +1436,31 @@ def get_params(model):
 
         theta_deg = np.rad2deg(theta)
         source[f'theta{suffix}'] = theta_deg * u.deg
-        source[f'theta{suffix}_err'] = np.sqrt(np.rad2deg(variance_shape.theta)) * u.deg
+        source[f'theta{suffix}_err'] = np.rad2deg(np.sqrt(variance_shape.theta)) * u.deg
 
         reff = np.exp(logre) * u.arcsec
         source[f'reff{suffix}'] = reff
-        source[f'reff{suffix}_err'] = np.sqrt(variance_shape.logre) * reff * np.log(10)
+        # logre is a natural log (reff = exp(logre)), so d(reff)/d(logre) = reff.
+        # A ln(10) factor here would only be right for reff = 10**logre.
+        source[f'reff{suffix}_err'] = np.sqrt(variance_shape.logre) * reff
 
         abs_e = np.abs(e)
         boa = (1. - abs_e) / (1. + abs_e)
-        if e == 1:
+        if abs_e == 1:
             boa_sig = np.inf
         else:
-            sqrt_var_e = np.sqrt(variance_shape.e)
-            boa_sig = boa * sqrt_var_e * np.sqrt((1/(1.-e))**2 + (1/(1.+e))**2)
+            # boa depends on |e| alone: d(boa)/d|e| = -2/(1+|e|)**2. The previous
+            # ratio form treated the (1-e) and (1+e) terms as independent, but both
+            # come from the same e -- that understated boa_err by up to sqrt(2) at
+            # low ellipticity. e is signed here (EllipseESoft unwraps it), so the
+            # guard tests |e|: e == -1 also divides by zero.
+            boa_sig = 2. * np.sqrt(variance_shape.e) / (1. + abs_e)**2
         source[f'ba{suffix}'] = boa
         source[f'ba{suffix}_err'] = boa_sig
         
         source[f'pa{suffix}'] = 90. * u.deg + theta_deg * u.deg
-        source[f'pa{suffix}_err'] = np.rad2deg(variance_shape.theta) * u.deg
+        # pa = 90deg + theta, so pa_err is exactly theta_err (was missing the sqrt)
+        source[f'pa{suffix}_err'] = np.rad2deg(np.sqrt(variance_shape.theta)) * u.deg
 
     # shape
     if model.name == 'SimpleGalaxy':

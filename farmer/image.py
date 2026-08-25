@@ -500,14 +500,16 @@ class BaseImage():
             RuntimeError: If a required weight or mask image is missing.
             SystemExit: If no sources are detected.
         """
-        var = None
+        err = None
         mask = None
         image = self.get_image(imgtype, band) # these are cutouts, remember.
 
         if conf.USE_DETECTION_WEIGHT:
             try:
                 wgt = self.data[band][wgttype].data
-                var = np.where(wgt>0, 1/np.sqrt(wgt), 0)
+                # weight is inverse variance, so this is sigma -- it goes to
+                # SEP's err=, not var= (SEP would take sqrt of a var= array).
+                err = np.where(wgt>0, 1/np.sqrt(wgt), 0)
             except (KeyError, AttributeError):
                 raise RuntimeError(f'Weight image "{wgttype}" not found for band {band}!')
         if conf.USE_DETECTION_MASK:
@@ -529,7 +531,7 @@ class BaseImage():
 
         # Do the detection
         self.logger.debug(f'Detection will be performed with thresh = {conf.THRESH}')
-        kwargs = dict(var=var, mask=mask, minarea=conf.MINAREA, filter_kernel=convfilt, 
+        kwargs = dict(err=err, mask=mask, minarea=conf.MINAREA, filter_kernel=convfilt, 
                 filter_type=conf.FILTER_TYPE, segmentation_map=True, 
                 clean = conf.CLEAN, clean_param = conf.CLEAN_PARAM,
                 deblend_nthresh=conf.DEBLEND_NTHRESH, deblend_cont=conf.DEBLEND_CONT)
@@ -2358,7 +2360,7 @@ class BaseImage():
             x = xax
             y = x.copy()
             xv, yv = np.meshgrid(x, y)
-            radius = np.sqrt(xv**2 + xv**2)
+            radius = np.sqrt(xv**2 + yv**2)
             cumcurve = [np.sum(psfmodel[radius<i]) for i in np.arange(0, np.shape(psfmodel)[0]/2)]
             ax[2].plot(np.arange(0, np.shape(psfmodel)[0]/2) * pixscl, cumcurve)
 
@@ -2852,7 +2854,7 @@ class BaseImage():
                 x = xax
                 y = x.copy()
                 xv, yv = np.meshgrid(x, y)
-                radius = np.sqrt(xv**2 + xv**2)
+                radius = np.sqrt(xv**2 + yv**2)
                 cumcurve = np.array([np.sum(psfmodel[radius<i]) for i in np.arange(0, np.shape(psfmodel)[0]/2)])
                 hxax = np.arange(0, np.shape(psfmodel)[0]/2) * pixscl
                 axes[3,0].plot(hxax, cumcurve, c='grey')
