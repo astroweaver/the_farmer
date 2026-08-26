@@ -758,13 +758,16 @@ def photometer(brick_ids=None, group_ids=None, bands=None, imgtype='science'):
         else: # just run phot
             brick.process_groups(group_ids=group_ids, imgtype=imgtype, mode='photometry')
 
-        # aperture photometry -- a no-op unless conf.DO_APERTURE_PHOT is set.
-        # Must run before write_catalog, which is what merges the columns in.
+        # aperture photometry -- a no-op unless conf.DO_APERTURE_PHOT is set
         brick.measure_apertures()
 
         # write brick
         brick.write_hdf5(allow_update=True)
         brick.write_catalog(allow_update=True)
+        # Apertures go to their own file. Eight columns per aperture per band would
+        # otherwise push a wide run past the 999-column FITS ceiling, and a
+        # cross-check should not be able to make the main catalog unwritable.
+        brick.write_aperture_catalog(allow_update=True)
 
         # ancillary stuff (e.g., residual brick)
         brick.build_all_images()

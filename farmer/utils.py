@@ -1207,7 +1207,13 @@ def recursively_save_dict_contents_to_group(h5file, dic, path='/'):
         # 'logger' is not serialisable; 'group_bboxes' is a derived cache of thousands
         # of tiny tuples that is far cheaper to recompute than to write as thousands of
         # HDF5 datasets (see Brick.get_group_bbox, which rebuilds it on demand).
-        if key in ('logger', 'group_bboxes'):
+        # 'aperture_catalogs' is written to its own FITS file by
+        # BaseImage.write_aperture_catalog and is recomputable in a single pass. It is
+        # skipped here because it is wide by construction -- eight columns per aperture
+        # per band -- and HDF5 caps a compound datatype at a 64 KB object header
+        # message, so a wide enough aperture table fails write_hdf5 with "object header
+        # message is too large" and takes the whole brick write down with it.
+        if key in ('logger', 'group_bboxes', 'aperture_catalogs'):
             continue
             
         # Convert lists/tuples to numpy arrays early

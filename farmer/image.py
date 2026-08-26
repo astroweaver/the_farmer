@@ -87,6 +87,11 @@ COMPOSITE_DEV_STAGE = 4
 
 
 
+# A FITS binary table indexes its columns with three-digit keywords (TFORMnnn),
+# so 999 is a hard ceiling, not a guideline.
+FITS_MAX_COLUMNS = 999
+
+
 def _assign_catalog_value(catalog, name, value, irow):
     """Write one measurement into a catalog cell, creating the column if needed.
 
@@ -2165,8 +2170,9 @@ class BaseImage():
         a source whose fit failed still gets aperture measurements.
 
         Results go to ``self.aperture_catalogs[catalog_band][catalog_imgtype]``
-        as a table keyed by source ``id``; ``write_catalog`` merges them into the
-        output catalog.
+        as a table keyed by source ``id``, which ``write_aperture_catalog`` writes
+        to its own FITS file -- not as extra columns on the main catalog, which a
+        wide run would push past the 999-column FITS ceiling.
 
         Args:
             bands: Bands to measure. Defaults to every band except ``'detection'``.
@@ -2237,7 +2243,10 @@ class BaseImage():
 
         need_psf = any(kind == APER_KIND_PSF for __, kind, __ in specs)
         subpix = int(getattr(conf, 'APER_SUBPIX', 5))
-        aper = Table({'id': ids})
+        # Carry the centroid the apertures were actually placed on, so the file
+        # stands on its own and it is recoverable whether a source was measured at
+        # its fitted position or fell back to the detection one.
+        aper = Table({'id': ids, 'aper_ra': ra * u.deg, 'aper_dec': dec * u.deg})
 
         for imgtype in imgtypes:
             for band in bands:
@@ -3637,6 +3646,84 @@ class BaseImage():
             self.logger.info(f'Updated {filename} (allow_update = {allow_update})')
             
 
+    def write_aperture_catalog(self, catalog_band=None, catalog_imgtype=None,
+                               allow_update=False, tag=None, filename=None,
+                               directory=conf.PATH_CATALOGS, overwrite=False):
+        """Write the aperture photometry to its own FITS table, beside the catalog.
+
+        Apertures live in a separate file rather than as extra columns on the main
+        catalog for two reasons. A FITS binary table is capped at
+        ``FITS_MAX_COLUMNS`` columns, and each aperture costs eight columns per
+        band -- on a wide run that ceiling is reachable, and it would be reached at
+        the final write, after the whole brick had been fitted. And the aperture
+        measurements are a cross-check on the model photometry, not the deliverable
+        itself; a diagnostic should not be able to make the science product
+        unwritable.
+
+        The table carries ``id`` plus the centroid each aperture was placed on, so
+        it joins to the main catalog on ``id`` and also stands alone.
+
+        Args:
+            catalog_band: Band of the catalog the apertures were measured against.
+                If ``None``, uses ``self.catalog_band``.
+            catalog_imgtype: Image type of that catalog. If ``None``, uses
+                ``self.catalog_imgtype``.
+            allow_update: If ``True``, overwrite an existing file. Defaults to
+                ``False``.
+            tag: String inserted before ``.cat`` in the filename.
+            filename: Output filename. If ``None``, derived from ``self.filename``.
+            directory: Output directory. Defaults to ``conf.PATH_CATALOGS``.
+            overwrite: If ``True``, overwrite an existing file without complaint.
+
+        Returns:
+            str or None: Path written, or ``None`` if there was nothing to write.
+
+        Raises:
+            RuntimeError: If the file exists and neither ``allow_update`` nor
+                ``overwrite`` is set.
+        """
+        if catalog_band is None:
+            catalog_band = self.catalog_band
+        if catalog_imgtype is None:
+            catalog_imgtype = self.catalog_imgtype
+
+        aper = getattr(self, 'aperture_catalogs', {}).get(catalog_band, {}).get(catalog_imgtype)
+        if aper is None or len(aper) == 0:
+            self.logger.debug('No aperture photometry to write.')
+            return None
+
+        if filename is None:
+            filename = self.filename.replace('.h5', '_apertures.cat')
+        if tag is not None:
+            filename = filename.replace('.cat', f'_{tag}.cat')
+        path = os.path.join(directory, filename)
+        if os.path.exists(path) and not (allow_update or overwrite):
+            raise RuntimeError(f'Cannot update {filename}! (allow_update = False)')
+
+        out = aper.copy()
+        # brick_id is not in the aperture table itself, but a joined-up catalog of
+        # many bricks needs it to disambiguate ids
+        if hasattr(self, 'brick_id') and 'brick_id' not in out.colnames:
+            out.add_column(Column(np.full(len(out), self.brick_id, dtype=np.int32),
+                                  name='brick_id'), index=0)
+
+        ncol = len(out.colnames)
+        if ncol > FITS_MAX_COLUMNS:
+            raise RuntimeError(
+                f'{filename} would have {ncol} columns; a FITS binary table allows '
+                f'{FITS_MAX_COLUMNS}. Trim conf.APER_DIAMETERS / APER_PSF_FACTORS / '
+                f'APER_REFF_FACTORS, or reduce the bands measured.')
+        if ncol > 0.9 * FITS_MAX_COLUMNS:
+            self.logger.warning(f'{filename} has {ncol} columns, close to the FITS '
+                                f'limit of {FITS_MAX_COLUMNS}.')
+
+        out.meta.update({k: v for k, v in provenance_header(
+            extra=getattr(self, 'psf_aperture_correction', None)).items()})
+        out.write(path, overwrite=conf.OVERWRITE or allow_update or overwrite, format='fits')
+        self.logger.info(f'Wrote {ncol} aperture columns for {len(out)} sources to {filename}')
+        return path
+
+
     def write_hdf5(self, allow_update=False, tag=None, filename=None, directory=conf.PATH_BRICKS):
         """Serialize the entire object state to an HDF5 file.
 
@@ -3873,28 +3960,20 @@ class BaseImage():
                     else:
                         self.logger.debug(f'G{group_id}.S{source_id} :: {name} = {value:2.2f}')
 
-        # Aperture photometry, when measure_apertures has been run. Merged by id
-        # rather than by row order, because the update path above may have read
-        # the catalog back from disk in a different order than self holds it.
-        aper = getattr(self, 'aperture_catalogs', {}).get(catalog_band, {}).get(catalog_imgtype)
-        if aper is not None and len(aper) > 0:
-            order = np.array([row_of.get(int(sid), -1) for sid in aper['id']])
-            known = order >= 0
-            if not known.all():
-                self.logger.warning(f'{int((~known).sum())} aperture rows have no matching '
-                                    f'catalog id and will be dropped.')
-            for name in aper.colnames:
-                if name == 'id':
-                    continue
-                col = aper[name]
-                if name not in catalog.colnames:
-                    newcol = Column(length=len(catalog), name=name, dtype=col.dtype,
-                                    unit=col.unit)
-                    if np.issubdtype(newcol.dtype, np.floating):
-                        newcol[:] = np.nan
-                    catalog.add_column(newcol)
-                catalog[name][order[known]] = np.asarray(col)[known]
-            self.logger.debug(f'Merged {len(aper.colnames) - 1} aperture columns into the catalog.')
+        # A FITS binary table cannot hold more than 999 columns: TFIELDS is a
+        # three-digit keyword, so astropy fails the write with a VerifyError on
+        # TFIELDS rather than anything that names the real problem. This catalog
+        # costs ~20 columns per band plus the shared block, so a wide run can get
+        # there. Say so here, before the write, rather than after a whole brick
+        # has been fitted.
+        ncol = len(catalog.colnames)
+        if ncol > FITS_MAX_COLUMNS:
+            raise RuntimeError(
+                f'{filename} would have {ncol} columns; a FITS binary table allows '
+                f'{FITS_MAX_COLUMNS}. Drop bands, or trim the per-band statistics.')
+        if ncol > 0.9 * FITS_MAX_COLUMNS:
+            self.logger.warning(f'{filename} has {ncol} columns, close to the FITS '
+                                f'limit of {FITS_MAX_COLUMNS}.')
 
         # update catalog for self
         self.set_catalog(catalog, catalog_band=catalog_band, catalog_imgtype=catalog_imgtype)

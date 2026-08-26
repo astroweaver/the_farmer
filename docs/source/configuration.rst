@@ -428,8 +428,18 @@ gets aperture measurements.
      - ``5``
      - SEP sub-pixel sampling of the aperture edge; ``0`` uses the exact overlap area.
 
-Output columns
-~~~~~~~~~~~~~~
+Output file and columns
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Aperture measurements are written to their **own** FITS table,
+``B{brick}_apertures.cat``, beside the main catalog rather than as extra columns
+on it. A FITS binary table is capped at 999 columns (``TFIELDS`` is a three-digit
+keyword), and each aperture costs eight columns per band: an 11-band run spends
+~326 columns before apertures and runs out at eight of them. Keeping them
+separate means a cross-check can never make the science catalog unwritable, and
+apertures can be added without doing that arithmetic. The table carries ``id``,
+``brick_id`` and the centroid each aperture was placed on (``aper_ra``,
+``aper_dec``), so it joins to the main catalog on ``id`` and also stands alone.
 
 Each aperture writes eight columns per band, named ``{band}_{tag}_{quantity}``
 where ``quantity`` is one of ``flux``, ``flux_err``, ``flux_ujy``,
