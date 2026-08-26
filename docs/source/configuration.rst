@@ -333,12 +333,6 @@ Optimizer Settings
    * - ``MAX_STEPS``
      - ``50``
      - Maximum iterations per optimization call.
-   * - ``MIN_STEPS``
-     - ``3``
-     - Minimum optimiser steps before ``DLNP_CRIT`` is allowed to end a fit. A model that barely moves on its first step is not necessarily converged -- it may simply have been handed a stationary starting point.
-   * - ``MIN_STEPS_COMPOSITE``
-     - ``5``
-     - As ``MIN_STEPS``, but applied when the group contains a ``FixedCompositeGalaxy``, which carries twice the shape parameters of an exponential or de Vaucouleurs model.
    * - ``DAMPING``
      - ``0.1``
      - Levenberg–Marquardt damping factor. Larger values slow convergence but improve stability.
@@ -354,6 +348,17 @@ Optimizer Settings
    * - ``USE_CERES``
      - ``False``
      - If ``True``, use the Ceres Solver (requires the ``ceres`` Python binding). Falls back to The Tractor's built-in ``ConstrainedOptimizer`` otherwise.
+
+.. note::
+
+   A fit can stop moving because it converged, or because the line search ran into
+   a parameter bound -- The Tractor's constrained optimizer reports ``dlnp = 0`` for
+   both. Every fit therefore records two flags in the catalog: ``total_hit_limit``
+   (some step hit a bound) and ``total_at_limit`` (the fit *ended* against one). A
+   source with ``total_at_limit = 1`` has not converged in any meaningful sense; its
+   shape is sitting on the edge of the range allowed in ``stage_models``. Both flags
+   are group-wide, since the optimizer reports that some parameter in the joint fit
+   hit a bound rather than which one.
 
 Priors
 -------
@@ -381,6 +386,74 @@ Prior values:
 - **``'none'``** — no prior; parameter is free.
 - **``'freeze'``** — parameter is held fixed at its current value.
 - **``astropy.Quantity`` (angle)** — Gaussian prior with the given standard deviation (angular units, e.g. ``0.1 * u.arcsec``). Only valid for the ``'pos'`` key.
+
+Aperture Photometry
+--------------------
+
+Circular aperture photometry, measured on the science frames alongside the model
+fits. It is off by default; setting ``DO_APERTURE_PHOT = True`` is the only switch
+needed, and when it is ``False`` none of the other settings are read and no
+aperture columns are written.
+
+Apertures are measured on the same pixels The Tractor fits (NaN-zeroed, with the
+background removed according to each band's ``subtract_background`` property), so
+an aperture flux and a model flux for the same source share a zeropoint and are
+directly comparable. Positions are the fitted model centroids where a model
+exists and the detection centroids otherwise, so a source whose fit failed still
+gets aperture measurements.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 20 50
+
+   * - Parameter
+     - Default
+     - Description
+   * - ``DO_APERTURE_PHOT``
+     - ``False``
+     - Master switch for the whole aperture stage.
+   * - ``APER_DIAMETERS``
+     - ``[1.0, 2.0] * u.arcsec``
+     - Fixed circular apertures, as **diameters** on the sky. May be empty.
+   * - ``APER_PSF_FACTORS``
+     - ``[2.0,]``
+     - Apertures scaled to each band's PSF: diameter = factor x PSF FWHM.
+   * - ``APER_REFF_FACTORS``
+     - ``[2.0,]``
+     - Apertures scaled to each source's fitted size: diameter = factor x reff.
+   * - ``APER_IMGTYPES``
+     - ``['science',]``
+     - Image types to measure. Models and residuals work but cost a full extra pass per band.
+   * - ``APER_SUBPIX``
+     - ``5``
+     - SEP sub-pixel sampling of the aperture edge; ``0`` uses the exact overlap area.
+
+Output columns
+~~~~~~~~~~~~~~
+
+Each aperture writes eight columns per band, named ``{band}_{tag}_{quantity}``
+where ``quantity`` is one of ``flux``, ``flux_err``, ``flux_ujy``,
+``flux_ujy_err``, ``mag``, ``mag_err``, ``diam`` (the aperture diameter actually
+used, in arcsec) and ``flag`` (the SEP aperture flag; non-zero means the aperture
+was truncated at an image edge or overlapped masked or zero-weight pixels). The
+tag encodes the aperture: ``aper1as`` for a fixed 1 arcsec diameter, ``aperpsf2``
+for two PSF FWHM, ``aperreff2`` for two effective radii. Column count is eight
+per aperture per band, so trim the lists above on wide multi-band catalogs.
+
+The effective radius used by ``APER_REFF_FACTORS`` is ``exp(logre)`` for a single
+component model, the fixed ``SIMPLEGALAXY_REFF`` for a ``SimpleGalaxy``, and the
+bulge-fraction weighted mean of the two components for a ``FixedCompositeGalaxy``.
+A ``PointSource`` has no size, so its reff-scaled columns are ``NaN`` rather than
+falling back to some other radius.
+
+.. warning::
+
+   Aperture uncertainties are the quadrature sum of the per-pixel variances
+   inside the aperture, read from the band's inverse-variance weight map. On
+   drizzled or otherwise resampled data the pixel-to-pixel noise is correlated,
+   so these are underestimates; treat an aperture signal-to-noise on such
+   products as an upper bound. Aperture fluxes are raw -- no aperture correction
+   is applied.
 
 Ancillary Map Controls
 -----------------------

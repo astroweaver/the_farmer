@@ -758,6 +758,10 @@ def photometer(brick_ids=None, group_ids=None, bands=None, imgtype='science'):
         else: # just run phot
             brick.process_groups(group_ids=group_ids, imgtype=imgtype, mode='photometry')
 
+        # aperture photometry -- a no-op unless conf.DO_APERTURE_PHOT is set.
+        # Must run before write_catalog, which is what merges the columns in.
+        brick.measure_apertures()
+
         # write brick
         brick.write_hdf5(allow_update=True)
         brick.write_catalog(allow_update=True)

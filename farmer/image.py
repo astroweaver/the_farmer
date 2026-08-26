@@ -2,6 +2,8 @@ import config as conf
 from .utils import clean_catalog, get_fwhm, map_discontinuous, SimpleGalaxy, read_wcs, cumulative, set_priors
 from .utils import recursively_save_dict_contents_to_group, recursively_load_dict_contents_from_group, dcoord_to_offset, get_params
 from .utils import get_detection_kernel, provenance_header, _soften_fracdev
+from .utils import build_aperture_specs, get_model_reff, get_psf_fwhm
+from .utils import APER_KIND_FIXED, APER_KIND_PSF, APER_KIND_REFF
 
 import logging
 import os
@@ -1296,33 +1298,50 @@ class BaseImage():
             prev_dlnp = None
             stuck_count = 0
 
-        # A model that barely moves on its first step is NOT necessarily converged --
-        # it may simply have been handed a stationary starting point. That is exactly
-        # what a symmetric composite start produces, and it showed up as a population
-        # of composites exiting at step 1-2 with fracDev pinned at 0.500. Require a
-        # few real steps before the dlnp criterion is allowed to end the fit, and
-        # demand more of composites, which carry twice the shape parameters.
-        min_steps = int(getattr(conf, 'MIN_STEPS', 3))
-        if any(isinstance(src, FixedCompositeGalaxy)
-               for src in self.model_catalog.values()):
-            min_steps = max(min_steps, int(getattr(conf, 'MIN_STEPS_COMPOSITE', 5)))
-        min_steps = max(1, min(min_steps, conf.MAX_STEPS))
+        # There used to be a MIN_STEPS floor here, forcing a few optimiser steps
+        # before DLNP_CRIT was allowed to end a fit. It existed because composites
+        # started symmetrically -- both components on the same shape at fracDev 0.5,
+        # an exactly stationary point -- and exited after a step or two with fracDev
+        # pinned at 0.500. _seed_composite fixes that at the source by starting the
+        # two components from this source's own exp and dev fits, so the floor was
+        # guarding a hole that is no longer there while costing extra steps on every
+        # stage of the decision tree and making `nstep` unable to report 1 or 2.
+        # ConstrainedOptimizer only initialises these in optimize_loop(), which we
+        # do not use, so seed them here before the loop below reads them back.
+        self.engine.optimizer.hit_limit = False
+        self.engine.optimizer.last_step_hit_limit = False
 
         for i in range(conf.MAX_STEPS):
             # Run one optimization step
             try:
-                dlnp, X, alpha, var = self.engine.optimize(variance=True, damping=conf.DAMPING)
+                # shared_params=False: tractor's shared-parameter machinery merges
+                # aliased parameter slots, then sizes the design matrix from the
+                # columns that actually carry entries (lsqr_optimizer.py:513) while
+                # still un-mapping the solution over every parameter (line 656). A
+                # source whose derivatives go identically zero -- flux driven to 0,
+                # or pushed off the cutout -- contributes no column, and if it is
+                # the LAST source in the group the matrix comes back short and the
+                # un-map runs off the end: "index N is out of bounds for axis 0
+                # with size N". Farmer builds every position/flux/shape per source,
+                # so the merge is the identity map and switching it off is inert:
+                # the matrix handed to lsqr is byte-identical in every case that
+                # did not already crash.
+                # `damp`, not `damping`: LsqrOptimizer.optimize takes `damp` and
+                # absorbs everything else into **nil, so conf.DAMPING was silently
+                # discarded and every fit before this ran undamped. Fits from here
+                # on are NOT comparable to runs made before this line was fixed.
+                dlnp, X, alpha, var = self.engine.optimize(variance=True, damp=conf.DAMPING,
+                                                           shared_params=False)
             except (RuntimeError, ValueError, np.linalg.LinAlgError, IndexError) as e:
-                self.logger.error(f'Optimization failed on step {i+1}: {e}')
+                self.logger.exception(f'Optimization failed on step {i+1}: {e}')
                 self.logger.error('Failing group due to optimizer exception.')
                 return False
             
             # Detect Ceres silent failure: dlnp unchanged means optimization is stuck
             if conf.USE_CERES:
-                # Only a fit that has NOT yet converged can be "stuck". Without this
-                # the MIN_STEPS floor below keeps a converged fit looping, dlnp stops
-                # changing because there is nothing left to improve, and the stuck
-                # detector fails the group for succeeding.
+                # Only a fit that has NOT yet converged can be "stuck": an unchanging
+                # dlnp that is already below DLNP_CRIT means there is nothing left to
+                # improve, which is success, not a Ceres failure.
                 converged = dlnp < conf.DLNP_CRIT
                 if (not converged) and prev_dlnp is not None and np.abs(dlnp - prev_dlnp) < 1e-5:
                     stuck_count += 1
@@ -1340,17 +1359,37 @@ class BaseImage():
                                     show_catalog=True, imgtype=('science', 'model', 'residual'))
 
             self.logger.debug(f'   step: {i+1} dlnp: {dlnp:2.5f}')
-            if (i + 1) >= min_steps and dlnp < conf.DLNP_CRIT:
+            if dlnp < conf.DLNP_CRIT:
                 break
 
         self.variance = var
 
+        # A fit can stop moving because it is done, or because the line search ran
+        # into a parameter bound: ConstrainedOptimizer.tryUpdates bails with
+        # `return 0, 0.` when it cannot take a step without crossing a limit, and
+        # dlnp = 0 satisfies DLNP_CRIT just as convergence does. The two are not the
+        # same result, and only the optimizer knows which one happened. Farmer sets
+        # its own shape bounds (see stage_models), so a genuinely elongated source
+        # parked at ee = 0.99 lands here looking perfectly converged.
+        hit_limit = bool(getattr(self.engine.optimizer, 'hit_limit', False))
+        at_limit = bool(getattr(self.engine.optimizer, 'last_step_hit_limit', False))
+
         if dlnp < conf.DLNP_CRIT:
-            self.logger.debug(f'Fit converged in {i+1} steps ({time.time()-tstart:2.2f}s)')
+            if at_limit:
+                self.logger.warning(f'Fit stopped against a parameter limit after {i+1} steps '
+                                    f'({time.time()-tstart:2.2f}s) -- dlnp met DLNP_CRIT, but the '
+                                    f'final step was clipped to a bound, so this is not convergence.')
+            else:
+                self.logger.debug(f'Fit converged in {i+1} steps ({time.time()-tstart:2.2f}s)')
         else:
             self.logger.warning(f'Fit did not converge in {i+1} steps ({time.time()-tstart:2.2f}s)')
+
+        # Group-wide, not per-source: the optimizer reports that SOME parameter in
+        # the joint fit hit a bound, not which one.
         for source_id in self.model_tracker:
             self.model_tracker[source_id][self.stage]['nstep'] = i+1   # TODO should check this against MAX_STEP in a binary flag output...
+            self.model_tracker[source_id][self.stage]['hit_limit'] = int(hit_limit)
+            self.model_tracker[source_id][self.stage]['at_limit'] = int(at_limit)
 
         return True
 
@@ -2107,6 +2146,196 @@ class BaseImage():
             self.logger.debug(f'   Total: N(DOF) = {ndof}')
             self.logger.debug(f'   Total: Med(chi) = {chi_pc[2]:2.2f}')
             self.logger.debug(f'   Total: Width(chi) = {chi_pc[3]-chi_pc[1]:2.2f}')
+
+    def measure_apertures(self, bands=None, imgtypes=None,
+                          catalog_band=None, catalog_imgtype=None):
+        """Measure circular aperture photometry for every detected source.
+
+        Runs only when ``conf.DO_APERTURE_PHOT`` is set; otherwise this is a
+        no-op and no aperture columns are written. Apertures come from
+        ``build_aperture_specs`` and are of three kinds: fixed on-sky diameters,
+        diameters scaled to the band PSF FWHM, and diameters scaled to each
+        source's fitted effective radius.
+
+        Photometry is done on ``_staged_data`` -- the same pixels Tractor fits,
+        NaN-zeroed and background-removed per the band's ``subtract_background``
+        property -- so an aperture flux and a model flux for the same source are
+        directly comparable and share a zeropoint. Positions are the fitted model
+        centroids where a model exists and the detection centroids otherwise, so
+        a source whose fit failed still gets aperture measurements.
+
+        Results go to ``self.aperture_catalogs[catalog_band][catalog_imgtype]``
+        as a table keyed by source ``id``; ``write_catalog`` merges them into the
+        output catalog.
+
+        Args:
+            bands: Bands to measure. Defaults to every band except ``'detection'``.
+            imgtypes: Image types to measure. Defaults to ``conf.APER_IMGTYPES``,
+                which is science-only -- models and residuals work but cost a
+                full extra pass per band.
+            catalog_band: Band of the catalog supplying source positions. If
+                ``None``, uses ``self.catalog_band``.
+            catalog_imgtype: Image type of that catalog. If ``None``, uses
+                ``self.catalog_imgtype``.
+
+        Returns:
+            astropy.table.Table or None: The aperture table, or ``None`` when
+                aperture photometry is off or there is nothing to measure.
+
+        Note:
+            Uncertainties are the quadrature sum of the per-pixel variances
+            inside the aperture, read from the band's inverse-variance weight
+            map. On drizzled or otherwise resampled data the pixel-to-pixel
+            noise is correlated, so these are UNDERESTIMATES -- treat an
+            aperture signal-to-noise on such products as an upper bound.
+            Aperture fluxes are raw: no aperture correction is applied.
+        """
+        if not getattr(conf, 'DO_APERTURE_PHOT', False):
+            self.logger.debug('Aperture photometry is off (conf.DO_APERTURE_PHOT = False).')
+            return None
+        if getattr(self, 'is_empty', False):
+            return None
+
+        specs = build_aperture_specs()
+        if len(specs) == 0:
+            self.logger.warning('conf.DO_APERTURE_PHOT is on, but no apertures are configured.')
+            return None
+
+        if catalog_band is None:
+            catalog_band = self.catalog_band
+        if catalog_imgtype is None:
+            catalog_imgtype = self.catalog_imgtype
+        catalog = self.get_catalog(catalog_band, catalog_imgtype)
+        if catalog is None or len(catalog) == 0:
+            return None
+
+        if bands is None:
+            bands = [band for band in self.get_bands() if band != 'detection']
+        if imgtypes is None:
+            imgtypes = list(getattr(conf, 'APER_IMGTYPES', ['science']))
+
+        nsrc = len(catalog)
+        ids = np.asarray(catalog['id']).astype(int)
+        # write_catalog overwrites ra/dec with the fitted positions, so prefer the
+        # untouched detection columns as the fallback -- otherwise re-running this
+        # after a catalog write would quietly change which position is the default.
+        ra_col = 'ra_det' if 'ra_det' in catalog.colnames else 'ra'
+        dec_col = 'dec_det' if 'dec_det' in catalog.colnames else 'dec'
+        ra = np.asarray(catalog[ra_col], dtype=float)       # deg
+        dec = np.asarray(catalog[dec_col], dtype=float)     # deg
+        reff = np.full(nsrc, np.nan)                        # arcsec
+
+        row_of = {int(v): i for i, v in enumerate(ids)}
+        for source_id, model in self.model_catalog.items():
+            irow = row_of.get(int(source_id))
+            if irow is None:
+                continue
+            pos = getattr(model, 'pos', None)
+            if pos is not None and np.isfinite(getattr(pos, 'ra', np.nan)):
+                ra[irow], dec[irow] = float(pos.ra), float(pos.dec)
+            reff[irow] = get_model_reff(model)
+
+        need_psf = any(kind == APER_KIND_PSF for __, kind, __ in specs)
+        subpix = int(getattr(conf, 'APER_SUBPIX', 5))
+        aper = Table({'id': ids})
+
+        for imgtype in imgtypes:
+            for band in bands:
+                try:
+                    data, nan_mask = self._staged_data(band, data_imgtype=imgtype)
+                except (KeyError, AttributeError) as e:
+                    self.logger.warning(f'No {imgtype} image for {band}; skipping its apertures ({e}).')
+                    continue
+                # sep needs a contiguous, native-byte-order array
+                data = np.ascontiguousarray(data, dtype=np.float32)
+
+                wcs = self.get_wcs(band=band, imgtype=imgtype)
+                x, y = wcs.all_world2pix(ra, dec, 0)
+                pixscl = self.pixel_scales[band][0].to(u.arcsec).value   # arcsec / pix
+
+                # Per-pixel variance from the inverse-variance weight map. Pixels with
+                # no weight are masked rather than given an enormous variance, so they
+                # raise sep's masked-pixel flag instead of swamping the uncertainty.
+                var = None
+                mask = np.asarray(nan_mask, dtype=bool).copy()
+                try:
+                    invvar = np.asarray(self.data[band]['weight'].data, dtype=np.float32)
+                    unweighted = ~(np.isfinite(invvar) & (invvar > 0))
+                    var = np.zeros_like(invvar)
+                    np.divide(1., invvar, out=var, where=~unweighted)
+                    mask |= unweighted
+                except (KeyError, AttributeError):
+                    self.logger.debug(f'No weight map for {band}; its aperture uncertainties will be NaN.')
+                mask = np.ascontiguousarray(mask, dtype=bool)
+                if var is not None:
+                    var = np.ascontiguousarray(var, dtype=np.float32)
+
+                fwhm_arcsec = np.nan
+                if need_psf:
+                    try:
+                        fwhm_arcsec = get_psf_fwhm(
+                            self.get_psfmodel(band), self.pixel_scales[band][0],
+                            x=data.shape[1] / 2., y=data.shape[0] / 2.).to(u.arcsec).value
+                    except (KeyError, AttributeError, ValueError, TypeError, OSError) as e:
+                        self.logger.warning(f'Could not measure the {band} PSF FWHM: {e}')
+                    if np.isfinite(fwhm_arcsec):
+                        self.logger.debug(f'{band}: PSF FWHM = {fwhm_arcsec:2.3f} arcsec')
+
+                zpt = conf.BANDS[band]['zeropoint']
+                flux_to_ujy = 10 ** (-0.4 * (zpt - 23.9))
+
+                for tag, kind, value in specs:
+                    if kind == APER_KIND_FIXED:
+                        diam = np.full(nsrc, value)                  # arcsec
+                    elif kind == APER_KIND_PSF:
+                        diam = np.full(nsrc, value * fwhm_arcsec)    # arcsec
+                    else:
+                        diam = value * reff                          # arcsec, NaN where unfitted
+                    radius_pix = 0.5 * diam / pixscl
+
+                    flux = np.full(nsrc, np.nan)
+                    flux_err = np.full(nsrc, np.nan)
+                    flag = np.zeros(nsrc, dtype=np.int16)
+
+                    good = (np.isfinite(radius_pix) & (radius_pix > 0)
+                            & np.isfinite(x) & np.isfinite(y))
+                    if good.any():
+                        f, fe, fl = sep.sum_circle(data, x[good], y[good], radius_pix[good],
+                                                   var=var, mask=mask, subpix=subpix)
+                        flux[good] = f
+                        flag[good] = fl
+                        # sep returns zeros, not NaN, when it was given no variance
+                        flux_err[good] = fe if var is not None else np.nan
+                    elif np.isfinite(diam).any():
+                        self.logger.debug(f'{band} {tag}: no source had a usable aperture radius.')
+
+                    with np.errstate(invalid='ignore', divide='ignore'):
+                        detected = np.isfinite(flux) & (flux > 0)
+                        mag = np.where(detected, -2.5 * np.log10(np.where(detected, flux, 1.)) + zpt,
+                                       np.nan)
+                        snr = np.where(flux_err > 0, flux / flux_err, np.nan)
+                        mag_err = np.where(detected & np.isfinite(snr),
+                                           2.5 * np.log10(np.e) / snr, np.nan)
+
+                    # imgtype only qualifies the name when it is not the science frame,
+                    # so the common case stays '{band}_aper1p0as_flux'
+                    prefix = f'{band}_{tag}' if imgtype == 'science' else f'{band}_{imgtype}_{tag}'
+                    aper[f'{prefix}_flux'] = flux
+                    aper[f'{prefix}_flux_err'] = flux_err
+                    aper[f'{prefix}_flux_ujy'] = (flux * flux_to_ujy) * u.microjansky
+                    aper[f'{prefix}_flux_ujy_err'] = (flux_err * flux_to_ujy) * u.microjansky
+                    aper[f'{prefix}_mag'] = mag * u.mag
+                    aper[f'{prefix}_mag_err'] = mag_err
+                    aper[f'{prefix}_diam'] = diam * u.arcsec
+                    aper[f'{prefix}_flag'] = flag
+
+                self.logger.info(f'Measured {len(specs)} apertures for {nsrc} sources '
+                                 f'in {band} ({imgtype}).')
+
+        self.aperture_catalogs = getattr(self, 'aperture_catalogs', {})
+        self.aperture_catalogs.setdefault(catalog_band, {})[catalog_imgtype] = aper
+        return aper
+
 
     def build_all_images(self, bands=None, source_id=None, overwrite=True, reconstruct=True, set_engine=True):
         """Build model, residual, and chi images for the given bands.
@@ -3643,6 +3872,29 @@ class BaseImage():
                         self.logger.debug(f'G{group_id}.S{source_id} :: {name} = {value}')
                     else:
                         self.logger.debug(f'G{group_id}.S{source_id} :: {name} = {value:2.2f}')
+
+        # Aperture photometry, when measure_apertures has been run. Merged by id
+        # rather than by row order, because the update path above may have read
+        # the catalog back from disk in a different order than self holds it.
+        aper = getattr(self, 'aperture_catalogs', {}).get(catalog_band, {}).get(catalog_imgtype)
+        if aper is not None and len(aper) > 0:
+            order = np.array([row_of.get(int(sid), -1) for sid in aper['id']])
+            known = order >= 0
+            if not known.all():
+                self.logger.warning(f'{int((~known).sum())} aperture rows have no matching '
+                                    f'catalog id and will be dropped.')
+            for name in aper.colnames:
+                if name == 'id':
+                    continue
+                col = aper[name]
+                if name not in catalog.colnames:
+                    newcol = Column(length=len(catalog), name=name, dtype=col.dtype,
+                                    unit=col.unit)
+                    if np.issubdtype(newcol.dtype, np.floating):
+                        newcol[:] = np.nan
+                    catalog.add_column(newcol)
+                catalog[name][order[known]] = np.asarray(col)[known]
+            self.logger.debug(f'Merged {len(aper.colnames) - 1} aperture columns into the catalog.')
 
         # update catalog for self
         self.set_catalog(catalog, catalog_band=catalog_band, catalog_imgtype=catalog_imgtype)

@@ -1697,6 +1697,181 @@ def get_params(model):
 
     return source
 
+APER_KIND_FIXED = 'fixed'
+APER_KIND_PSF = 'psf'
+APER_KIND_REFF = 'reff'
+
+
+def _fmt_aper_tag(value):
+    """Format an aperture size into a column-name-safe token (1.0 -> ``'1p0'``)."""
+    return f'{value:g}'.replace('.', 'p').replace('-', 'm')
+
+
+def build_aperture_specs():
+    """Turn the aperture configuration into a list of aperture definitions.
+
+    Reads ``conf.APER_DIAMETERS`` (fixed on-sky diameters), ``conf.APER_PSF_FACTORS``
+    (diameters in units of the band PSF FWHM) and ``conf.APER_REFF_FACTORS``
+    (diameters in units of each source's fitted effective radius). Any of the
+    three may be empty.
+
+    Returns:
+        list[tuple[str, str, float]]: One ``(tag, kind, value)`` per aperture.
+            ``kind`` is ``APER_KIND_FIXED``/``APER_KIND_PSF``/``APER_KIND_REFF``.
+            For a fixed aperture the value is a diameter in arcsec; for the other
+            two it is a dimensionless multiplier applied to a per-band or
+            per-source size. ``tag`` goes into the output column names.
+    """
+    specs = []
+
+    diameters = getattr(conf, 'APER_DIAMETERS', None)
+    if diameters is not None:
+        for diam in np.atleast_1d(diameters):
+            diam_as = diam.to(u.arcsec).value if hasattr(diam, 'unit') else float(diam)
+            specs.append((f'aper{_fmt_aper_tag(diam_as)}as', APER_KIND_FIXED, diam_as))
+
+    for kind, attr, prefix in ((APER_KIND_PSF, 'APER_PSF_FACTORS', 'aperpsf'),
+                               (APER_KIND_REFF, 'APER_REFF_FACTORS', 'aperreff')):
+        factors = getattr(conf, attr, None)
+        if factors is None:
+            continue
+        for factor in np.atleast_1d(factors):
+            factor = float(factor)
+            specs.append((f'{prefix}{_fmt_aper_tag(factor)}', kind, factor))
+
+    return specs
+
+
+def get_model_reff(model):
+    """Effective radius of a fitted Tractor model, in arcsec.
+
+    A PointSource has no size and returns NaN -- deliberately, so that a
+    reff-scaled aperture on an unresolved source reads as missing rather than
+    silently borrowing some other radius. SimpleGalaxy carries the fixed
+    class-level shape from ``conf.SIMPLEGALAXY_REFF``. FixedCompositeGalaxy has
+    two shapes, combined here with the clipped bulge fraction -- the same
+    weighting the model itself uses to mix the two profiles.
+
+    Args:
+        model: Tractor model object.
+
+    Returns:
+        float: Effective radius in arcsec, or ``np.nan`` where undefined.
+    """
+    try:
+        if isinstance(model, SimpleGalaxy):
+            return float(getattr(conf, 'SIMPLEGALAXY_REFF', 0.45))
+        if isinstance(model, FixedCompositeGalaxy):
+            frac_dev = float(model.fracDev.clipped())
+            reff_exp = float(np.exp(model.shapeExp.logre))
+            reff_dev = float(np.exp(model.shapeDev.logre))
+            return (1. - frac_dev) * reff_exp + frac_dev * reff_dev
+        shape = getattr(model, 'shape', None)
+        if shape is None:
+            return np.nan
+        # logre is a natural log of the radius in arcsec (see get_params)
+        return float(np.exp(shape.logre))
+    except (AttributeError, TypeError, ValueError):
+        return np.nan
+
+
+def _half_max_radius(profile, half):
+    """Distance from ``profile[0]`` to where the profile first drops below ``half``.
+
+    ``profile[0]`` is the peak end of a 1-D cut. The crossing is linearly
+    interpolated between the bracketing samples, which is what makes this
+    sub-pixel rather than a pixel count.
+
+    Args:
+        profile: 1-D array running outwards from the peak.
+        half: Half of the peak value.
+
+    Returns:
+        float or None: Distance in pixels, or ``None`` if the profile never drops
+            below ``half`` (the stamp is too small to contain the FWHM).
+    """
+    below = np.flatnonzero(profile < half)
+    if len(below) == 0:
+        return None
+    i = below[0]
+    if i == 0:
+        return 0.
+    hi, lo = float(profile[i - 1]), float(profile[i])
+    if hi == lo:
+        return float(i)
+    return (i - 1) + (hi - half) / (hi - lo)
+
+
+def _fwhm_half_max_crossing(img):
+    """FWHM of a PSF stamp, in stamp pixels, from the interpolated half-max crossing.
+
+    ``get_fwhm`` counts pixels above half maximum and reports their extent, which
+    is a whole number of pixels and lands up to a pixel low. That is fine for the
+    rough size checks it was written for, but a PSF is only a few pixels across,
+    so a one-pixel bias is a ~25 percent error in anything scaled to the FWHM --
+    including every PSF aperture. This interpolates the crossing instead: exact
+    for a centred stamp, and it does not assume a Gaussian profile.
+
+    Args:
+        img: 2-D PSF stamp.
+
+    Returns:
+        float: FWHM in stamp pixels, or ``np.nan`` if it cannot be measured.
+    """
+    img = np.asarray(img, dtype=float)
+    if not np.isfinite(img).any():
+        return np.nan
+    filled = np.where(np.isfinite(img), img, -np.inf)
+    peak = filled.max()
+    if not (peak > 0):
+        return np.nan
+    half = peak / 2.
+    iy, ix = np.unravel_index(np.argmax(filled), filled.shape)
+
+    widths = []
+    for profile, centre in ((filled[iy, :], ix), (filled[:, ix], iy)):
+        inward = _half_max_radius(profile[:centre + 1][::-1], half)
+        outward = _half_max_radius(profile[centre:], half)
+        if inward is None or outward is None:
+            continue
+        widths.append(inward + outward)
+    if len(widths) == 0:
+        return np.nan
+    return float(np.mean(widths))
+
+
+def get_psf_fwhm(psfmodel, pixel_scale, x=0., y=0.):
+    """Full-width at half-maximum of a PSF model, on the sky.
+
+    Args:
+        psfmodel: Tractor PSF object (``PixelizedPSF``, ``PixelizedPsfEx``, ...).
+        pixel_scale: Image pixel scale as an angle ``Quantity`` per pixel.
+        x: Image x coordinate at which to evaluate a spatially varying PSF (pix).
+        y: Image y coordinate at which to evaluate a spatially varying PSF (pix).
+
+    Returns:
+        astropy.units.Quantity: FWHM in arcsec, NaN arcsec if unmeasurable.
+    """
+    if psfmodel is None:
+        return np.nan * u.arcsec
+    try:
+        # constantPsfAt returns self for a constant PSF and evaluates the basis
+        # for a PsfEx model, so this one call covers both.
+        stamp = psfmodel.constantPsfAt(float(x), float(y)).img
+    except (AttributeError, TypeError, ValueError):
+        return np.nan * u.arcsec
+
+    fwhm_stamp = _fwhm_half_max_crossing(stamp)     # PSF-stamp pixels
+    if not np.isfinite(fwhm_stamp):
+        return np.nan * u.arcsec
+    # A PSF stamp may be sampled more finely than the image it belongs to.
+    # Tractor's `sampling` is the stamp step measured in image pixels, so this
+    # converts stamp pixels -> image pixels BEFORE the pixel scale is applied.
+    # Skipping it silently rescales every PSF aperture by the oversampling factor.
+    sampling = getattr(psfmodel, 'sampling', 1.) or 1.
+    return (fwhm_stamp * float(sampling)) * pixel_scale.to(u.arcsec)
+
+
 def set_priors(model, priors):
     """Apply positional and morphological priors to a Tractor model.
 

@@ -135,12 +135,7 @@ RENORM_PSF = None       # Rescale every PSF stamp to this total flux (None = lea
 
 # Engine
 MAX_STEPS = 50
-MIN_STEPS = 3             # Minimum optimiser steps before DLNP_CRIT may end a fit.
-                          # A model that barely moves on step 1 is not necessarily
-                          # converged -- it may have been handed a stationary start.
-MIN_STEPS_COMPOSITE = 5   # As MIN_STEPS, but for groups containing a composite, which
-                          # carries twice the shape parameters of exp or deV.
-DAMPING = 1e-1
+DAMPING = 1e-1            # Levenberg-Marquardt damping, passed to the solver as `damp`.
 DLNP_CRIT = 1e-3
 GROUP_TIMEOUT = None  # Maximum time per group in seconds (None for no limit)
 IGNORE_FAILURES = True
@@ -158,6 +153,30 @@ PHOT_PRIORS = { 'pos':   0.001 * u.arcsec,
                 'shape': 'freeze',
                 'fracDev': 'freeze'
 }
+# Aperture Photometry
+# Master switch. When False none of the settings below are read and no aperture
+# columns are written. Apertures are measured on the same pixels Tractor fits
+# (background handled by each band's 'subtract_background' property), so an
+# aperture flux and a model flux for the same source are directly comparable.
+DO_APERTURE_PHOT = False
+# Fixed circular apertures, given as DIAMETERS on the sky.
+APER_DIAMETERS = [1.0, 2.0] * u.arcsec
+# Circular apertures scaled to each band's PSF: diameter = factor * PSF FWHM.
+APER_PSF_FACTORS = [2.0,]
+# Circular apertures scaled to each source's fitted size: diameter = factor * reff.
+# Sources with no fitted size (a PointSource, or a source that was never fit)
+# get NaN in these columns rather than a fallback radius.
+APER_REFF_FACTORS = [2.0,]
+# Image types to measure. Science only by default: models and residuals work, but
+# each one costs a full extra pass per band and another block of columns.
+APER_IMGTYPES = ['science',]
+# sep sub-pixel sampling of the aperture edge. 0 uses the exact overlap area.
+APER_SUBPIX = 5
+# Each aperture writes 8 columns per band (flux, flux_err, flux_ujy, flux_ujy_err,
+# mag, mag_err, diam, flag), so the four defaults above cost 32 columns per band.
+# Trim these lists on wide multi-band catalogs -- column count, not row count, is
+# what makes a catalog expensive to hold in memory.
+
 # Ancillary Maps: Models, Chi, Residuals, Effective Areas
 RESIDUAL_BA_MIN = 0.01
 RESIDUAL_REFF_MAX = 5*u.arcsec
