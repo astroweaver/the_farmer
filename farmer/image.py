@@ -610,10 +610,13 @@ class BaseImage():
     def _extract(self, band='detection', imgtype='science', wgttype='weight', masktype='mask', background=None):
         """Run SEP source extraction on the specified image.
 
-        Builds the variance and mask arrays from ``wgttype`` and
-        ``masktype`` when enabled via ``conf.USE_DETECTION_WEIGHT`` and
-        ``conf.USE_DETECTION_MASK``. After extraction, optionally applies
-        the mask to cull catalog entries via ``clean_catalog``.
+        Builds the noise array from ``wgttype`` when enabled via
+        ``conf.USE_DETECTION_WEIGHT``. The ``masktype`` image is loaded when
+        either ``conf.USE_DETECTION_MASK`` or ``conf.APPLY_DETECTION_MASK`` is
+        set; the former hands it to SEP so masked pixels are ignored during
+        detection and deblending, while the latter culls sources whose centroid
+        lands on a masked pixel afterwards via ``clean_catalog``. The two are
+        independent, so post-detection-only masking leaves detection untouched.
 
         Args:
             band: Band identifier to extract from. Defaults to
@@ -631,10 +634,11 @@ class BaseImage():
             tuple[astropy.table.Table, numpy.ndarray]:
                 ``(catalog, segmap)`` — the SEP source table and the
                 integer segmentation map with one label per detected source.
+                The catalog is empty if nothing was detected, or if every
+                detection was removed by ``conf.APPLY_DETECTION_MASK``.
 
         Raises:
             RuntimeError: If a required weight or mask image is missing.
-            SystemExit: If no sources are detected.
         """
         err = None
         mask = None
@@ -648,11 +652,16 @@ class BaseImage():
                 err = np.where(wgt>0, 1/np.sqrt(wgt), 0)
             except (KeyError, AttributeError):
                 raise RuntimeError(f'Weight image "{wgttype}" not found for band {band}!')
-        if conf.USE_DETECTION_MASK:
+        # Load the mask if either stage needs it. `mask` is what goes to SEP and
+        # stays None unless masking *before* detection; `postmask` is used after.
+        postmask = None
+        if conf.USE_DETECTION_MASK or conf.APPLY_DETECTION_MASK:
             try:
-                mask = self.data[band][masktype].data
+                postmask = self.data[band][masktype].data
             except (KeyError, AttributeError):
                 raise RuntimeError(f'Mask image "{masktype}" not found for band {band}!')
+        if conf.USE_DETECTION_MASK:
+            mask = postmask
 
         # Deal with background
         if background is None:
@@ -688,9 +697,18 @@ class BaseImage():
         catalog = Table(catalog)
 
         # Apply mask now?
-        if conf.APPLY_DETECTION_MASK & (mask is not None):
-            catalog, segmap = clean_catalog(catalog, mask, segmap)
-        elif conf.APPLY_DETECTION_MASK & (mask is None):
+        if conf.APPLY_DETECTION_MASK & (postmask is not None):
+            n_predetect = len(catalog)
+            catalog, segmap = clean_catalog(catalog, postmask, segmap)
+            self.logger.info(f'Detection mask removed {n_predetect-len(catalog)} of {n_predetect} sources.')
+            if len(catalog) == 0:
+                # As with the no-detections branch above, do not sys.exit() here:
+                # SystemExit is a BaseException that IGNORE_FAILURES cannot catch
+                # and would kill the whole multi-brick loop. Brick.extract() sets
+                # is_empty on a zero-row catalog and skips grouping from there.
+                self.logger.warning('Every detection falls within the detection mask -- '
+                                    'returning an empty catalog. May be OK.')
+        elif conf.APPLY_DETECTION_MASK & (postmask is None):
             raise RuntimeError('Cannot apply detection mask when there is no mask supplied!')
 
         return catalog, segmap

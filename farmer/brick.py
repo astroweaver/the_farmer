@@ -122,7 +122,10 @@ class Brick(BaseImage):
         1. The science array contains no NaN or Inf values (replaced with 0).
         2. The mask array is strictly boolean (non-zero → True).
         3. Weight values are non-negative and finite; pixels that are bad in
-           science or masked are zeroed in the weight array.
+           science or masked are zeroed in the weight array. Zero-weight pixels
+           are folded back into the mask, unless the weight is entirely zero --
+           the signature of the dummy weight synthesised for a band with none
+           configured, which would otherwise mask the whole image.
 
         Args:
             band: Band name (key in ``self.data``) to condition in place.
@@ -183,7 +186,11 @@ class Brick(BaseImage):
             weight[bad_science | mask_bool] = 0
             self.data[band]['weight'].data = weight
             if 'mask' in self.data[band]:
-                mask_bool = mask_bool | (weight <= 0)
+                # Bands with no weight configured (e.g. detection) get a dummy
+                # all-zero weight from add_band. Folding that in would mark every
+                # pixel masked, so only union a weight that carries information.
+                if np.any(weight > 0):
+                    mask_bool = mask_bool | (weight <= 0)
                 self.data[band]['mask'].data = mask_bool
 
         self.logger.debug(
