@@ -823,6 +823,40 @@ class BaseImage():
         elif self.get_property('backtype', band=band) == 'variable':
             return self.get_image(band=band, imgtype='background')
 
+    def _staged_data(self, band, data_imgtype='science'):
+        """Return the pixel array as Tractor sees it: a copy, NaN-zeroed, sky removed.
+
+        stage_images and build_residual_image MUST agree on this, or every residual
+        and chi image is offset by the background and every chisq the decision tree
+        reads is wrong. One implementation, two callers.
+
+        Args:
+            band: Band identifier.
+            data_imgtype: Image type key for the science array.
+
+        Returns:
+            tuple: ``(data, nan_mask)`` -- the prepared array, and the NaN mask of the
+                ORIGINAL array (needed to zero the corresponding weights, since the
+                NaNs have been replaced by then).
+        """
+        data = self.get_image(band=band, imgtype=data_imgtype).copy()
+        nan_data = np.isnan(data)
+        data[nan_data] = 0
+
+        # The sky is pinned at ConstantSky(0) and frozen, so any pedestal left in the
+        # data has nowhere to go but into the source fluxes. This flag was previously
+        # honoured only by detection and by the diagnostic plots, which is why the
+        # plots looked right while the fit did not.
+        try:
+            if self.get_property('subtract_background', band=band):
+                background = self.get_background(band)
+                if background is not None:
+                    data = data - background
+        except KeyError:
+            pass    # band has no background configured; nothing to subtract
+
+        return data, nan_data
+
     def stage_images(self, bands=None, data_imgtype='science'):
         """Build Tractor ``Image`` objects for each requested band.
 
@@ -856,22 +890,7 @@ class BaseImage():
             # copy, don't alias: get_image hands back the live Cutout2D array, and
             # stage_images runs again on every decision-tree stage, so an in-place
             # edit here would accumulate across stages
-            data = self.get_image(band=band, imgtype=data_imgtype).copy()
-            nan_data = np.isnan(data)
-            data[nan_data] = 0
-
-            # Subtract the background BEFORE handing the data to Tractor. The sky is
-            # pinned at ConstantSky(0) and frozen a few lines below, so any pedestal
-            # left in the data has nowhere to go but into the source fluxes. This flag
-            # was previously honoured only by detection and by the diagnostic plots,
-            # which is why the plots looked right while the fit did not.
-            try:
-                if self.get_property('subtract_background', band=band):
-                    background = self.get_background(band)
-                    if background is not None:
-                        data = data - background
-            except KeyError:
-                pass    # band has no background configured; nothing to subtract
+            data, nan_data = self._staged_data(band, data_imgtype)
 
             weight = self.get_image(band=band, imgtype='weight').copy()
             masked = self.get_image(band=band, imgtype='mask').copy()
@@ -1282,7 +1301,12 @@ class BaseImage():
             
             # Detect Ceres silent failure: dlnp unchanged means optimization is stuck
             if conf.USE_CERES:
-                if prev_dlnp is not None and np.abs(dlnp - prev_dlnp) < 1e-5:
+                # Only a fit that has NOT yet converged can be "stuck". Without this
+                # the MIN_STEPS floor below keeps a converged fit looping, dlnp stops
+                # changing because there is nothing left to improve, and the stuck
+                # detector fails the group for succeeding.
+                converged = dlnp < conf.DLNP_CRIT
+                if (not converged) and prev_dlnp is not None and np.abs(dlnp - prev_dlnp) < 1e-5:
                     stuck_count += 1
                     if stuck_count >= 1:  # Fail after first stuck step
                         self.logger.error(f'Optimization stuck on step {i+1}: dlnp={dlnp:2.5f} (unchanged from previous step)')
@@ -2270,12 +2294,21 @@ class BaseImage():
                 self.logger.debug(f'Band {band} not in staged images. Skipping.')
                 continue
                 
+            # Subtract the model from the SAME pixels Tractor was given. stage_images
+            # hands the engine a background-subtracted copy, so differencing the raw
+            # stored science array here would leave the sky pedestal in every residual
+            # and chi image -- and therefore in every chisq the decision tree reads.
+            if band in getattr(self, 'images', {}):
+                data = self.images[band].data
+            else:
+                data, __ = self._staged_data(band, imgtype)
+
             if source_id is not None:
                 model = self.build_model_image(band, source_id, overwrite, reconstruct=False)
-                residual = self.get_image(imgtype, band) - model
+                residual = data - model
             else:
                 model = self.get_image('model', band)
-                residual = self.get_image(imgtype, band) - model
+                residual = data - model
                 self.set_image(residual, 'residual', band)
 
             self.headers[band]['residual'] = self.headers[band][imgtype]
@@ -3242,6 +3275,14 @@ class BaseImage():
             RuntimeError: If the file already exists and
                 ``allow_update=False``.
         """
+        # Brick.extract sets is_empty when detection found nothing, and detect_sources
+        # already honours it -- but the writers did not, so any brick with no sources
+        # crashed here or in write_catalog. getattr keeps this safe for bricks loaded
+        # from HDF5 that predate the attribute.
+        if getattr(self, 'is_empty', False):
+            self.logger.warning(f'{self.filename}: no sources detected, skipping FITS write.')
+            return
+
         if filename is None:
             filename = self.filename.replace('.h5', '.fits')
         if tag is not None:
@@ -3463,6 +3504,10 @@ class BaseImage():
             RuntimeError: If the file exists and both ``allow_update`` and
                 ``overwrite`` are ``False``.
         """
+        if getattr(self, 'is_empty', False):
+            self.logger.warning(f'{self.filename}: no sources detected, skipping catalog write.')
+            return
+
         if catalog_imgtype is None:
             catalog_imgtype = self.catalog_imgtype
         if catalog_band is None:

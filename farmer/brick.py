@@ -352,11 +352,16 @@ class Brick(BaseImage):
                 __, __, rms = sigma_clipped_stats(sci[good])
             if rms > 0:
                 cutout.data = np.full(sci.shape, 1. / rms**2, dtype=np.float32)
+                # what we just built IS inverse variance; without this stamp a band
+                # declaring weight_type 'sigma'/'variance' would have it converted
+                # a second time, reducing the weight to rms**4
+                self.properties[mosaic.band]['weight_type'] = 'invvar'
                 self.logger.warning(
                     f'{mosaic.band} has no weight map. Inverse variance derived from the '
                     f'clipped image RMS ({rms:.4g}); uncertainties in this band are approximate.')
             else:
                 cutout.data = np.zeros(sci.shape, dtype=np.float32)
+                self.properties[mosaic.band]['weight_type'] = 'invvar'
                 self.logger.warning(
                     f'{mosaic.band} has no weight map and its science cutout has no usable '
                     f'pixels (clipped RMS = {rms}). This band will be EXCLUDED from fitting.')
@@ -423,21 +428,37 @@ class Brick(BaseImage):
             None. Populates ``self.catalogs[band][imgtype]``,
             ``self.data[band]['segmap']``, and ``self.n_sources[band][imgtype]``.
         """
+        # Reset first: the flag is persisted to HDF5, so without this a brick that was
+        # empty once would short-circuit grouping forever, even after a re-run that
+        # does find sources.
+        self.is_empty = False
         if self.properties[band]['subtract_background']:
             background = self.get_background(band)
         catalog, segmap = self._extract(band, imgtype='science', background=background)
 
         if len(catalog) == 0:
-            # Nothing detected: record an empty result and stop, rather than letting
-            # the buffer-cleaning and column-adding below run on a zero-row table.
+            # Nothing detected. Record an empty result and stop, rather than letting
+            # the buffer-cleaning below run on a zero-row table -- but give the empty
+            # catalog the SAME COLUMNS a populated one would have, so downstream code
+            # (write_catalog reads catalog['id'], identify_groups reads 'group_id')
+            # sees a consistent schema instead of a KeyError.
             self.logger.warning(f'Brick #{self.brick_id} has no detections in {band}. '
                                 f'It will be skipped by downstream processing.')
             self.is_empty = True
+            for name, dtype, unit in (('id', np.int32, None), ('brick_id', np.int32, None),
+                                      ('ra', float, u.deg), ('dec', float, u.deg),
+                                      ('ra_det', float, u.deg), ('dec_det', float, u.deg),
+                                      ('group_id', np.int32, None), ('group_pop', np.int16, None)):
+                if name not in catalog.colnames:
+                    catalog[name] = np.array([], dtype=dtype)
+                    if unit is not None:
+                        catalog[name].unit = unit
             self.catalogs[band][imgtype] = catalog
             self.data[band]['segmap'] = Cutout2D(segmap, self.position, self.buffsize,
                                                  self.wcs[band], fill_value=0, mode='partial')
             self.headers[band]['segmap'] = self.headers[band]['science']
             self.n_sources[band][imgtype] = 0
+            self.group_ids.setdefault(band, {})[imgtype] = np.array([], dtype=int)
             return
 
         # clean out buffer -- these are bricks!
@@ -784,9 +805,15 @@ class Brick(BaseImage):
                 pbar.refresh()
                 for result in pbar:
                     self.absorb(result)
-                    # spawn_group ran in the parent, so rejection is already
-                    # reflected in the empty model_catalog the worker returned
-                    self._record_fit_status(result, False, imgtype=imgtype)
+                    # spawn_group ran in the parent, so a rejected group is already
+                    # reflected in the empty model_catalog the worker returned -- but
+                    # we no longer have the Group object to ask. Look the rejection up
+                    # by group size, so the status matches what the serial path records.
+                    gid = result[0]
+                    cat = self.catalogs[self.catalog_band][imgtype]
+                    n_in_group = int(np.sum(np.asarray(cat['group_id']) == gid))
+                    was_rejected = n_in_group > conf.GROUP_SIZE_LIMIT or n_in_group == 0
+                    self._record_fit_status(result, was_rejected, imgtype=imgtype)
                 pbar.close()
 
             self.logger.info('All results absorbed.')

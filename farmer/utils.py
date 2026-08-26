@@ -2126,7 +2126,21 @@ def run_group(group, mode='all'):
 
         result_queue = ctx.Queue(maxsize=1)
         proc = ctx.Process(target=_run_group_timeout_worker, args=(group, mode, result_queue))
-        proc.start()
+        try:
+            proc.start()
+        except (ChildProcessError, OSError) as exc:
+            # A pathos pool worker is FORKED from the parent, so it inherits the
+            # parent's multiprocessing.forkserver module state -- including the
+            # server's pid. forkserver.ensure_running() then calls os.waitpid() on
+            # that pid, which is the worker's SIBLING, not its child: ChildProcessError.
+            # Fall back to 'fork' for this call. Only the parent gets the forkserver
+            # memory win; a worker forking a child is no worse than before.
+            logging.getLogger('farmer.run_group').debug(
+                f'forkserver unavailable in this process ({exc!r}); falling back to fork')
+            ctx = mp.get_context('fork')
+            result_queue = ctx.Queue(maxsize=1)
+            proc = ctx.Process(target=_run_group_timeout_worker, args=(group, mode, result_queue))
+            proc.start()
 
         try:
             state, payload = result_queue.get(timeout=float(timeout))
