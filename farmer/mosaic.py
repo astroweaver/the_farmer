@@ -59,10 +59,14 @@ class Mosaic(BaseImage):
             self.logger.critical(f'{band} is not a configured band!')
             return None
         else:
+            # Copy, do not alias: the loops below rewrite bools as ints and add
+            # defaults, and BaseImage.set_property writes runtime state (rms,
+            # background) straight into self.properties. Aliasing meant a mosaic
+            # load permanently mutated the user's config module.
             if band == 'detection':
-                self.properties = conf.DETECTION
+                self.properties = dict(conf.DETECTION)
             else:
-                self.properties = conf.BANDS[band]
+                self.properties = dict(conf.BANDS[band])
             for key in self.properties:
                 if isinstance(self.properties[key], bool):
                     self.properties[key] = int(self.properties[key]) # turn Trues/Falses into 1/0
@@ -118,11 +122,13 @@ class Mosaic(BaseImage):
             except Exception as e:
                 raise RuntimeError(f'The World Coordinate System for {band} cannot be understood! Error: {e}')
 
-            arr_shape = self.wcs.array_shape
-            self.position = self.wcs.pixel_to_world(arr_shape[0]/2., arr_shape[1]/2.)
-            # upper = self.wcs.pixel_to_world(arr_shape[0], arr_shape[1])
-            # lower = self.wcs.pixel_to_world(0, 0)
-            self.size = arr_shape * self.pixel_scale
+            # array_shape is (ny, nx) but pixel_to_world takes (x, y), and
+            # proj_plane_pixel_scales returns [scale_x, scale_y] -- keep the two
+            # orderings straight or the centre lands elsewhere on a non-square mosaic.
+            ny, nx = self.wcs.array_shape
+            self.position = self.wcs.pixel_to_world(nx / 2., ny / 2.)
+            # (dec_height, ra_width), matching Brick.size and Cutout2D's (ny, nx)
+            self.size = (ny * self.pixel_scale[1], nx * self.pixel_scale[0])
             
             self.logger.debug(f'Mosaic {band} is centered at {self.position.ra:2.1f}, {self.position.dec:2.1f}')
             self.logger.debug(f'Mosaic {band} has size at {self.size[0]:2.1f}, {self.size[1]:2.1f}')

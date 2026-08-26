@@ -15,6 +15,7 @@ else: # You're working from a directory parallel with config?
 # Miscellaneous science imports
 import astropy.units as u
 import numpy as np
+from astropy.io import fits
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -30,6 +31,40 @@ if 'name' not in conf.DETECTION:
 for band in conf.BANDS:
     if 'name' not in conf.BANDS[band].keys():
         conf.BANDS[band]['name'] = band.replace('_', ' ')
+
+# Bring the forkserver up NOW, while this process is still small.
+#
+# run_group() forks a child per group to enforce GROUP_TIMEOUT (a subprocess is
+# unavoidable: the work is in C extensions, where signal.alarm cannot interrupt and
+# threads cannot be killed). Under 'forkserver' that child is forked from a small
+# pristine server instead of from a pool worker holding a multi-GB brick.
+#
+# The server is otherwise started lazily on first use -- which would be inside a
+# loaded worker, losing the entire saving. Placement is load-bearing in both
+# directions: below the sys.path insert above, so the server can import `config`;
+# and above the mosaic/brick imports below, so it forks from a small process.
+#
+# Three gotchas this block exists to handle:
+#  1. Creating a Queue does NOT spawn the server; only an actual Process does.
+#  2. Without set_forkserver_preload, every child re-imports farmer at unpickle time.
+#  3. The server preloads 'farmer', so it re-executes THIS FILE. Without the
+#     environment guard below that re-runs the probe, which starts another server,
+#     which preloads farmer again -- an unbounded chain of processes that hangs the
+#     import. Reproduced on CPython 3.9: the guard cuts it to exactly two imports
+#     (this process, plus the server). The variable is inherited by the server
+#     because it is spawned with the parent's environment.
+if getattr(conf, 'GROUP_TIMEOUT', None) is not None and not os.environ.get('_FARMER_FORKSERVER'):
+    import multiprocessing as _mp
+    try:
+        os.environ['_FARMER_FORKSERVER'] = '1'   # set BEFORE start(), so the server sees it
+        _mp.set_forkserver_preload(['farmer', 'config'])
+        _probe = _mp.get_context('forkserver').Process(target=int)
+        _probe.start()
+        _probe.join()
+    except Exception as _e:
+        import warnings as _w
+        _w.warn(f'Could not start forkserver ({_e}); timeout children will use fork')
+
 from .mosaic import Mosaic
 from .brick import Brick
 
@@ -75,22 +110,109 @@ import numpy as np
 from tqdm import tqdm
 
 
-def validate():
-    """Validate that all configured mosaics exist and are properly set up.
+def validate(strict=True):
+    """Check the configuration before committing hours of compute to it.
 
-    Instantiates a ``Mosaic`` (without loading data) for the detection image
-    and for every band in ``conf.BANDS`` to verify that science paths exist,
-    WCS headers are parseable, and PSF models are readable.
+    Verifies, without loading any pixel data:
+
+    * every configured output directory exists and is writable (creating it if
+      necessary -- nothing else in the package ever did, so a missing
+      ``PATH_FIGURES`` used to surface as every group failing at PLOT > 0);
+    * each band's science file exists, its WCS parses, and its PSF loads;
+    * weight and mask arrays have the same dimensions as their science image,
+      read from the FITS headers rather than by loading the arrays;
+    * each photometric band declares a ``zeropoint`` -- otherwise the missing
+      key surfaces as a KeyError in ``get_params`` after the brick has been fit;
+    * each band declares a recognised ``weight_type``.
+
+    Args:
+        strict: If True, raise on any problem. If False, log them and return
+            the list instead, so a caller can decide.
+
+    Returns:
+        list: The problems found. Empty when the configuration is sound.
 
     Raises:
-        RuntimeError: If any mosaic cannot be instantiated (missing file,
-            bad WCS, unreadable PSF, etc.).
+        RuntimeError: If any problem is found and ``strict`` is True.
     """
-    logger.info('Validate bands...')
-    Mosaic('detection', load=False)
-    for band in conf.BANDS.keys():
-        Mosaic(band, load=False)
+    logger.info('Validating configuration...')
+    problems = []
+
+    # 1. Output paths. Create them now rather than failing at hour three.
+    for name in ('PATH_BRICKS', 'PATH_FIGURES', 'PATH_PSFMODELS',
+                 'PATH_CATALOGS', 'PATH_ANCILLARY', 'PATH_LOGS'):
+        path = getattr(conf, name, None)
+        if path is None:
+            problems.append(f'{name} is not set in the configuration')
+            continue
+        try:
+            os.makedirs(path, exist_ok=True)
+        except OSError as e:
+            problems.append(f'{name}: cannot create {path} ({e})')
+            continue
+        if not os.access(path, os.W_OK):
+            problems.append(f'{name}: {path} is not writable')
+    logger.info(f'  Output paths ... {"OK" if not problems else "PROBLEMS"}')
+
+    # 2. Per-band checks.
+    all_bands = [('detection', conf.DETECTION)] + list(conf.BANDS.items())
+    for band, props in all_bands:
+        ext = props.get('extension', 0)
+
+        if 'science' not in props:
+            problems.append(f'{band}: no science image configured')
+            continue
+        if not os.path.exists(props['science']):
+            problems.append(f'{band}: science image not found at {props["science"]}')
+            continue
+
+        # array dimensions must agree, or Cutout2D silently pairs the wrong
+        # inverse variance with the science pixels
+        ref_shape = None
+        for imgtype in ('science', 'weight', 'mask'):
+            if imgtype not in props:
+                continue
+            try:
+                hdr = fits.getheader(props[imgtype], ext=ext)
+                shape = (hdr['NAXIS2'], hdr['NAXIS1'])
+            except (OSError, KeyError) as e:
+                problems.append(f'{band}: cannot read {imgtype} header ({e})')
+                continue
+            if ref_shape is None:
+                ref_shape = shape
+            elif shape != ref_shape:
+                problems.append(f'{band}: {imgtype} is {shape} but science is {ref_shape}')
+
+        if band != 'detection':
+            if 'zeropoint' not in props:
+                problems.append(f'{band}: no zeropoint configured')
+            wtype = props.get('weight_type', 'invvar')
+            if wtype not in ('invvar', 'sigma', 'variance'):
+                problems.append(f"{band}: weight_type must be 'invvar', 'sigma' or "
+                                f"'variance', not {wtype!r}")
+            elif 'weight' in props and 'weight_type' not in props:
+                logger.warning(f'{band}: weight_type not declared, assuming inverse '
+                               f'variance. Set it explicitly in config.BANDS.')
+
+        # this also probe-loads the PSF
+        try:
+            Mosaic(band, load=False)
+        except Exception as e:
+            problems.append(f'{band}: {e}')
+
+    for band in conf.MODEL_BANDS:
+        if band not in conf.BANDS:
+            problems.append(f'MODEL_BANDS lists {band!r}, which is not a configured band')
+
+    if problems:
+        msg = 'Configuration problems:\n  ' + '\n  '.join(problems)
+        if strict:
+            raise RuntimeError(msg)
+        logger.error(msg)
+        return problems
+
     logger.info('All bands validated successfully.')
+    return problems
 
 
 def get_mosaic(band, load=True):
@@ -218,8 +340,11 @@ def build_bricks(brick_ids=None, include_detection=True, bands=None, write=True)
 def brick_has_band(brick_id, band, tag=None, silent=True):
     """Check whether a brick HDF5 file already contains a specific band.
 
-    Opens the brick file and reads only the top-level metadata to inspect
-    the ``'bands'`` attribute.  Much faster than loading the full brick.
+    Reads only the top-level ``bands`` dataset. This used to call
+    ``recursively_load_dict_contents_from_group``, which materialises every image
+    array, catalog and model in the file -- the same work ``read_hdf5`` does --
+    so the "much faster than loading the full brick" claim was the opposite of
+    the truth, and every hit was paid for twice.
 
     Args:
         brick_id: Integer brick identifier.
@@ -229,24 +354,28 @@ def brick_has_band(brick_id, band, tag=None, silent=True):
         silent: If True, suppress log output. Defaults to True.
 
     Returns:
-        bool: True if the band is present; False if not or if the brick
-            file does not exist.
+        bool: True if the band is present; False if not, or if the brick file
+            does not exist or has no ``bands`` dataset.
+
+    Raises:
+        OSError: If the file exists but cannot be read (e.g. it is corrupt).
+            Previously swallowed, which turned a corrupt brick into a silent
+            and expensive rebuild.
     """
     import h5py
-    from .utils import recursively_load_dict_contents_from_group
-    
+
     stag = f'_{tag}' if tag is not None else ''
     filename = f'B{brick_id}{stag}.h5'
     path = os.path.join(conf.PATH_BRICKS, filename)
-    
-    try:
-        with h5py.File(path, 'r') as hf:
-            attr = recursively_load_dict_contents_from_group(hf)
-            if 'bands' in attr:
-                return band in attr['bands']
+
+    if not os.path.exists(path):
         return False
-    except (IOError, FileNotFoundError, Exception):
-        return False
+    with h5py.File(path, 'r') as hf:
+        if 'bands' not in hf:
+            if not silent:
+                logger.debug(f'Brick #{brick_id} has no "bands" dataset.')
+            return False
+        return band in np.asarray(hf['bands'][...]).astype(str).tolist()
 
 def load_brick(brick_id, silent=False, tag=None):
     """Load an existing brick from its HDF5 file on disk.
@@ -262,9 +391,33 @@ def load_brick(brick_id, silent=False, tag=None):
         Brick: Fully loaded brick object.
 
     Raises:
-        RuntimeError: If the brick file cannot be found.
+        FileNotFoundError: If the brick file cannot be found.
     """
     return Brick(brick_id, load=True, silent=silent, tag=tag)
+
+
+def _load_or_build_brick(brick_id, bands=None, silent=False):
+    """Load a brick from disk, building it from the mosaics if it is not there yet.
+
+    Single implementation of an idiom that had been copy-pasted to six call sites,
+    five of which caught an exception ``read_hdf5`` does not raise, leaving the
+    build-from-mosaics fallback unreachable.
+
+    Args:
+        brick_id: Integer brick identifier.
+        bands: Band name(s) to include when the brick has to be built.
+            ``None`` builds every configured band.
+        silent: If True, suppress informational log messages while loading.
+
+    Returns:
+        Brick: The loaded or newly built brick.
+    """
+    try:
+        return load_brick(brick_id, silent=silent)
+    except (FileNotFoundError, IOError) as e:
+        logger.warning(f'Brick #{brick_id} is not on disk ({e}). Building it from the mosaics...')
+        return build_bricks(brick_id, bands=bands)
+
 
 def update_bricks(brick_ids=None, bands=None, overwrite=False):
     """Update existing bricks with missing bands.
@@ -325,8 +478,8 @@ def update_bricks(brick_ids=None, bands=None, overwrite=False):
                 # Only load brick if it needs updating
                 try:
                     brick = load_brick(brick_id, silent=(conf.CONSOLE_LOGGING_LEVEL != 'DEBUG'))
-                except RuntimeError as e:
-                    # read_hdf5 raises RuntimeError for a brick that isn't built yet
+                except (FileNotFoundError, IOError) as e:
+                    # this one skips rather than builds: update_bricks only updates
                     logger.warning(f'Skipping brick #{brick_id}: {e}')
                     continue
                 mosaic.add_to_brick(brick)
@@ -382,12 +535,8 @@ def detect_sources_lite(brick_ids=None, band='detection', imgtype='science',
     for brick_id in tqdm(brick_ids, desc='Detecting sources (lite mode)'):
         try:
             # Load brick
-            try:
-                brick = load_brick(brick_id, silent=True)
-            except (IOError, FileNotFoundError) as e:
-                logger.debug(f'Building brick #{brick_id} from mosaics...')
-                brick = build_bricks(brick_id, bands='detection')
-            
+            brick = _load_or_build_brick(brick_id, bands='detection', silent=True)
+
             # Log initial memory
             log_memory_usage(logger, f'Brick {brick_id} start', verbose=False)
             
@@ -487,11 +636,7 @@ def detect_sources(brick_ids=None, band='detection', imgtype='science', brick=No
     for brick_id in brick_ids:
         
         # does the brick exist? load it.
-        try:
-            brick = load_brick(brick_id)
-        except (IOError, FileNotFoundError) as e:
-            logger.warning(f'Could not load brick {brick_id} ({e}). Building a new brick from mosaics...')
-            brick = build_bricks(brick_id, bands='detection')
+        brick = _load_or_build_brick(brick_id, bands='detection')
 
         # detection
         brick.detect_sources(band=band, imgtype=imgtype)
@@ -537,11 +682,7 @@ def generate_models(brick_ids=None, group_ids=None, bands=conf.MODEL_BANDS, imgt
     # Loop over bricks (or just one!)
     for brick_id in brick_ids:
         # Attempt to load existing brick; if it doesn't exist, build it from scratch
-        try:
-            brick = load_brick(brick_id)
-        except (IOError, FileNotFoundError):
-            logger.info(f'Brick #{brick_id} not found, building from mosaics...')
-            brick = build_bricks(brick_id,  bands=bands)
+        brick = _load_or_build_brick(brick_id, bands=bands)
 
         # check that detection exists
         assert 'detection' in brick.bands, f'No detection information contained in brick #{brick.brick_id}!'
@@ -599,12 +740,8 @@ def photometer(brick_ids=None, group_ids=None, bands=None, imgtype='science'):
     # Loop over bricks (or just one!)
     for brick_id in brick_ids:
         # does the brick exist? load it.
-        try:
-            brick = load_brick(brick_id)
-            update_bricks(brick_id, bands)
-        except (IOError, FileNotFoundError) as e:
-            logger.critical(f'Could not load brick {brick_id} ({e}). Building from scratch.')
-            brick = build_bricks(brick_id)
+        brick = _load_or_build_brick(brick_id, bands=bands)
+        update_bricks(brick_id, bands)
 
         # detect sources
         if imgtype not in brick.catalogs['detection']:
@@ -633,11 +770,7 @@ def quick_group(brick_id=1, group_id=524, brick=None):
     """Convenience function to quickly process a single group."""
     if not ((brick is not None) & isinstance(brick, Brick)):
         # Load existing brick or build if not found
-        try:
-            brick = load_brick(brick_id)
-        except (IOError, FileNotFoundError):
-            logger.info(f'Brick #{brick_id} not found, building...')
-            brick = build_bricks(brick_id)
+        brick = _load_or_build_brick(brick_id)
     brick.detect_sources()
     group = brick.spawn_group(group_id)
     group.determine_models()
@@ -651,6 +784,10 @@ def rebuild_mosaic(brick_ids=None, bands=None, imgtype='science'):
     Not yet implemented.
 
     Raises:
-        RuntimeError: Always — this function is a placeholder.
+        NotImplementedError: Always — this function is a placeholder. Use the
+            per-brick FITS products in ``conf.PATH_ANCILLARY`` and mosaic them
+            with an external tool (e.g. ``reproject.mosaicking``) in the meantime.
     """
-    raise RuntimeError('Not implelented yet!')
+    raise NotImplementedError(
+        'rebuild_mosaic is a placeholder. Mosaic the per-brick FITS products in '
+        f'{conf.PATH_ANCILLARY} with an external tool for now.')

@@ -21,3 +21,14 @@ env/
 
 # OS
 .DS_Store
+
+# Built docs -- let ReadTheDocs build these; 18 MB of stale generated HTML was
+# tracked here. Untrack with:  git rm -r --cached docs/build
+docs/build/
+
+# config/config.py is tracked and holds a machine-specific PATH_DATA fallback.
+# Override it with the FARMER_DATA environment variable rather than editing it.
+
+# Test and lint caches
+.pytest_cache/
+.ruff_cache/

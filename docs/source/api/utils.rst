@@ -25,7 +25,6 @@ Functions
 .. autofunction:: farmer.utils.dilate_and_group
 .. autofunction:: farmer.utils.get_detection_kernel
 .. autofunction:: farmer.utils.get_fwhm
-.. autofunction:: farmer.utils.get_resolution
 .. autofunction:: farmer.utils.validate_psfmodel
 .. autofunction:: farmer.utils.prepare_psf
 .. autofunction:: farmer.utils.get_params
@@ -38,3 +37,5 @@ Functions
 .. autofunction:: farmer.utils.run_group
 .. autofunction:: farmer.utils.build_regions
 .. autofunction:: farmer.utils.cumulative
+.. autofunction:: farmer.utils.provenance_header
+.. autofunction:: farmer.utils.log_memory_usage

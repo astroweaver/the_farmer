@@ -118,7 +118,10 @@ Band dictionary keys:
      - Path to science image FITS file.
    * - ``weight``
      - No
-     - Path to inverse-variance weight image. If absent, a uniform-weight dummy is used.
+     - Path to the weight image. See ``weight_type`` for what it is assumed to contain. If absent, a uniform weight is derived from the clipped image RMS and a warning is logged — uncertainties in that band are then only approximate.
+   * - ``weight_type``
+     - No
+     - What the weight image actually holds: ``'invvar'`` (inverse variance, the default), ``'sigma'``, or ``'variance'``. Everything downstream assumes inverse variance, so declaring this wrongly rescales every uncertainty in the catalog with no other symptom. Converted once, at ingest.
    * - ``mask``
      - No
      - Path to mask image (non-zero = masked). If absent, no pixels are masked.
@@ -307,12 +310,15 @@ Modeling and the Decision Tree
    * - ``SIMPLEGALAXY_PENALTY``
      - ``0.1``
      - Extra chi-squared cost added when considering a SimpleGalaxy over a PointSource (discourages trivial point-source rejection).
+   * - ``SIMPLEGALAXY_REFF``
+     - ``0.45``
+     - Fixed effective radius of the ``SimpleGalaxy`` model, in arcsec. The 0.45" default comes from the Legacy Survey SIMP model, tuned for roughly 1.2" ground-based seeing, and is too large for space-based data: for Euclid NISP (PSF FWHM 0.32-0.45") it exceeds the resolution limit in most bands, and 82% of fitted ``ExpGalaxy`` radii are smaller (CDFS median 0.296"). Use 0.25-0.30" for NISP and set it per field. Read once at import, so it is a per-run setting rather than a per-band one. It interacts with ``SIMPLEGALAXY_PENALTY`` and ``SUFFICIENT_THRESH``: shrinking it makes ``SimpleGalaxy`` more PSF-like, so sources migrate in *both* directions through the decision tree. Check the model mix and ``total_rchisq`` on one brick before adopting a new value.
    * - ``EXP_DEV_SIMILAR_THRESH``
      - ``0.1``
      - If the chi-squared difference between Exp and deV models is smaller than this, prefer the simpler model.
    * - ``RENORM_PSF``
-     - ``1``
-     - PSF renormalization factor. Set to ``1`` to leave PSF as-is.
+     - ``None``
+     - Rescale every PSF stamp so it sums to this value. ``None`` leaves the stamp as-is (the usual choice if ``prepare_psf`` already normalised it). Setting it to ``1.0`` folds whatever PSF flux lies *outside* the stamp into the fitted fluxes as an implicit aperture correction; that factor is logged once per band, stored on ``BaseImage.psf_aperture_correction``, and written to the output headers. Incompatible with PsfEx (``.psf``) models, which carry no pixel image.
 
 Optimizer Settings
 -------------------
@@ -327,6 +333,12 @@ Optimizer Settings
    * - ``MAX_STEPS``
      - ``50``
      - Maximum iterations per optimization call.
+   * - ``MIN_STEPS``
+     - ``3``
+     - Minimum optimiser steps before ``DLNP_CRIT`` is allowed to end a fit. A model that barely moves on its first step is not necessarily converged -- it may simply have been handed a stationary starting point.
+   * - ``MIN_STEPS_COMPOSITE``
+     - ``5``
+     - As ``MIN_STEPS``, but applied when the group contains a ``FixedCompositeGalaxy``, which carries twice the shape parameters of an exponential or de Vaucouleurs model.
    * - ``DAMPING``
      - ``0.1``
      - Levenberg–Marquardt damping factor. Larger values slow convergence but improve stability.
@@ -342,9 +354,6 @@ Optimizer Settings
    * - ``USE_CERES``
      - ``False``
      - If ``True``, use the Ceres Solver (requires the ``ceres`` Python binding). Falls back to The Tractor's built-in ``ConstrainedOptimizer`` otherwise.
-   * - ``TIMEOUT``
-     - ``60``
-     - Internal per-step timeout in seconds.
 
 Priors
 -------

@@ -54,6 +54,10 @@ INT32_MAX = 2147483647
 UINT16_MAX = 65535
 UINT32_MAX = 4294967295
 
+# Minimum FWHM, in pixels, returned by get_fwhm. This is a FLOOR, applied so that a
+# degenerate single-pixel stamp cannot produce a zero width that later divides.
+DEFAULT_FWHM_MIN = 1.0
+
 # Model type names
 MODEL_TYPES = {
     'POINT': 'PointSource',
@@ -65,10 +69,6 @@ MODEL_TYPES = {
 
 # HDF5 string encoding
 HDF5_STRING_DTYPE = '|S99'
-
-# PSF-related constants
-DEFAULT_FWHM_MIN = 1.0  # Minimum FWHM cap
-PSF_SIGMA_FACTOR = 2.5  # Factor for resolution calculation
 
 
 def start_logger():
@@ -252,52 +252,71 @@ def load_brick_position(brick_id):
 
 
 
+
+
+
+
+
 def clean_catalog(catalog, mask, segmap=None):
-    """Remove masked sources from catalog and renumber segmentation map.
-    
+    """Remove masked sources from a catalog, renumbering the segmentation map.
+
+    A source is dropped when its rounded centroid lands on a masked pixel. When a
+    segmentation map is supplied, surviving segments are relabelled 1..N so that
+    row *i* of the returned catalog owns segment *i+1*.
+
     Args:
-        catalog: Source catalog (astropy Table)
-        mask: Boolean mask indicating pixels to exclude
-        segmap: Segmentation map (optional). If provided, will be updated in-place.
-        
+        catalog: Source catalog (astropy Table) with ``x`` and ``y`` columns.
+        mask: Boolean array, True where pixels are excluded.
+        segmap: Segmentation map. Optional -- when omitted, sources are culled
+            and no relabelling is done. Modified IN PLACE when supplied.
+
     Returns:
-        tuple: (cleaned_catalog, segmap) if segmap provided, else just cleaned_catalog
-        
+        tuple or astropy.table.Table: ``(cleaned_catalog, segmap)`` when a segmap
+            was supplied, otherwise just the cleaned catalog.
+
+    Raises:
+        AssertionError: If ``mask`` and ``segmap`` have different shapes.
+
     Note:
-        Segmentation map is modified in-place for efficiency with large images.
+        The segmentation map is modified in place for efficiency on large images.
     """
     logger = logging.getLogger('farmer.clean_catalog')
-    if segmap is not None:
-        assert mask.shape == segmap.shape, f'Mask {mask.shape} is not the same shape as the segmentation map {segmap.shape}!'
-    zero_seg = np.sum(segmap==0)
-    logger.debug('Cleaning catalog...')
     tstart = time.time()
+    logger.debug('Cleaning catalog...')
 
     # map the pixel coordinates to the map
     x, y = np.round(catalog['x']).astype(int), np.round(catalog['y']).astype(int)
     keep = ~mask[y, x]
     cleancat = catalog[keep]
-    
+
+    if segmap is None:
+        # The signature has always advertised this, but `zero_seg = np.sum(segmap == 0)`
+        # used to run before any guard, so passing None raised immediately.
+        logger.info(f'Cleaned {np.sum(~keep)} sources, {np.sum(keep)} remain. '
+                    f'({time.time()-tstart:2.2f}s)')
+        return cleancat
+
+    assert mask.shape == segmap.shape, f'Mask {mask.shape} is not the same shape as the segmentation map {segmap.shape}!'
+    zero_seg = np.sum(segmap == 0)
+
     # Create a mapping array for vectorized relabeling
     # Original segment IDs are 1-indexed (1 to len(catalog))
     # Make mapping large enough to handle max segment ID in the map
-    max_seg_id = max(len(catalog), np.max(segmap))
+    max_seg_id = max(len(catalog), int(np.max(segmap)))
     mapping = np.zeros(max_seg_id + 1, dtype=segmap.dtype)
-    
+
     # Set removed segments to 0, kept segments to new sequential IDs
     kept_indices = np.where(keep)[0]
     new_ids = np.arange(1, len(kept_indices) + 1, dtype=segmap.dtype)
     mapping[kept_indices + 1] = new_ids
-    
+
     # Apply mapping in one vectorized operation
     segmap[:] = mapping[segmap]
 
     pc = (np.sum(segmap==0) - zero_seg) / np.size(segmap)
     logger.info(f'Cleaned {np.sum(~keep)} sources ({pc*100:2.2f}% by area), {np.sum(keep)} remain. ({time.time()-tstart:2.2f}s)')
-    if segmap is not None:
-        return cleancat, segmap
-    else:
-        return cleancat
+    return cleancat, segmap
+
 
 def dilate_and_group(catalog, segmap, radius=0, fill_holes=False):
     """Dilate segmentation map and group nearby sources together.
@@ -328,7 +347,10 @@ def dilate_and_group(catalog, segmap, radius=0, fill_holes=False):
     # dilation
     if (radius is not None) & (radius > 0):
         logger.debug(f'Dilating segments with radius of {radius:2.2f} px')
-        struct2 = create_circular_mask(2*radius, 2*radius, radius=radius)
+        # (2r+1, 2r+1), not (2r, 2r): an even-sized element has its geometric centre
+        # at r-0.5 while create_circular_mask centres the disc at int(w/2) = r, which
+        # made the dilation asymmetric and shifted grouping by half a pixel.
+        struct2 = create_circular_mask(2*radius + 1, 2*radius + 1, radius=radius)
         segmask = binary_dilation(segmask, structure=struct2).astype(np.uint8)
 
     if fill_holes:
@@ -424,44 +446,36 @@ def dilate_and_group(catalog, segmap, radius=0, fill_holes=False):
 
     return group_ids, group_pops, groupmap
 
+
 def get_fwhm(img):
     """Estimate the full-width at half-maximum of a 2-D image array.
 
     Finds the span of pixels whose value exceeds half the image maximum
-    along both axes and returns the mean extent.  Returns at most
-    ``DEFAULT_FWHM_MIN`` (1 pixel) to prevent unrealistically small values.
+    along each axis and returns the mean extent, floored at
+    ``DEFAULT_FWHM_MIN`` (1 pixel) so a degenerate stamp cannot produce a
+    zero width that later divides.
 
     Args:
-        img: 2-D array-like representing a PSF or source profile.
+        img: 2-D array-like representing a PSF or source profile (pixels).
 
     Returns:
-        float: Estimated FWHM in pixels, capped at ``DEFAULT_FWHM_MIN``.
+        float: Estimated FWHM in pixels, at least ``DEFAULT_FWHM_MIN``.
+            ``np.nan`` if no pixel exceeds half the maximum (e.g. an
+            all-zero or all-NaN stamp).
     """
-    # Simple FWHM estimation: find pixels above half-maximum
-    dx, dy = np.nonzero(img > np.nanmax(img)/2.)
-    try:
-        fwhm = np.mean([dx[-1] - dx[0], dy[-1] - dy[0]])
-    except (IndexError, ValueError):
-        # Empty array or single pixel - cannot compute FWHM
-        fwhm = np.nan
-    return np.nanmin([DEFAULT_FWHM_MIN, fwhm])  # Cap to prevent unrealistic values
+    img = np.asarray(img, dtype=float)
+    finite = np.isfinite(img)
+    if not finite.any():
+        return np.nan
+    above = img > (img[finite].max() / 2.)
+    if not above.any():
+        return np.nan
+    # np.nonzero sorts only the first axis, so take an explicit min/max on each
+    ys, xs = np.nonzero(above)
+    # +1 because the extent is an inclusive pixel count, not an index difference
+    fwhm = np.mean([ys.max() - ys.min() + 1, xs.max() - xs.min() + 1])
+    return np.nanmax([DEFAULT_FWHM_MIN, fwhm])  # floor, not a cap
 
-def get_resolution(img, sig=3.):
-    """Compute the effective resolution area of a PSF image in pixels squared.
-
-    Uses :func:`get_fwhm` to estimate the PSF width and converts it to an
-    area using a Gaussian approximation scaled by ``sig``.
-
-    Args:
-        img: 2-D array-like representing a PSF profile.
-        sig: Significance level used to set the aperture width in units
-            of the Gaussian sigma. Defaults to 3.
-
-    Returns:
-        float: Effective resolution area in pixels squared.
-    """
-    fwhm = get_fwhm(img)
-    return np.pi * (sig / (2 * PSF_SIGMA_FACTOR) * fwhm)**2
 
 def validate_psfmodel(band, return_psftype=False):
     """Validate and classify the PSF model configured for a band.
@@ -528,7 +542,10 @@ def validate_psfmodel(band, return_psftype=False):
 
     # try out the first one
     if psftype == 'constant':
-        fname = str(psfmodel[1][0])
+        # psfmodel[1] is the path STRING for a constant PSF, so [0] took its first
+        # CHARACTER -- '/' -- which matched neither .psf nor .fits, and this whole
+        # validation block silently did nothing.
+        fname = str(psfmodel[1])
 
         if fname.endswith('.psf'):
             # Try loading as PsfEx format first
@@ -548,6 +565,11 @@ def validate_psfmodel(band, return_psftype=False):
             img = img.astype('float32')
             PixelizedPSF(img)
             logger.debug(f'PSF model for {band} identified as {psftype} PixelizedPSF.')
+
+        else:
+            raise RuntimeError(
+                f'PSF model for {band} has an unrecognised extension: {fname}. '
+                f'Expected a .fits or .psf file.')
 
     if return_psftype:
         return psfmodel, psftype
@@ -571,26 +593,134 @@ def header_from_dict(params):
     """
     logger = logging.getLogger('farmer.header_from_dict')
     hdr = fits.Header()
-    total_public_entries = np.sum([ not k.startswith('__') for k in params.keys()])
-    logger.debug(f'header_from_dict :: Dictionary has {total_public_entries} entires')
-    tstart = time()
+    total_public_entries = np.sum([not k.startswith('__') for k in params.keys()])
+    logger.debug(f'header_from_dict :: Dictionary has {total_public_entries} entries')
+    tstart = time.time()        # `time` is the module, not the function
+    skipped = []
     for i, attr in enumerate(params.keys()):
-        if not attr.startswith('__'):
-            logger.debug(f'header_from_dict ::   {attr}')
-            value = params[attr]
-            if type(value) == str:
-                # store normally
-                hdr.set(f'CONF{i+1}', value, attr)
-            if type(value) in (float, int):
-                # store normally
-                hdr.set(f'CONF{i+1}', value, attr)
-            if type(value) in (list, tuple):
-                # freak out.
-                for j, val in enumerate(value):
-                    hdr.set(f'CONF{i+1}_{j+1}', str(val), f'{attr}_{j+1}')
-            
-    logger.debug(f'header_from_dict :: Completed writing header ({time() - tstart:2.3f}s)')
+        if attr.startswith('__'):
+            continue
+        logger.debug(f'header_from_dict ::   {attr}')
+        value = params[attr]
+        card = f'CONF{i+1}'
+        if isinstance(value, u.Quantity):
+            # Quantities used to fall through every branch and vanish silently --
+            # that dropped BRICK_BUFFER, GROUP_BUFFER, DILATION_RADIUS and every
+            # prior width from the recorded configuration.
+            hdr.set(card, f'{value.value} {value.unit}', attr)
+        elif isinstance(value, str):
+            hdr.set(card, value, attr)
+        elif isinstance(value, bool):
+            hdr.set(card, int(value), attr)
+        elif isinstance(value, (float, int, np.floating, np.integer)):
+            hdr.set(card, float(value) if isinstance(value, (float, np.floating)) else int(value), attr)
+        elif isinstance(value, (list, tuple)):
+            for j, val in enumerate(value):
+                hdr.set(f'{card}_{j+1}', str(val), f'{attr}_{j+1}')
+        elif value is None:
+            hdr.set(card, 'None', attr)
+        elif isinstance(value, dict):
+            # e.g. BANDS -- record the keys, not the whole nested structure
+            hdr.set(card, ','.join(str(k) for k in value.keys())[:68], attr)
+        else:
+            skipped.append(attr)
+
+    if skipped:
+        logger.debug(f'header_from_dict :: could not serialise {len(skipped)} entries: {skipped}')
+    logger.debug(f'header_from_dict :: Completed writing header ({time.time() - tstart:2.3f}s)')
     return hdr
+
+
+def provenance_header(extra=None):
+    """Build a FITS header recording what produced a data product.
+
+    Nothing in the package used to stamp its outputs, so a catalog could not be
+    traced back to the code, configuration or inputs that made it -- and the two
+    git dependencies that define every number are themselves unpinned.
+
+    Args:
+        extra: Optional dict of additional cards to append, e.g. per-band PSF
+            aperture corrections.
+
+    Returns:
+        astropy.io.fits.Header: Provenance cards. Never raises; anything that
+            cannot be determined is recorded as 'unknown'.
+    """
+    import datetime
+    import subprocess
+    from .version import __version__
+
+    hdr = fits.Header()
+    hdr['FARMERV'] = (__version__, 'The Farmer version')
+    try:
+        sha = subprocess.check_output(
+            ['git', '-C', os.path.dirname(os.path.abspath(__file__)),
+             'rev-parse', '--short', 'HEAD'],
+            stderr=subprocess.DEVNULL, timeout=5).decode().strip()
+    except Exception:
+        sha = 'unknown'
+    hdr['GITHASH'] = (sha, 'farmer git commit')
+    hdr['DATE'] = (datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds'),
+                   'UTC write time')
+    try:
+        hdr['DETIMG'] = (os.path.basename(conf.DETECTION['science']), 'detection image')
+    except (AttributeError, KeyError):
+        pass
+    for i, (band, props) in enumerate(getattr(conf, 'BANDS', {}).items()):
+        hdr[f'BAND{i:02d}'] = (band, f'band {i}')
+        hdr[f'IMG{i:02d}'] = (os.path.basename(props.get('science', 'unknown')), f'{band} science')
+        hdr[f'ZPT{i:02d}'] = (props.get('zeropoint', -99), f'{band} AB zeropoint')
+        hdr[f'WTYP{i:02d}'] = (props.get('weight_type', 'invvar'), f'{band} weight convention')
+    for j, key in enumerate((
+            'THRESH', 'MINAREA', 'DEBLEND_NTHRESH', 'DEBLEND_CONT', 'FILTER_KERNEL',
+            'DILATION_RADIUS', 'GROUP_SIZE_LIMIT', 'GROUP_BUFFER', 'BRICK_BUFFER',
+            'MODEL_BANDS', 'SUFFICIENT_THRESH', 'SIMPLEGALAXY_PENALTY',
+            'RENORM_PSF', 'USE_CERES', 'MAX_STEPS', 'DLNP_CRIT', 'DAMPING',
+            'SUBTRACT_BW', 'SUBTRACT_BH', 'BACK_BW', 'BACK_BH', 'N_BRICKS')):
+        value = getattr(conf, key, None)
+        if isinstance(value, u.Quantity):
+            value = f'{value.value} {value.unit}'
+        elif isinstance(value, (list, tuple)):
+            value = ','.join(str(v) for v in value)
+        elif value is None:
+            value = 'None'
+        elif isinstance(value, bool):
+            value = int(value)
+        # Indexed cards, not truncated names: 'C_' + key[:6] collided
+        # (DEBLEND_NTHRESH/DEBLEND_CONT, GROUP_BUFFER/GROUP_SIZE_LIMIT), silently
+        # overwriting one of each pair. The real name lives in the comment.
+        hdr[f'CFG{j:02d}'] = (str(value)[:68], key)
+    if extra:
+        for j, (k, v) in enumerate(extra.items()):
+            hdr[f'APCOR{j:02d}'] = (str(v)[:68], f'PSF aperture correction, {k}')
+    return hdr
+
+
+def log_memory_usage(logger, tag='', verbose=False):
+    """Log the current process resident set size.
+
+    Referenced by ``detect_sources_lite`` but never defined, so importing it
+    raised ImportError and made that entry point unusable.
+
+    Args:
+        logger: Logger to write to.
+        tag: Short label identifying the call site.
+        verbose: If True, log at INFO level instead of DEBUG.
+
+    Returns:
+        float or None: Resident set size in GB, or None if psutil is unavailable.
+    """
+    try:
+        import psutil
+    except ImportError:
+        logger.debug(f'{tag}: psutil not installed, cannot report memory usage')
+        return None
+    rss = psutil.Process(os.getpid()).memory_info().rss / 1e9
+    (logger.info if verbose else logger.debug)(f'{tag}: RSS = {rss:.2f} GB')
+    return rss
+
+
+
 
 
 def create_circular_mask(h, w, center=None, radius=None):
@@ -671,15 +801,31 @@ def _select_optimal_dtype(coordinates):
             return np.uint64  # 8 bytes
     
 
-class SimpleGalaxy(ExpGalaxy):
-    """Exponential galaxy with fixed 0.45 arcsec spherical shape.
 
-    Defines the ``SIMP`` galaxy profile used to detect marginally-resolved
-    sources.  The effective radius and ellipticity are frozen so only
-    position and flux are free parameters during fitting.
+class SimpleGalaxy(ExpGalaxy):
+    """Exponential galaxy with a fixed, spherical shape.
+
+    Defines the ``SIMP`` profile used to stand in for marginally-resolved
+    sources. The effective radius and ellipticity are frozen, so only position
+    and flux are free parameters during fitting.
+
+    The radius comes from ``conf.SIMPLEGALAXY_REFF`` (arcsec). The 0.45"
+    fallback is inherited from the Legacy Survey SIMP model, which was tuned for
+    roughly 1.2" ground-based seeing; it is too large for a space-based PSF. For
+    Euclid NISP, whose PSF FWHM runs 0.32-0.45", 0.45" exceeds the resolution
+    limit in most bands, and 82% of fitted ExpGalaxy radii fall below it
+    (CDFS median 0.296"). Set it per field -- 0.25-0.30" is a reasonable
+    starting point for NISP.
+
+    NOTE this is a CLASS attribute on purpose. ``__init__`` forwards only
+    ``(pos, brightness)`` to ``ExpGalaxy``, which reads the third parameter off
+    the class; that is also why ``getNamedParams`` has two entries and why
+    ``isParamFrozen('shape')`` is hardcoded to True. Making it an instance
+    attribute would desynchronise those. It is therefore evaluated once at
+    import, so it is a per-run setting, not a per-band one.
     """
 
-    shape = EllipseE(0.45, 0., 0.)
+    shape = EllipseE(float(getattr(conf, 'SIMPLEGALAXY_REFF', 0.45)), 0., 0.)
 
     def __init__(self, *args):
         """Initialize SimpleGalaxy with position and brightness arguments.
@@ -744,6 +890,41 @@ class SimpleGalaxy(ExpGalaxy):
         return super(SimpleGalaxy, self).isParamFrozen(pname)
 
 
+
+
+def _identity_pixel_map(array, logger=None):
+    """Group a labelled array's pixel coordinates by label, without reprojecting.
+
+    Used when the input and output grids are identical, or when the caller has
+    forced simple mapping, so that an output pixel is just the input pixel.
+
+    Args:
+        array: 2-D integer label map, 0 meaning unlabelled.
+        logger: Optional logger for progress messages.
+
+    Returns:
+        dict: ``{label_id: (y_array, x_array)}`` of pixel coordinates per label.
+            Empty if the array has no labelled pixels.
+    """
+    if logger is not None:
+        logger.info('Building a mapping dictionary...')
+    y, x = np.nonzero(array)
+    if len(y) == 0:
+        return {}
+    labels = array[y, x]
+    dtype = _select_optimal_dtype(np.concatenate([y, x]))
+
+    # Sort once by label and slice, rather than rescanning the whole coordinate
+    # list for every unique label (which was O(n_labels x n_pixels)).
+    order = np.argsort(labels, kind='stable')
+    labels = labels[order]
+    y, x = y[order].astype(dtype), x[order].astype(dtype)
+    boundaries = np.flatnonzero(np.diff(labels)) + 1
+    starts = np.concatenate(([0], boundaries))
+    stops = np.concatenate((boundaries, [len(labels)]))
+    return {labels[s]: (y[s:e], x[s:e]) for s, e in zip(starts, stops)}
+
+
 def map_discontinuous(input, out_wcs, out_shape, force_simple=False):
     """Map a labeled integer array from one WCS grid to another.
 
@@ -775,76 +956,28 @@ def map_discontinuous(input, out_wcs, out_shape, force_simple=False):
     scl_in = np.array([val.value for val in in_wcs.proj_plane_pixel_scales()])
     scl_out = np.array([val.value for val in out_wcs.proj_plane_pixel_scales()])
 
+    # Same grid: an output pixel IS the input pixel, so skip the WCS round-trip
+    # entirely. NOTE: this used to fall through into the reprojection below, which
+    # silently discarded the result it had just computed.
     if (array.shape == out_shape) & (np.abs(scl_in - scl_out).max() < 0.001):
         logger.debug('No reprojection needed -- same shape and pixel scale')
-        segs = np.unique(array.flatten()).astype(int)
-        segs = segs[segs!=0]
+        return _identity_pixel_map(array, logger)
 
-        outdict = {}
-        logger.info('Building a mapping dictionary...')
-        # Get all unique segment values and their indices at once
-        y, x = np.nonzero(array)
-        all_segments = array[y, x]
-        
-        # Determine optimal dtype based on coordinate range
-        if len(y) > 0 and len(x) > 0:
-            max_coord = max(y.max(), x.max())
-            min_coord = min(y.min(), x.min())
-            
-            # Select appropriate dtype
-            if min_coord < 0:
-                dtype = np.int16 if (max_coord < 32767 and min_coord >= -32768) else np.int32
-            else:
-                if max_coord < 65535:
-                    dtype = np.uint16
-                elif max_coord < 4294967295:
-                    dtype = np.uint32
-                else:
-                    dtype = np.uint64
-        else:
-            dtype = np.uint16  # Default for empty arrays
+    if force_simple:
+        logger.warning('Simple mapping has been forced! Small regions may be cannibalized... ')
+        return _identity_pixel_map(array, logger)
 
-        # Use np.unique to split the coordinates by segment
-        unique_segs, inverse = np.unique(all_segments, return_inverse=True)
-        for idx, seg in enumerate(unique_segs):
-            seg_indices = np.where(inverse == idx)
-            # Store as numpy arrays with efficient dtype
-            outdict[seg] = (y[seg_indices].astype(dtype), x[seg_indices].astype(dtype))
-
-    elif force_simple:
-        logger.warning(f'Simple mapping has been forced! Small regions may be cannibalized... ')
-        segs = np.unique(array.flatten()).astype(int)
-        segs = segs[segs!=0]
-
-        outdict = {}
-        logger.info('Building a mapping dictionary...')
-        # Get all unique segment values and their indices at once
-        y, x = np.nonzero(array)
-        all_segments = array[y, x]
-        
-        # Determine optimal dtype based on coordinate range
-        dtype = _select_optimal_dtype(np.concatenate([y, x]) if len(y) > 0 else [])
-
-        # Use np.unique to split the coordinates by segment
-        unique_segs, inverse = np.unique(all_segments, return_inverse=True)
-        for idx, seg in enumerate(unique_segs):
-            seg_indices = np.where(inverse == idx)
-            # Store as numpy arrays with efficient dtype
-            outdict[seg] = (y[seg_indices].astype(dtype), x[seg_indices].astype(dtype))
-
-    # Determine processing strategy based on configuration
+    # The grids genuinely differ: reproject pixel by pixel.
     # NOTE: Multiprocessing is disabled by default (NCPUS=0) due to high memory overhead
     # when copying WCS objects across processes. The vectorized single-core version
     # (map_ids_to_coarse_pixels) is typically faster for most use cases.
     if conf.NCPUS == 0:
-        logger.info('Mapping to different resolution using single-core vectorized reprojection')
-        outdict = map_ids_to_coarse_pixels(array, out_wcs, in_wcs)
-    else:
-        logger.info(f'Mapping to different resolution using multiprocessing (NCPU = {conf.NCPUS})')
-        logger.warning('Multiprocessing may consume significant memory due to WCS object copying')
-        outdict = parallel_process(array, out_wcs, in_wcs, n_processes=conf.NCPUS)
+        logger.info('Mapping to a different pixel grid using single-core vectorized reprojection')
+        return map_ids_to_coarse_pixels(array, out_wcs, in_wcs)
 
-    return outdict
+    logger.info(f'Mapping to a different pixel grid using multiprocessing (NCPU = {conf.NCPUS})')
+    logger.warning('Multiprocessing may consume significant memory due to WCS object copying')
+    return parallel_process(array, out_wcs, in_wcs, n_processes=conf.NCPUS)
 
 
 
@@ -1071,7 +1204,10 @@ def recursively_save_dict_contents_to_group(h5file, dic, path='/'):
     for key, item in dic.items():
         logger.debug(f'  ... {path}{key} ({type(item)})')
         key = str(key)
-        if key == 'logger':
+        # 'logger' is not serialisable; 'group_bboxes' is a derived cache of thousands
+        # of tiny tuples that is far cheaper to recompute than to write as thousands of
+        # HDF5 datasets (see Brick.get_group_bbox, which rebuilds it on demand).
+        if key in ('logger', 'group_bboxes'):
             continue
             
         # Convert lists/tuples to numpy arrays early
@@ -1255,11 +1391,15 @@ def recursively_load_dict_contents_from_group(h5file, path='/', ans=None):
                     awcs = WCS(fits.header.Header.fromstring(item.attrs['wcs']))
                     ppix = item['input_position_cutout'][...]
                     pos = awcs.pixel_to_world(ppix[0], ppix[1])
-                    ans[key] = Cutout2D(item['data'][...], pos, np.shape(item['data'][...]), wcs=awcs)
+                    # read the array ONCE -- `item['data'][...]` twice in one
+                    # expression pulled every image out of the file two times over
+                    arr = item['data'][...]
+                    ans[key] = Cutout2D(arr, pos, np.shape(arr), wcs=awcs)
                     logger.debug(f'  ...... building cutout')
                     for key2 in item:
                         logger.debug(f'          * {key2}')
-                        ans[key].__dict__[key2] = item[key2][...]
+                        # 'data' is already loaded; re-reading it here made it three
+                        ans[key].__dict__[key2] = arr if key2 == 'data' else item[key2][...]
                     for key2 in item.attrs.keys():
                         logger.debug(f'          * {key2}')
                         if key2 != 'wcs':
@@ -1330,6 +1470,8 @@ def recursively_load_dict_contents_from_group(h5file, path='/', ans=None):
                         ans[key][key2] = value
     return ans   
      
+
+
 def dcoord_to_offset(coord1, coord2, offset='arcsec', pixel_scale=None):
     """Calculate offset between two sky coordinates.
     
@@ -1360,6 +1502,7 @@ def dcoord_to_offset(coord1, coord2, offset='arcsec', pixel_scale=None):
         ddec = ((coord1.dec - coord2.dec) / pixel_scale[1]).value
     return -dra, ddec
 
+
 def cumulative(x):
     """Compute cumulative distribution function from data.
     
@@ -1371,17 +1514,48 @@ def cumulative(x):
             - sorted_values: x sorted in ascending order (NaN removed)
             - cumulative_probabilities: Normalized cumulative distribution [0, 1]
             
+    Note:
+        The plotting positions run from exactly 0 at the minimum to exactly 1 at
+        the maximum, i.e. ``i/(N-1)``. That is fine for eyeballing a distribution
+        on a plot, which is all this is used for, but it is a biased estimator of
+        the underlying CDF -- do not use it for a KS test.
+
     Example:
-        >>> x = np.array([3, 1, 2, np.nan, 4])
+        >>> x = np.array([3., 1., 2., np.nan, 4.])
         >>> vals, cdf = cumulative(x)
         >>> vals
-        array([1, 2, 3, 4])
+        array([1., 2., 3., 4.])
         >>> cdf
-        array([0.  , 0.25, 0.5 , 0.75, 1.  ])
+        array([0.        , 0.33333333, 0.66666667, 1.        ])
     """
     x = x[~np.isnan(x)]
     N = len(x)
-    return np.sort(x), np.array(np.linspace(0, N, N)) / float(N)
+    if N == 0:
+        return x, np.array([])
+    if N == 1:
+        return np.sort(x), np.array([0.])
+    return np.sort(x), np.linspace(0., 1., N)
+
+
+def _soften_fracdev(fracdev):
+    """Invert SoftenedFracDev's sigmoid so a model STARTS at the requested fracDev.
+
+    ``SoftenedFracDev.clipped()`` returns ``1/(1 + exp(4*(0.5 - f)))``, so passing a
+    desired physical fraction straight into the constructor does not give you that
+    fraction. This returns the soft parameter ``f`` that yields it.
+
+    Args:
+        fracdev: Desired deVaucouleurs flux fraction, 0 to 1. ``fracDev = 1`` is
+            pure deV (tractor weights the dev component by ``f`` and exp by
+            ``1 - f``), so a BETTER dev fit means a HIGHER fracDev.
+
+    Returns:
+        float: The soft parameter to hand to ``SoftenedFracDev``. The input is
+            clipped to [0.02, 0.98] first, since the sigmoid diverges at the ends.
+    """
+    p = float(np.clip(fracdev, 0.02, 0.98))
+    return 0.5 - np.log((1. - p) / p) / 4.
+
 
 def get_params(model):
     """Extract source parameters from a Tractor model.
@@ -1458,8 +1632,13 @@ def get_params(model):
         source[f'ba{suffix}'] = boa
         source[f'ba{suffix}_err'] = boa_sig
         
-        source[f'pa{suffix}'] = 90. * u.deg + theta_deg * u.deg
-        # pa = 90deg + theta, so pa_err is exactly theta_err (was missing the sqrt)
+        # Position angle East of North, degrees, wrapped to [0, 180) since an ellipse
+        # has no head or tail. Tractor's shape.theta is ALREADY that angle: EllipseE.
+        # getRaDecBasis maps the major axis to (dRA, dDec) = (sin theta, cos theta),
+        # so atan2(East, North) = theta. The old `90 deg + theta` reported the MINOR
+        # axis instead.
+        source[f'pa{suffix}'] = (theta_deg % 180.) * u.deg
+        # pa is theta up to a constant wrap, so pa_err is exactly theta_err
         source[f'pa{suffix}_err'] = np.rad2deg(np.sqrt(variance_shape.theta)) * u.deg
 
     # shape
@@ -1626,7 +1805,9 @@ def get_detection_kernel(filter_kernel):
     # if string, grab from config
     if isinstance(filter_kernel, str):
         dirname = os.path.dirname(__file__)
-        filename = os.path.join(dirname, '../config/conv_filters/'+conf.FILTER_KERNEL)
+        # use the argument, not conf.FILTER_KERNEL -- passing any other kernel name
+        # to this function was silently ignored
+        filename = os.path.join(dirname, '../config/conv_filters/' + filter_kernel)
         if os.path.exists(filename):
             convfilt = np.array(np.array(ascii.read(filename, data_start=1)).tolist())
         else:
@@ -1678,17 +1859,6 @@ def build_regions(catalog, pixel_scale, outpath='objects.reg', scale_factor=2.0)
     bigreg.write(outpath, overwrite=True, format='ds9')
 
 
-def _clear_h5():
-    """Close any open HDF5 file handles to prevent file locking issues."""
-    import gc
-    for obj in gc.get_objects():   # Browse through ALL objects
-        if isinstance(obj, h5py.File):   # Just HDF5 files
-            try:
-                obj.close()
-            except (ValueError, RuntimeError):
-                pass  # File already closed or invalid
-
-
 def prepare_psf(filename, outfilename=None, pixel_scale=None, mask_radius=None,
                 clip_radius=None, norm=None, norm_radius=None,
                 target_pixel_scale=None, ext=0):
@@ -1727,7 +1897,9 @@ def prepare_psf(filename, outfilename=None, pixel_scale=None, mask_radius=None,
 
     if pixel_scale is None:
         w = WCS(hdul[ext].header)
-        pixel_scale = w.proj_plane_pixel_scales[0]
+        # proj_plane_pixel_scales is a METHOD -- without the call this raised
+        # TypeError, so the read-from-header path never worked
+        pixel_scale = w.proj_plane_pixel_scales()[0] * u.deg
         hdul[ext].header.update(w.wcs.to_header())
 
     if target_pixel_scale is not None:
@@ -1766,72 +1938,13 @@ def prepare_psf(filename, outfilename=None, pixel_scale=None, mask_radius=None,
         outfilename = filename
 
     hdul[ext].data = psfmodel
-    hdul.writeto(outfilename)
+    # overwrite=True: the default in-place mode (outfilename is None -> filename)
+    # always raised OSError because the file it was writing already existed
+    hdul.writeto(outfilename, overwrite=True)
+    hdul.close()
     print(f'Wrote updated PSF to {outfilename}')
 
     return psfmodel
-
-def spawn_and_run_group(brick, group_id, imgtype='science', bands=None, mode='all'):
-    """Spawn a group from a brick, process it, and return only essential results.
-
-    Designed for parallel workers: spawns the group, runs the requested
-    modelling mode, records the elapsed time in ``model_tracker``, extracts
-    the catalog and tracker, then deletes the group to free memory.
-
-    Args:
-        brick: ``Brick`` object containing the group.
-        group_id: Integer identifier of the group to process.
-        imgtype: Image type passed to ``brick.spawn_group``.
-            Defaults to ``'science'``.
-        bands: List of band names to include.  ``None`` uses all bands
-            available on the brick. Defaults to None.
-        mode: Processing mode — one of:
-
-            - ``'all'``: run model selection then forced photometry.
-            - ``'model'``: run model selection only.
-            - ``'photometry'``: run forced photometry only.
-            - ``'pass'``: do nothing (used for testing).
-
-            Defaults to ``'all'``.
-
-    Returns:
-        tuple: ``(group_id, model_catalog, model_tracker)`` where
-            ``model_catalog`` and ``model_tracker`` are shallow copies
-            safe to pass across process boundaries.
-    """
-    import time
-    tstart = time.time()
-    
-    # Spawn the group
-    group = brick.spawn_group(group_id, imgtype=imgtype, bands=bands, silent=True)
-    
-    if not group.rejected:
-        if mode == 'all':
-            status = group.determine_models()
-            if status:
-                status = group.force_models()
-        elif mode == 'model':
-            status = group.determine_models()
-        elif mode == 'photometry':
-            status = group.force_models()
-        elif mode == 'pass':
-            status = False
-    
-    # Record group processing time in model_tracker for all sources
-    elapsed = time.time() - tstart
-    for source_id in group.source_ids:
-        if source_id in group.model_tracker:
-            if len(group.model_tracker[source_id]) > 0:
-                final_stage = max(group.model_tracker[source_id].keys())
-                if final_stage not in group.model_tracker[source_id]:
-                    group.model_tracker[source_id][final_stage] = {}
-                group.model_tracker[source_id][final_stage]['group_time'] = elapsed
-    
-    # Extract only what's needed and delete the group
-    output = group.group_id, group.model_catalog.copy(), group.model_tracker.copy()
-    del group
-    return output
-
 
 def _run_group_inline(group, mode='all'):
     """Run group modelling in the calling process and return results.
@@ -1996,10 +2109,20 @@ def run_group(group, mode='all'):
 
     proc = None
     try:
+        # 'forkserver' forks the timeout child from a small pristine server rather
+        # than from the caller. The caller here is a pool worker already holding a
+        # multi-GB brick, and the child only needs the pickled Group, so forking from
+        # it copies ~1.7 GB for nothing. See the preload/probe block in
+        # farmer/__init__.py, which brings the server up while the process is still
+        # small -- without it the server is spawned lazily inside a loaded worker and
+        # the saving is lost.
         try:
-            ctx = mp.get_context('fork')
+            ctx = mp.get_context('forkserver')
         except (ValueError, AttributeError):
-            ctx = mp.get_context()
+            try:
+                ctx = mp.get_context('fork')
+            except (ValueError, AttributeError):
+                ctx = mp.get_context()
 
         result_queue = ctx.Queue(maxsize=1)
         proc = ctx.Process(target=_run_group_timeout_worker, args=(group, mode, result_queue))

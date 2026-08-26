@@ -4,11 +4,18 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "farmer"
-version = "2.1.0"
+# single-sourced from farmer/version.py -- see [tool.setuptools.dynamic] below,
+# so the package and the module can no longer disagree about the version
+dynamic = ["version"]
 dependencies = [
+# PIN THESE. tractor and astrometry.net define every number this code produces;
+# an unpinned git dependency means a published catalog cannot be reproduced.
+# Replace <sha> with the commit you validated against and record it in the paper.
 "astrometry.net @ git+https://github.com/dstndstn/astrometry.net",
 "tractor @ git+https://github.com/dstndstn/tractor",
-"astropy>=5.0",
+"numpy>=1.24",
+"scipy>=1.10",
+"astropy>=5.0,<8",
 "h5py>=3.9.0",
 "pathos==0.3.0",
 "regions==0.7",
@@ -21,13 +28,29 @@ requires-python = ">=3.9"
 authors = [
     {name = "John Weaver", email = "john.weaver.astro@gmail.com"}
 ]
-description = "The Farmer"
+description = "Model photometry for deep, multi-wavelength galaxy surveys"
 readme = "README.md"
 license = {file = "LICENSE.txt"}
 keywords = ["Farmer"]
+
+[project.optional-dependencies]
+dev = ["psutil", "ruff"]
 
 [project.urls]
 Repository = "https://github.com/astroweaver/farmer"
 "Bug Tracker" = "https://github.com/astroweaver/farmer/issues"
 
+[tool.setuptools.dynamic]
+version = {attr = "farmer.version.__version__"}
 
+[tool.setuptools.packages.find]
+include = ["farmer*"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+# F821 (undefined name) and F841 (unused local) catch the class of bug that let
+# `substat` be read outside the loop that bound it. E714 catches `not ... is`.
+select = ["E", "F", "B"]
+ignore = ["E501", "E741"]

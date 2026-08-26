@@ -11,7 +11,10 @@ OUTPUT = True
 AUTOLOAD = True
 
 # Directory Structure
-PATH_DATA = '/Users/jweaver/Projects/Software/the_farmer/data/'
+# Set FARMER_DATA to point at your data tree, or edit the fallback below. The
+# fallback is a machine-specific absolute path, so anyone else must either export
+# FARMER_DATA or edit this line (which leaves their working tree permanently dirty).
+PATH_DATA = os.environ.get('FARMER_DATA', '/Users/jweaver/Projects/Software/the_farmer/data/')
 PATH_BRICKS = os.path.join(PATH_DATA, 'interim/bricks')
 PATH_FIGURES = os.path.join(PATH_DATA, 'output/figures')
 PATH_PSFMODELS = os.path.join(PATH_DATA, 'interim/psfmodels')
@@ -21,9 +24,13 @@ PATH_LOGS = os.path.join(PATH_DATA, 'interim/logs')
 
 # Image Configuration
 BANDS = {}
+# 'weight_type' declares what the weight map actually contains: 'invvar' (default),
+# 'sigma', or 'variance'. Everything downstream assumes inverse variance, so getting
+# this wrong rescales every uncertainty in the catalog with no other symptom.
 BANDS['hsc_i'] = {
     'science': os.path.join(PATH_DATA, 'external/COSMOS_Cgalsim_hsc_i_22626PS.fits'),
     'weight': os.path.join(PATH_DATA, 'external/COSMOS_Cgalsim_hsc_i_noise_WEIGHT.fits'),
+    'weight_type': 'invvar',
     'psfmodel': os.path.join(PATH_PSFMODELS, 'hsc_i.fits'), # can either be a PSF file, or a table of ra/dec/psf_path
     'subtract_background': True, 
     'backtype': 'flat',
@@ -106,17 +113,38 @@ FORCE_SIMPLE_MAPPING = False
 MODEL_BANDS = ['hsc_i', 'hsc_z', 'uvista_ks']
 SUFFICIENT_THRESH = 1
 SIMPLEGALAXY_PENALTY = 0.1
+SIMPLEGALAXY_REFF = 0.45  # Fixed effective radius of the SimpleGalaxy model, arcsec.
+                          # 0.45" is the Legacy Survey SIMP value, tuned for ~1.2"
+                          # ground-based seeing. For space-based data it is too large:
+                          # for Euclid NISP (PSF FWHM 0.32-0.45") it exceeds the
+                          # resolution limit in most bands, and 82% of fitted ExpGalaxy
+                          # radii are smaller (CDFS median 0.296"). Use 0.25-0.30" for
+                          # NISP, and set it per field. Read once at import, so it is a
+                          # per-run setting. Interacts with SIMPLEGALAXY_PENALTY and
+                          # SUFFICIENT_THRESH -- shrinking it makes SimpleGalaxy more
+                          # PSF-like, so sources migrate in BOTH directions through the
+                          # decision tree. Check the model mix and total_rchisq on one
+                          # brick before adopting a new value.
 EXP_DEV_SIMILAR_THRESH = 0.1
-RENORM_PSF = 1
+RENORM_PSF = None       # Rescale every PSF stamp to this total flux (None = leave as-is).
+                        # Setting it to 1.0 folds whatever PSF flux lies OUTSIDE the stamp
+                        # into the fitted fluxes as an implicit aperture correction; the
+                        # factor is logged once per band and stored in
+                        # BaseImage.psf_aperture_correction. Leave it None if prepare_psf
+                        # already normalised your stamps. Incompatible with PsfEx (.psf) models.
 
 # Engine
 MAX_STEPS = 50
+MIN_STEPS = 3             # Minimum optimiser steps before DLNP_CRIT may end a fit.
+                          # A model that barely moves on step 1 is not necessarily
+                          # converged -- it may have been handed a stationary start.
+MIN_STEPS_COMPOSITE = 5   # As MIN_STEPS, but for groups containing a composite, which
+                          # carries twice the shape parameters of exp or deV.
 DAMPING = 1e-1
 DLNP_CRIT = 1e-3
 GROUP_TIMEOUT = None  # Maximum time per group in seconds (None for no limit)
 IGNORE_FAILURES = True
 USE_CERES = False
-TIMEOUT = 60
 
 # Priors and parameters
 # Use 'none' for no prior and 'freeze' for frozen parameter

@@ -67,15 +67,17 @@ _cfg.CLEAN_PARAM = 1.0
 _cfg.MODEL_BANDS          = []
 _cfg.SUFFICIENT_THRESH    = 1
 _cfg.SIMPLEGALAXY_PENALTY = 0.1
+_cfg.SIMPLEGALAXY_REFF    = 0.45
 _cfg.EXP_DEV_SIMILAR_THRESH = 0.1
-_cfg.RENORM_PSF           = 1
+_cfg.RENORM_PSF           = None
 _cfg.MAX_STEPS            = 50
+_cfg.MIN_STEPS            = 3
+_cfg.MIN_STEPS_COMPOSITE  = 5
 _cfg.DAMPING              = 0.1
 _cfg.DLNP_CRIT            = 1e-3
 _cfg.GROUP_TIMEOUT        = None
 _cfg.IGNORE_FAILURES      = True
 _cfg.USE_CERES            = False
-_cfg.TIMEOUT              = 60
 
 # Priors
 _cfg.MODEL_PRIORS = {'pos': 0.1 * u.arcsec,

@@ -5,6 +5,7 @@ from .utils import load_brick_position
 import logging
 import os
 from astropy.wcs import WCS
+from astropy.wcs.utils import proj_plane_pixel_scales
 import astropy.units as u
 from astropy.nddata import Cutout2D
 import numpy as np
@@ -85,30 +86,31 @@ class Group(BaseImage):
             self.model_priors = conf.MODEL_PRIORS
             # self.config = conf.__dict__
 
-            # use groupmap from brick to get position and buffsize
-            groupmap = image.get_image(imgtype='groupmap', band='detection')
-            group_npix = np.sum(groupmap==group_id) #TODO -- save this somewhere
-            if group_npix == 0:
+            # Bounding box and pixel count come from the brick's one-pass cache
+            # (Brick._compute_group_bboxes). This used to run four full-brick
+            # comparisons per group, which is O(N_groups x N_brick_pixels) and, because
+            # process_groups feeds pool.imap from a generator, ran serially in the
+            # parent process no matter what NCPUS was set to.
+            bbox = image.get_group_bbox(group_id) if hasattr(image, 'get_group_bbox') else None
+            if bbox is None:
                 self.logger.warning(f'No pixels belong to group #{group_id}!')
                 self.rejected = True
             else:
-                try:
-                    # Direct nonzero without unnecessary np.array() wrapper
-                    idx, idy = (groupmap == group_id).nonzero()
-                except Exception as e:
-                    raise RuntimeError(f'Cannot extract dimensions of Group #{group_id}! Error: {e}')
-                xlo, xhi = np.min(idx), np.max(idx)
-                ylo, yhi = np.min(idy), np.max(idy)
-                group_width = xhi - xlo
-                group_height = yhi - ylo
-                xc = xlo + group_width/2.
-                yc = ylo + group_height/2.
+                ylo, yhi, xlo, xhi, group_npix = bbox   # yhi/xhi are EXCLUSIVE
+                self.n_pixels = group_npix
+                n_rows = yhi - ylo      # inclusive pixel counts; the old `hi - lo`
+                n_cols = xhi - xlo      # was one pixel short in each dimension
+                yc = ylo + n_rows / 2.
+                xc = xlo + n_cols / 2.
 
                 wcs = image.get_wcs(band='detection', imgtype=imgtype)
-                self.position = wcs.pixel_to_world(yc, xc)
-                upper = wcs.pixel_to_world(group_height, group_width)
-                lower = wcs.pixel_to_world(0, 0)
-                self.size = (upper.dec - lower.dec), (lower.ra - upper.ra) * np.cos(np.deg2rad(self.position.dec.to(u.degree).value))
+                self.position = wcs.pixel_to_world(xc, yc)      # pixel_to_world takes (x, y)
+                # Angular extent from the local pixel scale. The old form measured the
+                # separation between image pixels (0,0) and (n_cols, n_rows), sampling
+                # the projection at the image corner rather than at the group, and then
+                # applied cos(dec) of the group to an RA span measured elsewhere.
+                scl = proj_plane_pixel_scales(wcs) * u.deg      # [scale_x, scale_y]
+                self.size = (n_rows * scl[1], n_cols * scl[0])  # (dec_height, ra_width)
                 self.buffsize = (self.size[0]+2*conf.GROUP_BUFFER, self.size[1]+2*conf.GROUP_BUFFER)
 
             self.filename = f'G{self.group_id}_B{self.brick_id}.h5'

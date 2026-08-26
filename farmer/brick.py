@@ -8,8 +8,10 @@ import logging
 import os, time, gc
 from functools import partial
 from astropy.nddata import Cutout2D
+from astropy.stats import sigma_clipped_stats
 import astropy.units as u
 import numpy as np
+from scipy.ndimage import find_objects
 from pathos.pools import ProcessPool
 from copy import copy
 from astropy.wcs.utils import proj_plane_pixel_scales
@@ -85,6 +87,8 @@ class Brick(BaseImage):
             self.type = 'brick'
             self.n_sources = {}
             self.group_ids = {}
+            self.is_empty = False       # set by extract() when nothing is detected
+            self.fit_status = {}        # source_id -> FIT_* code, see image.py
             # self.group_pops = {}
             self.model_catalog = OrderedDict()
             self.model_tracker = OrderedDict()
@@ -154,7 +158,30 @@ class Brick(BaseImage):
             bad_weight = ~np.isfinite(weight) | (weight < 0)
             if np.any(bad_weight):
                 weight[bad_weight] = 0
+
+            # Everything downstream -- _extract's err=1/sqrt(w), build_chi_image's
+            # residual*sqrt(w), and tractor's Image(invvar=w) -- assumes inverse
+            # variance. Convert here if the band declares otherwise, rather than
+            # silently mis-scaling every uncertainty in the catalog.
+            # NOTE this must be idempotent: _condition_all_bands re-runs it on every
+            # load from HDF5, so the conversion stamps weight_type back to 'invvar'
+            # rather than converting a second time.
+            wtype = self.properties.get(band, {}).get('weight_type', 'invvar')
+            if wtype == 'sigma':
+                weight = np.where(weight > 0, 1. / weight**2, 0.)
+                self.logger.info(f'Converted {band} weight map from sigma to inverse variance')
+            elif wtype == 'variance':
+                weight = np.where(weight > 0, 1. / weight, 0.)
+                self.logger.info(f'Converted {band} weight map from variance to inverse variance')
+            elif wtype != 'invvar':
+                raise RuntimeError(
+                    f"{band}: weight_type must be 'invvar', 'sigma' or 'variance', "
+                    f"not {wtype!r}")
+            if band in self.properties:
+                self.properties[band]['weight_type'] = 'invvar'
+
             weight[bad_science | mask_bool] = 0
+            self.data[band]['weight'].data = weight
             if 'mask' in self.data[band]:
                 mask_bool = mask_bool | (weight <= 0)
                 self.data[band]['mask'].data = mask_bool
@@ -314,16 +341,33 @@ class Brick(BaseImage):
 
         # if weights or masks dont exist, make them as dummy arrays
         if 'weight' not in self.data[mosaic.band]:
-            self.logger.debug(f'... data \"weight\" subimage generated as ones at {cutout.input_position_original}')
             cutout = Cutout2D(mosaic.data['science'], self.position, self.buffsize, wcs=mosaic.wcs, mode='partial', fill_value = np.nan, copy=True)
-            cutout.data *= 0.
+            # No weight map was supplied. A zero-filled weight would mark every pixel
+            # masked in _condition_band_data and silently drop the band from the fit,
+            # so derive a uniform inverse variance from the clipped science RMS instead.
+            sci = cutout.data
+            good = np.isfinite(sci) & (sci != 0)
+            rms = 0.
+            if good.any():
+                __, __, rms = sigma_clipped_stats(sci[good])
+            if rms > 0:
+                cutout.data = np.full(sci.shape, 1. / rms**2, dtype=np.float32)
+                self.logger.warning(
+                    f'{mosaic.band} has no weight map. Inverse variance derived from the '
+                    f'clipped image RMS ({rms:.4g}); uncertainties in this band are approximate.')
+            else:
+                cutout.data = np.zeros(sci.shape, dtype=np.float32)
+                self.logger.warning(
+                    f'{mosaic.band} has no weight map and its science cutout has no usable '
+                    f'pixels (clipped RMS = {rms}). This band will be EXCLUDED from fitting.')
             self.data[mosaic.band]['weight'] = cutout
             self.headers[mosaic.band]['weight'] = subheader
 
         if 'mask' not in self.data[mosaic.band]:
-            self.logger.debug(f'... data \"mask\" subimage generated as ones at {cutout.input_position_original}')
+            # zeros are correct here: nothing is masked
+            self.logger.debug(f'... data \"mask\" subimage generated as zeros (nothing masked)')
             cutout = Cutout2D(mosaic.data['science'], self.position, self.buffsize, wcs=mosaic.wcs, mode='partial', fill_value = np.nan, copy=True)
-            cutout.data *= 0.
+            cutout.data = np.zeros(cutout.data.shape, dtype=bool)
             self.data[mosaic.band]['mask'] = cutout
             self.headers[mosaic.band]['mask'] = subheader
 
@@ -331,16 +375,18 @@ class Brick(BaseImage):
         self.estimate_properties(band=mosaic.band, imgtype='science')
 
         if 'background' not in self.data[mosaic.band]:
-            self.logger.debug(f'... data \"background\" subimage generated as ones at {cutout.input_position_original}')
+            # zeros are correct here: no background to subtract
+            self.logger.debug(f'... data \"background\" subimage generated as zeros')
             cutout = Cutout2D(mosaic.data['science'], self.position, self.buffsize, wcs=mosaic.wcs, mode='partial', fill_value = np.nan, copy=True)
-            cutout.data *= 0.
+            cutout.data = np.zeros(cutout.data.shape, dtype=np.float32)
             self.data[mosaic.band]['background'] = cutout
             self.headers[mosaic.band]['background'] = subheader
 
         if 'rms' not in self.data[mosaic.band]:
-            self.logger.debug(f'... data \"rms\" subimage generated as ones at {cutout.input_position_original}')
+            # zeros are correct here: no per-pixel rms map available
+            self.logger.debug(f'... data \"rms\" subimage generated as zeros')
             cutout = Cutout2D(mosaic.data['science'], self.position, self.buffsize, wcs=mosaic.wcs, mode='partial', fill_value = np.nan, copy=True)
-            cutout.data *= 0.
+            cutout.data = np.zeros(cutout.data.shape, dtype=np.float32)
             self.data[mosaic.band]['rms'] = cutout
             self.headers[mosaic.band]['rms'] = subheader
 
@@ -380,6 +426,19 @@ class Brick(BaseImage):
         if self.properties[band]['subtract_background']:
             background = self.get_background(band)
         catalog, segmap = self._extract(band, imgtype='science', background=background)
+
+        if len(catalog) == 0:
+            # Nothing detected: record an empty result and stop, rather than letting
+            # the buffer-cleaning and column-adding below run on a zero-row table.
+            self.logger.warning(f'Brick #{self.brick_id} has no detections in {band}. '
+                                f'It will be skipped by downstream processing.')
+            self.is_empty = True
+            self.catalogs[band][imgtype] = catalog
+            self.data[band]['segmap'] = Cutout2D(segmap, self.position, self.buffsize,
+                                                 self.wcs[band], fill_value=0, mode='partial')
+            self.headers[band]['segmap'] = self.headers[band]['science']
+            self.n_sources[band][imgtype] = 0
+            return
 
         # clean out buffer -- these are bricks!
         self.logger.info('Removing sources detected in brick buffer...')
@@ -455,6 +514,63 @@ class Brick(BaseImage):
         self.group_ids[band][imgtype] = np.unique(group_ids)
         # self.group_pops[band][imgtype] = dict(zip(group_ids, group_pops))
         self.headers[band]['groupmap'] = self.headers[band]['science']
+
+        # Precompute every group's bounding box and pixel count in ONE pass over the
+        # brick-sized groupmap. Group.__init__ used to rescan the whole map for each
+        # group it spawned, which is O(N_groups x N_brick_pixels) and, because
+        # process_groups feeds pool.imap from a generator, ran serially in the parent
+        # process even with NCPUS > 1.
+        self._compute_group_bboxes(band=band)
+
+    def _compute_group_bboxes(self, band='detection'):
+        """Cache each group's bounding box and pixel count from the brick groupmap.
+
+        ``dilate_and_group`` renumbers groups to a contiguous 1..N, so a single
+        ``find_objects`` pass gives every box.
+
+        Args:
+            band: Band whose groupmap to scan. Defaults to ``'detection'``.
+
+        Returns:
+            dict: ``{group_id: (ylo, yhi, xlo, xhi, npix)}`` with yhi/xhi
+                EXCLUSIVE, as numpy slice bounds are. Also stored on
+                ``self.group_bboxes``.
+        """
+        gmap = self.data[band]['groupmap'].data
+        slices = find_objects(gmap)
+        counts = np.bincount(gmap.ravel())
+        self.group_bboxes = {}
+        for i, sl in enumerate(slices):
+            gid = i + 1                     # find_objects is 0-indexed over labels 1..N
+            if sl is None:
+                continue
+            npix = int(counts[gid]) if gid < len(counts) else 0
+            if npix == 0:
+                continue
+            self.group_bboxes[gid] = (sl[0].start, sl[0].stop, sl[1].start, sl[1].stop, npix)
+        self.logger.debug(f'Cached bounding boxes for {len(self.group_bboxes)} groups')
+        return self.group_bboxes
+
+    def get_group_bbox(self, group_id, band='detection'):
+        """Return one group's bounding box, computing the cache on first use.
+
+        The cache is deliberately not serialised to HDF5 -- it is one cheap pass
+        over the groupmap, and writing thousands of tiny datasets would cost more
+        than recomputing it.
+
+        Args:
+            group_id: Integer group identifier.
+            band: Band whose groupmap to use. Defaults to ``'detection'``.
+
+        Returns:
+            tuple or None: ``(ylo, yhi, xlo, xhi, npix)`` with yhi/xhi exclusive,
+                or None if the group has no pixels.
+        """
+        if not getattr(self, 'group_bboxes', None):
+            if band not in self.data or 'groupmap' not in self.data[band]:
+                return None
+            self._compute_group_bboxes(band=band)
+        return self.group_bboxes.get(int(group_id))
 
     def spawn_group(self, group_id=None, imgtype='science', bands=None, silent=False):
         """Instantiate a ``Group`` from this brick for a single source group.
@@ -562,10 +678,16 @@ class Brick(BaseImage):
             imgtype: Image type to process. Defaults to ``'science'``.
 
         Returns:
-            astropy.table.Table: The detection catalog for this brick.
+            astropy.table.Table: The detection catalog for this brick. Empty if
+                nothing was detected, in which case grouping and map transfer are
+                skipped and ``self.is_empty`` is True.
         """
         # detection
         self.extract(band=band, imgtype=imgtype)
+
+        if getattr(self, 'is_empty', False):
+            self.group_ids[band][imgtype] = np.array([], dtype=int)
+            return self.catalogs[band][imgtype]
 
         # # grouping
         self.identify_groups(band=band, imgtype=imgtype)
@@ -610,15 +732,40 @@ class Brick(BaseImage):
         if mode == 'pass':
             bands = ['detection',]
 
+        if len(group_ids) == 0:
+            self.logger.warning(f'Brick {self.brick_id} has no groups to process.')
+            return
+
+        self.fit_status = getattr(self, 'fit_status', {})
+
         # Serial processing: use generator to spawn groups one at a time
         if (conf.NCPUS == 0) | (len(group_ids) == 1):
-            for group_id in group_ids:
+            # tqdm on the serial path too -- it is the shipped default (NCPUS = 0)
+            # and the loop that dominates wall time.
+            iterator = tqdm.tqdm(group_ids, total=len(group_ids),
+                                 desc=f'Brick {self.brick_id}: {len(group_ids)} groups',
+                                 dynamic_ncols=True, smoothing=0.1)
+            for i, group_id in enumerate(iterator):
                 group = self.spawn_group(group_id, bands=bands, silent=False)
-                group = run_group(group, mode=mode)
-                self.absorb(group)
+                was_rejected = getattr(group, 'rejected', False)
+                result = run_group(group, mode=mode)
+                self.absorb(result)
+                self._record_fit_status(result, was_rejected, imgtype=imgtype)
         else:
             # Parallel processing: use generator with imap to spawn groups in small chunks
             # This avoids both: (1) materializing all groups at once, and (2) copying brick to workers
+            #
+            # KNOWN COST, not yet fixed: the pool is created HERE, after the brick is
+            # already in memory, so every worker forks off a multi-GB parent and
+            # copy-on-write copies it as CPython touches refcounts. Measured on
+            # CDFS B56 (120 groups, peak RSS across the process tree): memory grows
+            # linearly at ~3.4 GB per worker -- roughly 1.8 GB in the pool worker plus
+            # 1.6 GB in the run_group timeout child. NCPUS is therefore bounded by RAM,
+            # not by scaling: the pool itself is healthy, at 3.7x on 4 workers and
+            # 3.6x on the 16 largest groups.
+            # Fixing it properly means creating the pool BEFORE the brick is loaded, or
+            # holding band pixel data in shared memory -- both are restructures rather
+            # than local edits, so they are deliberately out of scope here.
             groups_gen = (self.spawn_group(group_id, bands=bands, silent=True) for group_id in group_ids)
             with ProcessPool(ncpus=conf.NCPUS) as pool:
                 pool.restart()
@@ -637,6 +784,9 @@ class Brick(BaseImage):
                 pbar.refresh()
                 for result in pbar:
                     self.absorb(result)
+                    # spawn_group ran in the parent, so rejection is already
+                    # reflected in the empty model_catalog the worker returned
+                    self._record_fit_status(result, False, imgtype=imgtype)
                 pbar.close()
 
             self.logger.info('All results absorbed.')
@@ -654,7 +804,40 @@ class Brick(BaseImage):
             #     self.absorb(result)
             # self.logger.info(f'All results absorbed. ({time.time() - ttstart:2.2f}s)')
 
-        self.logger.info(f'Brick {self.brick_id} has processed {len(group_ids)} groups ({time.time() - tstart:2.2f}s)')
+        # Report what actually happened. Without this a brick could lose an arbitrary
+        # fraction of its groups to IGNORE_FAILURES and still look like a clean run.
+        n_ok = sum(1 for v in self.fit_status.values() if v == 0)
+        n_bad = sum(1 for v in self.fit_status.values() if v != 0)
+        elapsed = time.time() - tstart
+        summary = (f'Brick {self.brick_id}: processed {len(group_ids)} groups in '
+                   f'{elapsed:2.2f}s -- {n_ok} sources fitted, {n_bad} not')
+        if n_bad:
+            self.logger.warning(summary)
+        else:
+            self.logger.info(summary)
+
+
+    def _record_fit_status(self, result, was_rejected, imgtype='science'):
+        """Record, per source, whether its group produced a model.
+
+        Args:
+            result: The ``(group_id, model_catalog, model_tracker)`` tuple from
+                :func:`~farmer.utils.run_group`.
+            was_rejected: True if ``spawn_group`` rejected the group outright.
+            imgtype: Image type key for the detection catalog lookup.
+        """
+        from .image import FIT_OK, FIT_GROUP_REJECTED, FIT_FAILED
+        group_id, model_catalog, __ = result
+        try:
+            catalog = self.catalogs[self.catalog_band][imgtype]
+            members = np.asarray(catalog['id'])[np.asarray(catalog['group_id']) == group_id]
+        except (KeyError, IndexError):
+            return
+        for sid in members:
+            if int(sid) in model_catalog:
+                self.fit_status[int(sid)] = FIT_OK
+            else:
+                self.fit_status[int(sid)] = FIT_GROUP_REJECTED if was_rejected else FIT_FAILED
 
 
     def absorb(self, group):

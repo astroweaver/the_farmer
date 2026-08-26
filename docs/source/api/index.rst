@@ -20,7 +20,7 @@ The Farmer exposes a small high-level API through the ``farmer`` package (see :d
    * - :mod:`farmer.image` (:doc:`baseimage`)
      - :class:`~farmer.image.BaseImage` — abstract base class shared by Mosaic, Brick, and Group. Contains all detection, optimization, and I/O logic.
    * - :mod:`farmer.utils` (:doc:`utils`)
-     - Utility functions: WCS conversion, source grouping, HDF5 I/O, PSF validation, parameter extraction, region file writing.
+     - Utility functions: WCS conversion, source grouping, HDF5 I/O, PSF validation, parameter extraction, region file writing, provenance headers.
 
 Class Hierarchy
 ---------------
