@@ -190,6 +190,15 @@ These control the SEP source extraction step:
    * - ``BACK_FH``
      - ``2``
      - Background smoothing filter height (mesh cells).
+   * - ``USE_DETECTION_WEIGHT``
+     - ``False``
+     - Hand the weight map to SEP as a per-pixel noise array. This changes what ``THRESH`` means -- see below -- so the two must be set together.
+   * - ``USE_DETECTION_MASK``
+     - ``False``
+     - Hand the mask to SEP, so masked pixels take no part in detection or deblending.
+   * - ``APPLY_DETECTION_MASK``
+     - ``False``
+     - Cull sources whose centroid lands on a masked pixel *after* detection, dropping them and their segments. Independent of ``USE_DETECTION_MASK``: setting this alone leaves detection and deblending untouched and only removes the resulting sources, which is usually what you want when the mask marks unreliable regions rather than unusable pixels.
    * - ``THRESH``
      - ``1.5``
      - Detection threshold. If ``USE_DETECTION_WEIGHT=True``, this is in sigma units (relative). Otherwise, absolute image units.

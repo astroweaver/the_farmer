@@ -43,8 +43,9 @@ Detection uses ``sep`` (the Python interface to Source Extractor) on the detecti
 2. **Convolution** — the image is convolved with the kernel specified by ``FILTER_KERNEL``.
 3. **Thresholding** — pixels exceeding ``THRESH`` (relative to RMS if ``USE_DETECTION_WEIGHT=True``, else absolute) in contiguous areas of at least ``MINAREA`` pixels are marked as detections.
 4. **Deblending** — overlapping detections are split using ``DEBLEND_NTHRESH`` thresholds and minimum contrast ``DEBLEND_CONT``.
-5. **Buffer masking** — sources whose centroids fall in the brick buffer zone are removed. Pixels belonging to their segments are masked.
-6. **World coordinates** — pixel centroids are projected to RA/Dec via the WCS.
+5. **Masking** — if ``USE_DETECTION_MASK`` was set the mask has already been applied above, at step 3; if ``APPLY_DETECTION_MASK`` is set, sources whose centroids land on masked pixels are dropped here instead. The two are independent.
+6. **Buffer masking** — sources whose centroids fall in the brick buffer zone are removed. Pixels belonging to their segments are masked.
+7. **World coordinates** — pixel centroids are projected to RA/Dec via the WCS.
 
 The output is an ``astropy.Table`` (the detection catalog) and a segmentation image (the ``segmap``).
 
@@ -122,7 +123,13 @@ The decision tree determines the best-fit profile type for each source. It runs 
      - Forced photometry
      - Morphology frozen via ``PHOT_PRIORS``; only fluxes (and optionally position within a tight prior) are free.
 
-At each stage, the optimizer runs up to ``MAX_STEPS`` iterations. Convergence is declared when :math:`|\Delta \ln \mathcal{L}| < {\rm DLNP\_CRIT}`. The chi-squared statistic:
+At each stage, the optimizer runs up to ``MAX_STEPS`` iterations. Convergence is declared when :math:`|\Delta \ln \mathcal{L}| < {\rm DLNP\_CRIT}`.
+
+.. note::
+
+   A fit that has run into a parameter bound also reports :math:`\Delta \ln \mathcal{L} = 0` and so satisfies that criterion without having converged. The two are told apart by the ``total_hit_limit`` and ``total_at_limit`` flags in the catalog; see the note under Optimizer Settings in :doc:`configuration`.
+
+The chi-squared statistic:
 
 .. math::
 

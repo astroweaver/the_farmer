@@ -92,6 +92,28 @@ COMPOSITE_DEV_STAGE = 4
 FITS_MAX_COLUMNS = 999
 
 
+def _needs_float_column(value):
+    """True if storing ``value`` in an integer column would corrupt it or raise.
+
+    Covers both failure modes: a non-finite value (NaN/inf), which numpy refuses
+    outright, and a finite non-integral one, which numpy accepts and silently
+    truncates.
+
+    Args:
+        value: The scalar about to be written.
+
+    Returns:
+        bool: ``True`` if the column must be widened to float first.
+    """
+    if isinstance(value, (str, bytes, bool, np.bool_)):
+        return False
+    try:
+        fval = float(value)
+    except (TypeError, ValueError):
+        return False
+    return (not np.isfinite(fval)) or (fval != int(fval))
+
+
 def _assign_catalog_value(catalog, name, value, irow):
     """Write one measurement into a catalog cell, creating the column if needed.
 
@@ -104,6 +126,17 @@ def _assign_catalog_value(catalog, name, value, irow):
         name: Column name.
         value: Scalar value, optionally an ``astropy.units.Quantity``.
         irow: Integer row index (see the ``row_of`` map in ``write_catalog``).
+
+    A column's dtype is fixed by whichever source is written into it first, so a
+    measurement that is not always the same type makes the dtype depend on row
+    order -- a coin flip per column per brick, which is why a field could run
+    clean once and fail on the next pass over the same data. An integer column
+    then either raises "cannot convert float NaN to integer" or, worse, silently
+    truncates a finite float. The statistic that did this (``nres``, an area
+    ratio placeheld by an integer zero) has been removed; every remaining
+    statistic is consistently typed. This promotes anyway, so that a future
+    type-unstable statistic is a widened column rather than 6 percent of bricks
+    lost at the final write, after the modelling has been paid for.
 
     Returns:
         The unit-stripped value that was written, for logging by the caller.
@@ -121,6 +154,15 @@ def _assign_catalog_value(catalog, name, value, irow):
         if np.issubdtype(col.dtype, np.floating):
             col[:] = np.nan
         catalog.add_column(col)
+
+    # Safety net for integer columns created elsewhere (fit_status and friends).
+    col = catalog[name]
+    if np.issubdtype(col.dtype, np.integer) and _needs_float_column(value):
+        promoted = col.astype(np.float64)
+        promoted.unit = col.unit
+        promoted.description = col.description
+        catalog.replace_column(name, promoted)
+
     catalog[name][irow] = value
     return value
 
@@ -1598,7 +1640,7 @@ class BaseImage():
                 if self.type == 'group':
                     self.model_tracker[self.type][self.stage][band] = {
                         'chisq': 0.0, 'rchisq': 0.0, 'rchisqmodel': np.nan,
-                        'ndata': 0, 'nparam': 0, 'ndof': 0, 'nres': 0,
+                        'ndata': 0, 'nparam': 0, 'ndof': 0,
                         'chi_k2': np.nan
                     }
                     for pc in (5, 16, 50, 84, 95):
@@ -1607,7 +1649,7 @@ class BaseImage():
                 for source_id in self.source_ids:
                     self.model_tracker[source_id][self.stage][band] = {
                         'chisq': 0.0, 'rchisq': 0.0, 'rchisqmodel': np.nan,
-                        'ndata': 0, 'nparam': 0, 'ndof': 0, 'nres': 0,
+                        'ndata': 0, 'nparam': 0, 'ndof': 0,
                         'chi_k2': np.nan, 'flag': True
                     }
                     for pc in (5, 16, 50, 84, 95):
@@ -1908,7 +1950,6 @@ class BaseImage():
         if self.type == 'group':
             self.logger.debug(f'{self.type} #{self.group_id}')
             ntotal_pix = 0
-            ntotalres_elem = 0
             totchi = []
             rchi2_model_top = []
             rchi2_model_bot = []
@@ -1925,17 +1966,6 @@ class BaseImage():
                 chi2, chi_pc = np.sum(chi**2), np.nanpercentile(chi, q=q_pc)
                 if np.isscalar(chi_pc):
                     chi_pc = np.nan * np.ones(5)
-                area = 0
-                for source_id in self.catalogs[self.catalog_band][self.catalog_imgtype]['id']:
-                    if source_id not in segmap:
-                        self.logger.debug(f'Source {source_id} missing segmap for band {band}. Skipping.')
-                        continue
-                    data = self.images[band].data.copy()
-                    segmask = np.zeros(shape=data.shape, dtype=bool)
-                    segmask[segmap[source_id][0], segmap[source_id][1]] = True
-                    data[(self.images[band].invvar <= 0) | ~segmask] = 0
-                    area += get_fwhm(data)**2
-                nres_elem = area / (get_fwhm(self.images[band].psf.img))**2
                 ndata = np.sum(self.images[band].invvar[groupmap[0], groupmap[1]] > 0) # number of pixels
                 try:
                     model_bands = self.engine.bands
@@ -1962,14 +1992,13 @@ class BaseImage():
                 rchi2 = chi2 / ndof
                 
                 self.logger.debug(f'   {band}: chi2/N = {rchi2:2.2f} ({rchi2_model:2.2f})')
-                self.logger.debug(f'   {band}: N(data) = {ndata} ({nres_elem})')
+                self.logger.debug(f'   {band}: N(data) = {ndata}')
                 self.logger.debug(f'   {band}: N(param) = {nparam}')
                 self.logger.debug(f'   {band}: N(DOF) = {ndof}')
                 self.logger.debug(f'   {band}: Med(chi) = {chi_pc[2]:2.2f}')
                 self.logger.debug(f'   {band}: Width(chi) = {chi_pc[3]-chi_pc[1]:2.2f}')
                 
                 ntotal_pix += ndata 
-                ntotalres_elem += nres_elem
                 if stage is not None:
                     self.model_tracker[self.type][stage][band] = {}
                     self.model_tracker[self.type][stage][band]['chisq'] = chi2
@@ -1984,7 +2013,6 @@ class BaseImage():
                     self.model_tracker[self.type][stage][band]['ndata'] = ndata
                     self.model_tracker[self.type][stage][band]['nparam'] = nparam
                     self.model_tracker[self.type][stage][band]['ndof'] = ndof
-                    self.model_tracker[self.type][stage][band]['nres'] = nres_elem
             try:
                 nparam = self.engine.getCatalog().numberOfParams()
             except (AttributeError, TypeError) as e:
@@ -2009,10 +2037,9 @@ class BaseImage():
             self.model_tracker[self.type][stage]['total']['ndata'] = ntotal_pix
             self.model_tracker[self.type][stage]['total']['nparam'] = nparam
             self.model_tracker[self.type][stage]['total']['ndof'] = ndof
-            self.model_tracker[self.type][stage]['total']['nres'] = ntotalres_elem
 
             self.logger.debug(f'   Total: chi2/N = {chi2/ndof:2.2f} ({tot_rchi2_model:2.2f})')
-            self.logger.debug(f'   Total: N(data) = {ntotal_pix} ({ntotalres_elem})')
+            self.logger.debug(f'   Total: N(data) = {ntotal_pix}')
             self.logger.debug(f'   Total: N(param) = {nparam}')
             self.logger.debug(f'   Total: N(DOF) = {ndof}')
             self.logger.debug(f'   Total: Med(chi) = {chi_pc[2]:2.2f}')
@@ -2032,7 +2059,6 @@ class BaseImage():
                 issolved = ' - SOLVED'
             self.logger.debug(f'Source #{source_id} ({modelname}{issolved})')
             ntotal_pix = 0
-            ntotalres_elem = 0
             totchi = []
             rchi2_model_top = []
             rchi2_model_bot = []
@@ -2064,7 +2090,6 @@ class BaseImage():
                 # near chip gaps and masked regions toward simpler models.
                 ndata = int(np.sum(self.images[band].invvar[segmap[source_id][0],
                                                             segmap[source_id][1]] > 0))
-                nres_elem = (get_fwhm(data) / get_fwhm(self.images[band].psf.img))**2
                 sci = self.get_image('science', band)
                 wht = self.get_image('weight', band)
                 mask = self.get_image('mask', band)
@@ -2091,7 +2116,7 @@ class BaseImage():
                 rchi2 = chi2 / ndof
                 
                 self.logger.debug(f'   {band}: chi2/N = {rchi2:2.2f} ({rchi2_model:2.2f})')
-                self.logger.debug(f'   {band}: N(data) = {ndata} ({nres_elem})')
+                self.logger.debug(f'   {band}: N(data) = {ndata}')
                 self.logger.debug(f'   {band}: N(param) = {nparam}')
                 self.logger.debug(f'   {band}: N(DOF) = {ndof}')
                 self.logger.debug(f'   {band}: Med(chi) = {chi_pc[2]:2.2f}')
@@ -2099,7 +2124,6 @@ class BaseImage():
                 self.logger.debug(f'   {band}: Flagged? {flag}')
 
                 ntotal_pix += ndata
-                ntotalres_elem += nres_elem
                 if stage is not None:
                     self.model_tracker[source_id][stage][band] = {}
                     self.model_tracker[source_id][stage][band]['rchisq'] = chi2 / ndof
@@ -2114,7 +2138,6 @@ class BaseImage():
                     self.model_tracker[source_id][stage][band]['ndata'] = ndata
                     self.model_tracker[source_id][stage][band]['nparam'] = nparam
                     self.model_tracker[source_id][stage][band]['ndof'] = ndof
-                    self.model_tracker[source_id][stage][band]['nres'] = nres_elem
                     self.model_tracker[source_id][stage][band]['flag'] = flag
             try:
                 nparam = self.model_catalog[source_id].numberOfParams()
@@ -2143,10 +2166,9 @@ class BaseImage():
             self.model_tracker[source_id][stage]['total']['ndata'] = ntotal_pix
             self.model_tracker[source_id][stage]['total']['nparam'] = nparam
             self.model_tracker[source_id][stage]['total']['ndof'] = ndof
-            self.model_tracker[source_id][stage]['total']['nres'] = ntotalres_elem
 
             self.logger.debug(f'   Total: chi2/N = {chi2/ndof:2.2f} ({tot_rchi2_model:2.2f})')
-            self.logger.debug(f'   Total: N(data) = {ntotal_pix} ({ntotalres_elem})')
+            self.logger.debug(f'   Total: N(data) = {ntotal_pix}')
             self.logger.debug(f'   Total: N(param) = {nparam}')
             self.logger.debug(f'   Total: N(DOF) = {ndof}')
             self.logger.debug(f'   Total: Med(chi) = {chi_pc[2]:2.2f}')
@@ -2980,10 +3002,10 @@ class BaseImage():
                     axes[0,1].text(0, 1, f'Group #{self.group_id} (Brick #{self.brick_id})', transform=axes[0,1].transAxes) 
                     axes[0,1].text(0, 0.8, f'N = {len(self.source_ids)} sources {self.source_ids}', transform=axes[0,1].transAxes) 
                     stats = self.model_tracker['group'][stage]['total']
-                    axes[0,1].text(0, 0.7, f'Total  $\chi^2_N$ = {stats["rchisq"]:2.2f} ({stats["rchisqmodel"]:2.2f}) N(DOF) = {stats["ndof"]} with {stats["nres"]:2.2f} resolution elements', transform=axes[0,1].transAxes)
+                    axes[0,1].text(0, 0.7, f'Total  $\chi^2_N$ = {stats["rchisq"]:2.2f} ({stats["rchisqmodel"]:2.2f}) N(DOF) = {stats["ndof"]}', transform=axes[0,1].transAxes)
                     axes[0,1].text(0, 0.6, f'        <$\chi$> = {stats["chi_pc50"]:2.2f} | $\sigma$($\chi$) = {stats["chi_pc84"] - stats["chi_pc16"]:2.2f} | $K^2$ = {stats["chi_k2"]:2.2f}', transform=axes[0,1].transAxes)
                     stats = self.model_tracker['group'][stage][band]
-                    axes[0,1].text(0, 0.5, f'{conf.BANDS[band]["name"]}  $\chi^2_N$ = {stats["rchisq"]:2.2f} ({stats["rchisqmodel"]:2.2f}) N(DOF) = {stats["ndof"]} with {stats["nres"]:2.2f} resolution elements', transform=axes[0,1].transAxes)
+                    axes[0,1].text(0, 0.5, f'{conf.BANDS[band]["name"]}  $\chi^2_N$ = {stats["rchisq"]:2.2f} ({stats["rchisqmodel"]:2.2f}) N(DOF) = {stats["ndof"]}', transform=axes[0,1].transAxes)
                     axes[0,1].text(0, 0.4, f'        <$\chi$> = {stats["chi_pc50"]:2.2f} | $\sigma$($\chi$) = {stats["chi_pc84"] - stats["chi_pc16"]:2.2f} | $K^2$ = {stats["chi_k2"]:2.2f}', transform=axes[0,1].transAxes)
 
                 else:
@@ -2991,10 +3013,10 @@ class BaseImage():
                     axes[0,1].text(0, 1, f'Source #{source_id} (Group #{self.group_id}, Brick #{self.brick_id})', transform=axes[0,1].transAxes)
                     axes[0,1].text(0, 0.8, f'Model type: {model.name}', transform=axes[0,1].transAxes)
                     stats = self.model_tracker[source_id][stage]['total']
-                    axes[0,1].text(0, 0.7, f'Total  $\chi^2_N$ = {stats["rchisq"]:2.2f} ({stats["rchisqmodel"]:2.2f}) N(DOF) = {stats["ndof"]} with {stats["nres"]:2.2f} resolution elements', transform=axes[0,1].transAxes)
+                    axes[0,1].text(0, 0.7, f'Total  $\chi^2_N$ = {stats["rchisq"]:2.2f} ({stats["rchisqmodel"]:2.2f}) N(DOF) = {stats["ndof"]}', transform=axes[0,1].transAxes)
                     axes[0,1].text(0, 0.6, f'        <$\chi$> = {stats["chi_pc50"]:2.2f} | $\sigma$($\chi$) = {stats["chi_pc84"] - stats["chi_pc16"]:2.2f} | $K^2$ = {stats["chi_k2"]:2.2f}', transform=axes[0,1].transAxes)
                     stats = self.model_tracker[source_id][stage][band]
-                    axes[0,1].text(0, 0.5, f'{conf.BANDS[band]["name"]}  $\chi^2_N$ = {stats["rchisq"]:2.2f} ({stats["rchisqmodel"]:2.2f}) N(DOF) = {stats["ndof"]} with {stats["nres"]:2.2f} resolution elements', transform=axes[0,1].transAxes)
+                    axes[0,1].text(0, 0.5, f'{conf.BANDS[band]["name"]}  $\chi^2_N$ = {stats["rchisq"]:2.2f} ({stats["rchisqmodel"]:2.2f}) N(DOF) = {stats["ndof"]}', transform=axes[0,1].transAxes)
                     axes[0,1].text(0, 0.4, f'        <$\chi$> = {stats["chi_pc50"]:2.2f} | $\sigma$($\chi$) = {stats["chi_pc84"] - stats["chi_pc16"]:2.2f} | $K^2$ = {stats["chi_k2"]:2.2f}', transform=axes[0,1].transAxes)
 
                     source = get_params(model)
