@@ -54,10 +54,6 @@ INT32_MAX = 2147483647
 UINT16_MAX = 65535
 UINT32_MAX = 4294967295
 
-# Minimum FWHM, in pixels, returned by get_fwhm. This is a FLOOR, applied so that a
-# degenerate single-pixel stamp cannot produce a zero width that later divides.
-DEFAULT_FWHM_MIN = 1.0
-
 # Model type names
 MODEL_TYPES = {
     'POINT': 'PointSource',
@@ -480,36 +476,6 @@ def dilate_and_group(catalog, segmap, radius=0, fill_holes=False, exclude=None):
     logger.debug(f'... N >= {5}: {ngroup} ({pc*100:2.2f}%) ')
 
     return group_ids, group_pops, groupmap
-
-
-def get_fwhm(img):
-    """Estimate the full-width at half-maximum of a 2-D image array.
-
-    Finds the span of pixels whose value exceeds half the image maximum
-    along each axis and returns the mean extent, floored at
-    ``DEFAULT_FWHM_MIN`` (1 pixel) so a degenerate stamp cannot produce a
-    zero width that later divides.
-
-    Args:
-        img: 2-D array-like representing a PSF or source profile (pixels).
-
-    Returns:
-        float: Estimated FWHM in pixels, at least ``DEFAULT_FWHM_MIN``.
-            ``np.nan`` if no pixel exceeds half the maximum (e.g. an
-            all-zero or all-NaN stamp).
-    """
-    img = np.asarray(img, dtype=float)
-    finite = np.isfinite(img)
-    if not finite.any():
-        return np.nan
-    above = img > (img[finite].max() / 2.)
-    if not above.any():
-        return np.nan
-    # np.nonzero sorts only the first axis, so take an explicit min/max on each
-    ys, xs = np.nonzero(above)
-    # +1 because the extent is an inclusive pixel count, not an index difference
-    fwhm = np.mean([ys.max() - ys.min() + 1, xs.max() - xs.min() + 1])
-    return np.nanmax([DEFAULT_FWHM_MIN, fwhm])  # floor, not a cap
 
 
 def validate_psfmodel(band, return_psftype=False):
@@ -1846,12 +1812,12 @@ def _half_max_radius(profile, half):
 def _fwhm_half_max_crossing(img):
     """FWHM of a PSF stamp, in stamp pixels, from the interpolated half-max crossing.
 
-    ``get_fwhm`` counts pixels above half maximum and reports their extent, which
-    is a whole number of pixels and lands up to a pixel low. That is fine for the
-    rough size checks it was written for, but a PSF is only a few pixels across,
-    so a one-pixel bias is a ~25 percent error in anything scaled to the FWHM --
-    including every PSF aperture. This interpolates the crossing instead: exact
-    for a centred stamp, and it does not assume a Gaussian profile.
+    Interpolating the half-max crossing is what makes this sub-pixel. Counting the
+    pixels above half maximum and reporting their extent instead -- which is what
+    this used to do -- gives a whole number of pixels and lands up to a pixel low.
+    A PSF is only a few pixels across, so that one-pixel bias is a ~25 percent
+    error in anything scaled to the FWHM, including every PSF aperture. This is
+    exact for a centred stamp and does not assume a Gaussian profile.
 
     Args:
         img: 2-D PSF stamp.

@@ -24,7 +24,6 @@ Functions
 .. autofunction:: farmer.utils.clean_catalog
 .. autofunction:: farmer.utils.dilate_and_group
 .. autofunction:: farmer.utils.get_detection_kernel
-.. autofunction:: farmer.utils.get_fwhm
 .. autofunction:: farmer.utils.validate_psfmodel
 .. autofunction:: farmer.utils.prepare_psf
 .. autofunction:: farmer.utils.get_params

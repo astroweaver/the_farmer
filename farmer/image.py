@@ -1,5 +1,5 @@
 import config as conf
-from .utils import clean_catalog, get_fwhm, map_discontinuous, SimpleGalaxy, read_wcs, cumulative, set_priors
+from .utils import clean_catalog, map_discontinuous, SimpleGalaxy, read_wcs, cumulative, set_priors
 from .utils import recursively_save_dict_contents_to_group, recursively_load_dict_contents_from_group, dcoord_to_offset, get_params
 from .utils import get_detection_kernel, provenance_header, _soften_fracdev
 from .utils import build_aperture_specs, get_model_reff, get_psf_fwhm
@@ -3080,7 +3080,12 @@ class BaseImage():
                 cmap = plt.get_cmap('rainbow', len(source_ids))
                 pixscl = self.pixel_scales[band]
                 histbins = np.linspace(-3, 3, 20)
-                hwhm = get_fwhm(self.get_psfmodel(band=band).img) / 2. * pixscl[0].to(u.arcsec).value
+                # Measured through get_psf_fwhm rather than off psfmodel.img
+                # directly: that attribute is the first PsfEx basis, not the PSF
+                # evaluated anywhere, and it is in stamp pixels, which are not
+                # image pixels unless the stamp sampling is 1.
+                hwhm = get_psf_fwhm(self.get_psfmodel(band=band),
+                                    pixscl[0]).to(u.arcsec).value / 2.
                 
                 cutout = self.data[band]['science']
                 upper = self.wcs[band].pixel_to_world(cutout.shape[1], cutout.shape[0])
