@@ -1,6 +1,6 @@
 from collections import OrderedDict
 import config as conf
-from .image import BaseImage
+from .image import BaseImage, MASK_FLAG_COLUMN
 from .utils import load_brick_position, dilate_and_group, clean_catalog, build_regions, run_group
 from .group import Group
 
@@ -455,7 +455,8 @@ class Brick(BaseImage):
             for name, dtype, unit in (('id', np.int32, None), ('brick_id', np.int32, None),
                                       ('ra', float, u.deg), ('dec', float, u.deg),
                                       ('ra_det', float, u.deg), ('dec_det', float, u.deg),
-                                      ('group_id', np.int32, None), ('group_pop', np.int16, None)):
+                                      ('group_id', np.int32, None), ('group_pop', np.int16, None),
+                                      (MASK_FLAG_COLUMN, np.int8, None)):
                 if name not in catalog.colnames:
                     catalog[name] = np.array([], dtype=dtype)
                     if unit is not None:
@@ -530,7 +531,16 @@ class Brick(BaseImage):
         radius_rpx = round(radius_px.value)
         self.logger.debug(f'Dilation radius of {radius} or {radius_px:2.2f} px rounded to {radius_rpx} px')
 
-        group_ids, group_pops, groupmap = dilate_and_group(catalog, segmap, radius=radius_rpx, fill_holes=True)
+        # Detection-masked sources are excluded from grouping entirely -- their
+        # pixels are dropped before dilation, so they cannot bridge two groups, and
+        # they come back with group_id 0. They keep their catalog row; they just
+        # never enter a group and so are never modelled.
+        exclude = None
+        if MASK_FLAG_COLUMN in catalog.colnames:
+            exclude = np.asarray(catalog[MASK_FLAG_COLUMN]).astype(bool)
+
+        group_ids, group_pops, groupmap = dilate_and_group(catalog, segmap, radius=radius_rpx,
+                                                           fill_holes=True, exclude=exclude)
 
         if overwrite:
             self.catalogs[band][imgtype]['group_id'] = group_ids
@@ -539,7 +549,12 @@ class Brick(BaseImage):
             self.catalogs[band][imgtype].add_column(group_ids, name='group_id', index=3)
             self.catalogs[band][imgtype].add_column(group_pops, name='group_pop', index=4)
         self.data[band]['groupmap'] = Cutout2D(groupmap, self.position, self.buffsize, self.wcs[band], mode='partial', fill_value = 0)
-        self.group_ids[band][imgtype] = np.unique(group_ids)
+        # group_id 0 is the ungrouped bucket that detection-masked sources land in.
+        # It is not a group and must never be spawned or processed.
+        self.group_ids[band][imgtype] = np.unique(group_ids[group_ids > 0])
+        n_ungrouped = int(np.sum(np.asarray(group_ids) == 0))
+        if n_ungrouped:
+            self.logger.info(f'{n_ungrouped} masked sources kept in the catalog but not grouped.')
         # self.group_pops[band][imgtype] = dict(zip(group_ids, group_pops))
         self.headers[band]['groupmap'] = self.headers[band]['science']
 

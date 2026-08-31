@@ -318,17 +318,24 @@ def clean_catalog(catalog, mask, segmap=None):
     return cleancat, segmap
 
 
-def dilate_and_group(catalog, segmap, radius=0, fill_holes=False):
+def dilate_and_group(catalog, segmap, radius=0, fill_holes=False, exclude=None):
     """Dilate segmentation map and group nearby sources together.
     
     Uses morphological dilation to merge nearby sources into groups, then applies
     optimized union-find algorithm to handle sources split across multiple groups.
     
     Args:
-        catalog: Source catalog with x, y positions
-        segmap: Segmentation map with source IDs
+        catalog: Source catalog, one row per segment. Used for its length.
+        segmap: Segmentation map with source IDs. Label ``i+1`` belongs to row
+            ``i`` -- the invariant ``clean_catalog`` maintains when it relabels.
         radius: Dilation radius in pixels (default: 0, no dilation)
         fill_holes: If True, fill holes in dilated regions (default: False)
+        exclude: Optional boolean array, one entry per catalog row, True for
+            sources that must not be grouped (detection-masked sources). Their
+            pixels are dropped BEFORE dilation, not just from the output, so they
+            cannot bridge two groups that would otherwise be separate -- grouping
+            is then identical to a run in which those sources never existed.
+            Excluded rows come back with ``group_id`` and ``group_pop`` of 0.
         
     Returns:
         tuple: (group_ids, group_populations, groupmap)
@@ -341,8 +348,23 @@ def dilate_and_group(catalog, segmap, radius=0, fill_holes=False):
     """
     logger = logging.getLogger('farmer.identify_groups')
 
+    n_rows = len(catalog)
+    if exclude is None:
+        work = segmap
+    else:
+        exclude = np.asarray(exclude, dtype=bool)
+        if len(exclude) != n_rows:
+            raise ValueError(f'exclude has {len(exclude)} entries for a {n_rows}-row catalog')
+        # Zero the excluded labels via a lookup rather than np.isin: at brick scale
+        # this is one pass over the map instead of one per excluded label.
+        lut = np.ones(max(int(segmap.max()), n_rows) + 1, dtype=segmap.dtype)
+        lut[0] = 0
+        lut[np.flatnonzero(exclude) + 1] = 0
+        work = segmap * lut[segmap]
+        logger.debug(f'Excluding {int(exclude.sum())} masked sources of {n_rows} from grouping')
+
     # Create binary mask
-    segmask = (segmap > 0).astype(np.uint8)
+    segmask = (work > 0).astype(np.uint8)
 
     # dilation
     if (radius is not None) & (radius > 0):
@@ -365,12 +387,14 @@ def dilate_and_group(catalog, segmap, radius=0, fill_holes=False):
     logger.debug('Checking for split segments...')
     
     # Vectorized approach: get all (segment, group) pairs
-    seg_mask = segmap > 0
+    seg_mask = work > 0
     if not np.any(seg_mask):
-        # No segments - return empty results
-        return np.array([]), np.array([]), groupmap
+        # Nothing left to group: either nothing was detected, or every detection
+        # was masked. Either way return a full-length answer, not an empty one.
+        logger.debug('No groupable segments.')
+        return (np.zeros(n_rows, dtype=int), np.zeros(n_rows, dtype=np.int16), groupmap)
         
-    seg_vals = segmap[seg_mask]
+    seg_vals = work[seg_mask]
     grp_vals = groupmap[seg_mask]
     
     # Find segments appearing in multiple groups
@@ -421,17 +445,28 @@ def dilate_and_group(catalog, segmap, radius=0, fill_holes=False):
     groupmap = final_mapping[groupmap]
 
     # report back
-    logger.debug(f'Found {np.max(groupmap)} groups for {np.max(segmap)} sources.')
-    segid, idx = np.unique(segmap.flatten(), return_index=True)
-    group_ids = groupmap.flatten()[idx[segid>0]]
+    logger.debug(f'Found {np.max(groupmap)} groups for {np.max(work)} sources.')
+    segid, idx = np.unique(work.flatten(), return_index=True)
+    kept_labels = segid[segid > 0]
+    kept_group_ids = groupmap.flatten()[idx[segid > 0]]
 
     # Vectorized group population counting
-    unique_gids, gid_counts = np.unique(group_ids, return_counts=True)
+    unique_gids, gid_counts = np.unique(kept_group_ids, return_counts=True)
     gid_to_count = dict(zip(unique_gids, gid_counts))
-    group_pops = np.array([gid_to_count[gid] for gid in group_ids], dtype=np.int16)
+    kept_pops = np.array([gid_to_count[gid] for gid in kept_group_ids], dtype=np.int16)
+
+    # Scatter back to full catalog length. Excluded rows keep 0/0, which is what
+    # marks them as ungrouped everywhere downstream.
+    group_ids = np.zeros(n_rows, dtype=kept_group_ids.dtype)
+    group_pops = np.zeros(n_rows, dtype=np.int16)
+    group_ids[kept_labels - 1] = kept_group_ids
+    group_pops[kept_labels - 1] = kept_pops
+
+    # Population statistics describe the groups that actually run.
+    group_ids_stats, group_pops_stats = kept_group_ids, kept_pops
     
-    __, idx_first = np.unique(group_ids, return_index=True)
-    ugroup_pops, ngroup_pops = np.unique(group_pops[idx_first], return_counts=True)
+    __, idx_first = np.unique(group_ids_stats, return_index=True)
+    ugroup_pops, ngroup_pops = np.unique(group_pops_stats[idx_first], return_counts=True)
 
     for i in np.arange(1, 5):
         if np.sum(ugroup_pops == i) == 0:

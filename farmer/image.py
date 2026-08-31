@@ -55,6 +55,18 @@ FIT_OK = 0                  # fitted successfully
 FIT_GROUP_REJECTED = 1      # the source's group was rejected before fitting
 FIT_FAILED = 2              # the group was fitted but this source produced no statistics
 FIT_NEVER_ATTEMPTED = 3     # the source was never handed to the engine at all
+FIT_MASKED = 4              # the source is inside the detection mask: kept, never fitted
+
+# Detection-mask flag column. Always present, so the catalog schema does not depend
+# on whether APPLY_DETECTION_MASK was set for a given run. One boolean from the
+# combined mask is all Farmer needs -- its only job is deciding what to strip from
+# groups, and _condition_band_data collapses the injected mask to `!= 0` anyway, so
+# a star/edge distinction could not survive to here even if it were injected.
+# Sampled at (round(x), round(y)), the same detection pixel that ra_det/dec_det are
+# derived from, so a downstream tool re-sampling the separate star and edge masks at
+# ra_det/dec_det must agree with this column exactly. Disagreement means a
+# misregistered or stale mask, which is the point.
+MASK_FLAG_COLUMN = 'masked'
 
 
 @functools.lru_cache(maxsize=64)
@@ -663,8 +675,10 @@ class BaseImage():
         ``conf.USE_DETECTION_WEIGHT``. The ``masktype`` image is loaded when
         either ``conf.USE_DETECTION_MASK`` or ``conf.APPLY_DETECTION_MASK`` is
         set; the former hands it to SEP so masked pixels are ignored during
-        detection and deblending, while the latter culls sources whose centroid
-        lands on a masked pixel afterwards via ``clean_catalog``. The two are
+        detection and deblending, while the latter FLAGS sources whose centroid
+        lands on a masked pixel, in ``MASK_FLAG_COLUMN``. Flagged sources are kept
+        in the catalog with their full detection block and are dropped later, at
+        grouping, so they are never modelled and carry NaN photometry. The two are
         independent, so post-detection-only masking leaves detection untouched.
 
         Args:
@@ -683,8 +697,8 @@ class BaseImage():
             tuple[astropy.table.Table, numpy.ndarray]:
                 ``(catalog, segmap)`` — the SEP source table and the
                 integer segmentation map with one label per detected source.
-                The catalog is empty if nothing was detected, or if every
-                detection was removed by ``conf.APPLY_DETECTION_MASK``.
+                The catalog is empty only if nothing was detected; masked
+                sources are flagged, not removed.
 
         Raises:
             RuntimeError: If a required weight or mask image is missing.
@@ -745,18 +759,25 @@ class BaseImage():
         self.logger.info(f'Detection found {len(catalog)} sources. ({time.time()-tstart:2.2}s)')
         catalog = Table(catalog)
 
-        # Apply mask now?
+        # Flag masked sources; do NOT delete them. They used to be culled here by
+        # clean_catalog, which dropped the rows AND zeroed their segments before ids
+        # were assigned -- so a masked source ended up with no id, no position and no
+        # row at all, the survivors were renumbered to a dense 1..N, and a catalog
+        # made under one mask could not be reconciled with one made under another.
+        # Between 22 and 39 percent of rows were disappearing this way. They now keep
+        # their full SEP detection block and are excluded later, at grouping, so they
+        # are still never modelled and the groups that do run are unchanged.
+        catalog[MASK_FLAG_COLUMN] = np.zeros(len(catalog), dtype=np.int8)
         if conf.APPLY_DETECTION_MASK & (postmask is not None):
-            n_predetect = len(catalog)
-            catalog, segmap = clean_catalog(catalog, postmask, segmap)
-            self.logger.info(f'Detection mask removed {n_predetect-len(catalog)} of {n_predetect} sources.')
-            if len(catalog) == 0:
-                # As with the no-detections branch above, do not sys.exit() here:
-                # SystemExit is a BaseException that IGNORE_FAILURES cannot catch
-                # and would kill the whole multi-brick loop. Brick.extract() sets
-                # is_empty on a zero-row catalog and skips grouping from there.
+            xpix = np.round(np.asarray(catalog['x'])).astype(int)
+            ypix = np.round(np.asarray(catalog['y'])).astype(int)
+            flagged = np.asarray(postmask)[ypix, xpix].astype(bool)
+            catalog[MASK_FLAG_COLUMN] = flagged.astype(np.int8)
+            self.logger.info(f'Detection mask flagged {int(flagged.sum())} of {len(catalog)} '
+                             f'sources. They keep their detection rows and are not modelled.')
+            if flagged.all():
                 self.logger.warning('Every detection falls within the detection mask -- '
-                                    'returning an empty catalog. May be OK.')
+                                    'the catalog is kept but nothing will be modelled. May be OK.')
         elif conf.APPLY_DETECTION_MASK & (postmask is None):
             raise RuntimeError('Cannot apply detection mask when there is no mask supplied!')
 
@@ -2253,6 +2274,15 @@ class BaseImage():
         dec = np.asarray(catalog[dec_col], dtype=float)     # deg
         reff = np.full(nsrc, np.nan)                        # arcsec
 
+        # Detection-masked sources carry NaN photometry throughout, apertures
+        # included, so that "masked" means the same thing in every flux column.
+        skip = np.zeros(nsrc, dtype=bool)
+        if MASK_FLAG_COLUMN in catalog.colnames:
+            # Excluded via the per-aperture `good` mask rather than by NaN-ing their
+            # coordinates: all_world2pix is iterative and can raise NoConvergence on
+            # a NaN input rather than quietly returning one.
+            skip = np.asarray(catalog[MASK_FLAG_COLUMN]).astype(bool)
+
         row_of = {int(v): i for i, v in enumerate(ids)}
         for source_id, model in self.model_catalog.items():
             irow = row_of.get(int(source_id))
@@ -2329,7 +2359,7 @@ class BaseImage():
                     flag = np.zeros(nsrc, dtype=np.int16)
 
                     good = (np.isfinite(radius_pix) & (radius_pix > 0)
-                            & np.isfinite(x) & np.isfinite(y))
+                            & np.isfinite(x) & np.isfinite(y) & ~skip)
                     if good.any():
                         f, fe, fl = sep.sum_circle(data, x[good], y[good], radius_pix[good],
                                                    var=var, mask=mask, subpix=subpix)
@@ -3897,12 +3927,24 @@ class BaseImage():
         # NaNs can be told apart from a genuine non-detection downstream.
         if 'fit_status' not in catalog.colnames:
             status_col = Column(length=len(catalog), name='fit_status', dtype=np.int16,
-                                description='0=fitted, 1=group rejected, 2=fit failed, 3=never attempted')
+                                description='0=fitted, 1=group rejected, 2=fit failed, '
+                                            '3=never attempted, 4=detection-masked')
             status_col[:] = FIT_NEVER_ATTEMPTED
             catalog.add_column(status_col)
         for sid, code in getattr(self, 'fit_status', {}).items():
             if int(sid) in row_of:
                 catalog['fit_status'][row_of[int(sid)]] = code
+
+        # Detection-masked sources were deliberately never handed to the engine, so
+        # say that rather than leaving them as "never attempted", which is the code
+        # for a source that fell through for reasons unknown. This is set last so it
+        # is not overwritten by the loop above.
+        if MASK_FLAG_COLUMN in catalog.colnames:
+            is_masked = np.asarray(catalog[MASK_FLAG_COLUMN]).astype(bool)
+            if is_masked.any():
+                catalog['fit_status'][is_masked] = FIT_MASKED
+                self.logger.info(f'{int(is_masked.sum())} detection-masked sources kept with '
+                                 f'NaN photometry (fit_status = {FIT_MASKED}).')
 
         # loop over set
         for source_id in self.model_catalog:

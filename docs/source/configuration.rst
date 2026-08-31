@@ -198,7 +198,7 @@ These control the SEP source extraction step:
      - Hand the mask to SEP, so masked pixels take no part in detection or deblending.
    * - ``APPLY_DETECTION_MASK``
      - ``False``
-     - Cull sources whose centroid lands on a masked pixel *after* detection, dropping them and their segments. Independent of ``USE_DETECTION_MASK``: setting this alone leaves detection and deblending untouched and only removes the resulting sources, which is usually what you want when the mask marks unreliable regions rather than unusable pixels.
+     - Flag sources whose centroid lands on a masked pixel *after* detection, in the ``masked`` column. Flagged sources are **kept** in the catalog with their full detection block and excluded from grouping, so they are never modelled and carry NaN photometry — see :ref:`masked-sources` below. Independent of ``USE_DETECTION_MASK``: setting this alone leaves detection and deblending untouched.
    * - ``THRESH``
      - ``1.5``
      - Detection threshold. If ``USE_DETECTION_WEIGHT=True``, this is in sigma units (relative). Otherwise, absolute image units.
@@ -234,6 +234,43 @@ Available convolution kernels (``config/conv_filters/``):
 - ``gauss_1.5_3x3.conv``, ``gauss_2.0_5x5.conv``, ``gauss_3.0_5x5.conv``, ``gauss_3.0_7x7.conv``, ``gauss_4.0_7x7.conv``, ``gauss_5.0_9x9.conv`` — Gaussian kernels
 - ``mexhat_*.conv`` — Mexican-hat (DoG) kernels at various scales
 - ``tophat_*.conv`` — circular top-hat kernels
+
+.. _masked-sources:
+
+Masked sources
+~~~~~~~~~~~~~~
+
+``APPLY_DETECTION_MASK`` does not remove anything. A flagged source keeps its row,
+its ``id``, its ``ra_det``/``dec_det`` and the whole SEP detection block (``npix``,
+``tnpix``, ``flux``, ``cflux``, ``peak``, ``a``, ``b``, ``theta``, …). What it loses
+is modelling: flagged sources are dropped before the dilation in
+``dilate_and_group``, so they never enter a group, are never fitted, and every
+photometric column — model fluxes and apertures alike — is NaN. They are marked
+``group_id = 0`` and ``fit_status = 4``.
+
+Dropping them *before* the dilation rather than after it matters: a masked source
+that sits between two real ones would otherwise bridge them into a single group.
+Excluding it at that point makes the groups, and therefore every fit, identical to
+a run in which the source had never been detected.
+
+Earlier versions deleted the rows outright, which removed 22–39 percent of
+detections depending on the field, and did so before ``id`` was assigned — so the
+survivors were renumbered to a dense 1..N and there was no way to reconcile a
+catalog made under one mask with a catalog made under another. Keeping the rows
+restores the choice of applying the mask, a different mask, or none, after the fact.
+
+The ``masked`` column is one boolean derived from the combined mask, which is all
+The Farmer needs to decide what to strip from groups. It is sampled at
+``(round(x), round(y))`` — the same detection pixel ``ra_det``/``dec_det`` are
+derived from — so a downstream tool that re-samples the separate star and edge
+masks at ``ra_det``/``dec_det`` must reproduce it exactly:
+
+.. code-block:: python
+
+   assert (cat['masked'] == (cat['FLAG_STAR'] | cat['FLAG_EDGE'])).all()
+
+Two independent derivations of the same fact, so a misregistered or stale mask
+fails loudly instead of shipping.
 
 Brick Parameters
 -----------------
