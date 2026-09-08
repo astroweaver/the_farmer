@@ -497,21 +497,31 @@ Output file and columns
 Aperture measurements are written to their **own** FITS table,
 ``B{brick}_apertures.cat``, beside the main catalog rather than as extra columns
 on it. A FITS binary table is capped at 999 columns (``TFIELDS`` is a three-digit
-keyword), and each aperture costs eight columns per band: an 11-band run spends
-~326 columns before apertures and runs out at eight of them. Keeping them
+keyword), and each aperture costs nine columns per band: an 11-band run spends
+~326 columns before apertures and runs out at seven of them. Keeping them
 separate means a cross-check can never make the science catalog unwritable, and
 apertures can be added without doing that arithmetic. The table carries ``id``,
 ``brick_id`` and the centroid each aperture was placed on (``aper_ra``,
 ``aper_dec``), so it joins to the main catalog on ``id`` and also stands alone.
 
-Each aperture writes eight columns per band, named ``{band}_{tag}_{quantity}``
+Each aperture writes nine columns per band, named ``{band}_{tag}_{quantity}``
 where ``quantity`` is one of ``flux``, ``flux_err``, ``flux_ujy``,
 ``flux_ujy_err``, ``mag``, ``mag_err``, ``diam`` (the aperture diameter actually
-used, in arcsec) and ``flag`` (the SEP aperture flag; non-zero means the aperture
+used, in arcsec), ``apcorr`` (the multiplicative point-source aperture
+correction) and ``flag`` (the SEP aperture flag; non-zero means the aperture
 was truncated at an image edge or overlapped masked or zero-weight pixels). The
 tag encodes the aperture: ``aper1as`` for a fixed 1 arcsec diameter, ``aperpsf2``
-for two PSF FWHM, ``aperreff2`` for two effective radii. Column count is eight
+for two PSF FWHM, ``aperreff2`` for two effective radii. Column count is nine
 per aperture per band, so trim the lists above on wide multi-band catalogs.
+
+The ``apcorr`` column is measured, per source, from the curve of growth of the
+same spatially nearest PSF stamp the model fits use, referenced to the stamp
+total -- so for stamps normalised to contain the source's total flux, wings
+included, ``flux * apcorr`` is the total flux of an unresolved source. It is
+provided, never applied: for extended sources it is only a lower bound on the
+aperture-to-total correction, and for apertures larger than the PSF stamp it
+saturates (flux beyond the stamp footprint is not recoverable from the stamp).
+Sources without a usable PSF stamp or aperture radius carry NaN.
 
 The effective radius used by ``APER_REFF_FACTORS`` is ``exp(logre)`` for a single
 component model, the fixed ``SIMPLEGALAXY_REFF`` for a ``SimpleGalaxy``, and the

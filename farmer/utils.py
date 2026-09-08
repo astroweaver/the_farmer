@@ -1210,7 +1210,7 @@ def recursively_save_dict_contents_to_group(h5file, dic, path='/'):
         # HDF5 datasets (see Brick.get_group_bbox, which rebuilds it on demand).
         # 'aperture_catalogs' is written to its own FITS file by
         # BaseImage.write_aperture_catalog and is recomputable in a single pass. It is
-        # skipped here because it is wide by construction -- eight columns per aperture
+        # skipped here because it is wide by construction -- nine columns per aperture
         # per band -- and HDF5 caps a compound datatype at a 64 KB object header
         # message, so a wide enough aperture table fails write_hdf5 with "object header
         # message is too large" and takes the whole brick write down with it.
@@ -1877,6 +1877,63 @@ def get_psf_fwhm(psfmodel, pixel_scale, x=0., y=0.):
     # Skipping it silently rescales every PSF aperture by the oversampling factor.
     sampling = getattr(psfmodel, 'sampling', 1.) or 1.
     return (fwhm_stamp * float(sampling)) * pixel_scale.to(u.arcsec)
+
+
+def get_psf_curve_of_growth(psfmodel, x=0., y=0., subpix=5, nrad=64):
+    """Encircled-energy curve of a PSF model, for point-source aperture corrections.
+
+    Sums the PSF stamp in ``nrad`` log-spaced circular apertures about the stamp
+    centre and normalises by the stamp total, giving the fraction of a point
+    source's flux enclosed at each radius. The reference is the stamp total: for
+    stamps normalised so their sum is the source's total flux (wings included),
+    ``1/ee`` is the exact point-source aperture correction, while any true PSF
+    flux outside the stamp footprint is invisible here. A ``RENORM_PSF``
+    rescaling multiplies the whole stamp and cancels in the ratio.
+
+    Args:
+        psfmodel: Tractor PSF object (``PixelizedPSF``, ``PixelizedPsfEx``, ...).
+        x: Image x coordinate at which to evaluate a spatially varying PSF (pix).
+        y: Image y coordinate at which to evaluate a spatially varying PSF (pix).
+        subpix: sep sub-pixel edge sampling; pass the aperture photometry's own
+            value so the correction and the measurement integrate identically.
+        nrad: Number of radial samples.
+
+    Returns:
+        tuple: ``(radii, ee)`` -- aperture radii in IMAGE pixels (the stamp's
+        oversampling is folded in via ``psfmodel.sampling``, as in
+        :func:`get_psf_fwhm`) and the enclosed-flux fraction at each, both led
+        by an exact ``(0, 0)`` anchor and ready for ``np.interp``;
+        ``(None, None)`` if there is no usable stamp.
+    """
+    import sep
+
+    if psfmodel is None:
+        return None, None
+    try:
+        # constantPsfAt returns self for a constant PSF and evaluates the basis
+        # for a PsfEx model, so this one call covers both (as in get_psf_fwhm).
+        stamp = psfmodel.constantPsfAt(float(x), float(y)).img
+    except (AttributeError, TypeError, ValueError):
+        return None, None
+
+    stamp = np.ascontiguousarray(stamp, dtype=np.float32)
+    total = float(np.nansum(stamp))
+    ny, nx = stamp.shape
+    cx, cy = (nx - 1) / 2., (ny - 1) / 2.
+    rmax = min(cx, cy)              # largest circle fully inside the stamp
+    if not np.isfinite(total) or total <= 0 or rmax <= 1:
+        return None, None
+
+    radii = np.geomspace(0.25, rmax, int(nrad))     # stamp pixels
+    flux, __, __ = sep.sum_circle(stamp, np.full(radii.size, cx),
+                                  np.full(radii.size, cy), radii, subpix=subpix)
+    # The true EE is monotone; enforce it so a noise dip in the wings cannot
+    # spike a 1/ee correction.
+    ee = np.maximum.accumulate(np.clip(flux / total, 0., None))
+
+    sampling = float(getattr(psfmodel, 'sampling', 1.) or 1.)
+    return (np.concatenate(([0.], radii * sampling)),
+            np.concatenate(([0.], ee)))
 
 
 def set_priors(model, priors):

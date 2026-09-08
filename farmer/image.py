@@ -2,7 +2,7 @@ import config as conf
 from .utils import clean_catalog, map_discontinuous, SimpleGalaxy, read_wcs, cumulative, set_priors
 from .utils import recursively_save_dict_contents_to_group, recursively_load_dict_contents_from_group, dcoord_to_offset, get_params
 from .utils import get_detection_kernel, provenance_header, _soften_fracdev
-from .utils import build_aperture_specs, get_model_reff, get_psf_fwhm
+from .utils import build_aperture_specs, get_model_reff, get_psf_fwhm, get_psf_curve_of_growth
 from .utils import APER_KIND_FIXED, APER_KIND_PSF, APER_KIND_REFF
 
 import logging
@@ -2263,7 +2263,14 @@ class BaseImage():
             map. On drizzled or otherwise resampled data the pixel-to-pixel
             noise is correlated, so these are UNDERESTIMATES -- treat an
             aperture signal-to-noise on such products as an upper bound.
-            Aperture fluxes are raw: no aperture correction is applied.
+            Aperture fluxes are raw; the ``{band}_{tag}_apcorr`` column carries
+            the multiplicative point-source aperture correction (total = flux x
+            apcorr for an unresolved source), measured from the curve of growth
+            of the same nearest-PSF stamps the model fits use and referenced to
+            the stamp total. It is exact for point sources, a lower bound on
+            aperture-to-total for extended ones, and it saturates once an
+            aperture outgrows the stamp footprint. It is NOT applied to the
+            flux columns.
         """
         if not getattr(conf, 'DO_APERTURE_PHOT', False):
             self.logger.debug('Aperture photometry is off (conf.DO_APERTURE_PHOT = False).')
@@ -2325,6 +2332,7 @@ class BaseImage():
         # stands on its own and it is recoverable whether a source was measured at
         # its fitted position or fell back to the detection one.
         aper = Table({'id': ids, 'aper_ra': ra * u.deg, 'aper_dec': dec * u.deg})
+        src_coords = None   # built lazily; only needed for multi-stamp PSF grids
 
         for imgtype in imgtypes:
             for band in bands:
@@ -2368,6 +2376,31 @@ class BaseImage():
                     if np.isfinite(fwhm_arcsec):
                         self.logger.debug(f'{band}: PSF FWHM = {fwhm_arcsec:2.3f} arcsec')
 
+                # Point-source aperture corrections from the SAME stamps the model
+                # fits use: each source is matched to its nearest PSF (the
+                # get_psfmodel lookup groups do), one curve of growth per stamp.
+                cog = {}                                  # stamp index -> (radii_pix, ee)
+                src_stamp = np.zeros(nsrc, dtype=int)     # per-source stamp index
+                try:
+                    psfcoords = (self.data['psfcoords'] if self.type == 'mosaic'
+                                 else self.data[band]['psfcoords'])
+                    single = np.any(psfcoords == 'none') | (np.size(psfcoords) == 1)
+                    if not single:
+                        if src_coords is None:
+                            src_coords = SkyCoord(ra * u.deg, dec * u.deg)
+                        src_stamp, __, __ = src_coords.match_to_catalog_sky(psfcoords)
+                        src_stamp = np.asarray(src_stamp, dtype=int)
+                    for stamp_idx in np.unique(src_stamp):
+                        psfmodel = (self.get_psfmodel(band) if single else
+                                    self.get_psfmodel(band, coord=psfcoords[stamp_idx]))
+                        cog[stamp_idx] = get_psf_curve_of_growth(
+                            psfmodel, x=data.shape[1] / 2., y=data.shape[0] / 2.,
+                            subpix=subpix)
+                except (KeyError, AttributeError, ValueError, TypeError, OSError) as e:
+                    self.logger.warning(f'No PSF curve of growth for {band}; '
+                                        f'its aperture corrections will be NaN ({e}).')
+                    cog = {}
+
                 zpt = conf.BANDS[band]['zeropoint']
                 flux_to_ujy = 10 ** (-0.4 * (zpt - 23.9))
 
@@ -2396,6 +2429,21 @@ class BaseImage():
                     elif np.isfinite(diam).any():
                         self.logger.debug(f'{band} {tag}: no source had a usable aperture radius.')
 
+                    # Point-source aperture correction: divide out the enclosed PSF
+                    # fraction at each aperture radius. Exact for unresolved sources;
+                    # a LOWER BOUND on aperture-to-total for extended ones. Radii
+                    # beyond the stamp saturate at the curve's last point.
+                    apcorr = np.full(nsrc, np.nan)
+                    for stamp_idx, (cog_r, cog_ee) in cog.items():
+                        if cog_r is None:
+                            continue
+                        sel = good & (src_stamp == stamp_idx)
+                        if not sel.any():
+                            continue
+                        ee = np.interp(radius_pix[sel], cog_r, cog_ee)
+                        with np.errstate(divide='ignore'):
+                            apcorr[sel] = np.where(ee > 0, 1.0 / ee, np.nan)
+
                     with np.errstate(invalid='ignore', divide='ignore'):
                         detected = np.isfinite(flux) & (flux > 0)
                         mag = np.where(detected, -2.5 * np.log10(np.where(detected, flux, 1.)) + zpt,
@@ -2414,6 +2462,7 @@ class BaseImage():
                     aper[f'{prefix}_mag'] = mag * u.mag
                     aper[f'{prefix}_mag_err'] = mag_err
                     aper[f'{prefix}_diam'] = diam * u.arcsec
+                    aper[f'{prefix}_apcorr'] = apcorr
                     aper[f'{prefix}_flag'] = flag
 
                 self.logger.info(f'Measured {len(specs)} apertures for {nsrc} sources '
@@ -3736,7 +3785,7 @@ class BaseImage():
 
         Apertures live in a separate file rather than as extra columns on the main
         catalog for two reasons. A FITS binary table is capped at
-        ``FITS_MAX_COLUMNS`` columns, and each aperture costs eight columns per
+        ``FITS_MAX_COLUMNS`` columns, and each aperture costs nine columns per
         band -- on a wide run that ceiling is reachable, and it would be reached at
         the final write, after the whole brick had been fitted. And the aperture
         measurements are a cross-check on the model photometry, not the deliverable

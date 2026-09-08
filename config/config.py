@@ -183,10 +183,12 @@ APER_REFF_FACTORS = [2.0,]
 APER_IMGTYPES = ['science',]
 # sep sub-pixel sampling of the aperture edge. 0 uses the exact overlap area.
 APER_SUBPIX = 5
-# Each aperture writes 8 columns per band (flux, flux_err, flux_ujy, flux_ujy_err,
-# mag, mag_err, diam, flag), so the four defaults above cost 32 columns per band.
-# Trim these lists on wide multi-band catalogs -- column count, not row count, is
-# what makes a catalog expensive to hold in memory.
+# Each aperture writes 9 columns per band (flux, flux_err, flux_ujy, flux_ujy_err,
+# mag, mag_err, diam, apcorr, flag), so the four defaults above cost 36 columns
+# per band. apcorr is the multiplicative POINT-SOURCE aperture correction from
+# the band's PSF curve of growth (total = flux * apcorr for an unresolved
+# source); it is provided, never applied. Trim these lists on wide multi-band
+# catalogs -- column count, not row count, is what makes a catalog expensive.
 
 # Ancillary Maps: Models, Chi, Residuals, Effective Areas
 RESIDUAL_BA_MIN = 0.01
