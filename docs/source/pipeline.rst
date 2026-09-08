@@ -118,7 +118,7 @@ The decision tree determines the best-fit profile type for each source. It runs 
      - Bulge + disk composite with a free bulge fraction ``fracDev``. If no model at stages 0–3 gives a significantly better fit than PointSource, the source remains a PointSource.
    * - 10 (final)
      - Winning model
-     - Re-optimize the winning model with tighter position prior before photometry.
+     - Re-optimize the winning model under ``PHOT_PRIORS`` before photometry.
    * - 11 (phot)
      - Forced photometry
      - Morphology frozen via ``PHOT_PRIORS``; only fluxes (and optionally position within a tight prior) are free.
@@ -145,7 +145,7 @@ Decision logic at each step:
 - **Exp/Dev → Composite**: if Δχ² > ``SUFFICIENT_THRESH`` for any source in the group, upgrade.
 - **Fallback**: if a more complex model fails to converge or produces unphysical parameters, revert to the simpler one.
 
-Positions are updated with a Gaussian prior (``MODEL_PRIORS['pos']``) to prevent large astrometric shifts. The prior is tightened between the modeling and photometry stages (``PHOT_PRIORS['pos']``).
+During modelling, positions are updated under a Gaussian prior (``MODEL_PRIORS['pos']``) to prevent large astrometric shifts. At the photometry stage they are frozen by the shipped ``PHOT_PRIORS`` (a tight Gaussian prior is the configurable alternative -- see :doc:`configuration`).
 
 Forced Photometry
 ~~~~~~~~~~~~~~~~~~
@@ -225,5 +225,5 @@ For large surveys, memory is the primary constraint. The Farmer provides several
 
 - **Lazy brick loading** — ``brick_has_band()`` reads only HDF5 metadata to check whether a band exists, without loading pixel arrays.
 - **Generator-based group spawning** — groups are spawned one at a time and destroyed after absorption. The full list of groups is never held in memory simultaneously.
-- **Cleanup methods** — ``cleanup_after_detection()`` and ``cleanup_after_modeling()`` delete pixel arrays that are no longer needed between stages.
+- **Cleanup methods** — ``cleanup_after_detection()`` and ``cleanup_after_modeling()`` delete data no longer needed between stages. The latter also prunes the per-stage decision-tree history in ``model_tracker`` to photometry-safe shells, and now runs by default before the post-modelling and post-photometry HDF5 writes (``keep_tracker=True`` on ``generate_models``/``photometer`` preserves the history). The tracker serializes as ~11 KB of pure HDF5 metadata per source-stage — at 30k sources over 6 stages, roughly 2 GB and minutes of write time for convergence history nothing downstream reads — while the final models, variances, and ``fit_status``, everything a later photometry run needs, are kept.
 - **Chunk-based WCS mapping** — the multi-resolution ID mapping processes 10,000 pixels at a time.

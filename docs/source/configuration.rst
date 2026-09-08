@@ -421,11 +421,28 @@ Priors control how model parameters are constrained during optimization. Two set
    }
 
    PHOT_PRIORS = {
-       'pos':     0.001 * u.arcsec,  # Tight position prior during photometry
+       'pos':     'freeze',           # Hold positions fixed (production best practice)
        'reff':    'freeze',           # Hold effective radius fixed
        'shape':   'freeze',           # Hold ellipticity/PA fixed
        'fracDev': 'freeze',           # Hold bulge fraction fixed
    }
+
+With everything but the fluxes frozen, forced photometry is a linear solve in the
+per-band fluxes. A tight positional prior (e.g. ``0.001 * u.arcsec``) is the
+configurable alternative: the position is one parameter per source fit jointly
+across the requested bands, so thawing it buys a single photometry-stage
+recentering, decoupled from the model-stage solution -- worthwhile only when a
+band carries a known astrometric offset relative to the detection frame.
+
+.. note::
+
+   This default changed from a ``0.001 * u.arcsec`` prior to ``'freeze'``.
+   Relative to catalogs made under the old default, expect small flux
+   differences (no joint recentering at the photometry stage) and the absence
+   of the band-prefixed phot-stage position columns, which are only written
+   when a photometry-stage parameter is free to move. Bricks pin their priors
+   at build time, so the new default reaches newly built bricks only; set
+   ``brick.phot_priors`` explicitly to override an existing brick.
 
 Prior values:
 

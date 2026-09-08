@@ -650,7 +650,8 @@ def detect_sources(brick_ids=None, band='detection', imgtype='science', brick=No
         if cleanup:
             brick.cleanup_after_detection()
 
-def generate_models(brick_ids=None, group_ids=None, bands=conf.MODEL_BANDS, imgtype='science'):
+def generate_models(brick_ids=None, group_ids=None, bands=conf.MODEL_BANDS, imgtype='science',
+                    keep_tracker=False):
     """Determine the best-fit morphological model for every source in one or more bricks.
 
     Loads (or builds) each brick, runs source detection if not already done,
@@ -667,6 +668,11 @@ def generate_models(brick_ids=None, group_ids=None, bands=conf.MODEL_BANDS, imgt
             Defaults to ``conf.MODEL_BANDS``.
         imgtype: Image type key for the detection catalog lookup.
             Defaults to ``'science'``.
+        keep_tracker: If True, keep the full per-stage decision-tree history in
+            the written HDF5 (for debugging). By default it is pruned to
+            photometry-safe shells first: the history costs ~11 KB of pure HDF5
+            metadata per source-stage -- gigabytes and minutes per brick at
+            survey scale -- for information nothing downstream reads.
 
     Returns:
         Brick: The processed brick when ``brick_ids`` is scalar; ``None``
@@ -676,10 +682,13 @@ def generate_models(brick_ids=None, group_ids=None, bands=conf.MODEL_BANDS, imgt
         AssertionError: If the brick does not contain detection data.
     """
     # get bricks with 'brick_ids' for 'bands'
+    # Remember scalar-ness BEFORE rewrapping: the return check at the bottom used
+    # to test the rewrapped list, so the brick was never actually returned.
+    scalar_input = np.isscalar(brick_ids)
     if brick_ids is None:
         n_bricks = conf.N_BRICKS[0] * conf.N_BRICKS[1]
         brick_ids = 1 + np.arange(n_bricks)
-    elif np.isscalar(brick_ids):
+    elif scalar_input:
         brick_ids = [brick_ids,]
 
     # Loop over bricks (or just one!)
@@ -701,6 +710,14 @@ def generate_models(brick_ids=None, group_ids=None, bands=conf.MODEL_BANDS, imgt
         # process the groups
         brick.process_groups(group_ids=group_ids, imgtype=imgtype, mode='model')
 
+        # Prune the decision-tree history before writing: it is ~11 KB of pure
+        # HDF5 metadata per source-stage (about 2 GB and 220 s at 30k sources),
+        # and everything a later photometry run needs -- final models, variances,
+        # fit_status -- lives elsewhere. keep_tracker=True preserves it for
+        # debugging runs.
+        if not keep_tracker:
+            brick.cleanup_after_modeling(clear_tracker=True)
+
         # write brick
         brick.write_hdf5(allow_update=True)
         brick.write_catalog(allow_update=True)
@@ -709,10 +726,11 @@ def generate_models(brick_ids=None, group_ids=None, bands=conf.MODEL_BANDS, imgt
         brick.build_all_images()
         brick.write_fits(allow_update=True)
 
-    if np.isscalar(brick_ids):
+    if scalar_input:
         return brick
 
-def photometer(brick_ids=None, group_ids=None, bands=None, imgtype='science'):
+def photometer(brick_ids=None, group_ids=None, bands=None, imgtype='science',
+               keep_tracker=False):
     """Measure forced photometry in all configured bands for one or more bricks.
 
     Loads (or builds) each brick, updates it with any missing bands, runs
@@ -727,17 +745,21 @@ def photometer(brick_ids=None, group_ids=None, bands=None, imgtype='science'):
         bands: Bands to measure photometry in. If ``None``, uses all
             configured bands from ``conf.BANDS``.
         imgtype: Image type key for catalog lookup. Defaults to ``'science'``.
+        keep_tracker: If True, keep the full per-stage tracker history in the
+            written HDF5. Pruned by default; see ``generate_models``.
 
     Returns:
         Brick: The processed brick when ``brick_ids`` is scalar; ``None``
             when processing multiple bricks.
     """
     # get bricks with 'brick_ids' for 'bands'
+    # Remember scalar-ness BEFORE rewrapping (see generate_models).
+    scalar_input = np.isscalar(brick_ids)
     if brick_ids is None:
         n_bricks = conf.N_BRICKS[0] * conf.N_BRICKS[1]
         brick_ids = 1 + np.arange(n_bricks)
 
-    if np.isscalar(brick_ids):
+    if scalar_input:
         brick_ids = [brick_ids,]
 
     # Loop over bricks (or just one!)
@@ -753,13 +775,25 @@ def photometer(brick_ids=None, group_ids=None, bands=None, imgtype='science'):
                 brick.write_hdf5(allow_update=True)
 
         # if models aren't prepared, then determine them and run phot
+        # NOTE `bands` used to stop at brick loading and never reach the groups, so
+        # photometer(bands=[...]) silently measured every configured band anyway.
+        # Pass a copy: stage_models/update_models mutate the list they are given.
+        group_bands = None if bands is None else list(bands)
         if len(brick.model_catalog) == 0:        # TODO make this ironclad!     
-            brick.process_groups(group_ids=group_ids, imgtype=imgtype, mode='all')
+            brick.process_groups(group_ids=group_ids, imgtype=imgtype, mode='all',
+                                 bands=group_bands)
         else: # just run phot
-            brick.process_groups(group_ids=group_ids, imgtype=imgtype, mode='photometry')
+            brick.process_groups(group_ids=group_ids, imgtype=imgtype, mode='photometry',
+                                 bands=group_bands)
 
         # aperture photometry -- a no-op unless conf.DO_APERTURE_PHOT is set
         brick.measure_apertures()
+
+        # Prune the per-stage tracker before writing (see generate_models). The
+        # catalog write below is unaffected: each model holds its final-stage
+        # statistics by direct reference, not through the tracker.
+        if not keep_tracker:
+            brick.cleanup_after_modeling(clear_tracker=True)
 
         # write brick
         brick.write_hdf5(allow_update=True)
@@ -773,7 +807,7 @@ def photometer(brick_ids=None, group_ids=None, bands=None, imgtype='science'):
         brick.build_all_images()
         brick.write_fits(allow_update=True)
     
-    if np.isscalar(brick_ids):
+    if scalar_input:
         return brick
 
 def quick_group(brick_id=1, group_id=524, brick=None):

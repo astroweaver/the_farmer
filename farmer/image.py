@@ -236,7 +236,9 @@ class BaseImage():
                 self.model_catalog[source_id] = PointSource(None, None)  # this is a bit of a DT-dependent move...
                 self.model_tracker[source_id] = {}
                 self.source_ids = np.array(catalog['id'])
-            self.model_tracker[source_id][self.stage] = {}
+            # setdefault: a pruned or partially-restored tracker may hold no key
+            # for a source that IS in the model catalog
+            self.model_tracker.setdefault(source_id, {})[self.stage] = {}
 
     def reset_models(self):
         """Clear all model state in preparation for a fresh optimization run.
@@ -288,24 +290,48 @@ class BaseImage():
         self.logger.debug('Cleanup complete.')
 
     def cleanup_after_modeling(self, keep_models=True, clear_tracker=True):
-        """Remove non-essential data after modeling to save memory.
-        
-        Clears model tracking information and computed residuals/chi images
-        if they won't be written to disk. Keeps the final model catalog.
-        
+        """Remove non-essential data after modeling to save memory and disk.
+
+        Prunes the per-stage decision-tree history in ``model_tracker`` and
+        deletes computed residual/chi images. Keeps the final model catalog:
+        the models and their variances, plus ``fit_status``, are all a later
+        photometry run needs.
+
+        The tracker, not the pixels, is what makes the post-modelling HDF5
+        enormous: every source gets a tracker entry at every stage its group
+        runs, and each entry serializes as a nest of HDF5 groups (a full model
+        + variance, one statistics group per band, and a total group), costing
+        ~11 KB of pure metadata per source-stage. Measured with the real
+        serializer at 30k sources x 6 stages x 3 bands: ~2 GB and ~220 s to
+        write (and ~175 s to read back) for the history, against ~24 MB / ~1 s
+        pruned, with the final models a further ~96 MB either way.
+
+        The prune keeps EMPTY per-source shells rather than wiping the dict:
+        ``add_tracker`` and ``spawn_group`` both index
+        ``model_tracker[source_id]`` directly, so a bare wipe (this method's
+        old behaviour) left the brick unable to run photometry at all.
+
         Args:
-            keep_models: If True, keep model_catalog (needed for writing)
-            clear_tracker: If True, delete detailed model_tracker (analysis only)
+            keep_models: If True, keep model_catalog (needed for writing and
+                for any later photometry).
+            clear_tracker: If True, prune the per-stage model_tracker history
+                down to photometry-safe empty shells.
         """
         if not hasattr(self, 'model_tracker'):
             return
         
         self.logger.debug('Cleaning up post-modeling data...')
         
-        # Clear model tracker (detailed convergence history)
+        # Prune the per-stage history, keep the structure photometry expects
         if clear_tracker:
-            self.model_tracker = OrderedDict()
-            self.logger.debug('  Deleted model_tracker')
+            n_stages = sum(len(v) for v in self.model_tracker.values()
+                           if isinstance(v, dict))
+            self.model_tracker = OrderedDict((key, {}) for key in self.model_tracker)
+            if hasattr(self, 'model_tracker_groups'):
+                self.model_tracker_groups = OrderedDict(
+                    (key, {}) for key in self.model_tracker_groups)
+            self.logger.info(f'Pruned {n_stages} model-tracker stage entries '
+                             f'(final models kept in model_catalog).')
         
         # Remove computed residuals/chi images (only needed if writing)
         for band in self.data:
@@ -4046,6 +4072,12 @@ class BaseImage():
 
         # update catalog for self
         self.set_catalog(catalog, catalog_band=catalog_band, catalog_imgtype=catalog_imgtype)
+
+        # The group size limit actually used, which may be a process_groups override
+        # rather than the configured value the provenance dump records.
+        catalog.meta['GRPLIM'] = (int(getattr(self, 'group_size_limit_used',
+                                              conf.GROUP_SIZE_LIMIT)),
+                                  'group size limit used by process_groups')
 
         # Stamp provenance into the catalog's own header, so the delivered product
         # records the code version, git hash, inputs and configuration that made it.

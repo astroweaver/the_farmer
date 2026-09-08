@@ -1,6 +1,6 @@
 from collections import OrderedDict
 import config as conf
-from .image import BaseImage, MASK_FLAG_COLUMN
+from .image import BaseImage, MASK_FLAG_COLUMN, FIT_OK
 from .utils import load_brick_position, dilate_and_group, clean_catalog, build_regions, run_group
 from .group import Group
 
@@ -505,7 +505,64 @@ class Brick(BaseImage):
                       outpath = os.path.join(conf.PATH_ANCILLARY, f'B{self.brick_id}_{band}_{imgtype}_objects.reg'))
 
 
-    def identify_groups(self, band='detection', imgtype='science', radius=conf.DILATION_RADIUS, overwrite=False):
+    def _unmodelled_sources(self, band='detection', imgtype='science'):
+        """Boolean array over the detection catalog: True where no usable model exists.
+
+        The primary evidence is ``self.fit_status`` (a source is usable iff its
+        code is ``FIT_OK``), because that is the only fitted-ness marker that
+        survives the HDF5 round trip: the model serializer stores a Tractor model
+        as parameter values, name and variance only, so ``.statistics`` -- and any
+        other in-session attribute -- is gone on a reloaded brick, and judging by
+        model attributes there would silently call EVERY source unmodelled. HDF5
+        hands dictionary keys back as strings, hence the normalisation. Sources
+        ``fit_status`` does not know fall back to the in-session test: a real
+        brightness (the detection-time placeholder is ``PointSource(None, None)``)
+        and non-empty fit statistics.
+
+        Args:
+            band: Band whose catalog to index against. Defaults to ``'detection'``.
+            imgtype: Image type key. Defaults to ``'science'``.
+
+        Returns:
+            numpy.ndarray: Boolean array aligned with the catalog rows.
+        """
+        status = {}
+        for key, code in getattr(self, 'fit_status', {}).items():
+            try:
+                status[int(key)] = int(code)
+            except (TypeError, ValueError):
+                continue
+
+        catalog = self.catalogs[band][imgtype]
+        unmodelled = np.ones(len(catalog), dtype=bool)
+        for i, source_id in enumerate(np.asarray(catalog['id']).astype(int)):
+            if source_id in status:
+                unmodelled[i] = status[source_id] != FIT_OK
+                continue
+            model = self.model_catalog.get(source_id)
+            if model is None:
+                continue
+            if getattr(model, 'brightness', None) is None:
+                continue
+            if not getattr(model, 'statistics', None):
+                continue
+            unmodelled[i] = False
+
+        # An all-True answer on a brick that plainly holds models means the
+        # fitted-ness evidence is missing (e.g. an old brick written before
+        # fit_status existed), not that nothing was fit. De-grouping everything
+        # from here would silently produce an empty alternative catalog, so say
+        # it loudly.
+        if len(unmodelled) and unmodelled.all() and len(self.model_catalog):
+            self.logger.warning(
+                f'_unmodelled_sources: no usable models found among '
+                f'{len(self.model_catalog)} model catalog entries -- if this brick '
+                f'was fitted, its fit_status records are missing and everything '
+                f'will be de-grouped.')
+        return unmodelled
+
+    def identify_groups(self, band='detection', imgtype='science', radius=conf.DILATION_RADIUS, overwrite=False,
+                        exclude_unmodelled=False):
         """Group nearby sources by morphologically dilating the segmentation map.
 
         Converts ``radius`` from arcsec to pixels using the detection WCS,
@@ -523,6 +580,10 @@ class Brick(BaseImage):
             overwrite: If True, replace existing ``group_id``/``group_pop``
                 columns; if False, add them as new columns.
                 Defaults to False.
+            exclude_unmodelled: If True, also de-group every source without a
+                usable fitted model (see ``_unmodelled_sources``) -- used when
+                re-grouping at a coarser deblending scale for forced photometry
+                on low-resolution bands. Defaults to False.
         """
         catalog = self.catalogs[band][imgtype]
         segmap = self.data[band]['segmap'].data
@@ -539,6 +600,22 @@ class Brick(BaseImage):
         if MASK_FLAG_COLUMN in catalog.colnames:
             exclude = np.asarray(catalog[MASK_FLAG_COLUMN]).astype(bool)
 
+        # For a re-grouping at a coarser deblending scale (forced photometry on
+        # low-resolution bands against the fitted priors), sources without a
+        # usable model are de-grouped the same way: dropped BEFORE dilation. That
+        # keeps their segments from seeding, extending, or bridging any group
+        # footprint, and keeps groups from failing outright on a member with no
+        # model (update_models raises on one). It does NOT remove their flux: a
+        # de-grouped source inside a modelled neighbour's dilated footprint still
+        # contributes unmodelled light to weighted pixels there, and at the coarse
+        # PSF its wings reach into footprints its segment never touches.
+        if exclude_unmodelled:
+            unmodelled = self._unmodelled_sources(band=band, imgtype=imgtype)
+            newly = unmodelled if exclude is None else (unmodelled & ~exclude)
+            self.logger.info(f'De-grouping {int(newly.sum())} sources without usable models '
+                             f'(on top of {0 if exclude is None else int(exclude.sum())} already masked).')
+            exclude = unmodelled if exclude is None else (exclude | unmodelled)
+
         group_ids, group_pops, groupmap = dilate_and_group(catalog, segmap, radius=radius_rpx,
                                                            fill_holes=True, exclude=exclude)
 
@@ -549,12 +626,31 @@ class Brick(BaseImage):
             self.catalogs[band][imgtype].add_column(group_ids, name='group_id', index=3)
             self.catalogs[band][imgtype].add_column(group_pops, name='group_pop', index=4)
         self.data[band]['groupmap'] = Cutout2D(groupmap, self.position, self.buffsize, self.wcs[band], mode='partial', fill_value = 0)
+
+        # Re-grouping makes every per-band segmap/groupmap copy stale: they hold
+        # the PREVIOUS grouping's ids, and transfer_maps will happily serve any
+        # surviving copy as a same-pixel-scale donor for a band it is asked to
+        # rebuild -- old ids indexing new groups, with the wrong footprints (or,
+        # via its swallowed KeyError, no footprint masking at all). Invalidate
+        # them all here, so the next transfer_maps must rebuild from the new maps.
+        if overwrite:
+            n_dropped = 0
+            for other in self.bands:
+                if other == band or other not in self.data:
+                    continue
+                n_dropped += int(self.data[other].pop('segmap', None) is not None)
+                self.data[other].pop('groupmap', None)
+            if n_dropped:
+                self.logger.info(f'Regrouping invalidated the per-band maps of {n_dropped} bands; '
+                                 f'run transfer_maps(overwrite=True) before photometry.')
+
         # group_id 0 is the ungrouped bucket that detection-masked sources land in.
         # It is not a group and must never be spawned or processed.
         self.group_ids[band][imgtype] = np.unique(group_ids[group_ids > 0])
         n_ungrouped = int(np.sum(np.asarray(group_ids) == 0))
         if n_ungrouped:
-            self.logger.info(f'{n_ungrouped} masked sources kept in the catalog but not grouped.')
+            self.logger.info(f'{n_ungrouped} sources (detection-masked or unmodelled) kept in '
+                             f'the catalog but not grouped.')
         # self.group_pops[band][imgtype] = dict(zip(group_ids, group_pops))
         self.headers[band]['groupmap'] = self.headers[band]['science']
 
@@ -615,12 +711,13 @@ class Brick(BaseImage):
             self._compute_group_bboxes(band=band)
         return self.group_bboxes.get(int(group_id))
 
-    def spawn_group(self, group_id=None, imgtype='science', bands=None, silent=False):
+    def spawn_group(self, group_id=None, imgtype='science', bands=None, silent=False,
+                    group_size_limit=None):
         """Instantiate a ``Group`` from this brick for a single source group.
 
         Creates a ``Group`` object centred on the group's bounding box,
         cuts out all requested bands, validates that segment pixel
-        coordinates are in bounds, enforces the ``conf.GROUP_SIZE_LIMIT``,
+        coordinates are in bounds, enforces the group size limit,
         transfers model catalog entries and tracking history from the brick,
         and returns the ready-to-process group.
 
@@ -633,6 +730,10 @@ class Brick(BaseImage):
                 Defaults to None.
             silent: If True, suppress informational log messages.
                 Defaults to False.
+            group_size_limit: Maximum sources per group before rejection.
+                ``None`` uses ``conf.GROUP_SIZE_LIMIT``. Re-grouped forced
+                photometry passes a large value here: the small default exists
+                to protect the model decision tree, not flux-only fits.
 
         Returns:
             Group: Populated group object.  ``group.rejected`` is True if
@@ -678,9 +779,14 @@ class Brick(BaseImage):
         
         if not silent:
             self.logger.debug(f'Group #{group_id} has {nsrcs} sources: {source_ids}')
-        if nsrcs > conf.GROUP_SIZE_LIMIT:
+        # The small default limit exists to protect the model decision tree, which
+        # is the expensive stage. Forced photometry fits fluxes only, so callers
+        # re-grouping at a coarser deblending scale pass a large override here
+        # rather than editing conf.
+        size_limit = conf.GROUP_SIZE_LIMIT if group_size_limit is None else group_size_limit
+        if nsrcs > size_limit:
             if not silent:
-                self.logger.debug(f'Group #{group_id} has {nsrcs} sources, but the limit is set to {conf.GROUP_SIZE_LIMIT}! Skipping...')
+                self.logger.debug(f'Group #{group_id} has {nsrcs} sources, but the limit is set to {size_limit}! Skipping...')
             group.rejected = True
             return group
         
@@ -743,7 +849,8 @@ class Brick(BaseImage):
 
         return self.catalogs[band][imgtype]
 
-    def process_groups(self, group_ids=None, imgtype='science', bands=None, mode='all'):
+    def process_groups(self, group_ids=None, imgtype='science', bands=None, mode='all',
+                       group_size_limit=None):
         """Model and/or measure photometry for all (or specified) groups.
 
         Spawns each group in turn and passes it to :func:`~farmer.utils.run_group`.
@@ -762,8 +869,18 @@ class Brick(BaseImage):
             mode: Processing mode forwarded to :func:`~farmer.utils.run_group`
                 — one of ``'all'``, ``'model'``, ``'photometry'``, or
                 ``'pass'``. Defaults to ``'all'``.
+            group_size_limit: Override for the per-group source limit, passed
+                through to ``spawn_group`` and used consistently by both the
+                serial and parallel paths. ``None`` uses
+                ``conf.GROUP_SIZE_LIMIT``.
         """
         self.logger.info(f'Processing groups for brick {self.brick_id}...')
+
+        # Recorded so write_catalog can stamp the limit actually used into the
+        # catalog header -- the config provenance only knows conf.GROUP_SIZE_LIMIT,
+        # which an alternative-photometry run deliberately overrides.
+        self.group_size_limit_used = int(conf.GROUP_SIZE_LIMIT if group_size_limit is None
+                                         else group_size_limit)
 
         tstart = time.time()
 
@@ -789,7 +906,8 @@ class Brick(BaseImage):
                                  desc=f'Brick {self.brick_id}: {len(group_ids)} groups',
                                  dynamic_ncols=True, smoothing=0.1)
             for i, group_id in enumerate(iterator):
-                group = self.spawn_group(group_id, bands=bands, silent=False)
+                group = self.spawn_group(group_id, bands=bands, silent=False,
+                                         group_size_limit=group_size_limit)
                 was_rejected = getattr(group, 'rejected', False)
                 result = run_group(group, mode=mode)
                 self.absorb(result)
@@ -809,7 +927,9 @@ class Brick(BaseImage):
             # Fixing it properly means creating the pool BEFORE the brick is loaded, or
             # holding band pixel data in shared memory -- both are restructures rather
             # than local edits, so they are deliberately out of scope here.
-            groups_gen = (self.spawn_group(group_id, bands=bands, silent=True) for group_id in group_ids)
+            groups_gen = (self.spawn_group(group_id, bands=bands, silent=True,
+                                           group_size_limit=group_size_limit)
+                          for group_id in group_ids)
             with ProcessPool(ncpus=conf.NCPUS) as pool:
                 pool.restart()
 
@@ -834,7 +954,9 @@ class Brick(BaseImage):
                     gid = result[0]
                     cat = self.catalogs[self.catalog_band][imgtype]
                     n_in_group = int(np.sum(np.asarray(cat['group_id']) == gid))
-                    was_rejected = n_in_group > conf.GROUP_SIZE_LIMIT or n_in_group == 0
+                    size_limit = (conf.GROUP_SIZE_LIMIT if group_size_limit is None
+                                  else group_size_limit)
+                    was_rejected = n_in_group > size_limit or n_in_group == 0
                     self._record_fit_status(result, was_rejected, imgtype=imgtype)
                 pbar.close()
 

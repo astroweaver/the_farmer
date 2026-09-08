@@ -148,7 +148,18 @@ MODEL_PRIORS = { 'pos':  0.1 * u.arcsec,
                 'shape': 'none',
                 'fracDev': 'none',
 }
-PHOT_PRIORS = { 'pos':   0.001 * u.arcsec,
+# Production best practice: freeze EVERYTHING but fluxes during forced photometry.
+# 'pos' is one parameter per source, fit JOINTLY across all requested bands -- so a
+# thawed position means a single photometry-stage recentering decoupled from the
+# model-stage solution, not per-band positions. That is worth having only when a
+# band carries a known astrometric offset against the detection frame; otherwise
+# freeze. With every non-flux parameter frozen the fit is a linear solve in the
+# fluxes (which is what makes large re-grouped photometry runs cheap), and the
+# band-prefixed phot-stage position columns are no longer produced, since nothing
+# moved. NOTE bricks PIN these priors at build time (Brick.__init__ stores them,
+# and they round-trip through HDF5) -- changing this line affects newly built
+# bricks only; set brick.phot_priors explicitly to override an existing brick.
+PHOT_PRIORS = { 'pos':   'freeze',
                 'reff': 'freeze',
                 'shape': 'freeze',
                 'fracDev': 'freeze'
