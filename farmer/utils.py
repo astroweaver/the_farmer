@@ -1277,8 +1277,16 @@ def recursively_save_dict_contents_to_group(h5file, dic, path='/'):
         elif isinstance(item, tractor_model_types):
             if key == 'variance':
                 continue
-            item.unfreezeParams()
-            item.variance.unfreezeParams()
+            # thawAllRecursive, NOT unfreezeParams (nor thawAllParams): set_priors
+            # freezes INSIDE the sub-objects -- pos.freezeAllParams(),
+            # shape.freezeParam(i) -- and neither of the other two recurses into
+            # them. With all-frozen phot_priors that made every serialised model
+            # 'brightness.* + name' and nothing else: no position, no shape, so a
+            # reloaded brick could not rebuild its models at all (KeyError on
+            # 'pos.ra' in the reader below). Leaving the model thawed afterwards is
+            # harmless: set_priors re-applies the freezing before every fit.
+            item.thawAllRecursive()
+            item.variance.thawAllRecursive()
             model_params = dict(zip(item.getParamNames(), item.getParams()))
             model_params['name'] = item.name
             model_params['variance'] = dict(zip(item.variance.getParamNames(), item.variance.getParams()))
@@ -1422,7 +1430,18 @@ def recursively_load_dict_contents_from_group(h5file, path='/', ans=None):
                 is_variance = False
                 for item in (item, item['variance']):
                     name = item.attrs['name']
-                    pos = RaDecPos(item.attrs['pos.ra'], item.attrs['pos.dec'])
+                    _attrs = item.attrs
+                    def _a(key, _attrs=_attrs):
+                        """Model parameter, or NaN if this is a legacy checkpoint.
+
+                        Files written before the thawAllRecursive fix above carry only
+                        brightness.* and name. NaN rather than a default so that an
+                        unrepaired model fails loudly instead of quietly fitting at
+                        (0, 0) with a round profile; callers that reload such a brick
+                        must restore pos/shape from the brick's .cat first.
+                        """
+                        return _attrs[key] if key in _attrs else np.nan
+                    pos = RaDecPos(_a('pos.ra'), _a('pos.dec'))
                     fluxes = {}
                     for param in item.attrs:
                         if param.startswith('brightness'):
@@ -1435,15 +1454,15 @@ def recursively_load_dict_contents_from_group(h5file, path='/', ans=None):
                     elif name == 'SimpleGalaxy':
                         model = SimpleGalaxy(pos, flux)
                     elif name == 'ExpGalaxy':
-                        shape = EllipseESoft(item.attrs['shape.logre'], item.attrs['shape.ee1'], item.attrs['shape.ee2'])
+                        shape = EllipseESoft(_a('shape.logre'), _a('shape.ee1'), _a('shape.ee2'))
                         model = ExpGalaxy(pos, flux, shape)
                     elif name == 'DevGalaxy':
-                        shape = EllipseESoft(item.attrs['shape.logre'], item.attrs['shape.ee1'], item.attrs['shape.ee2'])
+                        shape = EllipseESoft(_a('shape.logre'), _a('shape.ee1'), _a('shape.ee2'))
                         model = DevGalaxy(pos, flux, shape)
                     elif name == 'FixedCompositeGalaxy':
-                        shape_exp = EllipseESoft(item.attrs['shapeExp.logre'], item.attrs['shapeExp.ee1'], item.attrs['shapeExp.ee2'])
-                        shape_dev = EllipseESoft(item.attrs['shapeDev.logre'], item.attrs['shapeDev.ee1'], item.attrs['shapeDev.ee2'])
-                        model = FixedCompositeGalaxy(pos, flux, SoftenedFracDev(item.attrs['fracDev.SoftenedFracDev']), shape_exp, shape_dev)
+                        shape_exp = EllipseESoft(_a('shapeExp.logre'), _a('shapeExp.ee1'), _a('shapeExp.ee2'))
+                        shape_dev = EllipseESoft(_a('shapeDev.logre'), _a('shapeDev.ee1'), _a('shapeDev.ee2'))
+                        model = FixedCompositeGalaxy(pos, flux, SoftenedFracDev(_a('fracDev.SoftenedFracDev')), shape_exp, shape_dev)
                     
                     if not is_variance:
                         ans[key] = model
