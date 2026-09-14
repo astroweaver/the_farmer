@@ -1902,12 +1902,16 @@ def get_psf_curve_of_growth(psfmodel, x=0., y=0., subpix=5, nrad=64):
     """Encircled-energy curve of a PSF model, for point-source aperture corrections.
 
     Sums the PSF stamp in ``nrad`` log-spaced circular apertures about the stamp
-    centre and normalises by the stamp total, giving the fraction of a point
-    source's flux enclosed at each radius. The reference is the stamp total: for
-    stamps normalised so their sum is the source's total flux (wings included),
-    ``1/ee`` is the exact point-source aperture correction, while any true PSF
-    flux outside the stamp footprint is invisible here. A ``RENORM_PSF``
-    rescaling multiplies the whole stamp and cancels in the ratio.
+    centre, giving the enclosed flux ON THE STAMP'S OWN NORMALISATION -- the same
+    normalisation that defines the fitted model fluxes (a fitted flux ``F``
+    means ``F x stamp`` matches the image). Dividing an aperture flux by this
+    ``ee`` therefore lands on the fitted-flux scale for a point source under ANY
+    stamp convention. The stamp sum is deliberately NOT divided out: stamps
+    normalised so the TRUE total is unity, with the wings extrapolated beyond
+    the footprint, sum to the in-stamp fraction (< 1), and ``1/ee`` then
+    restores the out-of-stamp wings too. Dividing by the stamp sum would
+    silently cancel exactly that encoding -- unit-normalising the stamp -- and
+    cap the correction at the stamp edge.
 
     Args:
         psfmodel: Tractor PSF object (``PixelizedPSF``, ``PixelizedPsfEx``, ...).
@@ -1920,7 +1924,7 @@ def get_psf_curve_of_growth(psfmodel, x=0., y=0., subpix=5, nrad=64):
     Returns:
         tuple: ``(radii, ee)`` -- aperture radii in IMAGE pixels (the stamp's
         oversampling is folded in via ``psfmodel.sampling``, as in
-        :func:`get_psf_fwhm`) and the enclosed-flux fraction at each, both led
+        :func:`get_psf_fwhm`) and the enclosed stamp flux at each, both led
         by an exact ``(0, 0)`` anchor and ready for ``np.interp``;
         ``(None, None)`` if there is no usable stamp.
     """
@@ -1946,9 +1950,10 @@ def get_psf_curve_of_growth(psfmodel, x=0., y=0., subpix=5, nrad=64):
     radii = np.geomspace(0.25, rmax, int(nrad))     # stamp pixels
     flux, __, __ = sep.sum_circle(stamp, np.full(radii.size, cx),
                                   np.full(radii.size, cy), radii, subpix=subpix)
-    # The true EE is monotone; enforce it so a noise dip in the wings cannot
-    # spike a 1/ee correction.
-    ee = np.maximum.accumulate(np.clip(flux / total, 0., None))
+    # The true enclosed flux is monotone in radius; enforce it so a noise dip
+    # in the wings cannot spike a 1/ee correction. No division by the stamp
+    # sum (`total` above is only a junk guard) -- see the docstring.
+    ee = np.maximum.accumulate(np.clip(flux, 0., None))
 
     sampling = float(getattr(psfmodel, 'sampling', 1.) or 1.)
     return (np.concatenate(([0.], radii * sampling)),

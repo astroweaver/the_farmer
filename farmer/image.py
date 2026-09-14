@@ -2266,10 +2266,14 @@ class BaseImage():
             Aperture fluxes are raw; the ``{band}_{tag}_apcorr`` column carries
             the multiplicative point-source aperture correction (total = flux x
             apcorr for an unresolved source), measured from the curve of growth
-            of the same nearest-PSF stamps the model fits use and referenced to
-            the stamp total. It is exact for point sources, a lower bound on
-            aperture-to-total for extended ones, and it saturates once an
-            aperture outgrows the stamp footprint. It is NOT applied to the
+            of the same nearest-PSF stamps the model fits use, on the stamp's
+            OWN normalisation -- the one that defines the fitted fluxes -- so
+            flux x apcorr lands on the model-flux scale under any stamp
+            convention. For stamps normalised to unit total with the wings
+            extrapolated (stamp sum < 1), the correction includes the
+            out-of-stamp wing fraction, approaching 1/(stamp sum) at the stamp
+            edge. It is exact for point sources, a lower bound on
+            aperture-to-total for extended ones, and it is NOT applied to the
             flux columns.
         """
         if not getattr(conf, 'DO_APERTURE_PHOT', False):

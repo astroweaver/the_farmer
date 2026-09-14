@@ -515,13 +515,17 @@ for two PSF FWHM, ``aperreff2`` for two effective radii. Column count is nine
 per aperture per band, so trim the lists above on wide multi-band catalogs.
 
 The ``apcorr`` column is measured, per source, from the curve of growth of the
-same spatially nearest PSF stamp the model fits use, referenced to the stamp
-total -- so for stamps normalised to contain the source's total flux, wings
-included, ``flux * apcorr`` is the total flux of an unresolved source. It is
-provided, never applied: for extended sources it is only a lower bound on the
-aperture-to-total correction, and for apertures larger than the PSF stamp it
-saturates (flux beyond the stamp footprint is not recoverable from the stamp).
-Sources without a usable PSF stamp or aperture radius carry NaN.
+same spatially nearest PSF stamp the model fits use, on the stamp's own
+normalisation -- the one that defines the fitted fluxes, since a fitted flux
+``F`` means ``F x stamp`` matches the image. ``flux * apcorr`` therefore lands
+on the model-flux scale for an unresolved source under any stamp convention:
+for stamps normalised to unit total with the wings extrapolated beyond the
+footprint (stamp sum < 1), the correction includes the out-of-stamp wing
+fraction, approaching ``1/(stamp sum)`` for apertures at the stamp edge. The
+stamp sum is deliberately not divided out -- that would unit-normalise the
+stamp and silently cancel the wing encoding. The column is provided, never
+applied: for extended sources it is only a lower bound on the aperture-to-total
+correction. Sources without a usable PSF stamp or aperture radius carry NaN.
 
 The effective radius used by ``APER_REFF_FACTORS`` is ``exp(logre)`` for a single
 component model, the fixed ``SIMPLEGALAXY_REFF`` for a ``SimpleGalaxy``, and the
