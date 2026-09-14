@@ -478,6 +478,136 @@ def dilate_and_group(catalog, segmap, radius=0, fill_holes=False, exclude=None):
     return group_ids, group_pops, groupmap
 
 
+def models_from_catalog(path, bands=None, with_variance=True):
+    """Rebuild a brick's Tractor model catalog from its written `.cat` file.
+
+    The catalog is a complete record of the fit: it stores the fitted position,
+    the model class, and the NATIVE Tractor shape parameters (``logre``/``ee1``/
+    ``ee2``, ``softfracdev``, and the exp/dev pairs) rather than derived
+    quantities like reff or position angle. So this is a reader, not an inversion
+    -- nothing is reconstructed approximately.
+
+    That makes the catalog a complete restart point, which is why bricks do not
+    need a separate multi-GB HDF5 checkpoint: ``B{id}_fin.h5`` was 9.9 GB per
+    brick of which 9.0 GB was a second copy of pixel planes already present in
+    ``B{id}.h5``, while the models it existed to preserve are attributes measured
+    in megabytes.
+
+    The returned dict is exactly what ``update_models(existing_catalog=...)`` and
+    ``Brick.model_catalog`` already expect, so it plugs into the existing
+    machinery unchanged.
+
+    IMPORTANT -- what does NOT come back. Model ``.statistics`` are not stored in
+    the catalog (they are the source of its own chi-squared and per-band
+    diagnostic columns). A rebuilt model therefore carries its fitted parameters
+    but no statistics, so:
+
+      * you CAN restart PHOTOMETRY from a catalog and then write a new one;
+      * you CANNOT regenerate a catalog from one without re-fitting, because the
+        statistics columns would come out empty.
+
+    This is the same constraint the HDF5 round trip has.
+
+    Args:
+        path: Path to a ``B{id}.cat`` written by ``write_catalog``.
+        bands: Band names whose fluxes to restore. ``None`` discovers them from
+            the ``<band>_flux`` columns, which is what you want unless you are
+            deliberately restricting the fit.
+        with_variance: Also attach a ``.variance`` model built from the ``_err``
+            columns, so ``get_params`` can emit uncertainties. Variance models
+            hold VARIANCES, so each error is squared on the way in.
+
+    Returns:
+        tuple: ``(model_catalog, fit_status)`` -- an ``OrderedDict`` of
+            ``source_id -> Tractor model``, and a dict of ``source_id -> FIT_*``
+            code. Only rows with a usable model class are included; masked and
+            unmodelled rows carry an empty ``name`` and are skipped, which
+            reproduces what ``_unmodelled_sources`` would conclude.
+    """
+    logger = logging.getLogger('farmer.models_from_catalog')
+    tab = Table.read(path)
+    cols = set(tab.colnames)
+
+    if bands is None:
+        bands = [c[:-5] for c in tab.colnames
+                 if c.endswith('_flux') and (c + '_err') in cols]
+    if not bands:
+        raise RuntimeError(f'{path}: no <band>_flux columns found')
+
+    names = np.asarray(tab['name']).astype(str)
+    ids = np.asarray(tab['id']).astype(int)
+    status = np.asarray(tab['fit_status']).astype(int) if 'fit_status' in cols \
+        else np.zeros(len(tab), dtype=int)
+
+    def col(name):
+        return np.asarray(tab[name], dtype=float) if name in cols else None
+
+    ra, dec = col('ra'), col('dec')
+    ra_e, dec_e = col('ra_err'), col('dec_err')
+    flux = {b: col(f'{b}_flux') for b in bands}
+    flux_e = {b: col(f'{b}_flux_err') for b in bands}
+
+    def _shape(i, suffix=''):
+        lr, e1, e2 = col(f'logre{suffix}'), col(f'ee1{suffix}'), col(f'ee2{suffix}')
+        return EllipseESoft(float(lr[i]), float(e1[i]), float(e2[i]))
+
+    def _shape_var(i, suffix=''):
+        lr, e1, e2 = (col(f'logre{suffix}_err'), col(f'ee1{suffix}_err'),
+                      col(f'ee2{suffix}_err'))
+        if lr is None:
+            return EllipseESoft(0., 0., 0.)
+        return EllipseESoft(float(lr[i])**2, float(e1[i])**2, float(e2[i])**2)
+
+    def _build(i, variance):
+        nm = names[i]
+        if variance:
+            pos = RaDecPos(float(ra_e[i])**2 if ra_e is not None else 0.,
+                           float(dec_e[i])**2 if dec_e is not None else 0.)
+            fl = Fluxes(**{b: (float(flux_e[b][i])**2 if flux_e[b] is not None else 0.)
+                           for b in bands})
+        else:
+            pos = RaDecPos(float(ra[i]), float(dec[i]))
+            fl = Fluxes(**{b: float(flux[b][i]) for b in bands})
+
+        if nm == MODEL_TYPES['POINT']:
+            m = PointSource(pos, fl); m.name = nm
+        elif nm == MODEL_TYPES['SIMPLE']:
+            m = SimpleGalaxy(pos, fl)
+        elif nm == MODEL_TYPES['EXP']:
+            m = ExpGalaxy(pos, fl, _shape_var(i) if variance else _shape(i))
+        elif nm == MODEL_TYPES['DEV']:
+            m = DevGalaxy(pos, fl, _shape_var(i) if variance else _shape(i))
+        elif nm == MODEL_TYPES['COMP']:
+            sf = col('softfracdev_err' if variance else 'softfracdev')
+            f = float(sf[i])**2 if variance else float(sf[i])
+            m = FixedCompositeGalaxy(
+                pos, fl, SoftenedFracDev(f),
+                _shape_var(i, '_exp') if variance else _shape(i, '_exp'),
+                _shape_var(i, '_dev') if variance else _shape(i, '_dev'))
+        else:
+            return None
+        return m
+
+    out = OrderedDict()
+    fit_status = {}
+    n_skip = 0
+    for i in range(len(tab)):
+        m = _build(i, variance=False)
+        if m is None:
+            n_skip += 1
+            continue
+        if with_variance:
+            v = _build(i, variance=True)
+            if v is not None:
+                m.variance = v
+        out[int(ids[i])] = m
+        fit_status[int(ids[i])] = int(status[i])
+
+    logger.info(f'Rebuilt {len(out)} models from {os.path.basename(path)} '
+                f'({len(bands)} bands); skipped {n_skip} rows with no model class.')
+    return out, fit_status
+
+
 def validate_psfmodel(band, return_psftype=False):
     """Validate and classify the PSF model configured for a band.
 
