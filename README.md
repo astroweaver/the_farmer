@@ -167,11 +167,17 @@ farmer.photometer(bands=['irac_ch1'])
 | File | Location | Contents |
 |---|---|---|
 | `B{id}.h5` | `PATH_BRICKS/` | Full brick state: images, catalogs, models |
-| `B{id}_catalog.fits` | `PATH_CATALOGS/` | Source catalog with fluxes, magnitudes, morphologies |
+| `B{id}.cat` | `PATH_CATALOGS/` | Source catalog with fluxes, magnitudes, morphologies |
+| `B{id}_models.cat` | `PATH_CATALOGS/` | Full modelling-stage solution + its point-source reference |
+| `B{id}_apertures.cat` | `PATH_CATALOGS/` | Aperture photometry (set `DO_APERTURE_PHOT`) |
 | `B{id}_*.png` | `PATH_FIGURES/` | Diagnostic plots (set `PLOT > 0`) |
+| `B{id}.fits` | `PATH_ANCILLARY/` | Per-brick science, model, residual and chi images |
+| `M{band}_{model,residual,chi}.fits` | `PATH_ANCILLARY/` | Seamless full-field images (`farmer.rebuild_mosaic()`) |
 | `B{id}_*.reg` | `PATH_ANCILLARY/` | DS9 region files |
 
 Key catalog columns: `id`, `ra`, `dec`, `brick_id`, `group_id`, `{band}_flux`, `{band}_flux_ujy`, `{band}_mag`, `logre`, `reff`, `ellip`, `pa`, `chisq`, `rchisq`, `flag`.
+
+The plain flux and chi-squared columns are the forced photometry. The fit that *chose* each model — free morphology, `MODEL_BANDS` only — keeps its own `model_*` columns (`model_ra`, `model_{band}_flux`, `model_total_rchisq`, and `model_ps_*` for the point-source fit it was preferred over), with the full solution in `B{id}_models.cat`.
 
 ---
 

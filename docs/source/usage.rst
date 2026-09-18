@@ -115,6 +115,42 @@ Once morphological models are determined, fluxes are measured in every configure
    # All at once (determine + photometry in a single pass)
    brick.process_groups(mode='all')
 
+Model and Residual Images
+-------------------------
+
+``generate_models`` and ``photometer`` write brick-level model, residual, and chi
+images as they go. Both can also be rebuilt afterwards, without refitting, and the
+full field can be reconstructed as one seamless image per band.
+
+.. code-block:: python
+
+   # Full-field images for every configured band, from the brick catalogs
+   farmer.rebuild_mosaic()
+
+   # One band, chi map as well, using 8 processes
+   farmer.rebuild_mosaic(bands='hsc_i', imgtypes=('model', 'residual', 'chi'), ncpus=8)
+
+   # Brick-level images only, e.g. after a fix, for brick 1
+   farmer.rebuild_brick(1)
+
+``rebuild_mosaic`` rebuilds each brick's fitted models from its catalog (see
+:func:`~farmer.utils.models_from_catalog`) and renders them on the band's own mosaic
+pixel grid, so nothing needs to be refit and no brick HDF5 files are required. It
+writes ``M{band}_{imgtype}.fits`` to ``PATH_ANCILLARY``, streaming to disk so that a
+survey-sized mosaic never has to fit in memory.
+
+Prefer the full-field images to stitching the per-brick ones. A brick's images stop
+at its buffered footprint, so near a brick edge the light of sources in the
+neighbouring brick is missing and a large profile is cut off at the buffer. The
+full-field render has no such seams. Each source is drawn once, with the same PSF
+and the same ``RESIDUAL_*`` cuts the fit used.
+
+The residual is the science image minus the model, and minus the background the fit
+subtracted if the band sets ``subtract_background``. Pixels with no data are NaN in
+the residual; masked or zero-weight pixels are NaN in chi, so they fall out of
+nan-aware statistics. On drizzled or otherwise resampled data the pixel-to-pixel
+noise is correlated, so a chi value there overstates the significance of a residual.
+
 Interactive Group Inspection
 ------------------------------
 
@@ -209,7 +245,9 @@ Key catalog columns:
    * - ``brick_id``
      - Parent brick integer ID
    * - ``ra``, ``dec``
-     - Sky position in degrees
+     - Sky position in degrees, from the modelling stage
+   * - ``ra_det``, ``dec_det``
+     - Detection-stage centroid, before any fitting
    * - ``group_id``
      - Group integer ID this source belongs to
    * - ``group_pop``
@@ -244,6 +282,45 @@ Key catalog columns:
      - Degrees of freedom
    * - ``flag``
      - Quality flag (0 = good)
+   * - ``model_ra``, ``model_dec``
+     - Centroid the morphology was solved at
+   * - ``model_{band}_flux``, ``model_{band}_flux_err``
+     - Flux measured with morphology free, for each ``MODEL_BANDS`` band
+   * - ``model_total_chisq``, ``model_total_rchisq``, ``model_total_ndof``
+     - Goodness of fit of the solved model
+   * - ``model_ps_total_chisq``, ``model_ps_total_rchisq``, ``model_ps_total_ndof``
+     - The same for the stage-1 PointSource fit, to compare against
+   * - ``{band}_chisq_ref``, ``total_chisq_ref``
+     - Chi-squared of the PointSource fit made in the photometry bands immediately
+       before the forced fit — a third reference, in those bands rather than in
+       ``MODEL_BANDS``
+   * - ``phot_{param}`` / ``{band}_{param}``
+     - Present only where ``PHOT_PRIORS`` thaws a parameter: the value forced
+       photometry measured for it (``phot_`` for a multi-band run, ``{band}_``
+       for a single-band one). The plain column keeps the modelling solution.
+
+Two stages, two sets of numbers
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The plain ``{band}_flux`` and ``chisq``/``rchisq`` columns hold the forced
+photometry: fluxes fitted in every band with morphology frozen. That is the
+deliverable, but it is not the fit that chose each model. The decision tree
+measured its own photometry and chi-squared in ``MODEL_BANDS``, with morphology
+free, and forced photometry then remeasures those same bands and would overwrite
+them.
+
+So the modelling stage keeps its own columns. The ``model_*`` block above is a
+summary of it, always present, including a point-source reference so the chosen
+model can be weighed against an unresolved one. Comparing ``model_{band}_flux``
+with ``{band}_flux`` for a ``MODEL_BANDS`` band is a direct check on the
+morphology; if ``PHOT_PRIORS`` thaws the position, ``model_ra`` and ``phot_ra``
+are the two centroids those two fluxes were measured at, and they are not the
+same aperture.
+
+The full modelling solution — every parameter, flux and statistic of the solved
+model, and of the PointSource fit it was chosen over — is written next to the
+catalog as ``B{brick_id}_models.cat``, which joins on ``id``. It is written by
+whichever run determined the models; a photometry-only run leaves it alone.
 
 Figures
 ~~~~~~~
@@ -257,6 +334,9 @@ If ``PLOT > 0``, diagnostic images are written to ``PATH_FIGURES``:
 Ancillary files
 ~~~~~~~~~~~~~~~
 
-DS9 region files are written to ``PATH_ANCILLARY``:
+Image products and DS9 region files are written to ``PATH_ANCILLARY``:
 
+- ``B{brick_id}.fits`` — per-brick science/model/residual/chi extensions, one per band
+- ``M{band}_model.fits``, ``M{band}_residual.fits``, ``M{band}_chi.fits`` — full-field
+  images from ``rebuild_mosaic``
 - ``B{brick_id}_detection_science_objects.reg`` — elliptical apertures for all detections

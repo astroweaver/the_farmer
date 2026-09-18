@@ -509,7 +509,9 @@ def models_from_catalog(path, bands=None, with_variance=True):
     This is the same constraint the HDF5 round trip has.
 
     Args:
-        path: Path to a ``B{id}.cat`` written by ``write_catalog``.
+        path: Path to a ``B{id}.cat`` written by ``write_catalog``, or that
+            catalog already read into a ``Table`` (e.g. only the columns needed,
+            via ``read_catalog_columns``).
         bands: Band names whose fluxes to restore. ``None`` discovers them from
             the ``<band>_flux`` columns, which is what you want unless you are
             deliberately restricting the fit.
@@ -525,7 +527,10 @@ def models_from_catalog(path, bands=None, with_variance=True):
             reproduces what ``_unmodelled_sources`` would conclude.
     """
     logger = logging.getLogger('farmer.models_from_catalog')
-    tab = Table.read(path)
+    if isinstance(path, Table):
+        tab, path = path, getattr(path, 'meta', {}).get('path', 'catalog')
+    else:
+        tab = Table.read(path)
     cols = set(tab.colnames)
 
     if bands is None:
@@ -606,6 +611,87 @@ def models_from_catalog(path, bands=None, with_variance=True):
     logger.info(f'Rebuilt {len(out)} models from {os.path.basename(path)} '
                 f'({len(bands)} bands); skipped {n_skip} rows with no model class.')
     return out, fit_status
+
+
+def read_catalog_columns(path, names, hdu=1):
+    """Read only the named columns of a FITS catalog.
+
+    A brick catalog carries roughly twenty columns per band. Rebuilding one band
+    needs about fifteen of them, so they are read from the memory-mapped table
+    instead of loading every column.
+
+    Args:
+        path: FITS catalog path, e.g. a ``B{id}.cat``.
+        names: Column names wanted. Names not in the file are skipped silently,
+            so optional columns (composite shapes, ``fit_status``) can be asked
+            for unconditionally; check ``colnames`` for the required ones.
+        hdu: Table extension. Defaults to 1.
+
+    Returns:
+        astropy.table.Table: The columns found, in file order, with ``meta['path']``
+            set to ``path``. Values are copied out of the map, so the file is
+            closed on return.
+    """
+    wanted = set(names)
+    with fits.open(path, memmap=True) as hdul:
+        data = hdul[hdu].data
+        tab = Table({name: np.array(data[name]) for name in data.names if name in wanted})
+    tab.meta['path'] = path
+    return tab
+
+
+# Keywords that describe a FITS data block rather than the image, and so must not be
+# copied onto a new file with a different data block.
+_FITS_STRUCTURAL_KEYWORDS = {'SIMPLE', 'BITPIX', 'NAXIS', 'EXTEND', 'XTENSION', 'PCOUNT',
+                             'GCOUNT', 'GROUPS', 'BSCALE', 'BZERO', 'BLANK', 'CHECKSUM',
+                             'DATASUM', 'EXTNAME', 'EXTVER', 'END'}
+
+
+def create_fits_memmap(path, shape, header=None, overwrite=False):
+    """Preallocate a float32 FITS image on disk and memory-map its data block.
+
+    A full-field model at survey scale is ~10 GB per band (e.g. 48k x 48k
+    pixels), so it is never held in memory. The header is written, the file is
+    extended to its final padded size (zero bytes, i.e. an image of 0.0, sparse
+    on most filesystems), and the data block is mapped for in-place writes.
+
+    Args:
+        path: Output path.
+        shape: ``(ny, nx)`` in pixels.
+        header: Optional header to carry over (WCS, BUNIT, provenance). Its
+            structural keywords (BITPIX, NAXISn, BZERO, ...) are dropped; a
+            BZERO/BSCALE would make astropy rescale the zeros on read.
+        overwrite: Replace an existing file.
+
+    Returns:
+        numpy.memmap: Writable ``(ny, nx)`` view of the data, big-endian float32
+            as FITS stores it (numpy converts on assignment). Call ``flush()``,
+            then drop the reference, when done.
+
+    Raises:
+        RuntimeError: If ``path`` exists and ``overwrite`` is False.
+    """
+    if os.path.exists(path) and not overwrite:
+        raise RuntimeError(f'{path} already exists! (overwrite = False)')
+    ny, nx = (int(n) for n in shape)
+    hdr = fits.Header()
+    hdr['SIMPLE'] = True
+    hdr['BITPIX'] = -32
+    hdr['NAXIS'] = 2
+    hdr['NAXIS1'] = nx
+    hdr['NAXIS2'] = ny
+    if header is not None:
+        for card in header.cards:
+            key = card.keyword
+            if key in _FITS_STRUCTURAL_KEYWORDS or key.startswith('NAXIS'):
+                continue
+            hdr.append(card)
+    hdr.tofile(path, overwrite=True)            # padded to a 2880-byte block
+    offset = os.path.getsize(path)
+    nbytes = nx * ny * 4
+    with open(path, 'r+b') as f:
+        f.truncate(offset + -(-nbytes // 2880) * 2880)
+    return np.memmap(path, dtype='>f4', mode='r+', offset=offset, shape=(ny, nx))
 
 
 def validate_psfmodel(band, return_psftype=False):
@@ -1715,10 +1801,13 @@ def _soften_fracdev(fracdev):
 
 def get_params(model):
     """Extract source parameters from a Tractor model.
-    
+
     Args:
-        model: Tractor model object (PointSource, ExpGalaxy, DevGalaxy, etc.)
-        
+        model: Tractor model object (PointSource, ExpGalaxy, DevGalaxy, etc.).
+            ``model.statistics`` is optional: a model rebuilt from a catalog or an
+            HDF5 file has none, and asking for its parameters should give the
+            parameters rather than an AttributeError.
+
     Returns:
         OrderedDict: Dictionary of source parameters and errors
     """
@@ -1734,6 +1823,7 @@ def get_params(model):
     brightness = model.getBrightness()
     variance_brightness = model.variance.getBrightness()
     source['_bands'] = np.array(list(brightness.getParamNames()))
+    statistics = getattr(model, 'statistics', None) or {}
 
     # position
     pos = model.pos
@@ -1743,10 +1833,18 @@ def get_params(model):
     source['dec'] = pos.dec * u.deg
     source['dec_err'] = np.sqrt(var_pos.dec) * u.deg
 
-    # total statistics
-    for stat in model.statistics:
-        if (stat not in source['_bands']) & (stat not in ('model', 'variance')):
-            source[f'total_{stat}'] = model.statistics[stat]
+    # Statistics that are not per band. The stage's 'total' group becomes total_<stat>;
+    # every other entry is already a qualified name -- 'group_time', and the '*_ref'
+    # cross-references store_models adds -- and keeps it. Prefixing those as well is
+    # what used to produce columns called total_total_chisq_ref and total_group_time.
+    for stat, value in statistics.items():
+        if (stat in source['_bands']) or (stat in ('model', 'variance')):
+            continue
+        if stat == 'total':
+            for substat, subvalue in value.items():
+                source[f'total_{substat}'] = subvalue
+        else:
+            source[stat] = value
 
     # Helper function for shape parameters (reduces duplication)
     def _extract_shape_params(shape, variance_shape, suffix=''):
@@ -1847,9 +1945,9 @@ def get_params(model):
             source[f'{band}_mag_err'] = np.nan
 
         # statistics
-        if band in model.statistics:
-            for stat in model.statistics[band]:
-                source[f'{band}_{stat}'] = model.statistics[band][stat]
+        if band in statistics:
+            for stat in statistics[band]:
+                source[f'{band}_{stat}'] = statistics[band][stat]
 
     return source
 

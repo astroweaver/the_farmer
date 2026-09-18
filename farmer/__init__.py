@@ -721,6 +721,10 @@ def generate_models(brick_ids=None, group_ids=None, bands=conf.MODEL_BANDS, imgt
         # write brick
         brick.write_hdf5(allow_update=True)
         brick.write_catalog(allow_update=True)
+        # The decision tree's own photometry and statistics, in full. The primary
+        # catalog keeps a model_* summary of them; forced photometry overwrites the
+        # columns they would otherwise share.
+        brick.write_model_catalog(allow_update=True)
 
         # ancillary stuff (e.g., residual brick)
         brick.build_all_images()
@@ -802,6 +806,9 @@ def photometer(brick_ids=None, group_ids=None, bands=None, imgtype='science',
         # otherwise push a wide run past the 999-column FITS ceiling, and a
         # cross-check should not be able to make the main catalog unwritable.
         brick.write_aperture_catalog(allow_update=True)
+        # Likewise the full modelling solution, when this run determined the models. A
+        # photometry-only run has none in memory and leaves the existing file alone.
+        brick.write_model_catalog(allow_update=True)
 
         # ancillary stuff (e.g., residual brick)
         brick.build_all_images()
@@ -822,16 +829,117 @@ def quick_group(brick_id=1, group_id=524, brick=None):
     group.write_catalog(overwrite=True)
     return group
 
-def rebuild_mosaic(brick_ids=None, bands=None, imgtype='science'):
-    """Reconstruct a full-field mosaic from processed bricks.
+def rebuild_mosaic(bands=None, brick_ids=None, imgtypes=('model', 'residual'), reconstruct=True,
+                   max_extent=1*u.arcmin, ncpus=None, overwrite=None):
+    """Reconstruct seamless full-field model, residual, and chi images.
 
-    Not yet implemented.
+    For each band, every brick's fitted models are rebuilt from its catalog in
+    ``PATH_CATALOGS`` and rendered directly on the band's own mosaic pixel grid,
+    with each source drawn once. The residual subtracts the model, and any
+    background the fit removed, from the mosaic science image. Nothing is
+    refit, and no brick HDF5 files are needed. Unlike stitching the per-brick
+    images, this leaves no seams: profiles are not cut at brick buffers, and
+    light from neighbouring bricks' sources is included. See
+    :meth:`farmer.mosaic.Mosaic.rebuild_images` for the details of rendering,
+    backgrounds, and pixel conventions.
+
+    Writes ``PATH_ANCILLARY/M{band}_{imgtype}.fits``, streamed to disk so that
+    survey-sized mosaics never need to fit in memory.
+
+    Args:
+        bands: Band(s) to rebuild. ``None`` rebuilds every configured band. A
+            band that fails (e.g. never photometered) is logged and skipped.
+        brick_ids: Brick ID(s) to include. ``None`` uses the whole grid.
+        imgtypes: Any of ``'model'``, ``'residual'``, ``'chi'``. The model is
+            always written.
+        reconstruct: Apply the ``RESIDUAL_*`` cuts, as the brick images do.
+        max_extent: Largest radius by which one source may grow its brick's
+            rendering window, as an angle.
+        ncpus: Worker processes for rendering. ``None`` uses ``conf.NCPUS``.
+        overwrite: Replace existing outputs. ``None`` uses ``conf.OVERWRITE``.
+
+    Returns:
+        dict: ``band -> {imgtype: path}`` for every band that was written.
 
     Raises:
-        NotImplementedError: Always — this function is a placeholder. Use the
-            per-brick FITS products in ``conf.PATH_ANCILLARY`` and mosaic them
-            with an external tool (e.g. ``reproject.mosaicking``) in the meantime.
+        RuntimeError: If no band could be rebuilt.
     """
-    raise NotImplementedError(
-        'rebuild_mosaic is a placeholder. Mosaic the per-brick FITS products in '
-        f'{conf.PATH_ANCILLARY} with an external tool for now.')
+    if bands is None:
+        bands = list(conf.BANDS.keys())
+    elif np.isscalar(bands):
+        bands = [bands,]
+
+    paths = {}
+    for band in bands:
+        try:
+            mosaic = get_mosaic(band, load=False)
+            paths[band] = mosaic.rebuild_images(brick_ids=brick_ids, imgtypes=imgtypes,
+                                                reconstruct=reconstruct, max_extent=max_extent,
+                                                ncpus=ncpus, overwrite=overwrite)
+        except RuntimeError as e:
+            logger.error(f'Could not rebuild the {band} mosaic: {e}')
+    if not paths:
+        raise RuntimeError(f'No mosaic images were rebuilt for bands {bands}.')
+    return paths
+
+
+def rebuild_brick(brick_ids=None, bands=None, imgtypes=('model', 'residual', 'chi'), from_catalog=False):
+    """Rebuild the model, residual, and chi images of finished bricks without refitting.
+
+    Loads each brick from ``PATH_BRICKS/B{id}.h5``, re-renders its bands with
+    ``build_all_images``, and writes the requested image types into
+    ``PATH_ANCILLARY/B{id}.fits``, updating the file in place if it exists.
+
+    These images stop at the brick's buffered footprint. Near the edges, light
+    from sources in neighbouring bricks is missing, and profiles are cut at the
+    buffer. Use :func:`rebuild_mosaic` for a seamless full-field product.
+
+    Args:
+        brick_ids: Brick ID(s). ``None`` rebuilds every brick on the grid,
+            skipping any without an HDF5 file.
+        bands: Band(s) to render. ``None`` uses every non-detection band on the brick.
+        imgtypes: Subset of ``('model', 'residual', 'chi')`` to write.
+        from_catalog: If True, take the models from ``PATH_CATALOGS/B{id}.cat``
+            (see :func:`farmer.utils.models_from_catalog`) rather than from the HDF5.
+
+    Returns:
+        Brick: The rebuilt brick when ``brick_ids`` is scalar; ``None`` otherwise.
+    """
+    from .utils import models_from_catalog
+
+    scalar_input = np.isscalar(brick_ids)
+    if brick_ids is None:
+        brick_ids = 1 + np.arange(conf.N_BRICKS[0] * conf.N_BRICKS[1])
+    elif scalar_input:
+        brick_ids = [brick_ids,]
+    imgtypes = [imgtypes,] if isinstance(imgtypes, str) else list(imgtypes)
+
+    brick = None
+    for brick_id in brick_ids:
+        try:
+            brick = load_brick(brick_id, silent=True)
+        except (FileNotFoundError, IOError) as e:
+            if scalar_input:
+                raise
+            logger.warning(f'Skipping brick #{brick_id}: {e}')
+            continue
+        if getattr(brick, 'is_empty', False):
+            logger.warning(f'Brick #{brick_id} has no detections; nothing to rebuild.')
+            continue
+
+        if from_catalog:
+            path = os.path.join(conf.PATH_CATALOGS, brick.filename.replace('.h5', '.cat'))
+            brick.model_catalog, brick.fit_status = models_from_catalog(path)
+
+        requested = [band for band in brick.bands if band != 'detection'] if bands is None \
+            else ([bands,] if np.isscalar(bands) else list(bands))
+        use_bands = [band for band in requested if band in brick.bands and band != 'detection']
+        if len(use_bands) < len(requested):
+            logger.warning(f'Brick #{brick_id} does not hold {sorted(set(requested) - set(use_bands))}.')
+        if not use_bands:
+            continue
+        brick.build_all_images(bands=use_bands)
+        brick.write_fits(bands=use_bands, imgtypes=imgtypes, allow_update=True)
+
+    if scalar_input:
+        return brick

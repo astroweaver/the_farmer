@@ -97,6 +97,61 @@ def _load_psf_array(psf_path):
 COMPOSITE_EXP_STAGE = 3
 COMPOSITE_DEV_STAGE = 4
 
+# Every source passes through stage 1, a PointSource fit, so it is the reference the
+# solved model can be compared against -- was the extra structure worth its parameters?
+POINTSOURCE_STAGE = 1
+
+# The photometry stage of forced photometry. Stage 10 is its PointSource reference fit.
+PHOTOMETRY_STAGE = 11
+
+# Catalog column families, keyed by the ``conf.MODEL_PRIORS``/``conf.PHOT_PRIORS`` entry
+# that governs them. A photometry stage that refits one of these families writes its
+# values under a band prefix, leaving the plain columns to the modelling solution.
+PRIOR_COLUMNS = {
+    'pos': ('ra', 'dec', 'ra_err', 'dec_err'),
+    'reff': ('logre', 'logre_err', 'reff', 'reff_err',
+             'logre_exp', 'logre_exp_err', 'reff_exp', 'reff_exp_err',
+             'logre_dev', 'logre_dev_err', 'reff_dev', 'reff_dev_err'),
+    'shape': ('ellip', 'ellip_err', 'ee1', 'ee1_err', 'ee2', 'ee2_err',
+              'theta', 'theta_err', 'ba', 'ba_err', 'pa', 'pa_err',
+              'ellip_exp', 'ellip_exp_err', 'ee1_exp', 'ee1_exp_err', 'ee2_exp', 'ee2_exp_err',
+              'theta_exp', 'theta_exp_err', 'ba_exp', 'ba_exp_err', 'pa_exp', 'pa_exp_err',
+              'ellip_dev', 'ellip_dev_err', 'ee1_dev', 'ee1_dev_err', 'ee2_dev', 'ee2_dev_err',
+              'theta_dev', 'theta_dev_err', 'ba_dev', 'ba_dev_err', 'pa_dev', 'pa_dev_err'),
+    'fracDev': ('fracdev', 'fracdev_err', 'softfracdev', 'softfracdev_err'),
+}
+MORPHOLOGY_COLUMNS = tuple(name for names in PRIOR_COLUMNS.values() for name in names)
+
+# The modelling-stage summary the primary catalog carries, under a 'model_' prefix:
+# the centroid the morphology was solved at, the fluxes it was solved with, and enough
+# goodness-of-fit to weigh the chosen model against a point source. The full solution,
+# including every statistic and the PointSource fit's own photometry, goes to
+# write_model_catalog.
+MODEL_SUMMARY_COLUMNS = ('ra', 'ra_err', 'dec', 'dec_err',
+                         'total_chisq', 'total_rchisq', 'total_ndof')
+MODEL_SUMMARY_BAND_COLUMNS = ('flux', 'flux_err')
+MODEL_SUMMARY_PS_COLUMNS = ('total_chisq', 'total_rchisq', 'total_ndof')
+
+
+def flatten_params(params, prefix=''):
+    """Yield the ``(column name, value)`` pairs a ``get_params`` dict contributes.
+
+    Everything in a params dict is a column except the private bookkeeping keys
+    (``_bands``, ``_{band}_zpt``). One definition, so the primary catalog, the model
+    catalog, and the summary block cannot drift apart.
+
+    Args:
+        params: The ``OrderedDict`` returned by :func:`~farmer.utils.get_params`.
+        prefix: Prepended to every name, e.g. ``'model_'``.
+
+    Yields:
+        tuple: ``(name, value)``.
+    """
+    for name, value in params.items():
+        if name.startswith('_'):
+            continue
+        yield f'{prefix}{name}', value
+
 
 
 # A FITS binary table indexes its columns with three-digit keywords (TFORMnnn),
@@ -177,6 +232,154 @@ def _assign_catalog_value(catalog, name, value, irow):
 
     catalog[name][irow] = value
     return value
+
+
+def _is_unset(value):
+    """True for the ``'none'``/``None`` sentinels the config uses to disable a cut."""
+    return value is None or (isinstance(value, str) and value.lower() == 'none')
+
+
+def _model_is_finite(model, band):
+    """True if every parameter that shapes ``model``'s image in ``band`` is finite.
+
+    One NaN parameter renders a NaN patch, and at mosaic scale that patch lands on
+    top of every neighbour it overlaps. Frozen parameters are checked too
+    (``getAllParams`` ignores the frozen state).
+    """
+    values = [model.getBrightness().getFlux(band)]
+    values.extend(model.getPosition().getAllParams())
+    for attr in ('shape', 'shapeExp', 'shapeDev', 'fracDev'):
+        sub = getattr(model, attr, None)
+        if sub is not None:
+            values.extend(sub.getAllParams())
+    return bool(np.all(np.isfinite(np.asarray(values, dtype=float))))
+
+
+def select_reconstruction_models(model_catalog, band, reconstruct=True, require_finite=True):
+    """Choose the fitted models to render into one band's model image.
+
+    Applies the ``RESIDUAL_BA_MIN``, ``RESIDUAL_REFF_MAX`` and
+    ``RESIDUAL_SHOW_NEGATIVE`` cuts from the models' own parameters. They used to
+    be read through ``get_params``, which needs ``model.statistics``. Statistics
+    do not survive the HDF5 or catalog round trip, so every reloaded brick
+    rejected every source and wrote an all-zero model. As before, the axis-ratio
+    and radius cuts apply to ExpGalaxy and DevGalaxy only (not SimpleGalaxy or
+    composites).
+
+    Args:
+        model_catalog: Mapping of source id -> Tractor model.
+        band: Band to render. A model is usable only if it carries a flux here;
+            it no longer needs fluxes in every OTHER band being rendered.
+        reconstruct: Apply the ``RESIDUAL_*`` cuts.
+        require_finite: Drop models with any non-finite parameter.
+
+    Returns:
+        tuple: ``(selected, counts)``. ``selected`` is an ``OrderedDict`` of
+            source id -> model. A model whose flux had to be zeroed is a COPY, so
+            the caller's catalog is never mutated (the old in-place zeroing leaked
+            into anything written afterwards). ``counts`` gives the number of
+            models dropped (``no_flux``, ``nonfinite``, ``narrow``, ``large``) or
+            zeroed (``negative``) per reason.
+    """
+    ba_min = getattr(conf, 'RESIDUAL_BA_MIN', 'none')
+    reff_max = getattr(conf, 'RESIDUAL_REFF_MAX', 'none')
+    cut_ba = reconstruct and not _is_unset(ba_min)
+    cut_reff = reconstruct and not _is_unset(reff_max)
+    if cut_reff:
+        reff_max = u.Quantity(reff_max, u.arcsec).to_value(u.arcsec)
+    zero_negative = reconstruct and (getattr(conf, 'RESIDUAL_SHOW_NEGATIVE', True) == False)
+
+    counts = dict(no_flux=0, nonfinite=0, narrow=0, large=0, negative=0)
+    selected = OrderedDict()
+    for source_id, model in model_catalog.items():
+        if band not in model.getBrightness().order:
+            counts['no_flux'] += 1
+            continue
+        if require_finite and not _model_is_finite(model, band):
+            counts['nonfinite'] += 1
+            continue
+        if (cut_ba or cut_reff) and isinstance(model, (ExpGalaxy, DevGalaxy)) \
+                and not isinstance(model, SimpleGalaxy):
+            shape = model.shape
+            abs_e = abs(shape.e)
+            if cut_ba and (1. - abs_e) / (1. + abs_e) < ba_min:
+                counts['narrow'] += 1
+                continue
+            if cut_reff and shape.re > reff_max:     # re is in arcsec
+                counts['large'] += 1
+                continue
+        if zero_negative and model.getBrightness().getFlux(band) < 0:
+            model = copy.deepcopy(model)
+            model.getBrightness().setFlux(band, 0.)
+            counts['negative'] += 1
+        selected[source_id] = model
+    return selected, counts
+
+
+def render_model_image(shape, wcs, band, buckets):
+    """Render groups of models into one image, each group with its own PSF.
+
+    This is ``Tractor.getModelImage`` split by PSF. It allocates one output array
+    rather than one full-size image per PSF. The ``Image`` supplies only the
+    shape, WCS, PSF, and calibration to the renderer, so its data and inverse
+    error are a zero-memory read-only view.
+
+    Args:
+        shape: ``(ny, nx)`` of the output, in pixels.
+        wcs: Tractor WCS for that array, e.g. from ``read_wcs``.
+        band: Band whose fluxes are rendered.
+        buckets: Iterable of ``(psfmodel, models)`` pairs.
+
+    Returns:
+        numpy.ndarray: float32 model image, in the catalog's flux units per pixel.
+    """
+    model = np.zeros(shape, dtype=np.float32)
+    blank = np.broadcast_to(np.float32(0), shape)
+    for psfmodel, models in buckets:
+        if not len(models):
+            continue
+        tim = Image(data=blank, inverr=blank, psf=psfmodel, wcs=wcs,
+                    photocal=FluxesPhotoCal(band), sky=ConstantSky(0))
+        tractor = Tractor([tim], Catalog(*models))
+        for src in models:
+            patch = tractor.getModelPatch(tim, src)
+            if patch is not None:
+                patch.addTo(model)
+    return model
+
+
+def sep_background(image, band):
+    """Run SEP's background estimator with the mesh configured for ``band``.
+
+    The mesh is taken from ``BACK_BW``/``BACK_BH``/``BACK_FW``/``BACK_FH`` for the
+    detection image, and from ``SUBTRACT_BW``/``SUBTRACT_BH``/``SUBTRACT_FW``/
+    ``SUBTRACT_FH`` for photometric bands. Shared by ``estimate_background`` and
+    the mosaic rebuild, which must reproduce the fit's background exactly.
+
+    Args:
+        image: 2-D pixel array. Non-native byte order is converted.
+        band: Band identifier; selects the mesh.
+
+    Returns:
+        sep.Background: The background model.
+    """
+    if image.dtype.byteorder == '>':
+        image = image.astype(image.dtype.newbyteorder())
+
+    # Detection wants a mesh tuned for finding faint sources; photometry wants one
+    # tuned for not eating them. The SUBTRACT_* block existed in config.py and in
+    # docs/source/configuration.rst but was read nowhere until now.
+    if band == 'detection':
+        bw, bh = conf.BACK_BW, conf.BACK_BH
+        fw, fh = conf.BACK_FW, conf.BACK_FH
+    else:
+        bw = getattr(conf, 'SUBTRACT_BW', conf.BACK_BW)
+        bh = getattr(conf, 'SUBTRACT_BH', conf.BACK_BH)
+        fw = getattr(conf, 'SUBTRACT_FW', conf.BACK_FW)
+        fh = getattr(conf, 'SUBTRACT_FH', conf.BACK_FH)
+    logging.getLogger('farmer.image').debug(
+        f'Estimating background for {band} on a {bw}x{bh} mesh with a {fw}x{fh} filter...')
+    return sep.Background(image, bw=bw, bh=bh, fw=fw, fh=fh)
 
 
 class BaseImage():
@@ -666,25 +869,7 @@ class BaseImage():
         """
         if image is None:
             image = self.get_image(imgtype, band)
-        if image.dtype.byteorder == '>':
-                image = image.astype(image.dtype.newbyteorder())
-
-        # Detection wants a mesh tuned for finding faint sources; photometry wants one
-        # tuned for not eating them. The SUBTRACT_* block existed in config.py and in
-        # docs/source/configuration.rst but was read nowhere until now.
-        if band == 'detection':
-            bw, bh = conf.BACK_BW, conf.BACK_BH
-            fw, fh = conf.BACK_FW, conf.BACK_FH
-        else:
-            bw = getattr(conf, 'SUBTRACT_BW', conf.BACK_BW)
-            bh = getattr(conf, 'SUBTRACT_BH', conf.BACK_BH)
-            fw = getattr(conf, 'SUBTRACT_FW', conf.BACK_FW)
-            fh = getattr(conf, 'SUBTRACT_FH', conf.BACK_FH)
-        self.logger.debug(f'Estimating background for {band} on a {bw}x{bh} mesh '
-                          f'with a {fw}x{fh} filter...')
-        background = sep.Background(image,
-                                bw = bw, bh = bh,
-                                fw = fw, fh = fh)
+        background = sep_background(image, band)
 
         self.set_image(background.back(), imgtype='background', band=band)
         self.set_image(background.rms(), imgtype='rms', band=band)
@@ -1517,13 +1702,25 @@ class BaseImage():
             if hasattr(model, 'shape'):
                 self.logger.debug(f'               {model.shape}')
 
-            if self.solved.all() | (self.stage == 11):
+            if self.solved.all() | (self.stage == PHOTOMETRY_STAGE):
                 low_idx = 0
-                if self.stage == 11:
+                if self.stage == PHOTOMETRY_STAGE:
                     low_idx = 10
                 self.model_catalog[source_id] = model
                 self.model_catalog[source_id].group_id = self.group_id
                 self.model_catalog[source_id].statistics = self.model_tracker[source_id][self.stage]
+                self.model_catalog[source_id].fit_stage = self.stage
+
+                # Snapshot the modelling solution while it exists. Forced photometry
+                # measures the same bands again and overwrites every flux and statistic
+                # column with its own, and the tracker this lived in is pruned before any
+                # catalog is written -- so without this the decision tree's own
+                # photometry and chi-squared leave no trace in the delivered catalog.
+                # The snapshot rides on the model object, which force_models deepcopies,
+                # so it survives into the photometry-stage model.
+                if self.stage != PHOTOMETRY_STAGE:
+                    self.model_catalog[source_id].model_stage = get_params(model)
+                    self.model_catalog[source_id].ps_stage = self._point_source_reference(source_id)
                 # Cross-reference the reference-stage chi-squareds onto the final model.
                 # NOTE `substat` used to be read in the elif below, outside the loop that
                 # binds it: stale on most iterations and an UnboundLocalError whenever the
@@ -1542,6 +1739,40 @@ class BaseImage():
                             stats_out[stat][f'{substat}_ref'] = value
                         else:                       # 'total' and any non-band grouping
                             stats_out[f'{stat}_{substat}_ref'] = value
+
+    def _point_source_reference(self, source_id):
+        """Parameters of the source's stage-1 PointSource fit, or None if it has none.
+
+        Every source passes through stage 1 of the decision tree, so this is a PSF
+        measurement of it, fitted jointly in ``MODEL_BANDS`` alongside its neighbours.
+        It is the reference for the solved model: the chi-squared pair says whether the
+        extra structure earned its parameters, and the flux pair is a resolved-source
+        diagnostic. Distinct from the ``_ref`` statistics, which come from stage 10, the
+        PointSource fit that precedes FORCED photometry.
+
+        Args:
+            source_id: Source whose tracker entry to read.
+
+        Returns:
+            OrderedDict or None: ``get_params`` of the stage-1 model.
+        """
+        entry = self.model_tracker.get(source_id, {}).get(POINTSOURCE_STAGE)
+        model = (entry or {}).get('model')
+        if model is None:
+            return None
+        # get_params reads .statistics, and the tracker entry IS that stage's statistics.
+        # Put back whatever was there: each stage tracks a model object of its own, but a
+        # source solved at stage 1 leaves that one object in the model catalog too, and
+        # its final statistics must survive this.
+        saved = getattr(model, 'statistics', None)
+        model.statistics = entry
+        try:
+            return get_params(model)
+        finally:
+            if saved is None:
+                model.__dict__.pop('statistics', None)
+            else:
+                model.statistics = saved
 
     def stage_engine(self, bands=conf.MODEL_BANDS):
         """Initialize the Tractor engine with images and models for the given bands.
@@ -2307,8 +2538,12 @@ class BaseImage():
         # after a catalog write would quietly change which position is the default.
         ra_col = 'ra_det' if 'ra_det' in catalog.colnames else 'ra'
         dec_col = 'dec_det' if 'dec_det' in catalog.colnames else 'dec'
-        ra = np.asarray(catalog[ra_col], dtype=float)       # deg
-        dec = np.asarray(catalog[dec_col], dtype=float)     # deg
+        # COPIES, not np.asarray: for a float64 column asarray returns a view, and the
+        # loop below writes fitted positions into ra/dec -- which silently overwrote
+        # the catalog's ra_det/dec_det with the fitted ra/dec in every catalogue written
+        # after this call (EDF-N v1.10, COSMOS v1.11). Recover those with bin/detpos.py.
+        ra = np.array(catalog[ra_col], dtype=float, copy=True)       # deg
+        dec = np.array(catalog[dec_col], dtype=float, copy=True)     # deg
         reff = np.full(nsrc, np.nan)                        # arcsec
 
         # Detection-masked sources carry NaN photometry throughout, apertures
@@ -2523,9 +2758,11 @@ class BaseImage():
     def build_model_image(self, bands=None, source_id=None, overwrite=True, reconstruct=True, set_engine=True):
         """Render the Tractor model image for each requested band.
 
-        For bricks with a single PSF, renders all sources in one
-        ``Tractor.getModelImage`` call. For bricks with position-dependent
-        PSFs, loops over groups and selects the nearest PSF per group.
+        With a single PSF, or on a group (which was fit with the one PSF
+        ``stage_images`` gave it), renders all sources in one
+        ``Tractor.getModelImage`` call. On a brick with position-dependent PSFs,
+        each source is drawn with the PSF its group was fit with: the one nearest
+        the group's bounding-box centre, as ``Group.__init__`` places it.
         Stores results via ``set_image(..., 'model', band)`` and updates
         ``self.headers[band]['model']``.
 
@@ -2535,11 +2772,13 @@ class BaseImage():
             source_id: Scalar or list of source IDs to include. ``None``
                 includes all.
             overwrite: Reserved for future use. Defaults to ``True``.
-            reconstruct: If ``True``, applies quality rejection cuts
-                (negative flux, axis ratio, size) before rendering.
+            reconstruct: If ``True``, applies the ``RESIDUAL_*`` rejection cuts
+                (negative flux, axis ratio, size) and drops models with
+                non-finite parameters. See ``select_reconstruction_models``.
                 Defaults to ``True``.
-            set_engine: If ``True``, selects sources from the catalog that
-                have photometry in all requested bands. Defaults to ``True``.
+            set_engine: If ``True``, renders the catalog sources that have a flux
+                in the band being rendered. If ``False``, renders the whole
+                model catalog as-is. Defaults to ``True``.
 
         Returns:
             dict[str, numpy.ndarray] or numpy.ndarray: A dict mapping band
@@ -2556,88 +2795,76 @@ class BaseImage():
 
         models = {}
 
-        # check that the model_catalog is ok
-        if not set_engine:
-            use_sources = list(self.model_catalog.values())
-            use_source_ids = list(self.model_catalog.keys())
-        else:
-            use_sources = []
-            use_source_ids = []
-            for source in self.get_catalog(self.catalog_band, self.catalog_imgtype):
-                sid = source['id']
-
-                if source_id is not None:
-                    if sid not in source_id:
-                        continue
-
+        if set_engine:
+            catalog = self.get_catalog(self.catalog_band, self.catalog_imgtype)
+            wanted = None if source_id is None else set(int(sid) for sid in source_id)
+            candidates = OrderedDict()
+            n_unmodelled = 0
+            for sid in np.asarray(catalog['id']).astype(int).tolist():
+                if (wanted is not None) and (sid not in wanted):
+                    continue
                 if sid not in self.model_catalog:
-                    self.logger.warning(f'Source {sid} not in model catalog')
+                    n_unmodelled += 1       # masked and ungrouped sources have no model
                     continue
-                
-                src = self.model_catalog[sid]
-
-                # Only use models with the photometry bands requested (must have ALL)
-                if not np.all([testband in src.getBrightness().order for testband in bands]):
-                    self.logger.debug(f'Source {sid} does not have photometry in all requested bands')
-                    continue
-
-                # check for rejections
-                if reconstruct & ((conf.RESIDUAL_BA_MIN != 'none') | (conf.RESIDUAL_REFF_MAX != 'none') | (conf.RESIDUAL_SHOW_NEGATIVE == False)):
-                    if not hasattr(src, 'statistics'):
-                        self.logger.warning(f'Source {sid} does not have statistics!')
-                        continue
-                    source = get_params(src)
-                    if conf.RESIDUAL_SHOW_NEGATIVE == False:
-                        for band in source['_bands']:
-                            flux = src.getBrightness().getFlux(band)
-                            if flux < 0: 
-                                src.getBrightness().setFlux(band, 0)
-                                self.logger.warning(f'Source {sid} has negative model flux in {band} and has been rejected from reconstruction')
-                    if (conf.RESIDUAL_BA_MIN != 'none') & ('ba' in source):
-                        if source['ba'] < conf.RESIDUAL_BA_MIN:
-                            self.logger.warning(f'Source {sid} model is too narrow and has been rejected from reconstruction')
-                            continue
-                    if (conf.RESIDUAL_REFF_MAX != 'none') & ('reff' in source):
-                        if source['reff'] > conf.RESIDUAL_REFF_MAX:
-                            self.logger.warning(f'Source {sid} model is too large and has been rejected from reconstruction')
-                            continue
-
-                use_sources.append(src)
-                use_source_ids.append(sid)
-                
-            self.logger.debug(f'Only including the {len(use_sources)} ({100*len(use_sources)/len(self.model_catalog):2.1f}%) valid models with photometry in all requested bands')
+                candidates[sid] = self.model_catalog[sid]
+            if n_unmodelled:
+                self.logger.debug(f'{n_unmodelled} catalog sources have no model to render')
 
         for band in bands:
             # Skip bands that were not staged (e.g., all weight pixels are zero)
             if band not in self.images:
                 self.logger.debug(f'Band {band} not in staged images. Skipping.')
                 continue
-                
-            if (self.data[band]['psfcoords'] == 'none'):
-                model = Tractor([self.images[band],], Catalog(*use_sources)).getModelImage(0)
-            else: # Uses a different PSF for each group
-                model = np.zeros_like(self.get_image('science', band))
-                group_ids = list(self.data[band]['groupmap'].keys())
-                catalog = self.catalogs[self.catalog_band]['science']
-                wcs = self.get_wcs(band=band)
-                for group_id in group_ids:
-                    group_sources = np.array(catalog[catalog['group_id'] == group_id]['id'])
-                    cy, cx = self.data[band]['groupmap'][group_id]
-                    coord = wcs.pixel_to_world(np.mean(cy), np.mean(cx))
+
+            if set_engine:
+                # Selected per band. Requiring a flux in EVERY requested band left
+                # all bands empty after generate_models, when a brick holding
+                # non-model bands was rendered.
+                use, counts = select_reconstruction_models(candidates, band, reconstruct=reconstruct,
+                                                           require_finite=reconstruct)
+                dropped = {reason: n for reason, n in counts.items() if n}
+                if dropped:
+                    self.logger.info(f'{band}: rendering {len(use)} of {len(candidates)} models '
+                                     f'(dropped or zeroed: {dropped})')
+            else:
+                use = self.model_catalog
+
+            psfcoords = self.data[band]['psfcoords']
+            if (self.type == 'group') or np.any(psfcoords == 'none'):
+                model = Tractor([self.images[band],], Catalog(*use.values())).getModelImage(0)
+            else:
+                # Position-dependent PSF: bucket sources by the PSF their group was fit
+                # with and draw each bucket once. The old loop copied the whole staged
+                # image and rendered a full brick-sized model for every group, and it
+                # looked the PSF up at the transposed position pixel_to_world(y, x).
+                catalog = self.get_catalog(self.catalog_band, self.catalog_imgtype)
+                group_of = dict(zip(np.asarray(catalog['id']).astype(int).tolist(),
+                                    np.asarray(catalog['group_id']).astype(int).tolist()))
+                gids = sorted({group_of.get(int(sid), 0) for sid in use})
+                centres = OrderedDict()
+                for gid in gids:
+                    bbox = self.get_group_bbox(gid) if (gid > 0 and hasattr(self, 'get_group_bbox')) else None
+                    if bbox is not None:
+                        ylo, yhi, xlo, xhi, __ = bbox       # yhi/xhi exclusive, as in Group.__init__
+                        centres[gid] = (xlo + (xhi - xlo) / 2., ylo + (yhi - ylo) / 2.)
+                psf_key = dict.fromkeys(gids)               # None -> the brick-centre PSF
+                if centres and np.size(psfcoords) > 1:
+                    xc, yc = np.array(list(centres.values())).T
+                    coords = self.get_wcs(band='detection').pixel_to_world(xc, yc)
+                    nearest = np.atleast_1d(coords.match_to_catalog_sky(psfcoords)[0])
+                    psf_key.update(zip(centres.keys(), nearest.tolist()))
+                buckets = OrderedDict()
+                for sid, src in use.items():
+                    buckets.setdefault(psf_key[group_of.get(int(sid), 0)], []).append(src)
+                pairs = []
+                for key, srcs in buckets.items():
                     try:
-                        psfmodel = self.get_psfmodel(band, coord)
+                        psfmodel = self.get_psfmodel(band, None if key is None else psfcoords[key])
                     except (KeyError, ValueError, IndexError) as e:
                         self.logger.debug(f'Failed to get PSF at coord for {band}, using global PSF: {e}')
                         psfmodel = self.get_psfmodel(band) # default to the global PSF for brick
-
-                    group_models = []
-                    for source_id in group_sources:
-                        if source_id in use_source_ids:
-                            group_models.append(self.model_catalog[source_id])
-                    
-                    group_image = self.images[band].copy()
-                    group_image.psf = psfmodel
-                    model += Tractor([group_image,], Catalog(*group_models)).getModelImage(0)
+                    pairs.append((psfmodel, srcs))
+                model = render_model_image(self.images[band].shape, self.images[band].wcs, band, pairs)
 
             self.set_image(model, 'model', band)
             self.headers[band]['model'] = self.headers[band]['science']
@@ -3860,6 +4087,116 @@ class BaseImage():
         return path
 
 
+    def _write_model_summary(self, catalog, irow, snapshot, ps_snapshot):
+        """Write one source's modelling-stage summary, under a ``model_`` prefix.
+
+        Keeps in the primary catalog what forced photometry would otherwise erase: the
+        centroid and fluxes the morphology was solved with, that fit's chi-squared, and
+        the stage-1 PointSource chi-squared to weigh it against. The complete solution,
+        every statistic and the PointSource fit's own photometry included, is written
+        separately by ``write_model_catalog``.
+
+        Args:
+            catalog: Table being written.
+            irow: Row index of this source.
+            snapshot: ``get_params`` of the solved modelling stage.
+            ps_snapshot: ``get_params`` of the stage-1 PointSource fit, or None.
+        """
+        flat = dict(flatten_params(snapshot))
+        for name in MODEL_SUMMARY_COLUMNS:
+            if name in flat:
+                _assign_catalog_value(catalog, f'model_{name}', flat[name], irow)
+        for band in snapshot.get('_bands', ()):
+            for quantity in MODEL_SUMMARY_BAND_COLUMNS:
+                if f'{band}_{quantity}' in flat:
+                    _assign_catalog_value(catalog, f'model_{band}_{quantity}',
+                                          flat[f'{band}_{quantity}'], irow)
+        ps_flat = dict(flatten_params(ps_snapshot or {}))
+        for name in MODEL_SUMMARY_PS_COLUMNS:
+            if name in ps_flat:
+                _assign_catalog_value(catalog, f'model_ps_{name}', ps_flat[name], irow)
+
+    def write_model_catalog(self, allow_update=False, tag=None, filename=None,
+                            directory=conf.PATH_CATALOGS, overwrite=False):
+        """Write the full modelling-stage solution to its own FITS table.
+
+        The primary catalog's own columns belong to the forced photometry that follows
+        the decision tree, so it carries only a summary of the modelling stage (see
+        ``_write_model_summary``). This file is the rest of it, per source:
+
+        * ``model_*`` -- every parameter, flux and statistic of the solved model,
+          measured in ``MODEL_BANDS`` with morphology free.
+        * ``model_ps_*`` -- the same for the stage-1 PointSource fit, the reference the
+          solved model was chosen over.
+
+        It joins to the primary catalog on ``id``, and carries ``brick_id`` and
+        ``group_id`` so it also stands alone. Separate rather than more columns for the
+        same reason the apertures are: a FITS table is capped at ``FITS_MAX_COLUMNS``,
+        and a diagnostic should not be able to make the science product unwritable.
+
+        Only sources whose models were solved in this session have a solution to write,
+        so a photometry-only run on a reloaded brick writes nothing and leaves any
+        existing file untouched -- its modelling pass wrote it.
+
+        Args:
+            allow_update: If ``True``, replace an existing file. Defaults to ``False``.
+            tag: String inserted before ``.cat`` in the filename.
+            filename: Output filename. If ``None``, derived from ``self.filename``.
+            directory: Output directory. Defaults to ``conf.PATH_CATALOGS``.
+            overwrite: If ``True``, overwrite an existing file without complaint.
+
+        Returns:
+            str or None: Path written, or ``None`` if there was nothing to write.
+
+        Raises:
+            RuntimeError: If the file exists and neither ``allow_update`` nor
+                ``overwrite`` is set, or if the table would exceed the FITS column cap.
+        """
+        solved = [(source_id, source) for source_id, source in self.model_catalog.items()
+                  if getattr(source, 'model_stage', None) is not None]
+        if not solved:
+            self.logger.debug('No modelling-stage solutions in memory; '
+                              'not writing a model catalog.')
+            return None
+
+        if filename is None:
+            filename = self.filename.replace('.h5', '_models.cat')
+        if tag is not None:
+            filename = filename.replace('.cat', f'_{tag}.cat')
+        path = os.path.join(directory, filename)
+        if os.path.exists(path) and not (allow_update or overwrite):
+            raise RuntimeError(f'Cannot update {filename}! (allow_update = False)')
+
+        out = Table()
+        out['id'] = np.array([int(source_id) for source_id, __ in solved], dtype=np.int32)
+        out['group_id'] = np.array([int(getattr(source, 'group_id', 0))
+                                    for __, source in solved], dtype=np.int32)
+        if hasattr(self, 'brick_id'):
+            out.add_column(Column(np.full(len(out), self.brick_id, dtype=np.int32),
+                                  name='brick_id'), index=0)
+        for irow, (__, source) in enumerate(solved):
+            for name, value in flatten_params(source.model_stage, prefix='model_'):
+                _assign_catalog_value(out, name, value, irow)
+            for name, value in flatten_params(getattr(source, 'ps_stage', None) or {},
+                                              prefix='model_ps_'):
+                _assign_catalog_value(out, name, value, irow)
+
+        ncol = len(out.colnames)
+        if ncol > FITS_MAX_COLUMNS:
+            raise RuntimeError(
+                f'{filename} would have {ncol} columns; a FITS binary table allows '
+                f'{FITS_MAX_COLUMNS}. Reduce conf.MODEL_BANDS.')
+        if ncol > 0.9 * FITS_MAX_COLUMNS:
+            self.logger.warning(f'{filename} has {ncol} columns, close to the FITS '
+                                f'limit of {FITS_MAX_COLUMNS}.')
+
+        out.meta.update({k: v for k, v in provenance_header(
+            extra=getattr(self, 'psf_aperture_correction', None)).items()})
+        out.write(path, overwrite=conf.OVERWRITE or allow_update or overwrite, format='fits')
+        self.logger.info(f'Wrote the modelling solution of {len(out)} sources '
+                         f'({ncol} columns) to {filename}')
+        return path
+
     def write_hdf5(self, allow_update=False, tag=None, filename=None, directory=conf.PATH_BRICKS):
         """Serialize the entire object state to an HDF5 file.
 
@@ -3947,9 +4284,19 @@ class BaseImage():
         extract per-source measurements (fluxes, magnitudes, positions,
         shapes, chi-squared statistics, group timing). New columns are added
         to the base detection catalog on the fly; existing columns are
-        updated in place. For forced-photometry runs with unfrozen
-        parameters, renames morphology columns with a band prefix. Stores
-        the updated catalog back via ``set_catalog`` and writes to disk.
+        updated in place. Stores the updated catalog back via ``set_catalog``
+        and writes to disk.
+
+        Two stages write here, and they do not share columns. The plain flux and
+        statistic columns are the forced photometry, which is the deliverable. The
+        modelling stage that chose each model measured its own photometry and
+        chi-squared in ``MODEL_BANDS`` with morphology free, and keeps them under a
+        ``model_`` prefix, alongside a ``model_ps_`` point-source reference, so that
+        remeasuring those same bands cannot erase them (see
+        ``_write_model_summary``; the full solution goes to ``write_model_catalog``).
+        The plain morphology columns stay with the modelling solution too: a
+        photometry run that thaws a ``PHOT_PRIORS`` family writes its own values for
+        that family under a band prefix instead.
 
         Args:
             catalog_imgtype: Image type of the catalog to update. If
@@ -4045,37 +4392,61 @@ class BaseImage():
             group_id = catalog['group_id'][irow]
             params = get_params(source)
 
+            # The modelling solution, if this source still carries it (store_models
+            # snapshots it; a photometry-only run on a reloaded brick does not have it,
+            # and does not need it -- its own modelling pass already wrote these columns
+            # and the photometry stage below no longer overwrites them).
+            snapshot = getattr(source, 'model_stage', None)
+            if snapshot is not None:
+                self._write_model_summary(catalog, irow, snapshot,
+                                          getattr(source, 'ps_stage', None))
+
             # for forced photometry, rename parameters if they are unfrozen
-            if 11 in self.model_tracker[source_id]:
+            # NOTE the old gate was `11 in self.model_tracker[source_id]`, but both
+            # generate_models and photometer prune the tracker before writing, so with
+            # the default keep_tracker=False it never fired and a thawed photometry stage
+            # silently overwrote the modelling-stage morphology in the plain columns. The
+            # model carries its own stage now. The tracker check stays as a fallback for
+            # bricks written before that.
+            is_photometry = (getattr(source, 'fit_stage', None) == PHOTOMETRY_STAGE) \
+                or (PHOTOMETRY_STAGE in self.model_tracker.get(source_id, {}))
+
+            # Holding the plain morphology columns for the modelling solution is only
+            # right when there IS one to hold them for: in memory here, or already in the
+            # file from the run that determined the models. On a photometry-only run
+            # against a catalog that never saw a modelling pass, the photometry values are
+            # the only fitted ones there are, so they belong in the plain columns rather
+            # than leaving those holding detection positions.
+            has_modelling = snapshot is not None
+            if (not has_modelling) and ('model_ra' in catalog.colnames):
+                has_modelling = bool(np.isfinite(catalog['model_ra'][irow]))
+            if is_photometry and has_modelling:
                 if np.any([prior != 'freeze' for prior in self.phot_priors.values()]):
                     if len(params['_bands']) > 1:
                         band = band_tag
                     elif len(params['_bands']) == 1:
                         band = params['_bands'][0]
-                    
-                    pos_names = 'ra', 'dec', 'ra_err', 'dec_err'
-                    reff_names = 'logre', 'logre_err', 'reff', 'reff_err'
-                    reff_names += 'logre_exp', 'logre_exp_err', 'reff_exp', 'reff_exp_err'
-                    reff_names += 'logre_dev', 'logre_dev_err', 'reff_dev', 'reff_dev_err'
-                    shape_names = 'ellip', 'ellip_err', 'ee1', 'ee1_err', 'ee2', 'ee2_err', 'theta', 'theta_err', 'ba', 'ba_err', 'pa', 'pa_err'
-                    shape_names += 'ellip_exp', 'ellip_exp_err', 'ee1_exp', 'ee1_exp_err', 'ee2_exp', 'ee2_exp_err', 'theta_exp', 'theta_exp_err', 'ba_exp', 'ba_exp_err', 'pa_exp', 'pa_exp_err'
-                    shape_names += 'ellip_dev', 'ellip_dev_err', 'ee1_dev', 'ee1_dev_err', 'ee2_dev', 'ee2_dev_err', 'theta_dev', 'theta_dev_err', 'ba_dev', 'ba_dev_err', 'pa_dev', 'pa_dev_err'
-                    fracdev_names = 'fracdev', 'fracdev_err', 'softfracdev', 'softfracdev_err'
-                    
+
                     # Each family is gated on its OWN prior. This used to sit inside an
                     # `if phot_priors['pos'] != 'freeze'`, so freezing the position also
                     # suppressed renaming of the shape/reff/fracDev columns, letting a
                     # forced-photometry run silently overwrite the modelling-stage values.
                     for name in list(params.keys()):
-                        if ((name in pos_names) and (self.phot_priors['pos'] != 'freeze')) \
-                            or ((name in reff_names) and (self.phot_priors['reff'] != 'freeze')) \
-                            or ((name in shape_names) and (self.phot_priors['shape'] != 'freeze')) \
-                            or ((name in fracdev_names) and (self.phot_priors['fracDev'] != 'freeze')):
-                                value = params[name]
-                                params.pop(name)
-                                params[f'{band}_{name}'] = value
-                    
-            # Add group_time from statistics
+                        for prior, family in PRIOR_COLUMNS.items():
+                            if (name in family) and (self.phot_priors[prior] != 'freeze'):
+                                params[f'{band}_{name}'] = params.pop(name)
+                                break
+
+                    # The plain morphology columns belong to the modelling solution, so
+                    # restore the values the renaming above just moved out of the way.
+                    if snapshot is not None:
+                        for name, value in flatten_params(snapshot):
+                            if name in MORPHOLOGY_COLUMNS:
+                                _assign_catalog_value(catalog, name, value, irow)
+
+            # Add group_time from statistics. get_params carries it through as well, as
+            # one of the statistics that is not per band; this block is what gives the
+            # column its unit, so it runs first.
             if hasattr(source, 'statistics') and 'group_time' in source.statistics:
                 group_time = source.statistics['group_time']
                 if 'group_time' not in catalog.colnames:
@@ -4086,23 +4457,9 @@ class BaseImage():
                 self.logger.debug(f'G{group_id}.S{source_id} :: group_time = {group_time:2.2f} s')
 
             debug = self.logger.isEnabledFor(logging.DEBUG)
-            for name in params:
-                if name.startswith('_') | (name == 'total_total'):
-                    continue
-                value = _assign_catalog_value(catalog, name, params[name], irow)
+            for name, value in flatten_params(params):
+                value = _assign_catalog_value(catalog, name, value, irow)
                 if debug:
-                    if isinstance(value, str):
-                        self.logger.debug(f'G{group_id}.S{source_id} :: {name} = {value}')
-                    else:
-                        self.logger.debug(f'G{group_id}.S{source_id} :: {name} = {value:2.2f}')
-
-            if 'total_total' in params:
-                for name in params['total_total']:
-                    value = _assign_catalog_value(
-                        catalog, f'total_{name}', params['total_total'][name], irow)
-                    name = f'total_{name}'
-                    if not debug:
-                        continue
                     if isinstance(value, str):
                         self.logger.debug(f'G{group_id}.S{source_id} :: {name} = {value}')
                     else:
