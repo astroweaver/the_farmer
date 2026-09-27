@@ -1,5 +1,5 @@
 import config as conf
-from .utils import validate_psfmodel, dilate_and_group, load_brick_position, read_wcs
+from .utils import validate_psfmodel, dilate_and_group, load_brick_position, read_wcs, group_centres
 from .utils import models_from_catalog, read_catalog_columns, create_fits_memmap, provenance_header
 from .brick import Brick
 from .image import BaseImage, FIT_OK, select_reconstruction_models, render_model_image, sep_background
@@ -651,7 +651,8 @@ class Mosaic(BaseImage):
                            for src in srcs])                                # arcsec
         psf_radius = np.zeros(len(srcs))                                    # pix
         for psfmodel, idx in buckets:
-            psf_radius[idx] = psfmodel.getRadius()
+            # getRadius is in the stamp's own pixels; sampling converts to image pixels
+            psf_radius[idx] = psfmodel.getRadius() * float(getattr(psfmodel, 'sampling', 1.) or 1.)
         extent = np.ceil(np.maximum(1., radius / pixscale) + psf_radius) + 2.     # pix
         capped = extent > max_extent_px
         extent = np.minimum(extent, max_extent_px)
@@ -694,8 +695,19 @@ class Mosaic(BaseImage):
         """
         band = self.band
         psfcoords = self.data['psfcoords']
-        if np.any(psfcoords == 'none'):
+        varies = self.psf_varies(band)
+        if np.any(psfcoords == 'none') and not varies:
             return [(self.get_psfmodel(band), np.arange(len(ids)))]
+
+        group_of = dict(zip(np.asarray(catalog['id']).astype(int).tolist(),
+                            np.asarray(catalog['group_id']).astype(int).tolist())) \
+            if 'group_id' in catalog.colnames else {}
+        inverse, centres = group_centres([group_of.get(int(sid), 0) for sid in ids], ra, dec)
+        if varies:
+            # a varying whole-field PsfEx model: each group's own PSF, as it was fit
+            members = np.split(np.argsort(inverse, kind='stable'),
+                               np.cumsum(np.bincount(inverse, minlength=len(centres)))[:-1])
+            return [(self.get_psfmodel(band, centres[k]), idx) for k, idx in enumerate(members)]
 
         # The brick held the grid points inside its buffered footprint, or else the
         # single nearest one (Brick.add_band); each group then took the nearest of those.
@@ -711,21 +723,6 @@ class Mosaic(BaseImage):
         else:
             candidates = psfcoords[[int(np.argmin(psfcoords.separation(position)))]]
 
-        # group centre: the normalised mean of member unit vectors, safe across RA = 0
-        group_of = dict(zip(np.asarray(catalog['id']).astype(int).tolist(),
-                            np.asarray(catalog['group_id']).astype(int).tolist())) \
-            if 'group_id' in catalog.colnames else {}
-        # group_id 0 is the ungrouped bucket, not a group: such a source stands alone,
-        # or its scattered companions would drag the "centre" across the brick
-        groups = np.array([group_of.get(int(sid), 0) or -int(sid) for sid in ids])
-        __, inverse = np.unique(groups, return_inverse=True)
-        inverse = inverse.ravel()
-        ra_rad, dec_rad = np.deg2rad(ra), np.deg2rad(dec)
-        cx = np.bincount(inverse, weights=np.cos(dec_rad) * np.cos(ra_rad))
-        cy = np.bincount(inverse, weights=np.cos(dec_rad) * np.sin(ra_rad))
-        cz = np.bincount(inverse, weights=np.sin(dec_rad))
-        centres = SkyCoord(np.rad2deg(np.arctan2(cy, cx)) % 360., np.rad2deg(np.arctan2(cz, np.hypot(cx, cy))),
-                           unit='deg')
         if len(candidates) > 1:
             nearest = np.atleast_1d(centres.match_to_catalog_sky(candidates)[0])
         else:

@@ -158,11 +158,28 @@ Two PSF formats are supported:
 
       'psfmodel': '/path/to/psfmodels/hsc_i.fits'
 
-2. **Variable PSF** — an ASCII or FITS table with columns ``ra`` (degrees), ``dec`` (degrees), and ``psf_path`` (path to a per-position FITS file). The Farmer selects the nearest PSF for each source.
+2. **Variable PSF** — an ASCII or FITS table with columns ``ra`` (degrees), ``dec`` (degrees), and ``filename`` (path to a per-position PSF file). The Farmer selects the nearest PSF for each source.
 
    .. code-block:: python
 
       'psfmodel': '/path/to/psfmodels/hsc_i_psflist.fits'
+
+Either form also accepts PSFEx ``.psf`` models, including oversampled ones
+(``PSF_SAMP != 1``). A PSFEx model is evaluated once per group, at the group
+centre, and handed to The Tractor as a constant stamp. A model sampled more
+coarsely than the image (``PSF_SAMP > 1``, common for ground-based data) is
+resampled once onto the image grid, keeping its total flux: The Tractor's own
+resampling of such a model changes the rendered flux by ~2% with sub-pixel
+position. A finer model (``PSF_SAMP < 1``) is left on its own grid.
+
+- A **single** ``.psf`` file is taken to have been fitted on this band's science
+  mosaic, so its polynomial is evaluated in mosaic pixels (clamped to the range
+  PSFEx fitted, never extrapolated). If that fitted range does not lie inside the
+  mosaic, the model was fitted on some other image; a warning is logged and it is
+  used at its own centre everywhere, i.e. as a constant PSF.
+- Each ``.psf`` file in a **table** is evaluated at its own centre, since each was
+  fitted on its own image; the table supplies the spatial variation, as it does
+  for FITS stamps.
 
 Use ``bin/prep_psf.py`` to clip, normalize, and optionally resample a raw PSF stamp before using it with The Farmer.
 
@@ -364,7 +381,7 @@ Modeling and the Decision Tree
      - If the chi-squared difference between Exp and deV models is smaller than this, prefer the simpler model.
    * - ``RENORM_PSF``
      - ``None``
-     - Rescale every PSF stamp so it sums to this value. ``None`` leaves the stamp as-is (the usual choice if ``prepare_psf`` already normalised it). Setting it to ``1.0`` folds whatever PSF flux lies *outside* the stamp into the fitted fluxes as an implicit aperture correction; that factor is logged once per band, stored on ``BaseImage.psf_aperture_correction``, and written to the output headers. Incompatible with PsfEx (``.psf``) models, which carry no pixel image.
+     - Rescale every PSF stamp so it sums to this value. ``None`` leaves the stamp as-is (the usual choice if ``prepare_psf`` already normalised it). Setting it to ``1.0`` folds whatever PSF flux lies *outside* the stamp into the fitted fluxes as an implicit aperture correction; that factor is logged once per band, stored on ``BaseImage.psf_aperture_correction``, and written to the output headers. For PsfEx (``.psf``) models the sum is the one rendered on the image grid, i.e. the model-grid sum times ``PSF_SAMP**2``.
 
 Optimizer Settings
 -------------------
@@ -515,9 +532,12 @@ for two PSF FWHM, ``aperreff2`` for two effective radii. Column count is nine
 per aperture per band, so trim the lists above on wide multi-band catalogs.
 
 The ``apcorr`` column is measured, per source, from the curve of growth of the
-same spatially nearest PSF stamp the model fits use, on the stamp's own
-normalisation -- the one that defines the fitted fluxes, since a fitted flux
-``F`` means ``F x stamp`` matches the image. ``flux * apcorr`` therefore lands
+same spatially nearest PSF stamp the model fits use, as Tractor renders it on
+the image pixel grid, on that stamp's own normalisation -- the one that defines
+the fitted fluxes, since a fitted flux ``F`` means ``F x stamp`` matches the
+image. For a PsfEx model with ``PSF_SAMP != 1`` this differs from the model's
+own grid, which sums to about ``1/PSF_SAMP**2``; the correction is taken from
+the rendered stamp. ``flux * apcorr`` therefore lands
 on the model-flux scale for an unresolved source under any stamp convention:
 for stamps normalised to unit total with the wings extrapolated beyond the
 footprint (stamp sum < 1), the correction includes the out-of-stamp wing

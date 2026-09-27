@@ -3,6 +3,7 @@ from .utils import clean_catalog, map_discontinuous, SimpleGalaxy, read_wcs, cum
 from .utils import recursively_save_dict_contents_to_group, recursively_load_dict_contents_from_group, dcoord_to_offset, get_params
 from .utils import get_detection_kernel, provenance_header, _soften_fracdev
 from .utils import build_aperture_specs, get_model_reff, get_psf_fwhm, get_psf_curve_of_growth
+from .utils import native_psf_stamp, group_centres
 from .utils import APER_KIND_FIXED, APER_KIND_PSF, APER_KIND_REFF
 
 import logging
@@ -90,6 +91,106 @@ def _load_psf_array(psf_path):
     img[(img < 1e-31) | np.isnan(img)] = 1e-31
     img.flags.writeable = False      # make accidental in-place mutation loud
     return img
+
+
+@functools.lru_cache(maxsize=64)
+def _load_psfex(psf_path):
+    """Read a PsfEx model, memoised by path (see ``_load_psf_array`` for why).
+
+    Returns:
+        tractor.psfex.PixelizedPsfEx: SHARED -- only ever evaluate it
+            (``constantPsfAt``); never hand it to a Tractor ``Image`` or mutate it.
+    """
+    return PixelizedPsfEx(fn=psf_path)
+
+
+@functools.lru_cache(maxsize=64)
+def _band_mosaic_wcs(band):
+    """WCS of a band's full science mosaic, read from its header alone.
+
+    Bricks and groups carry only cutout WCSs (groups are cut from brick
+    cutouts, so no ``origin_original`` reaches the mosaic), but a PsfEx
+    polynomial fitted on the mosaic is in the mosaic's own pixel frame.
+    """
+    props = conf.BANDS[band]
+    return WCS(fits.getheader(props['science'], ext=props.get('extension', 0)))
+
+
+# PsfEx frame warnings already issued, by band -- once per process, not per group.
+_PSFEX_FRAME_WARNED = set()
+
+
+def _psfex_mosaic_range(psfex, band, logger):
+    """The mosaic-pixel range over which a whole-field PsfEx model varies, if any.
+
+    A single whole-field ``.psf`` file is taken to have been fitted on the
+    band's science mosaic, so its polynomial is in mosaic pixels. That is
+    checked, not assumed: the range PsfEx actually fitted (POLZERO +/-
+    POLSCAL/2) must lie inside the mosaic. If it does not, the file was fitted
+    on some other image, its frame is unknown, and it is used at its own
+    centre, with one warning per band.
+
+    Args:
+        psfex: ``tractor.psfex.PsfExModel``.
+        band: Band the model belongs to.
+        logger: Logger for the one-time frame warning.
+
+    Returns:
+        tuple or None: ``(lo, hi)`` -- 1-based ``[x, y]`` pixel bounds of the
+            fitted range -- or None if the model is constant across the mosaic.
+    """
+    if psfex.degree == 0:
+        return None
+    ny, nx = _band_mosaic_wcs(band).array_shape
+    lo = np.array([psfex.x0 - psfex.xscale / 2., psfex.y0 - psfex.yscale / 2.])     # pix
+    hi = np.array([psfex.x0 + psfex.xscale / 2., psfex.y0 + psfex.yscale / 2.])     # pix
+    size = np.array([nx, ny], dtype=float)                                            # pix
+    slack = 0.05 * size
+    # 1-based pixel edges of the mosaic are 0.5 .. n + 0.5
+    if np.all(hi > lo) and np.all(lo >= 0.5 - slack) and np.all(hi <= size + 0.5 + slack):
+        return lo, hi
+    if band not in _PSFEX_FRAME_WARNED:
+        _PSFEX_FRAME_WARNED.add(band)
+        logger.warning(
+            f'{band}: the PsfEx model was fitted over X_IMAGE {lo[0]:.0f}-{hi[0]:.0f}, '
+            f'Y_IMAGE {lo[1]:.0f}-{hi[1]:.0f}, which is not inside the {nx} x {ny} '
+            f'science mosaic, so it was not fitted on this mosaic. Its spatial '
+            f'variation is ignored: it is evaluated at its own centre '
+            f'({psfex.x0:.0f}, {psfex.y0:.0f}) everywhere.')
+    return None
+
+
+def _psfex_eval_position(psfex, band, coord, whole_field, logger):
+    """Where to evaluate a PsfEx polynomial, in its own X_IMAGE/Y_IMAGE frame.
+
+    A whole-field model that varies across the mosaic (``_psfex_mosaic_range``)
+    is evaluated at ``coord``, mapped to mosaic pixels and clamped to the
+    fitted range so the polynomial is never extrapolated. Anything else is
+    evaluated at the model's own centre (POLZERO): a constant model, one fitted
+    on another image, or a file from a PSF grid -- each grid file was fitted on
+    its own image, and the grid supplies the spatial variation, as it does for
+    ``.fits`` grids.
+
+    Args:
+        psfex: ``tractor.psfex.PsfExModel``.
+        band: Band the model belongs to.
+        coord: ``SkyCoord`` to evaluate at.
+        whole_field: True for a single ``.psf`` file covering the whole band.
+        logger: Logger for the one-time frame warning.
+
+    Returns:
+        tuple: ``(x, y)`` in the model's frame (1-based pix, as X_IMAGE).
+    """
+    centre = (psfex.x0, psfex.y0)
+    fitted = _psfex_mosaic_range(psfex, band, logger) if whole_field else None
+    if fitted is None or coord is None:
+        return centre
+    x, y = _band_mosaic_wcs(band).world_to_pixel(coord)                 # 0-based mosaic pix
+    xy = np.array([float(np.ravel(x)[0]), float(np.ravel(y)[0])]) + 1.  # X_IMAGE is 1-based
+    if not np.all(np.isfinite(xy)):
+        return centre
+    xy = np.clip(xy, *fitted)
+    return float(xy[0]), float(xy[1])
 
 
 # Decision-tree stages at which the single-component fits are recorded, so that
@@ -614,18 +715,22 @@ class BaseImage():
         Selects the spatially nearest PSF from ``psfcoords`` / ``psflist``
         stored in ``self.data[band]``. Falls back to the single PSF when
         only one is available. Supports both ``.psf`` (PsfEx) and ``.fits``
-        (PixelizedPSF) file formats. If ``conf.RENORM_PSF`` is set the PSF
-        image is renormalized before returning.
+        (PixelizedPSF) file formats. A PsfEx model is evaluated once, at
+        ``coord`` (see ``_psfex_eval_position``), and returned as a constant
+        ``PixelizedPSF``: on its own grid (keeping ``sampling``) if that is
+        finer than the image, else resampled onto the image grid. If ``conf.RENORM_PSF`` is
+        set the PSF image is renormalized before returning.
 
         Args:
             band: Band identifier. Must not be ``'detection'``.
             coord: ``astropy.coordinates.SkyCoord`` used to pick the nearest
-                PSF when multiple positions are stored. If ``None``, falls
-                back to ``self.position``.
+                PSF when multiple positions are stored, and at which a
+                whole-field PsfEx model is evaluated. If ``None``, falls back
+                to ``self.position``.
 
         Returns:
-            tractor.psf.PixelizedPSF or tractor.psf.PixelizedPsfEx:
-                The PSF model ready to pass to a Tractor ``Image``.
+            tractor.psf.PixelizedPSF: The PSF model ready to pass to a Tractor
+                ``Image``.
         """
         # If you run models on a brick/mosaic **or reconstruct** one, I'll always grab the one nearest the center
         # If you run models on a group, I'll always grab the one nearest to the center of the group
@@ -638,8 +743,6 @@ class BaseImage():
             psfcoords, psflist = self.data[band]['psfcoords'], self.data[band]['psflist']
 
         if np.any(psfcoords == 'none'): # single psf!
-            if coord is not None:
-                self.logger.debug(f'{band} has only a single PSF! Coordinates ignored.')
             psf_path = psflist
             # Convert bytes to string if needed (HDF5 compatibility)
             try:
@@ -682,8 +785,36 @@ class BaseImage():
         if psf_path.endswith('.psf'):
             # Try loading as PsfEx format first
             try:
-                psfmodel = PixelizedPsfEx(fn=psf_path)
-                self.logger.debug(f'PSF model for {band} identified as PixelizedPsfEx.')
+                psfex = _load_psfex(psf_path)
+                # Hand Tractor the PSF evaluated HERE, as a constant: a
+                # PixelizedPsfEx left to vary would be evaluated at cutout-local
+                # pixels as if they were the frame PsfEx was fitted in, and for
+                # PSF_SAMP != 1 Tractor convolves galaxies with the constant
+                # basis image alone (psf.py _getOversampledFourierTransform
+                # samples self.img), so they would miss the variation that
+                # point sources get. Groups are far smaller than the scale the
+                # polynomial varies on.
+                xy = _psfex_eval_position(
+                    psfex.psfex, band, self.position if coord is None else coord,
+                    whole_field=np.any(psfcoords == 'none'), logger=self.logger)
+                psfmodel = psfex.constantPsfAt(*xy)
+                if psfmodel.sampling > 1.:
+                    # A model grid COARSER than the image: Tractor's Lanczos
+                    # resampling of it does not conserve flux, and the rendered
+                    # total swings ~2% peak-to-peak with the source's sub-pixel
+                    # phase (1.6-2.3% at PSF_SAMP = 1.09, FWHM 3-5 pix). Resample
+                    # once onto the image grid and fit with that sampling-1 stamp,
+                    # which is flux-stable, rescaled to the model's own total (the
+                    # grid sum x PSF_SAMP^2 Riemann estimate) since the one-off
+                    # resampling itself loses ~1%. A finer grid (PSF_SAMP < 1,
+                    # undersampled data) stays with Tractor: flux-stable there, and
+                    # it keeps the sub-pixel shape a native stamp would lose.
+                    total = float(np.nansum(psfmodel.img)) * float(psfmodel.sampling) ** 2
+                    stamp = native_psf_stamp(psfmodel)
+                    psfmodel = PixelizedPSF(stamp * np.float32(total / float(np.nansum(stamp))))
+                self.logger.debug(f'PSF model for {band} is PixelizedPsfEx (PSF_SAMP = '
+                                  f'{psfex.sampling}), evaluated at X_IMAGE, Y_IMAGE = '
+                                  f'({xy[0]:.1f}, {xy[1]:.1f}).')
 
             except (ValueError, RuntimeError) as e:
                 # Fall back to generic pixelized PSF format
@@ -702,15 +833,11 @@ class BaseImage():
             raise ValueError(f'Unrecognized PSF file format for {band}: {psf_path}')
 
         if conf.RENORM_PSF is not None:
-            img = getattr(psfmodel, 'img', None)
-            if img is None:
-                # PixelizedPsfEx has no .img; this used to be an AttributeError
-                # swallowed by IGNORE_FAILURES, rejecting every group.
-                raise ValueError(
-                    f'RENORM_PSF is set but the {band} PSF model is a '
-                    f'{type(psfmodel).__name__}, which has no pixel image. '
-                    f'Set RENORM_PSF = None to use PsfEx models.')
-            stamp_sum = float(np.nansum(img))
+            img = psfmodel.img
+            # The sum Tractor renders on the image grid, which for a stamp on its
+            # own grid (PsfEx PSF_SAMP != 1) is not the stamp's sum. For sampling 1
+            # the patch at an integer position IS the stamp.
+            stamp_sum = float(np.nansum(psfmodel.getPointSourcePatch(0, 0).patch))
             if not np.isfinite(stamp_sum) or stamp_sum <= 0:
                 raise ValueError(f'{band} PSF stamp sums to {stamp_sum}; cannot renormalise.')
             aper_corr = conf.RENORM_PSF / stamp_sum
@@ -727,6 +854,41 @@ class BaseImage():
                     f'aperture correction of {aper_corr:.6f}.')
 
         return psfmodel
+
+    def psf_varies(self, band):
+        """Whether a band's single whole-field PSF varies with position.
+
+        True only for a single ``.psf`` file whose polynomial varies across
+        this band's mosaic (``_psfex_mosaic_range``). Such a PSF differs from
+        group to group although ``psfcoords`` is ``'none'``, so anything that
+        renders or corrects many groups at once must look it up per group,
+        exactly as for a PSF grid.
+
+        Args:
+            band: Band identifier.
+
+        Returns:
+            bool
+        """
+        if band == 'detection':
+            return False
+        if self.type == 'mosaic':
+            psfcoords, psf_path = self.data['psfcoords'], self.data['psflist']
+        else:
+            psfcoords, psf_path = self.data[band]['psfcoords'], self.data[band]['psflist']
+        if not np.any(psfcoords == 'none'):
+            return False
+        try:
+            psf_path = psf_path.decode('utf-8')
+        except (AttributeError, UnicodeDecodeError):
+            pass
+        if not str(psf_path).endswith('.psf'):
+            return False
+        try:
+            psfex = _load_psfex(str(psf_path))
+        except (ValueError, RuntimeError):
+            return False
+        return _psfex_mosaic_range(psfex.psfex, band, self.logger) is not None
 
     def _overlay_catalog(self, ax, band, catalog_band='detection',
                          catalog_imgtype='science', marker=True):
@@ -2497,8 +2659,10 @@ class BaseImage():
             Aperture fluxes are raw; the ``{band}_{tag}_apcorr`` column carries
             the multiplicative point-source aperture correction (total = flux x
             apcorr for an unresolved source), measured from the curve of growth
-            of the same nearest-PSF stamps the model fits use, on the stamp's
-            OWN normalisation -- the one that defines the fitted fluxes -- so
+            of the same nearest-PSF stamps the model fits use, as Tractor
+            renders them on the image grid (not the PSF model's own grid, which
+            differs for PsfEx PSF_SAMP != 1), on that rendered stamp's OWN
+            normalisation -- the one that defines the fitted fluxes -- so
             flux x apcorr lands on the model-flux scale under any stamp
             convention. For stamps normalised to unit total with the wings
             extrapolated (stamp sum < 1), the correction includes the
@@ -2617,21 +2781,29 @@ class BaseImage():
 
                 # Point-source aperture corrections from the SAME stamps the model
                 # fits use: each source is matched to its nearest PSF (the
-                # get_psfmodel lookup groups do), one curve of growth per stamp.
+                # get_psfmodel lookup groups do), one curve of growth per stamp. A
+                # varying whole-field PsfEx model is evaluated per group instead.
                 cog = {}                                  # stamp index -> (radii_pix, ee)
                 src_stamp = np.zeros(nsrc, dtype=int)     # per-source stamp index
                 try:
                     psfcoords = (self.data['psfcoords'] if self.type == 'mosaic'
                                  else self.data[band]['psfcoords'])
-                    single = np.any(psfcoords == 'none') | (np.size(psfcoords) == 1)
-                    if not single:
+                    varies = self.psf_varies(band)
+                    single = (np.any(psfcoords == 'none') | (np.size(psfcoords) == 1)) and not varies
+                    stamp_coords = None                   # stamp index -> SkyCoord
+                    if varies:
+                        gids = (np.asarray(catalog['group_id']).astype(int)
+                                if 'group_id' in catalog.colnames else np.zeros(nsrc, dtype=int))
+                        src_stamp, stamp_coords = group_centres(gids, ra, dec)
+                    elif not single:
                         if src_coords is None:
                             src_coords = SkyCoord(ra * u.deg, dec * u.deg)
                         src_stamp, __, __ = src_coords.match_to_catalog_sky(psfcoords)
                         src_stamp = np.asarray(src_stamp, dtype=int)
+                        stamp_coords = psfcoords
                     for stamp_idx in np.unique(src_stamp):
                         psfmodel = (self.get_psfmodel(band) if single else
-                                    self.get_psfmodel(band, coord=psfcoords[stamp_idx]))
+                                    self.get_psfmodel(band, coord=stamp_coords[stamp_idx]))
                         cog[stamp_idx] = get_psf_curve_of_growth(
                             psfmodel, x=data.shape[1] / 2., y=data.shape[0] / 2.,
                             subpix=subpix)
@@ -2830,13 +3002,16 @@ class BaseImage():
                 use = self.model_catalog
 
             psfcoords = self.data[band]['psfcoords']
-            if (self.type == 'group') or np.any(psfcoords == 'none'):
+            psf_varies = (self.type != 'group') and self.psf_varies(band)
+            if (self.type == 'group') or (np.any(psfcoords == 'none') and not psf_varies):
                 model = Tractor([self.images[band],], Catalog(*use.values())).getModelImage(0)
             else:
                 # Position-dependent PSF: bucket sources by the PSF their group was fit
                 # with and draw each bucket once. The old loop copied the whole staged
                 # image and rendered a full brick-sized model for every group, and it
                 # looked the PSF up at the transposed position pixel_to_world(y, x).
+                # A grid buckets by nearest grid point; a varying whole-field PsfEx
+                # model is evaluated at each group's own centre, as it was fit.
                 catalog = self.get_catalog(self.catalog_band, self.catalog_imgtype)
                 group_of = dict(zip(np.asarray(catalog['id']).astype(int).tolist(),
                                     np.asarray(catalog['group_id']).astype(int).tolist()))
@@ -2848,18 +3023,24 @@ class BaseImage():
                         ylo, yhi, xlo, xhi, __ = bbox       # yhi/xhi exclusive, as in Group.__init__
                         centres[gid] = (xlo + (xhi - xlo) / 2., ylo + (yhi - ylo) / 2.)
                 psf_key = dict.fromkeys(gids)               # None -> the brick-centre PSF
-                if centres and np.size(psfcoords) > 1:
+                key_coord = {}                              # bucket key -> SkyCoord to evaluate at
+                if centres and (psf_varies or np.size(psfcoords) > 1):
                     xc, yc = np.array(list(centres.values())).T
                     coords = self.get_wcs(band='detection').pixel_to_world(xc, yc)
-                    nearest = np.atleast_1d(coords.match_to_catalog_sky(psfcoords)[0])
-                    psf_key.update(zip(centres.keys(), nearest.tolist()))
+                    if psf_varies:
+                        keys = list(centres.keys())
+                        key_coord.update(zip(keys, coords))
+                    else:
+                        keys = np.atleast_1d(coords.match_to_catalog_sky(psfcoords)[0]).tolist()
+                        key_coord.update((k, psfcoords[k]) for k in keys)
+                    psf_key.update(zip(centres.keys(), keys))
                 buckets = OrderedDict()
                 for sid, src in use.items():
                     buckets.setdefault(psf_key[group_of.get(int(sid), 0)], []).append(src)
                 pairs = []
                 for key, srcs in buckets.items():
                     try:
-                        psfmodel = self.get_psfmodel(band, None if key is None else psfcoords[key])
+                        psfmodel = self.get_psfmodel(band, key_coord.get(key))
                     except (KeyError, ValueError, IndexError) as e:
                         self.logger.debug(f'Failed to get PSF at coord for {band}, using global PSF: {e}')
                         psfmodel = self.get_psfmodel(band) # default to the global PSF for brick
@@ -3587,7 +3768,8 @@ class BaseImage():
                 # axes[3,2].plot(px, py, color='g')
 
                 nx, ny = np.shape(img)
-                psf = self.get_psfmodel(band).img
+                # image-grid stamp: .img is on the model's own grid for PSF_SAMP != 1
+                psf = native_psf_stamp(self.get_psfmodel(band))
                 scl = 1
                 zoomed_psf = ndimage.zoom(psf, scl)
                 zoomed_psf /= np.sum(zoomed_psf)
@@ -3728,7 +3910,8 @@ class BaseImage():
                 axes[2,3].text(target_center, 0.12, f'{target_scale}\"', transform=axes[2,3].transAxes, fontweight='bold', horizontalalignment='center')
 
                 # PSF
-                psfmodel = self.get_psfmodel(band=band).img
+                # image-grid stamp, so the axis below is in image pixels x pixscl
+                psfmodel = native_psf_stamp(self.get_psfmodel(band=band))
                 pixscl = (self.pixel_scales[band][0]).to(u.arcsec).value
                 xax = np.arange(-np.shape(psfmodel)[0]/2 + 0.5,  np.shape(psfmodel)[0]/2+0.5)
                 [axes[3,0].plot(xax * pixscl, psfmodel[x], c='royalblue', alpha=0.5) for x in np.arange(0, np.shape(psfmodel)[1])]

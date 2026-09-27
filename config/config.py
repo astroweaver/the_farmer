@@ -131,7 +131,8 @@ RENORM_PSF = None       # Rescale every PSF stamp to this total flux (None = lea
                         # into the fitted fluxes as an implicit aperture correction; the
                         # factor is logged once per band and stored in
                         # BaseImage.psf_aperture_correction. Leave it None if prepare_psf
-                        # already normalised your stamps. Incompatible with PsfEx (.psf) models.
+                        # already normalised your stamps. For PsfEx (.psf) models the total
+                        # is the one rendered on the image grid (stamp sum x PSF_SAMP^2).
 
 # Engine
 MAX_STEPS = 50

@@ -2094,6 +2094,66 @@ def _fwhm_half_max_crossing(img):
     return float(np.mean(widths))
 
 
+def native_psf_stamp(psfmodel, x=0., y=0.):
+    """Unit-flux point-source stamp exactly as Tractor renders it on the image grid.
+
+    For a sampling-1 ``PixelizedPSF`` this is the input stamp itself. For a
+    model sampled on its own grid (PsfEx ``PSF_SAMP != 1``) it is the
+    resampled image-pixel stamp -- the one that defines fitted fluxes -- which
+    ``.img`` is not: that is on the model grid, with its own normalisation.
+
+    Args:
+        psfmodel: Tractor PSF object.
+        x: Image x coordinate at which to evaluate a spatially varying PSF (pix).
+        y: Image y coordinate at which to evaluate a spatially varying PSF (pix).
+
+    Returns:
+        numpy.ndarray or None: Odd-sized (ny, nx) stamp centred on its middle
+            pixel, cropped symmetric about the PSF centre; None if no stamp.
+    """
+    # Integer position: a zero sub-pixel offset makes the Lanczos shift an
+    # identity, so a sampling-1 stamp comes back unaltered.
+    ix, iy = round(float(x)), round(float(y))       # pix
+    patch = psfmodel.getPointSourcePatch(ix, iy)
+    if patch is None:
+        return None
+    img = patch.patch
+    ny, nx = img.shape
+    cx, cy = ix - patch.x0, iy - patch.y0           # pix, PSF centre in the patch
+    # A resampled stamp can come back even-sized with the centre off the middle.
+    r = int(min(cx, cy, nx - 1 - cx, ny - 1 - cy))
+    if r < 0:
+        return None
+    return img[cy - r:cy + r + 1, cx - r:cx + r + 1]
+
+
+def group_centres(group_ids, ra, dec):
+    """Sky centre of each group of sources, safe across RA = 0.
+
+    Args:
+        group_ids: Per-source group id. Id 0 is the ungrouped bucket, not a
+            group: each such source is its own centre, or scattered companions
+            would drag a shared "centre" across the field.
+        ra: Source right ascensions, deg.
+        dec: Source declinations, deg.
+
+    Returns:
+        tuple: ``(inverse, centres)`` -- per-source index into ``centres``, and
+            a ``SkyCoord`` array of the normalised mean member unit vectors.
+    """
+    group_ids = np.asarray(group_ids, dtype=int)
+    keys = np.where(group_ids != 0, group_ids, -(np.arange(group_ids.size) + 1))
+    __, inverse = np.unique(keys, return_inverse=True)
+    inverse = inverse.ravel()
+    ra_rad, dec_rad = np.deg2rad(ra), np.deg2rad(dec)
+    cx = np.bincount(inverse, weights=np.cos(dec_rad) * np.cos(ra_rad))
+    cy = np.bincount(inverse, weights=np.cos(dec_rad) * np.sin(ra_rad))
+    cz = np.bincount(inverse, weights=np.sin(dec_rad))
+    centres = SkyCoord(np.rad2deg(np.arctan2(cy, cx)) % 360.,
+                       np.rad2deg(np.arctan2(cz, np.hypot(cx, cy))), unit='deg')
+    return inverse, centres
+
+
 def get_psf_fwhm(psfmodel, pixel_scale, x=0., y=0.):
     """Full-width at half-maximum of a PSF model, on the sky.
 
@@ -2129,17 +2189,23 @@ def get_psf_fwhm(psfmodel, pixel_scale, x=0., y=0.):
 def get_psf_curve_of_growth(psfmodel, x=0., y=0., subpix=5, nrad=64):
     """Encircled-energy curve of a PSF model, for point-source aperture corrections.
 
-    Sums the PSF stamp in ``nrad`` log-spaced circular apertures about the stamp
-    centre, giving the enclosed flux ON THE STAMP'S OWN NORMALISATION -- the same
-    normalisation that defines the fitted model fluxes (a fitted flux ``F``
-    means ``F x stamp`` matches the image). Dividing an aperture flux by this
-    ``ee`` therefore lands on the fitted-flux scale for a point source under ANY
-    stamp convention. The stamp sum is deliberately NOT divided out: stamps
-    normalised so the TRUE total is unity, with the wings extrapolated beyond
-    the footprint, sum to the in-stamp fraction (< 1), and ``1/ee`` then
-    restores the out-of-stamp wings too. Dividing by the stamp sum would
-    silently cancel exactly that encoding -- unit-normalising the stamp -- and
-    cap the correction at the stamp edge.
+    Sums the unit-flux point-source stamp AS TRACTOR RENDERS IT ON THE IMAGE
+    GRID (``getPointSourcePatch``) in ``nrad`` log-spaced circular apertures
+    about its centre. That rendered stamp is what defines the fitted model
+    fluxes (a fitted flux ``F`` means ``F x stamp`` matches the image), so
+    dividing an aperture flux by this ``ee`` lands on the fitted-flux scale for
+    a point source under ANY stamp convention. The stamp sum is deliberately
+    NOT divided out: stamps normalised so the TRUE total is unity, with the
+    wings extrapolated beyond the footprint, sum to the in-stamp fraction
+    (< 1), and ``1/ee`` then restores the out-of-stamp wings too. Dividing by
+    the stamp sum would silently cancel exactly that encoding --
+    unit-normalising the stamp -- and cap the correction at the stamp edge.
+
+    The PSF model's own pixel grid is NOT used: a PsfEx model with
+    ``PSF_SAMP != 1`` sums to ~``1/PSF_SAMP**2`` on its grid but renders to
+    ~unit sum on the image, so an encircled energy taken off the model grid is
+    wrong by ``PSF_SAMP**2`` (19% for PSF_SAMP = 1.09; 4x for 0.5). For a
+    ``PixelizedPSF`` at sampling 1 the rendered stamp IS the input stamp.
 
     Args:
         psfmodel: Tractor PSF object (``PixelizedPSF``, ``PixelizedPsfEx``, ...).
@@ -2150,32 +2216,30 @@ def get_psf_curve_of_growth(psfmodel, x=0., y=0., subpix=5, nrad=64):
         nrad: Number of radial samples.
 
     Returns:
-        tuple: ``(radii, ee)`` -- aperture radii in IMAGE pixels (the stamp's
-        oversampling is folded in via ``psfmodel.sampling``, as in
-        :func:`get_psf_fwhm`) and the enclosed stamp flux at each, both led
-        by an exact ``(0, 0)`` anchor and ready for ``np.interp``;
-        ``(None, None)`` if there is no usable stamp.
+        tuple: ``(radii, ee)`` -- aperture radii in IMAGE pixels and the
+        enclosed stamp flux at each, both led by an exact ``(0, 0)`` anchor and
+        ready for ``np.interp``; ``(None, None)`` if there is no usable stamp.
     """
     import sep
 
     if psfmodel is None:
         return None, None
     try:
-        # constantPsfAt returns self for a constant PSF and evaluates the basis
-        # for a PsfEx model, so this one call covers both (as in get_psf_fwhm).
-        stamp = psfmodel.constantPsfAt(float(x), float(y)).img
+        stamp = native_psf_stamp(psfmodel, x=x, y=y)
     except (AttributeError, TypeError, ValueError):
+        return None, None
+    if stamp is None:
         return None, None
 
     stamp = np.ascontiguousarray(stamp, dtype=np.float32)
     total = float(np.nansum(stamp))
     ny, nx = stamp.shape
-    cx, cy = (nx - 1) / 2., (ny - 1) / 2.
-    rmax = min(cx, cy)              # largest circle fully inside the stamp
+    cx, cy = float(nx // 2), float(ny // 2)         # pix, PSF centre in the stamp
+    rmax = min(cx, cy)                              # largest circle fully inside the stamp
     if not np.isfinite(total) or total <= 0 or rmax <= 1:
         return None, None
 
-    radii = np.geomspace(0.25, rmax, int(nrad))     # stamp pixels
+    radii = np.geomspace(0.25, rmax, int(nrad))     # image pixels
     flux, __, __ = sep.sum_circle(stamp, np.full(radii.size, cx),
                                   np.full(radii.size, cy), radii, subpix=subpix)
     # The true enclosed flux is monotone in radius; enforce it so a noise dip
@@ -2183,9 +2247,7 @@ def get_psf_curve_of_growth(psfmodel, x=0., y=0., subpix=5, nrad=64):
     # sum (`total` above is only a junk guard) -- see the docstring.
     ee = np.maximum.accumulate(np.clip(flux, 0., None))
 
-    sampling = float(getattr(psfmodel, 'sampling', 1.) or 1.)
-    return (np.concatenate(([0.], radii * sampling)),
-            np.concatenate(([0.], ee)))
+    return np.concatenate(([0.], radii)), np.concatenate(([0.], ee))
 
 
 def set_priors(model, priors):
