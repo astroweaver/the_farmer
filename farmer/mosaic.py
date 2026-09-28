@@ -1,5 +1,6 @@
 import config as conf
-from .utils import validate_psfmodel, dilate_and_group, load_brick_position, read_wcs, group_centres
+from .utils import validate_psfmodel, dilate_and_group, load_brick_position, read_wcs, group_centres, read_detection_wcs
+from .tiling import edges_in
 from .utils import models_from_catalog, read_catalog_columns, create_fits_memmap, provenance_header
 from .brick import Brick
 from .image import BaseImage, FIT_OK, select_reconstruction_models, render_model_image, sep_background
@@ -751,26 +752,19 @@ class Mosaic(BaseImage):
     def _brick_tiles(self, brick_ids):
         """Each brick's tile of this mosaic's pixel grid: ``brick_id -> (slice_y, slice_x)``.
 
-        Tile edges are the detection-image brick grid (see ``load_brick_position``)
-        mapped through the WCS, and the outermost tiles run to the image border.
-        Neighbouring tiles share edges, so every pixel belongs to exactly one tile.
-        Like ``read_wcs``, this assumes the band and detection grids are aligned.
+        Tile edges are the detection-image brick grid (``farmer.tiling.edges_in``, the
+        same edges that decide source ownership in ``Brick.extract``) mapped into this
+        mosaic, and the outermost tiles run to the image border. Neighbouring tiles
+        share edges, so every pixel belongs to exactly one tile. Like ``read_wcs``,
+        this assumes the band and detection grids are aligned.
 
         Raises:
             RuntimeError: If the mapped edges are not increasing (rotated or flipped grids).
         """
-        ext = conf.DETECTION.get('extension', None)
-        det_wcs = WCS(fits.getheader(conf.DETECTION['science'], ext=ext))
-        dny, dnx = det_wcs.array_shape
-        nbx, nby = conf.N_BRICKS
+        nbx = conf.N_BRICKS[0]
         ny, nx = self.wcs.array_shape
-        # pixel i spans i - 0.5 .. i + 0.5, so brick k starts at the edge k * width - 0.5
-        xs = np.arange(nbx + 1) * (dnx // nbx) - 0.5
-        ys = np.arange(nby + 1) * (dny // nby) - 0.5
-        xedge = self.wcs.world_to_pixel(det_wcs.pixel_to_world(xs, np.full(len(xs), dny / 2.)))[0]
-        yedge = self.wcs.world_to_pixel(det_wcs.pixel_to_world(np.full(len(ys), dnx / 2.), ys))[1]
-        xedge = np.clip(np.round(np.asarray(xedge) + 0.5).astype(int), 0, nx)
-        yedge = np.clip(np.round(np.asarray(yedge) + 0.5).astype(int), 0, ny)
+        xedge, yedge = edges_in(self.wcs, read_detection_wcs(), conf.N_BRICKS)
+        xedge, yedge = np.clip(xedge, 0, nx), np.clip(yedge, 0, ny)
         xedge[0], xedge[-1], yedge[0], yedge[-1] = 0, nx, 0, ny
         if np.any(np.diff(xedge) < 0) or np.any(np.diff(yedge) < 0):
             raise RuntimeError(f'{self.band}: the brick grid does not map monotonically onto this '

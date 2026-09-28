@@ -1,7 +1,8 @@
 from collections import OrderedDict
 import config as conf
 from .image import BaseImage, MASK_FLAG_COLUMN, FIT_OK
-from .utils import load_brick_position, dilate_and_group, clean_catalog, build_regions, run_group
+from .utils import load_brick_position, read_detection_wcs, dilate_and_group, clean_catalog, build_regions, run_group
+from .tiling import edges_in, brick_row_col
 from .group import Group
 
 import logging
@@ -471,8 +472,7 @@ class Brick(BaseImage):
 
         # clean out buffer -- these are bricks!
         self.logger.info('Removing sources detected in brick buffer...')
-        cutout = Cutout2D(self.data[band][imgtype].data, self.position, self.size, wcs=self.data[band][imgtype].wcs)
-        mask = Cutout2D(np.zeros(cutout.data.shape), self.position, self.buffsize, wcs=cutout.wcs, fill_value=1, mode='partial').data.astype(bool)
+        mask = self._buffer_mask(band, imgtype)
         segmap = Cutout2D(segmap, self.position, self.buffsize, self.wcs[band], fill_value=0, mode='partial')
         # do I actually need to do this?
         if np.any(mask):
@@ -504,6 +504,44 @@ class Brick(BaseImage):
         build_regions(self.catalogs[band][imgtype], self.pixel_scales[band][0], # you better have square pixels!
                       outpath = os.path.join(conf.PATH_ANCILLARY, f'B{self.brick_id}_{band}_{imgtype}_objects.reg'))
 
+
+    def _buffer_mask(self, band='detection', imgtype='science'):
+        """Boolean map over the brick's cutout: True outside the pixels this brick owns.
+
+        A grid brick owns its core on the detection grid (``farmer.tiling``), an
+        integer pixel range, so neighbouring bricks tile the grid exactly and every
+        detection belongs to exactly one of them. The buffer still supplies fitting
+        context; it just never owns anything.
+
+        This used to be a ``Cutout2D`` of the angular ``self.size``, which turns the
+        core width into a corner-to-corner separation and back at the reference-pixel
+        scale. On a TAN projection that is not the identity away from the tangent
+        point, so cores overlapped (sources catalogued twice) or left strips no brick
+        owned (sources lost) -- by a pixel or so in ~1 deg fields, by up to tens of
+        pixels in ~6 deg ones.
+        """
+        cutout = self.data[band][imgtype]
+        if self.brick_id is None:
+            # built from position/size: not part of a tiling, so keep the angular core
+            core = Cutout2D(cutout.data, self.position, self.size, wcs=cutout.wcs)
+            return Cutout2D(np.zeros(core.data.shape), self.position, self.buffsize, wcs=core.wcs,
+                            fill_value=1, mode='partial').data.astype(bool)
+
+        # self.wcs, not cutout.wcs: the HDF5 loader rebuilds each Cutout2D, which can
+        # shift its WCS by a pixel against the data; self.wcs is stored verbatim
+        xedge, yedge = edges_in(self.wcs[band], read_detection_wcs(), conf.N_BRICKS)
+        row, col = brick_row_col(self.brick_id, conf.N_BRICKS)
+        x0, x1, y0, y1 = xedge[col], xedge[col + 1], yedge[row], yedge[row + 1]
+        ny, nx = cutout.data.shape
+        cx0, cx1 = np.clip([x0, x1], 0, nx)
+        cy0, cy1 = np.clip([y0, y1], 0, ny)
+        n_outside = (x1 - x0) * (y1 - y0) - (cx1 - cx0) * (cy1 - cy0)
+        if n_outside > 0:
+            self.logger.warning(f'Brick #{self.brick_id}: {n_outside} px of its core lie outside its '
+                                f'buffered cutout, so sources there are lost. Increase BRICK_BUFFER.')
+        mask = np.ones((ny, nx), dtype=bool)
+        mask[cy0:cy1, cx0:cx1] = False
+        return mask
 
     def _unmodelled_sources(self, band='detection', imgtype='science'):
         """Boolean array over the detection catalog: True where no usable model exists.

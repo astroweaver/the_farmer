@@ -174,8 +174,20 @@ def read_wcs(wcs, scl=1):
 #     logger.debug(f'Brick #{brick_id} found at ({position.ra:2.1f}, {position.dec:2.1f}) with size {size[0]:2.1f} X {size[1]:2.1f}')
 #     return position, size
 
+def read_detection_wcs():
+    """WCS of the detection image (``conf.DETECTION['science']``), with ``array_shape`` set."""
+    ext = None
+    if 'extension' in conf.DETECTION:
+        ext = conf.DETECTION['extension']
+    return WCS(fits.getheader(conf.DETECTION['science'], ext=ext))
+
+
 def load_brick_position(brick_id):
     """Calculate brick position and size from brick ID.
+
+    The angular ``size`` is for cutting pixel data only. It must NOT decide which
+    brick owns a source -- a width round-tripped through an angle does not tile the
+    detection grid; ownership comes from ``farmer.tiling.edges_in``.
     
     Args:
         brick_id: Integer brick identifier (1-indexed)
@@ -187,11 +199,8 @@ def load_brick_position(brick_id):
             - buffsize: Tuple of buffered (dec_height, ra_width) in degrees
     """
     logger = logging.getLogger('farmer.load_brick_position')
-    
-    ext = None
-    if 'extension' in conf.DETECTION:
-        ext = conf.DETECTION['extension']
-    wcs = WCS(fits.getheader(conf.DETECTION['science'], ext=ext))
+
+    wcs = read_detection_wcs()
     ny, nx = wcs.array_shape
     
     # Number of bricks in x and y directions
