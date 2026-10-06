@@ -34,7 +34,7 @@ from astrometry.util.util import Tan
 from tractor import ConstantFitsWcs
 
 import time
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 from reproject import reproject_interp
 from tqdm import tqdm
 import h5py
@@ -2259,7 +2259,7 @@ def get_psf_curve_of_growth(psfmodel, x=0., y=0., subpix=5, nrad=64):
     return np.concatenate(([0.], radii)), np.concatenate(([0.], ee))
 
 
-def set_priors(model, priors):
+def set_priors(model, priors, prior_pos_on_sky=False):
     """Apply positional and morphological priors to a Tractor model.
 
     Reads the ``priors`` dictionary and freezes or adds Gaussian priors to the
@@ -2280,6 +2280,11 @@ def set_priors(model, priors):
             - ``'reff'``: ``'fix'``/``'freeze'`` to freeze effective radius,
               a ``Quantity`` angle for a Gaussian prior, or ``'none'`` to
               leave free.
+        prior_pos_on_sky: If ``True``, the position prior is an on-sky angle:
+            the RA prior sigma (deg) is ``sigma / cos(dec)``. If ``False``
+            (legacy), ``sigma`` in degrees is used on both axes, which on the
+            sky is a ``cos(dec)``-tighter RA prior (0.41x at dec 66). Callers
+            pass ``conf.PRIOR_POS_ON_SKY``; see :func:`position_step_settings`.
 
     Returns:
         Tractor model with priors/freezes applied.
@@ -2289,7 +2294,7 @@ def set_priors(model, priors):
     if priors is None:
         logger.warning('I was asked to set priors but I have none!')
         return model
-        
+
     params = model.getNamedParams()
     for name in params:
         idx = params[name]
@@ -2299,11 +2304,16 @@ def set_priors(model, priors):
                     model[idx].freezeAllParams()
                     logger.debug('Froze position')
                 elif priors['pos'] != 'none':
-                    sigma = priors['pos'].to(u.deg).value
+                    sigma = priors['pos'].to(u.deg).value     # deg, on the sky
                     psigma = priors['pos'].to(u.arcsec)
-                    model[idx].addGaussianPrior('ra', mu=model[idx][0], sigma=sigma)
+                    # model[idx] is the RaDecPos: [ra, dec] in deg. An on-sky sigma is
+                    # sigma / cos(dec) in RA; the legacy form skipped that factor.
+                    sigma_ra = sigma
+                    if prior_pos_on_sky:
+                        sigma_ra = sigma / np.cos(np.deg2rad(model[idx][1]))
+                    model[idx].addGaussianPrior('ra', mu=model[idx][0], sigma=sigma_ra)
                     model[idx].addGaussianPrior('dec', mu=model[idx][1], sigma=sigma)
-                    logger.debug(f'Set positon prior +/- {psigma}')
+                    logger.debug(f'Set positon prior +/- {psigma} (on sky: {prior_pos_on_sky})')
                 else:
                     logger.debug('Position is free to vary')
 
@@ -2340,8 +2350,201 @@ def set_priors(model, priors):
                     model[idx].addGaussianPrior('logre', mu=model[idx][0], sigma=sigma)    
                     logger.debug(f'Set {name} radius prior +/- {psigma}')   
                 else:
-                    logger.debug(f'{name} radius is free to vary')           
+                    logger.debug(f'{name} radius is free to vary')
     return model
+
+
+# Position finite-difference step ------------------------------------------------
+# PixelizedPSF and PixelizedPsfEx have no analytic position derivatives, so every
+# model class differences the model in RA and Dec with the step from
+# RaDecPos.getStepSizes() (tractor/pointsource.py, tractor/galaxy.py). RaDecPos
+# hard-codes 1e-4 deg = 0.36", about two VIS FWHM: across a space-based PSF core the
+# secant badly underestimates the slope and position fits barely move. The helpers
+# below read the config keys that expose the step, resolve it for a set of staged
+# bands, and stamp it on a model. Legacy configs without the keys keep Tractor's step.
+
+POS_STEP_TRACTOR = 'tractor'        # leave RaDecPos' built-in 1e-4 deg
+POS_STEP_AUTO = 'auto'              # POS_STEP_PIXFRAC x the finest staged pixel scale
+TRACTOR_POS_STEP_DEG = 1e-4         # deg, RaDecPos.__init__ (tractor/wcs.py)
+POS_STEP_PIXFRAC_DEFAULT = 0.1      # pix, used when POS_STEP is set but POS_STEP_PIXFRAC is not
+
+PositionStep = namedtuple('PositionStep', ['step', 'band', 'pixscale'])
+"""A resolved position step.
+
+``step`` is the on-sky step as an arcsec ``Quantity``, or ``None`` for Tractor's
+default. For ``'auto'``, ``band`` is the band whose pixel scale set it and
+``pixscale`` that scale in arcsec/pix; both are ``None`` otherwise.
+"""
+
+_legacy_position_warned = False
+
+
+def position_step_settings(conf):
+    """Read and validate ``POS_STEP``, ``POS_STEP_PIXFRAC`` and ``PRIOR_POS_ON_SKY``.
+
+    A config that sets neither ``POS_STEP`` nor ``PRIOR_POS_ON_SKY`` gets the legacy
+    behaviour (Tractor's 1e-4 deg step, RA prior sigma in degrees) and a one-time
+    WARNING saying so, so that existing field configs reproduce earlier runs until
+    someone opts in. Anything else invalid raises; there is no silent fallback.
+
+    Args:
+        conf: Config namespace (the ``config`` module, or any object with the keys
+            as attributes).
+
+    Returns:
+        dict: ``'pos_step'`` (``'auto'``, ``'tractor'`` or an angle ``Quantity``),
+        ``'pixfrac'`` (float, pix), ``'prior_pos_on_sky'`` (bool) and ``'legacy'``
+        (bool, True when both keys were absent).
+
+    Raises:
+        ValueError: On an unrecognised ``POS_STEP``, a non-positive or non-finite
+            step or pixel fraction, or a non-boolean ``PRIOR_POS_ON_SKY``.
+    """
+    global _legacy_position_warned
+    logger = logging.getLogger('farmer.priors')
+
+    has_step = hasattr(conf, 'POS_STEP')
+    has_sky = hasattr(conf, 'PRIOR_POS_ON_SKY')
+    legacy = not (has_step or has_sky)
+    if legacy and not _legacy_position_warned:
+        logger.warning('Config sets neither POS_STEP nor PRIOR_POS_ON_SKY: keeping the legacy '
+                       f'position step ({TRACTOR_POS_STEP_DEG} deg = '
+                       f'{TRACTOR_POS_STEP_DEG * 3600:.2f}") and RA prior in degrees. '
+                       'See config/config.py to opt in.')
+        _legacy_position_warned = True
+
+    pos_step = getattr(conf, 'POS_STEP', POS_STEP_TRACTOR)
+    if isinstance(pos_step, str):
+        pos_step = pos_step.lower()
+        if pos_step not in (POS_STEP_AUTO, POS_STEP_TRACTOR):
+            raise ValueError(f"POS_STEP must be 'auto', 'tractor' or an angle Quantity, got {pos_step!r}")
+    elif isinstance(pos_step, u.Quantity):
+        try:
+            step_arcsec = pos_step.to(u.arcsec).value
+        except u.UnitConversionError as exc:
+            raise ValueError(f'POS_STEP must be an angle, got {pos_step!r}') from exc
+        if not (np.isscalar(step_arcsec) and np.isfinite(step_arcsec) and step_arcsec > 0):
+            raise ValueError(f'POS_STEP must be a single positive finite angle, got {pos_step!r}')
+    else:
+        raise ValueError(f"POS_STEP must be 'auto', 'tractor' or an angle Quantity, got {pos_step!r}")
+
+    pixfrac = getattr(conf, 'POS_STEP_PIXFRAC', POS_STEP_PIXFRAC_DEFAULT)
+    if isinstance(pixfrac, bool) or not isinstance(pixfrac, (int, float, np.integer, np.floating)):
+        raise ValueError(f'POS_STEP_PIXFRAC must be a positive number (pixels), got {pixfrac!r}')
+    pixfrac = float(pixfrac)
+    if not (np.isfinite(pixfrac) and pixfrac > 0):
+        raise ValueError(f'POS_STEP_PIXFRAC must be a positive number (pixels), got {pixfrac!r}')
+
+    on_sky = getattr(conf, 'PRIOR_POS_ON_SKY', False)
+    if not isinstance(on_sky, (bool, np.bool_)):
+        raise ValueError(f'PRIOR_POS_ON_SKY must be True or False, got {on_sky!r}')
+
+    return {'pos_step': pos_step, 'pixfrac': pixfrac,
+            'prior_pos_on_sky': bool(on_sky), 'legacy': legacy}
+
+
+def resolve_position_step(pos_step, pixfrac, pixel_scales):
+    """Resolve a ``POS_STEP`` setting to an on-sky step for one fit.
+
+    Args:
+        pos_step: ``'auto'``, ``'tractor'`` or an angle ``Quantity`` (as returned by
+            :func:`position_step_settings`).
+        pixfrac: Step as a fraction of the finest pixel (pix); used for ``'auto'``.
+        pixel_scales: Dict band -> pixel scale, as an angle ``Quantity`` (scalar or
+            a per-axis array, as ``BaseImage.pixel_scales`` holds them) of the bands
+            actually staged for the fit. ``'detection'`` is ignored: it is not a
+            fitted band. The position is shared across bands, so the finest band
+            sets the step.
+
+    Returns:
+        PositionStep: see its docstring. ``step`` is ``None`` for ``'tractor'``.
+
+    Raises:
+        ValueError: ``'auto'`` with no fitted band to resolve against.
+    """
+    if isinstance(pos_step, str) and pos_step.lower() == POS_STEP_TRACTOR:
+        return PositionStep(None, None, None)
+    if isinstance(pos_step, u.Quantity):
+        return PositionStep(pos_step.to(u.arcsec), None, None)
+    if not (isinstance(pos_step, str) and pos_step.lower() == POS_STEP_AUTO):
+        raise ValueError(f'Unrecognised position step {pos_step!r}')
+
+    finest, finest_band = None, None
+    for band, scale in pixel_scales.items():
+        if band == 'detection':
+            continue
+        scl = np.min(np.atleast_1d(u.Quantity(scale).to(u.arcsec).value))   # arcsec / pix
+        if finest is None or scl < finest:
+            finest, finest_band = scl, band
+    if finest is None:
+        raise ValueError("POS_STEP = 'auto' but no fitted band was staged to resolve it against")
+    return PositionStep((pixfrac * finest) * u.arcsec, finest_band, finest)
+
+
+def describe_position_step(settings, resolved):
+    """One-line human summary of the position step and RA prior convention, for logs."""
+    pos_step = settings['pos_step']
+    if resolved.step is None:
+        text = f'tractor ({TRACTOR_POS_STEP_DEG} deg = {TRACTOR_POS_STEP_DEG * 3.6e6:.0f} mas)'
+    elif isinstance(pos_step, str):
+        text = (f'auto -> {resolved.step.to(u.mas).value:.2f} mas '
+                f'({settings["pixfrac"]:g} x {resolved.pixscale:.3f}"/px, band {resolved.band})')
+    else:
+        text = f'{resolved.step.to(u.mas).value:.2f} mas (configured)'
+    legacy = ' [legacy config]' if settings['legacy'] else ''
+    return f'position step: {text}; RA prior on-sky: {settings["prior_pos_on_sky"]}{legacy}'
+
+
+def set_position_step(model, step):
+    """Set the ``RaDecPos`` finite-difference step on ``model``.
+
+    Mirrors Tractor's own convention: the step is an on-sky angle ``s`` applied as
+    ``[s / cos(dec), s]`` in degrees of RA and Dec.
+
+    Args:
+        model: Tractor source whose position is a ``RaDecPos`` (``PointSource`` and
+            every galaxy class farmer stages).
+        step: On-sky angle ``Quantity``, or ``None`` to leave Tractor's 1e-4 deg.
+
+    Returns:
+        The same model, with the step set.
+    """
+    if step is None:
+        return model
+    pos = model.pos
+    s = step.to(u.deg).value                        # deg, on the sky
+    cosd = np.cos(np.deg2rad(pos.dec))
+    # setAllStepSizes, not setStepSizes: the latter writes thawed slots only, so a
+    # position frozen by PHOT_PRIORS before this call would silently keep the old step.
+    pos.setAllStepSizes([s / cosd, s])
+    return model
+
+
+def position_step_header(settings, resolved):
+    """FITS cards recording the position step and prior convention of a catalogue.
+
+    Args:
+        settings: From :func:`position_step_settings`.
+        resolved: From :func:`resolve_position_step`, over the bands of the product.
+
+    Returns:
+        dict: ``POSSTEP`` (configured rule as a string), ``POSSTEPM`` (resolved step
+        in mas, -1 for Tractor's default), ``POSPIXFR`` (pixel fraction, only for
+        ``'auto'``) and ``PRIORSKY`` (RA prior is an on-sky angle).
+    """
+    pos_step = settings['pos_step']
+    if isinstance(pos_step, str):
+        rule = pos_step
+    else:
+        rule = f'{pos_step.to(u.arcsec).value:g} arcsec'
+    cards = {'POSSTEP': (rule, 'position finite-difference step rule'),
+             'POSSTEPM': (-1.0 if resolved.step is None else float(resolved.step.to(u.mas).value),
+                          'position step on sky [mas], -1 = tractor default')}
+    if rule == POS_STEP_AUTO:
+        cards['POSPIXFR'] = (settings['pixfrac'], 'POS_STEP_PIXFRAC: step / finest pixel')
+    cards['PRIORSKY'] = (bool(settings['prior_pos_on_sky']), 'position prior sigma is an on-sky angle')
+    return cards
+
 
 def get_detection_kernel(filter_kernel):
     """Load or generate a convolution kernel for source detection.

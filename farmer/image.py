@@ -5,6 +5,8 @@ from .utils import get_detection_kernel, provenance_header, _soften_fracdev
 from .utils import build_aperture_specs, get_model_reff, get_psf_fwhm, get_psf_curve_of_growth
 from .utils import native_psf_stamp, group_centres
 from .utils import APER_KIND_FIXED, APER_KIND_PSF, APER_KIND_REFF
+from .utils import (position_step_settings, resolve_position_step, set_position_step,
+                    describe_position_step, position_step_header)
 
 import logging
 import os
@@ -1396,6 +1398,45 @@ class BaseImage():
             )
             self.logger.debug(f'  ✓ {band}')
 
+    def _position_step(self, bands):
+        """Resolve the position finite-difference step for a fit over ``bands``.
+
+        Reads ``conf`` at call time rather than the brick's pinned config, so an
+        existing brick picks up the current setting. ``'auto'`` resolves over the pixel
+        scales of ``bands``, which the fitting hooks restrict to the bands actually
+        staged in ``self.images``; ``'detection'`` is never counted, since it is not a
+        fitted band. The position is one parameter shared across bands, so the finest
+        band sets the step.
+
+        Args:
+            bands: Band identifiers to resolve over. Bands without a pixel scale on
+                this object are ignored.
+
+        Returns:
+            tuple: ``(settings, resolved)`` from
+            :func:`~farmer.utils.position_step_settings` and
+            :func:`~farmer.utils.resolve_position_step`.
+
+        Raises:
+            ValueError: An invalid config value, or ``'auto'`` with no band to
+                resolve against.
+        """
+        settings = position_step_settings(conf)
+        scales = {band: self.pixel_scales[band] for band in bands
+                  if band != 'detection' and band in self.pixel_scales}
+        resolved = resolve_position_step(settings['pos_step'], settings['pixfrac'], scales)
+        return settings, resolved
+
+    def _position_step_cards(self, bands):
+        """Catalogue header cards for the position step, resolved over ``bands``.
+
+        With ``'auto'`` this is the brick-level minimum; a group that dropped a
+        zero-weight band may have used a coarser step. Records the configuration in
+        effect when the catalogue is written, as ``provenance_header`` does.
+        """
+        settings, resolved = self._position_step(bands)
+        return position_step_header(settings, resolved)
+
     def update_models(self, bands=None, data_imgtype='science', existing_catalog=None):
         """Transfer morphology from an existing catalog and extend fluxes to new bands.
 
@@ -1429,6 +1470,13 @@ class BaseImage():
         if existing_catalog is None:
             existing_catalog = self.existing_model_catalog
 
+        # Position finite-difference step, resolved once over the bands this fit stages.
+        # The deepcopy below carries whatever step the model had at the modelling stage,
+        # and with 'auto' the staged bands may differ now, so it is set again explicitly.
+        fitted_bands = [band for band in bands if band in self.images]
+        pos_settings, pos_step = self._position_step(fitted_bands)
+        self.logger.debug(describe_position_step(pos_settings, pos_step))
+
         for src in self.catalogs[self.catalog_band][self.catalog_imgtype]:
 
             source_id = src['id']
@@ -1459,8 +1507,10 @@ class BaseImage():
             self.model_catalog[source_id].brightness =  Fluxes(**fluxes, order=list(fluxes.keys()))
             self.model_catalog[source_id].variance.brightness =  Fluxes(**filler, order=list(filler.keys()))
 
-            # update priors
-            self.model_catalog[source_id] = set_priors(self.model_catalog[source_id], self.phot_priors)
+            # update priors and the position step
+            self.model_catalog[source_id] = set_priors(self.model_catalog[source_id], self.phot_priors,
+                                                       prior_pos_on_sky=pos_settings['prior_pos_on_sky'])
+            self.model_catalog[source_id] = set_position_step(self.model_catalog[source_id], pos_step.step)
     
     def _seed_composite(self, source_id, guess_radius, axis_ratio, pa, bounds_from):
         """Choose starting shapes and fracDev for a composite, breaking the symmetry.
@@ -1579,13 +1629,20 @@ class BaseImage():
         else:
             self.logger.debug(f'Staging models for brick #{self.brick_id}')
 
+        # Position finite-difference step, resolved once over the bands this fit stages
+        # (the same set for every source below). stage_images has already run here, so
+        # self.images is the final staged set.
+        fitted_bands = [band for band in bands if band in self.images]
+        pos_settings, pos_step = self._position_step(fitted_bands)
+        self.logger.debug(describe_position_step(pos_settings, pos_step))
+
         for src in self.catalogs[self.catalog_band][self.catalog_imgtype]:
 
             source_id = src['id']
             if source_id not in self.model_catalog:
                 self.logger.debug(f'Source #{source_id} is not in the model catalog! Skipping...')
                 continue
-                
+
             # inital position
             position = RaDecPos(src['ra'], src['dec'])
 
@@ -1682,7 +1739,8 @@ class BaseImage():
             if hasattr(model, 'shape'):
                 self.logger.debug(f'               {shape}')
 
-            model = set_priors(model, self.model_priors)
+            model = set_priors(model, self.model_priors, prior_pos_on_sky=pos_settings['prior_pos_on_sky'])
+            model = set_position_step(model, pos_step.step)
             model.variance = model.copy()
             model.statistics = {}
             self.model_catalog[source_id] = model
@@ -4373,6 +4431,8 @@ class BaseImage():
             self.logger.warning(f'{filename} has {ncol} columns, close to the FITS '
                                 f'limit of {FITS_MAX_COLUMNS}.')
 
+        # The modelling stage fits MODEL_BANDS, so resolve the position step over those.
+        out.meta.update(self._position_step_cards(list(conf.MODEL_BANDS)))
         out.meta.update({k: v for k, v in provenance_header(
             extra=getattr(self, 'psf_aperture_correction', None)).items()})
         out.write(path, overwrite=conf.OVERWRITE or allow_update or overwrite, format='fits')
@@ -4671,6 +4731,10 @@ class BaseImage():
         catalog.meta['GRPLIM'] = (int(getattr(self, 'group_size_limit_used',
                                               conf.GROUP_SIZE_LIMIT)),
                                   'group size limit used by process_groups')
+
+        # Position finite-difference step and prior convention, resolved over every
+        # band on this object (the brick-level minimum for 'auto').
+        catalog.meta.update(self._position_step_cards(list(self.bands)))
 
         # Stamp provenance into the catalog's own header, so the delivered product
         # records the code version, git hash, inputs and configuration that made it.

@@ -2,6 +2,7 @@ from collections import OrderedDict
 import config as conf
 from .image import BaseImage, MASK_FLAG_COLUMN, FIT_OK
 from .utils import load_brick_position, read_detection_wcs, dilate_and_group, clean_catalog, build_regions, run_group
+from .utils import describe_position_step
 from .tiling import edges_in, brick_row_col
 from .group import Group
 
@@ -913,6 +914,19 @@ class Brick(BaseImage):
                 ``conf.GROUP_SIZE_LIMIT``.
         """
         self.logger.info(f'Processing groups for brick {self.brick_id}...')
+
+        # Say once per brick and stage which position step and prior convention this
+        # run uses. Groups resolve 'auto' over the bands they actually stage, so this
+        # is the brick-level value; a group that drops a zero-weight band may use a
+        # coarser step. Validation errors in the new config keys surface here, before
+        # any group is fitted, rather than once per group.
+        if mode in ('model', 'all'):
+            settings, resolved = self._position_step(list(conf.MODEL_BANDS))
+            self.logger.info(f'Modelling {describe_position_step(settings, resolved)}')
+        if mode in ('photometry', 'all'):
+            phot_bands = self.bands if bands is None else bands
+            settings, resolved = self._position_step(list(phot_bands))
+            self.logger.info(f'Photometry {describe_position_step(settings, resolved)}')
 
         # Recorded so write_catalog can stamp the limit actually used into the
         # catalog header -- the config provenance only knows conf.GROUP_SIZE_LIMIT,

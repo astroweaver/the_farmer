@@ -165,6 +165,25 @@ PHOT_PRIORS = { 'pos':   'freeze',
                 'shape': 'freeze',
                 'fracDev': 'freeze'
 }
+# Finite-difference step for source positions. PixelizedPSF has no analytic position
+# derivatives, so Tractor differences the model; its built-in step is 1e-4 deg = 0.36",
+# wider than a space-based PSF core, and position fits barely move. Applied to every
+# model farmer stages, in both modelling and photometry.
+#   'auto'          -> POS_STEP_PIXFRAC x the FINEST pixel scale among the bands staged
+#                      for the fit (the position is shared across bands)
+#   a Quantity      -> that on-sky step for every source (e.g. 0.005 * u.arcsec)
+#   'tractor'       -> leave Tractor's 1e-4 deg (legacy behaviour)
+# A config that sets neither POS_STEP nor PRIOR_POS_ON_SKY keeps the legacy behaviour
+# ('tractor', False) and logs a warning once. The choice is logged once per brick and
+# recorded in the catalogue header (POSSTEP, POSSTEPM, POSPIXFR, PRIORSKY).
+POS_STEP = 'auto'
+POS_STEP_PIXFRAC = 0.1
+
+# Position priors are on-sky angles: sigma_ra (deg) = sigma / cos(dec). False
+# reproduces the pre-fix behaviour (sigma in deg on both axes, i.e. a cos(dec)-tighter
+# RA prior on the sky: 0.41x at dec 66).
+PRIOR_POS_ON_SKY = True
+
 # Aperture Photometry
 # Master switch. When False none of the settings below are read and no aperture
 # columns are written. Apertures are measured on the same pixels Tractor fits

@@ -145,7 +145,7 @@ Decision logic at each step:
 - **Exp/Dev → Composite**: if Δχ² > ``SUFFICIENT_THRESH`` for any source in the group, upgrade.
 - **Fallback**: if a more complex model fails to converge or produces unphysical parameters, revert to the simpler one.
 
-During modelling, positions are updated under a Gaussian prior (``MODEL_PRIORS['pos']``) to prevent large astrometric shifts. At the photometry stage they are frozen by the shipped ``PHOT_PRIORS`` (a tight Gaussian prior is the configurable alternative -- see :doc:`configuration`).
+During modelling, positions are updated under a Gaussian prior (``MODEL_PRIORS['pos']``) to prevent large astrometric shifts. At the photometry stage they are frozen by the shipped ``PHOT_PRIORS`` (a tight Gaussian prior is the configurable alternative -- see :doc:`configuration`). Position derivatives are finite differences, and the step they use is set by ``POS_STEP`` (see :doc:`configuration`): the shipped ``'auto'`` resolves it to a tenth of the finest staged pixel, whereas The Tractor's own 0.36" step is wider than a space-based PSF core and leaves position fits nearly immobile.
 
 Forced Photometry
 ~~~~~~~~~~~~~~~~~~

@@ -467,6 +467,50 @@ Prior values:
 - **``'freeze'``** — parameter is held fixed at its current value.
 - **``astropy.Quantity`` (angle)** — Gaussian prior with the given standard deviation (angular units, e.g. ``0.1 * u.arcsec``). Only valid for the ``'pos'`` key.
 
+A position prior is an on-sky angle. With ``PRIOR_POS_ON_SKY = True`` (the shipped
+default) the RA prior sigma in degrees is ``sigma / cos(dec)``; ``False`` reproduces
+the earlier behaviour, in which ``sigma`` in degrees was used on both axes and the RA
+prior was therefore ``cos(dec)`` times tighter on the sky than requested (0.41x at
+dec 66).
+
+Position step
+--------------
+
+Neither ``PixelizedPSF`` nor ``PixelizedPsfEx`` provides analytic position
+derivatives, so The Tractor differences every model in RA and Dec with the step held
+by ``RaDecPos``. Its built-in step is ``1e-4`` deg = 0.36", about two VIS FWHM, so
+the derivative is a secant across the whole PSF core and position fits barely move.
+``POS_STEP`` exposes the step, which is applied to every model in both modelling and
+photometry:
+
+.. code-block:: python
+
+   POS_STEP = 'auto'          # POS_STEP_PIXFRAC x the finest staged pixel scale
+   POS_STEP_PIXFRAC = 0.1     # pixels, used by 'auto'
+   PRIOR_POS_ON_SKY = True    # RA prior sigma (deg) = sigma / cos(dec)
+
+- **``'auto'``** — ``POS_STEP_PIXFRAC`` times the finest pixel scale among the bands
+  actually staged for the fit. The position is one parameter shared across bands, so
+  the sharpest band sets the step; the detection image is not a fitted band and is
+  ignored.
+- **``astropy.Quantity`` (angle)** — that on-sky step for every source, e.g.
+  ``0.005 * u.arcsec``.
+- **``'tractor'``** — leave The Tractor's ``1e-4`` deg (legacy behaviour).
+
+The step is an on-sky angle ``s``, set as ``[s / cos(dec), s]`` in degrees of RA and
+Dec, mirroring The Tractor's own convention. Anything else raises ``ValueError``;
+there is no silent fallback.
+
+.. note::
+
+   A config that sets neither ``POS_STEP`` nor ``PRIOR_POS_ON_SKY`` keeps the legacy
+   behaviour (``'tractor'`` and ``False``) and logs a warning once, so existing field
+   configs reproduce earlier runs until someone opts in. The choice in effect is
+   logged once per brick and stage, and recorded in the catalogue header as
+   ``POSSTEP`` (the rule), ``POSSTEPM`` (the resolved step in mas, or -1 for The
+   Tractor's default; the brick-level minimum for ``'auto'``), ``POSPIXFR`` (the
+   pixel fraction, ``'auto'`` only) and ``PRIORSKY``.
+
 Aperture Photometry
 --------------------
 

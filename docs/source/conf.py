@@ -82,6 +82,9 @@ _cfg.MODEL_PRIORS = {'pos': 0.1 * u.arcsec,
                      'reff': 'none', 'shape': 'none', 'fracDev': 'none'}
 _cfg.PHOT_PRIORS  = {'pos': 0.001 * u.arcsec,
                      'reff': 'freeze', 'shape': 'freeze', 'fracDev': 'freeze'}
+_cfg.POS_STEP         = 'auto'
+_cfg.POS_STEP_PIXFRAC = 0.1
+_cfg.PRIOR_POS_ON_SKY = True
 
 # Residual maps
 _cfg.RESIDUAL_BA_MIN       = 0.01
